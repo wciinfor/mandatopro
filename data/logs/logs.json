@@ -1,0 +1,436 @@
+[
+  {
+    "id": "1764115465560",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-11-26T00:04:25.258Z",
+    "dataLocal": "25/11/2025, 21:04:25",
+    "dataRegistro": "2025-11-26T00:04:25.560Z"
+  },
+  {
+    "id": "1764115619676",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-11-26T00:06:59.663Z",
+    "dataLocal": "25/11/2025, 21:06:59",
+    "dataRegistro": "2025-11-26T00:06:59.676Z"
+  },
+  {
+    "id": "1764117227905",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-11-26T00:33:46.764Z",
+    "dataLocal": "25/11/2025, 21:33:46",
+    "dataRegistro": "2025-11-26T00:33:47.906Z"
+  },
+  {
+    "id": "1764166875952",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/documentos",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-11-26T14:21:15.065Z",
+    "dataLocal": "26/11/2025, 11:21:15",
+    "dataRegistro": "2025-11-26T14:21:15.952Z"
+  },
+  {
+    "id": "1764166897637",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/documentos",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-11-26T14:21:37.628Z",
+    "dataLocal": "26/11/2025, 11:21:37",
+    "dataRegistro": "2025-11-26T14:21:37.637Z"
+  },
+  {
+    "id": "1764168826289",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioNome": "as",
+    "enderecoBrowser": "http://localhost:3000/documentos?id=4f62592c-b265-4640-88f1-a602bcbbd0fd&vscodeBrowserReqId=1764168824859",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.106.2 Chrome/138.0.7204.251 Electron/37.7.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-11-26T14:53:45.917Z",
+    "dataLocal": "26/11/2025, 11:53:45",
+    "dataRegistro": "2025-11-26T14:53:46.289Z"
+  },
+  {
+    "id": "1764170745248",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/documentos",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-11-26T15:25:44.755Z",
+    "dataLocal": "26/11/2025, 12:25:44",
+    "dataRegistro": "2025-11-26T15:25:45.248Z"
+  },
+  {
+    "id": "1764170760660",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/documentos",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-11-26T15:26:00.621Z",
+    "dataLocal": "26/11/2025, 12:26:00",
+    "dataRegistro": "2025-11-26T15:26:00.660Z"
+  },
+  {
+    "id": "1764170938458",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/documentos",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-11-26T15:28:58.260Z",
+    "dataLocal": "26/11/2025, 12:28:58",
+    "dataRegistro": "2025-11-26T15:28:58.459Z"
+  },
+  {
+    "id": "1764179538485",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioNome": "as",
+    "enderecoBrowser": "http://localhost:3000/documentos?id=4f62592c-b265-4640-88f1-a602bcbbd0fd&vscodeBrowserReqId=1764179536539",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.106.2 Chrome/138.0.7204.251 Electron/37.7.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-11-26T17:52:18.006Z",
+    "dataLocal": "26/11/2025, 14:52:18",
+    "dataRegistro": "2025-11-26T17:52:18.485Z"
+  },
+  {
+    "id": "1765299462075",
+    "tipoEvento": "ERRO",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Erro: Tentativa de login falhou",
+    "status": "ERRO",
+    "usuarioNome": "admin",
+    "usuarioEmail": "admin@igepps.com",
+    "usuarioNivel": "DESCONHECIDO",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "mensagem": "Email ou senha inválidos",
+      "stack": "Error: Email ou senha inválidos\n    at loginUser (webpack-internal:///(pages-dir-browser)/./src/contexts/AuthContext.js:125:15)\n    at async handleSubmit (webpack-internal:///(pages-dir-browser)/./src/pages/login.js:35:30)"
+    },
+    "timestamp": "2025-12-09T16:57:41.285Z",
+    "dataLocal": "09/12/2025, 13:57:41",
+    "dataRegistro": "2025-12-09T16:57:42.075Z"
+  },
+  {
+    "id": "1765299467828",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2025-12-09T16:57:47.819Z",
+    "dataLocal": "09/12/2025, 13:57:47",
+    "dataRegistro": "2025-12-09T16:57:47.828Z"
+  },
+  {
+    "id": "1765299468938",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-12-09T16:57:48.902Z",
+    "dataLocal": "09/12/2025, 13:57:48",
+    "dataRegistro": "2025-12-09T16:57:48.938Z"
+  },
+  {
+    "id": "1765306173541",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-12-09T18:49:33.213Z",
+    "dataLocal": "09/12/2025, 15:49:33",
+    "dataRegistro": "2025-12-09T18:49:33.541Z"
+  },
+  {
+    "id": "1765306377929",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-12-09T18:52:57.581Z",
+    "dataLocal": "09/12/2025, 15:52:57",
+    "dataRegistro": "2025-12-09T18:52:57.929Z"
+  },
+  {
+    "id": "1765307149510",
+    "tipoEvento": "ACESSO",
+    "modulo": "DOCUMENTOS",
+    "descricao": "Acesso a Centro de Documentos",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/documentos",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Centro de Documentos"
+    },
+    "timestamp": "2025-12-09T19:05:49.309Z",
+    "dataLocal": "09/12/2025, 16:05:49",
+    "dataRegistro": "2025-12-09T19:05:49.510Z"
+  },
+  {
+    "id": "1765307302255",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-12-09T19:08:22.001Z",
+    "dataLocal": "09/12/2025, 16:08:22",
+    "dataRegistro": "2025-12-09T19:08:22.255Z"
+  },
+  {
+    "id": "1766078336804",
+    "tipoEvento": "ERRO",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Erro: Tentativa de login falhou",
+    "status": "ERRO",
+    "usuarioNome": "presidente",
+    "usuarioEmail": "presidente@eklesia.com",
+    "usuarioNivel": "DESCONHECIDO",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "mensagem": "Email ou senha inválidos",
+      "stack": "Error: Email ou senha inválidos\n    at loginUser (webpack-internal:///(pages-dir-browser)/./src/contexts/AuthContext.js:125:15)\n    at async handleSubmit (webpack-internal:///(pages-dir-browser)/./src/pages/login.js:35:30)"
+    },
+    "timestamp": "2025-12-18T17:18:56.390Z",
+    "dataLocal": "18/12/2025, 14:18:56",
+    "dataRegistro": "2025-12-18T17:18:56.804Z"
+  },
+  {
+    "id": "1766078345113",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2025-12-18T17:19:05.108Z",
+    "dataLocal": "18/12/2025, 14:19:05",
+    "dataRegistro": "2025-12-18T17:19:05.113Z"
+  },
+  {
+    "id": "1766078345777",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-12-18T17:19:05.751Z",
+    "dataLocal": "18/12/2025, 14:19:05",
+    "dataRegistro": "2025-12-18T17:19:05.777Z"
+  },
+  {
+    "id": "1766082863753",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-12-18T18:34:23.702Z",
+    "dataLocal": "18/12/2025, 15:34:23",
+    "dataRegistro": "2025-12-18T18:34:23.753Z"
+  },
+  {
+    "id": "1766083206582",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2025-12-18T18:40:06.558Z",
+    "dataLocal": "18/12/2025, 15:40:06",
+    "dataRegistro": "2025-12-18T18:40:06.582Z"
+  }
+]

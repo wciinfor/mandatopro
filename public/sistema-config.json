@@ -1,0 +1,19 @@
+{
+  "nomeOrgao": "",
+  "sigla": "",
+  "logo": null,
+  "cnpj": "",
+  "endereco": "",
+  "telefone": "",
+  "email": "",
+  "website": "",
+  "cargo": "",
+  "nomeParlamentar": "",
+  "corPrincipal": "#14b8a6",
+  "corSecundaria": "#0d9488",
+  "whatsapp": {
+    "phoneNumberId": "",
+    "accessToken": ""
+  },
+  "updatedAt": "2025-11-24T13:48:46.399Z"
+}
