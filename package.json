@@ -6,7 +6,10 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup-db": "node scripts/db-setup.js",
+    "seed-db": "node scripts/seed-db.js",
+    "db:migrate": "npm run setup-db && npm run seed-db"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
