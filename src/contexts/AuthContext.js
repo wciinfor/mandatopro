@@ -53,7 +53,7 @@ export function AuthProvider({ children }) {
 
   const loadUser = async () => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = createClient();
       
       // Se Supabase não está configurado, apenas carregar localStorage
       if (!supabase) {
@@ -95,7 +95,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      const supabase = getSupabaseClient();
+      const supabase = createClient();
       
       // Registrar logout nos logs
       if (user) {
@@ -153,7 +153,7 @@ export function useAuth() {
 // Função para obter usuário logado do banco de dados
 async function obterUsuarioLogado(email) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
     
     if (!supabase) {
       return null;
@@ -180,7 +180,7 @@ async function obterUsuarioLogado(email) {
 // Função de login com Supabase
 export async function loginUser(email, senha) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
     
     // Verificar se Supabase está configurado
     if (!supabase || !supabase.auth) {
@@ -233,7 +233,7 @@ export async function loginUser(email, senha) {
 // Função para criar novo usuário (apenas administrador)
 export async function criarUsuario(dados) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
     
     if (!supabase) {
       throw new Error('Supabase não está configurado');
@@ -277,7 +277,7 @@ export async function criarUsuario(dados) {
 // Função para redefinir senha
 export async function redefinirSenha(email) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
     
     if (!supabase) {
       throw new Error('Supabase não está configurado');
