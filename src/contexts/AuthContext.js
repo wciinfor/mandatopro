@@ -17,7 +17,12 @@ export function AuthProvider({ children }) {
     // Carregar usuário ao montar o componente
     loadUser();
 
-    // Listener para mudanças de autenticação
+    // Listener para mudanças de autenticação (se Supabase está configurado)
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session) {
@@ -41,6 +46,17 @@ export function AuthProvider({ children }) {
 
   const loadUser = async () => {
     try {
+      // Se Supabase não está configurado, apenas carregar localStorage
+      if (!supabase) {
+        const userData = localStorage.getItem('usuario');
+        if (userData) {
+          const user = JSON.parse(userData);
+          setUser(user);
+        }
+        setLoading(false);
+        return;
+      }
+
       const userData = localStorage.getItem('usuario');
       if (userData) {
         const user = JSON.parse(userData);
@@ -81,8 +97,10 @@ export function AuthProvider({ children }) {
         });
       }
 
-      // Fazer logout no Supabase
-      await supabase.auth.signOut();
+      // Fazer logout no Supabase (se configurado)
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
       
       localStorage.removeItem('usuario');
       setUser(null);
@@ -124,6 +142,10 @@ export function useAuth() {
 // Função para obter usuário logado do banco de dados
 async function obterUsuarioLogado(email) {
   try {
+    if (!supabase) {
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('usuarios')
       .select('*')
