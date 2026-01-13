@@ -2,28 +2,48 @@ import { createClient } from '@supabase/supabase-js';
 
 let supabase = null;
 
-// Função para obter o cliente Supabase
+// Função para obter o cliente Supabase - APENAS BROWSER
 export function getSupabaseClient() {
+  // Só funciona no browser
+  if (typeof window === 'undefined') {
+    console.warn('⚠️  getSupabaseClient chamado no servidor');
+    return null;
+  }
+
   // Se já foi criado, retorna o existente
   if (supabase) {
     return supabase;
   }
 
-  // Tenta criar novo cliente
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Tenta criar novo cliente - lê as variáveis do objeto window
+  const supabaseUrl = typeof window !== 'undefined' 
+    ? window.__NEXT_DATA__?.props?.pageProps?.supabaseUrl || process.env.NEXT_PUBLIC_SUPABASE_URL
+    : process.env.NEXT_PUBLIC_SUPABASE_URL;
+    
+  const supabaseAnonKey = typeof window !== 'undefined'
+    ? window.__NEXT_DATA__?.props?.pageProps?.supabaseKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  console.log('🔍 Verificando variáveis de ambiente:');
-  console.log('URL:', supabaseUrl ? '✅' : '❌');
-  console.log('Key:', supabaseAnonKey ? '✅' : '❌');
+  // Fallback: tenta ler diretamente das variáveis de ambiente expostas pelo Next.js
+  const url = supabaseUrl || 
+    (typeof window !== 'undefined' && globalThis.NEXT_PUBLIC_SUPABASE_URL) || 
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+    
+  const key = supabaseAnonKey || 
+    (typeof window !== 'undefined' && globalThis.NEXT_PUBLIC_SUPABASE_ANON_KEY) || 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  console.log('🔍 Verificando variáveis:');
+  console.log('URL:', url ? '✅' : '❌', url?.substring(0, 30) + '...');
+  console.log('Key:', key ? '✅' : '❌', key?.substring(0, 30) + '...');
+
+  if (!url || !key) {
     console.warn('⚠️  Supabase não configurado');
     return null;
   }
 
   try {
-    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    supabase = createClient(url, key, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -35,13 +55,12 @@ export function getSupabaseClient() {
       },
     });
 
-    console.log('✅ Cliente Supabase criado com sucesso');
+    console.log('✅ Cliente Supabase criado');
     return supabase;
   } catch (err) {
-    console.error('❌ Erro ao criar cliente Supabase:', err);
+    console.error('❌ Erro ao criar cliente:', err);
     return null;
   }
 }
 
-// Export default para compatibilidade
 export default getSupabaseClient;
