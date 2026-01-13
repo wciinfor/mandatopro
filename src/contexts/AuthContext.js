@@ -1,6 +1,6 @@
 import { useState, createContext, useContext, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import supabase from '@/lib/supabaseClient';
+import { useSupabase } from '@/lib/supabaseClient';
 import { ROLES } from '@/utils/permissions';
 import { registrarLogAuditoria } from '@/services/database';
 
@@ -18,6 +18,8 @@ export function AuthProvider({ children }) {
     loadUser();
 
     // Listener para mudanças de autenticação (se Supabase está configurado)
+    const supabase = useSupabase();
+    
     if (!supabase || !supabase.auth) {
       setLoading(false);
       return;
@@ -51,6 +53,8 @@ export function AuthProvider({ children }) {
 
   const loadUser = async () => {
     try {
+      const supabase = useSupabase();
+      
       // Se Supabase não está configurado, apenas carregar localStorage
       if (!supabase) {
         const userData = localStorage.getItem('usuario');
@@ -91,6 +95,8 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
+      const supabase = useSupabase();
+      
       // Registrar logout nos logs
       if (user) {
         await registrarLogAuditoria({
@@ -147,6 +153,8 @@ export function useAuth() {
 // Função para obter usuário logado do banco de dados
 async function obterUsuarioLogado(email) {
   try {
+    const supabase = useSupabase();
+    
     if (!supabase) {
       return null;
     }
@@ -172,6 +180,8 @@ async function obterUsuarioLogado(email) {
 // Função de login com Supabase
 export async function loginUser(email, senha) {
   try {
+    const supabase = useSupabase();
+    
     // Verificar se Supabase está configurado
     if (!supabase || !supabase.auth) {
       throw new Error('Supabase não está configurado. Verifique as variáveis de ambiente.');
@@ -223,6 +233,12 @@ export async function loginUser(email, senha) {
 // Função para criar novo usuário (apenas administrador)
 export async function criarUsuario(dados) {
   try {
+    const supabase = useSupabase();
+    
+    if (!supabase) {
+      throw new Error('Supabase não está configurado');
+    }
+
     // Criar usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: dados.email,
@@ -261,6 +277,12 @@ export async function criarUsuario(dados) {
 // Função para redefinir senha
 export async function redefinirSenha(email) {
   try {
+    const supabase = useSupabase();
+    
+    if (!supabase) {
+      throw new Error('Supabase não está configurado');
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
