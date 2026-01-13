@@ -2,40 +2,36 @@ import { createClient } from '@supabase/supabase-js';
 
 let supabase = null;
 
-// Criar cliente Supabase dinamicamente quando needed (runtime)
-function getSupabaseClient() {
-  if (typeof window === 'undefined') {
-    // Server-side: retorna null
+// Função para obter o cliente Supabase
+export function getSupabaseClient() {
+  // Se já foi criado, retorna o existente
+  if (supabase) {
+    return supabase;
+  }
+
+  // Tenta criar novo cliente
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('⚠️  Supabase URL ou Anon Key não configurados');
     return null;
   }
 
-  // Client-side: cria o cliente se ainda não existe
-  if (!supabase) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (supabaseUrl && supabaseAnonKey) {
-      supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-        },
-        realtime: {
-          params: {
-            eventsPerSecond: 10,
-          },
-        },
-      });
-    }
-  }
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
+  });
 
   return supabase;
 }
 
-// Export a função para obter o cliente
-export function useSupabase() {
-  return getSupabaseClient();
-}
-
-// Export default para compatibilidade com imports existentes
+// Export default para compatibilidade
 export default getSupabaseClient;
