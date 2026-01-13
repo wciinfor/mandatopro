@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { useAuth, loginUser } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { registrarLogin, registrarErro } from '@/services/logService';
 
 export default function Login() {
@@ -17,11 +17,27 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const userData = await loginUser(email, senha);
-      login(userData);
+      // Fazer login via API (que tem acesso às variáveis de ambiente)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, senha }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao fazer login');
+      }
+
+      const { user } = await response.json();
+      
+      // Fazer login no contexto
+      login(user);
       
       // Registra o login bem-sucedido
-      await registrarLogin(userData);
+      await registrarLogin(user);
       
       router.push('/dashboard');
     } catch (error) {
