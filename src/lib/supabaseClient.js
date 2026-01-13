@@ -13,24 +13,34 @@ export function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+  console.log('🔍 Verificando variáveis de ambiente:');
+  console.log('URL:', supabaseUrl ? '✅' : '❌');
+  console.log('Key:', supabaseAnonKey ? '✅' : '❌');
+
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('⚠️  Supabase URL ou Anon Key não configurados');
+    console.warn('⚠️  Supabase não configurado');
     return null;
   }
 
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10,
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
       },
-    },
-  });
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    });
 
-  return supabase;
+    console.log('✅ Cliente Supabase criado com sucesso');
+    return supabase;
+  } catch (err) {
+    console.error('❌ Erro ao criar cliente Supabase:', err);
+    return null;
+  }
 }
 
 // Export default para compatibilidade
