@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import config from '@/config/runtime';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,25 +13,34 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Criar cliente Supabase no servidor
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Tenta usar a config gerada em build time
+    let supabaseUrl = config.supabase.url;
+    let supabaseAnonKey = config.supabase.anonKey;
 
-    console.log('[API Login] Verificando variáveis:');
-    console.log('[API Login] URL existe:', !!supabaseUrl);
-    console.log('[API Login] Key existe:', !!supabaseAnonKey);
-    console.log('[API Login] URL:', supabaseUrl?.substring(0, 30) + '...');
-    console.log('[API Login] Key:', supabaseAnonKey?.substring(0, 30) + '...');
+    // Se não estiver em config, tenta variáveis de ambiente (fallback)
+    if (!supabaseUrl) {
+      supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    }
+    if (!supabaseAnonKey) {
+      supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    }
+
+    console.log('[API Login] Verificando configuração:');
+    console.log('[API Login] URL de config:', config.supabase.url ? '✅' : '❌');
+    console.log('[API Login] Key de config:', config.supabase.anonKey ? '✅' : '❌');
+    console.log('[API Login] URL final:', supabaseUrl ? '✅' : '❌');
+    console.log('[API Login] Key final:', supabaseAnonKey ? '✅' : '❌');
 
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error('[API Login] ❌ Variáveis não encontradas');
-      console.error('[API Login] Variáveis disponíveis:', Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.includes('NEXT')));
       
       return res.status(500).json({ 
-        error: 'Supabase não configurado no servidor',
+        error: 'Supabase não configurado',
         debug: {
-          urlExists: !!supabaseUrl,
-          keyExists: !!supabaseAnonKey
+          configUrl: !!config.supabase.url,
+          configKey: !!config.supabase.anonKey,
+          envUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+          envKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         }
       });
     }
