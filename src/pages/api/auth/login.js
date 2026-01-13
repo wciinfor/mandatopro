@@ -1,4 +1,4 @@
-import { getSupabaseClient } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,16 +16,30 @@ export default async function handler(req, res) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+    console.log('[API Login] Verificando variáveis:');
+    console.log('[API Login] URL existe:', !!supabaseUrl);
+    console.log('[API Login] Key existe:', !!supabaseAnonKey);
+    console.log('[API Login] URL:', supabaseUrl?.substring(0, 30) + '...');
+    console.log('[API Login] Key:', supabaseAnonKey?.substring(0, 30) + '...');
+
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('❌ Variáveis de ambiente não encontradas no servidor');
+      console.error('[API Login] ❌ Variáveis não encontradas');
+      console.error('[API Login] Variáveis disponíveis:', Object.keys(process.env).filter(k => k.includes('SUPABASE') || k.includes('NEXT')));
+      
       return res.status(500).json({ 
-        error: 'Supabase não está configurado no servidor' 
+        error: 'Supabase não configurado no servidor',
+        debug: {
+          urlExists: !!supabaseUrl,
+          keyExists: !!supabaseAnonKey
+        }
       });
     }
 
-    // Importar e criar cliente direto aqui
-    const { createClient } = require('@supabase/supabase-js');
+    console.log('[API Login] ✅ Criando cliente Supabase');
+    
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    console.log('[API Login] ✅ Cliente criado, tentando fazer login');
 
     // Fazer login
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -34,8 +48,11 @@ export default async function handler(req, res) {
     });
 
     if (error) {
+      console.error('[API Login] ❌ Erro de autenticação:', error);
       return res.status(401).json({ error: error.message });
     }
+
+    console.log('[API Login] ✅ Login bem-sucedido, buscando usuário');
 
     // Buscar dados do usuário
     const { data: usuario, error: userError } = await supabase
@@ -46,12 +63,16 @@ export default async function handler(req, res) {
       .single();
 
     if (userError) {
+      console.error('[API Login] ❌ Erro ao buscar usuário:', userError);
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
 
     if (usuario.status !== 'ATIVO') {
+      console.error('[API Login] ❌ Usuário inativo');
       return res.status(403).json({ error: 'Usuário inativo ou bloqueado' });
     }
+
+    console.log('[API Login] ✅ Login completo para:', email);
 
     // Retorna dados do usuário e token
     return res.status(200).json({
@@ -61,9 +82,12 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro ao fazer login:', error);
+    console.error('[API Login] ❌ Erro geral:', error);
+    console.error('[API Login] Stack:', error.stack);
+    
     return res.status(500).json({ 
-      error: 'Erro ao fazer login: ' + error.message 
+      error: 'Erro ao fazer login: ' + error.message,
+      debug: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
