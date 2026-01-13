@@ -4,12 +4,6 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   
-  // Passar variáveis de ambiente para o client
-  env: {
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  },
-  
   // Configurações de imagem
   images: {
     remotePatterns: [
