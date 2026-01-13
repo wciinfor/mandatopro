@@ -18,30 +18,35 @@ export function AuthProvider({ children }) {
     loadUser();
 
     // Listener para mudanças de autenticação (se Supabase está configurado)
-    if (!supabase) {
+    if (!supabase || !supabase.auth) {
       setLoading(false);
       return;
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session) {
-          // Buscar dados do usuário no banco de dados
-          const usuario = await obterUsuarioLogado(session.user.email);
-          if (usuario) {
-            setUser(usuario);
-            localStorage.setItem('usuario', JSON.stringify(usuario));
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (session) {
+            // Buscar dados do usuário no banco de dados
+            const usuario = await obterUsuarioLogado(session.user.email);
+            if (usuario) {
+              setUser(usuario);
+              localStorage.setItem('usuario', JSON.stringify(usuario));
+            }
+          } else {
+            setUser(null);
+            localStorage.removeItem('usuario');
           }
-        } else {
-          setUser(null);
-          localStorage.removeItem('usuario');
         }
-      }
-    );
+      );
 
-    return () => {
-      subscription?.unsubscribe();
-    };
+      return () => {
+        subscription?.unsubscribe();
+      };
+    } catch (err) {
+      console.error('Erro ao configurar auth listener:', err);
+      setLoading(false);
+    }
   }, []);
 
   const loadUser = async () => {
@@ -98,7 +103,7 @@ export function AuthProvider({ children }) {
       }
 
       // Fazer logout no Supabase (se configurado)
-      if (supabase) {
+      if (supabase && supabase.auth) {
         await supabase.auth.signOut();
       }
       
@@ -167,6 +172,11 @@ async function obterUsuarioLogado(email) {
 // Função de login com Supabase
 export async function loginUser(email, senha) {
   try {
+    // Verificar se Supabase está configurado
+    if (!supabase || !supabase.auth) {
+      throw new Error('Supabase não está configurado. Verifique as variáveis de ambiente.');
+    }
+
     // Tentar fazer login com Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

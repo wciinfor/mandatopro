@@ -432,5 +432,101 @@
     "timestamp": "2025-12-18T18:40:06.558Z",
     "dataLocal": "18/12/2025, 15:40:06",
     "dataRegistro": "2025-12-18T18:40:06.582Z"
+  },
+  {
+    "id": "1768264162643",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-13T00:29:22.127Z",
+    "dataLocal": "12/01/2026, 21:29:22",
+    "dataRegistro": "2026-01-13T00:29:22.643Z"
+  },
+  {
+    "id": "1768264171643",
+    "tipoEvento": "ERRO",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Erro: Tentativa de login falhou",
+    "status": "ERRO",
+    "usuarioNome": "admin",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "DESCONHECIDO",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "mensagem": "Invalid login credentials",
+      "stack": "Error: Invalid login credentials\n    at loginUser (webpack-internal:///(pages-dir-browser)/./src/contexts/AuthContext.js:188:19)\n    at async handleSubmit (webpack-internal:///(pages-dir-browser)/./src/pages/login.js:35:30)"
+    },
+    "timestamp": "2026-01-13T00:29:31.631Z",
+    "dataLocal": "12/01/2026, 21:29:31",
+    "dataRegistro": "2026-01-13T00:29:31.643Z"
+  },
+  {
+    "id": "1768264323285",
+    "tipoEvento": "ERRO",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Erro: Tentativa de login falhou",
+    "status": "ERRO",
+    "usuarioNome": "admin",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "DESCONHECIDO",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "mensagem": "Usuário não encontrado no banco de dados",
+      "stack": "Error: Usuário não encontrado no banco de dados\n    at loginUser (webpack-internal:///(pages-dir-browser)/./src/contexts/AuthContext.js:193:19)\n    at async handleSubmit (webpack-internal:///(pages-dir-browser)/./src/pages/login.js:35:30)"
+    },
+    "timestamp": "2026-01-13T00:32:02.886Z",
+    "dataLocal": "12/01/2026, 21:32:02",
+    "dataRegistro": "2026-01-13T00:32:03.285Z"
+  },
+  {
+    "id": "1768273210125",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-13T03:00:09.479Z",
+    "dataLocal": "13/01/2026, 00:00:09",
+    "dataRegistro": "2026-01-13T03:00:10.125Z"
+  },
+  {
+    "id": "1768273212078",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-13T03:00:12.043Z",
+    "dataLocal": "13/01/2026, 00:00:12",
+    "dataRegistro": "2026-01-13T03:00:12.078Z"
   }
 ]
