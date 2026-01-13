@@ -1,5 +1,8 @@
 import { createServerClient } from '../../../lib/supabase-server';
 
+// Força runtime Node.js (não Edge)
+export const runtime = 'nodejs';
+
 export default async function handler(req, res) {
   // Debug: verificar variáveis
   console.log("ENV_CHECK", {
