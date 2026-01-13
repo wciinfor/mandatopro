@@ -1,6 +1,6 @@
 import { useState, createContext, useContext, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { getSupabaseClient } from '@/lib/supabaseClient';
+import createClient from '@/lib/supabaseClient';
 import { ROLES } from '@/utils/permissions';
 import { registrarLogAuditoria } from '@/services/database';
 
@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
     loadUser();
 
     // Listener para mudanças de autenticação (se Supabase está configurado)
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
     
     if (!supabase || !supabase.auth) {
       setLoading(false);
