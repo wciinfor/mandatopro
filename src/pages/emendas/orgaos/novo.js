@@ -72,20 +72,6 @@ export default function NovoOrgao() {
         showCancel={modalState.showCancel}
       />
 
-      {/* Botões de Navegação */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => router.push('/emendas/orgaos')}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          >
-            <FontAwesomeIcon icon={faArrowLeft} />
-            Voltar para Lista
-          </button>
-        </div>
-      </div>
-
       {/* Formulário */}
       <form onSubmit={handleSubmit} className="space-y-6">
             {/* Cabeçalho */}
@@ -311,7 +297,7 @@ export default function NovoOrgao() {
                   className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2"
                 >
                   <FontAwesomeIcon icon={faArrowLeft} />
-                  Voltar
+                  Voltar para Lista
                 </button>
 
                 <button

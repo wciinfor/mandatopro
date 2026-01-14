@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSave, faArrowLeft, faSearch, faCheckCircle, 
-  faHourglassHalf, faTimesCircle, faClock, faMapMarkedAlt, faBell, faUserTie
+  faHourglassHalf, faTimesCircle, faClock, faMapMarkedAlt, faBell, faUserTie, faHandshake, faStethoscope,
+  faEye, faHospital, faFileAlt, faGavel, faEnvelope, faPhone
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import Layout from '@/components/Layout';
@@ -14,7 +15,6 @@ import useModal from '@/hooks/useModal';
 export default function NovoAtendimento() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
-  const [usuario, setUsuario] = useState(null);
   const [eleitorSelecionado, setEleitorSelecionado] = useState(null);
 
   // Estado do formulário
@@ -55,15 +55,6 @@ export default function NovoAtendimento() {
     notificarEleitor: true,
     modoNotificacao: 'WHATSAPP' // EMAIL, SMS, WHATSAPP
   });
-
-  useEffect(() => {
-    const usuarioStr = localStorage.getItem('usuario');
-    if (!usuarioStr) {
-      router.push('/login');
-      return;
-    }
-    setUsuario(JSON.parse(usuarioStr));
-  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
@@ -197,8 +188,6 @@ export default function NovoAtendimento() {
     }
   };
 
-  if (!usuario) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
-
   return (
     <Layout titulo="Novo Atendimento">
       {/* Busca de Eleitor */}
@@ -270,7 +259,7 @@ export default function NovoAtendimento() {
             {formData.tipoAtendimento === 'ACAO_SOCIAL' && (
               <div className="border-t pt-6 mb-6">
                 <h3 className="text-lg font-bold text-teal-700 mb-4 flex items-center gap-2">
-                  <FontAwesomeIcon icon={faHandHoldingMedical} className="text-teal-600" />
+                  <FontAwesomeIcon icon={faHandshake} className="text-teal-600" />
                   AÇÃO SOCIAL
                 </h3>
                 
@@ -333,7 +322,7 @@ export default function NovoAtendimento() {
                           : 'border-gray-300 hover:border-teal-400'
                       }`}
                     >
-                      <FontAwesomeIcon icon={faUserMd} className="text-2xl text-teal-600 mb-2" />
+                      <FontAwesomeIcon icon={faStethoscope} className="text-2xl text-teal-600 mb-2" />
                       <div className="font-semibold">Atendimento Médico</div>
                     </button>
 
@@ -664,7 +653,7 @@ export default function NovoAtendimento() {
                 className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2"
               >
                 <FontAwesomeIcon icon={faArrowLeft} />
-                Voltar para Listagem
+                Voltar para Lista
               </button>
               <button
                 type="submit"

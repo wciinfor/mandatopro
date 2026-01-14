@@ -176,7 +176,7 @@ export default function Comunicacao() {
       case 'whatsapp': return faWhatsapp;
       case 'email': return faEnvelope;
       case 'sms': return faPhone;
-      default: return faBroadcast;
+      default: return faBroadcastTower;
     }
   };
 
@@ -386,7 +386,7 @@ export default function Comunicacao() {
               {/* Configuração */}
               <div className="lg:col-span-2 bg-white rounded-lg shadow-lg p-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                  <FontAwesomeIcon icon={faBroadcast} className="text-teal-600" />
+                  <FontAwesomeIcon icon={faBroadcastTower} className="text-teal-600" />
                   Enviar Mensagem em Massa
                 </h2>
 

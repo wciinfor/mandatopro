@@ -8,17 +8,37 @@ import { faBars, faBell, faUserTie } from '@fortawesome/free-solid-svg-icons';
 export default function Layout({ children, titulo = 'MandatoPro' }) {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
+  const [hidratado, setHidratado] = useState(false);
   const [sidebarAberto, setSidebarAberto] = useState(false);
   const [moduloAtivo, setModuloAtivo] = useState('Dashboard');
 
   useEffect(() => {
     const usuarioStr = localStorage.getItem('usuario');
-    if (!usuarioStr) {
-      router.push('/login');
-      return;
+    console.log('[Layout] Verificando autenticação - usuarioStr:', usuarioStr ? 'existe' : 'não existe');
+    console.log('[Layout] pathname:', router.pathname);
+    
+    if (usuarioStr) {
+      try {
+        const userData = JSON.parse(usuarioStr);
+        console.log('[Layout] Usuário parseado com sucesso:', userData.email);
+        setUsuario(userData);
+      } catch (error) {
+        console.error('[Layout] Erro ao parsear usuário:', error);
+        localStorage.removeItem('usuario');
+        router.push('/login');
+      }
+    } else {
+      console.log('[Layout] Nenhum usuário no localStorage');
+      // Se não houver usuário e não está na página de login, redirecionar
+      if (router.pathname !== '/login') {
+        console.log('[Layout] Redirecionando para login');
+        router.push('/login');
+      }
     }
-    setUsuario(JSON.parse(usuarioStr));
-  }, [router]);
+    
+    // Marcar como hidratado após verificar localStorage
+    setHidratado(true);
+  }, []); // Executar apenas uma vez na montagem
 
   useEffect(() => {
     // Determinar módulo ativo baseado na rota atual
@@ -47,10 +67,17 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
       setModuloAtivo('Financeiro - Despesas');
     } else if (path.startsWith('/financeiro/relatorios')) {
       setModuloAtivo('Financeiro - Relatórios Financeiros');
+    } else if (path.startsWith('/comunicacao')) {
+      setModuloAtivo('Comunicação');
+    } else if (path.startsWith('/configuracoes')) {
+      setModuloAtivo('Configurações');
     }
   }, [router.pathname]);
 
-  if (!usuario) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+  // Apenas renderizar conteúdo após hidratação para evitar mismatch
+  if (!hidratado) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-teal-50 flex">
@@ -88,7 +115,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
               <NotificationBell />
               <div className="flex items-center gap-2 bg-teal-100 px-3 py-2 rounded-lg">
                 <FontAwesomeIcon icon={faUserTie} className="text-sm text-teal-700" />
-                <span className="font-semibold text-teal-800 text-sm">{usuario?.nome || 'User'}</span>
+                <span className="font-semibold text-teal-800 text-sm">{usuario?.nome || 'Admin'}</span>
               </div>
             </div>
           </div>

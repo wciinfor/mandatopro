@@ -109,13 +109,6 @@ export default function GerenciarOrgaos() {
       <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => window.location.href = '/emendas/orgaos'}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            <FontAwesomeIcon icon={faList} />
-            Listar
-          </button>
-          <button
             onClick={handleInserir}
             className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
           >

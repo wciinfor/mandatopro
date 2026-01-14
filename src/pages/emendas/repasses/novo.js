@@ -256,7 +256,7 @@ export default function NovoRepasse() {
               className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors"
             >
               <FontAwesomeIcon icon={faArrowLeft} />
-              <span>Voltar</span>
+              <span>Voltar para Lista</span>
             </button>
           </div>
         </form>

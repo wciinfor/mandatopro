@@ -98,7 +98,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     {
       nome: 'Configurações',
       icone: faCog,
-      submenu: ['Dados do Sistema', 'WhatsApp Business'],
+      submenu: ['Dados do Sistema'],
       rota: '/configuracoes/sistema'
     },
   ];
@@ -146,8 +146,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     'Logs do Sistema': '/auditoria/logs',
     
     // Configurações
-    'Dados do Sistema': '/configuracoes/sistema#dados',
-    'WhatsApp Business': '/configuracoes/sistema#whatsapp'
+    'Dados do Sistema': '/configuracoes/sistema#dados'
   };
 
   const handleLogout = async () => {
@@ -178,11 +177,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
       setMenusAbertos({});
       setSidebarAberto(false);
       if (modulo.rota) {
-        if (router.pathname === modulo.rota) {
-          window.location.reload();
-        } else {
-          router.push(modulo.rota);
-        }
+        router.push(modulo.rota).catch(err => console.error('Erro ao navegar:', err));
       }
     }
   };
@@ -194,11 +189,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     const rota = routeMap[subitem];
     
     if (rota) {
-      if (router.pathname === rota) {
-        window.location.reload();
-      } else {
-        router.push(rota);
-      }
+      router.push(rota).catch(err => console.error('Erro ao navegar:', err));
     }
   };
 

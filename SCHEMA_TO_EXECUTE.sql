@@ -73,6 +73,32 @@ CREATE TABLE IF NOT EXISTS liderancas (
 );
 
 -- ============================================================
+-- 3.1 TABELA DE GEOLOCALIZAÇÃO (MAPA)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS geolocalizacao (
+  id BIGSERIAL PRIMARY KEY,
+  tipo VARCHAR(50) NOT NULL CHECK (tipo IN ('ELEITOR', 'LIDERANCA', 'FUNCIONARIO', 'ATENDIMENTO')),
+  nome VARCHAR(255) NOT NULL,
+  descricao TEXT,
+  cidade VARCHAR(100),
+  bairro VARCHAR(100),
+  endereco VARCHAR(500),
+  latitude NUMERIC(10, 8) NOT NULL,
+  longitude NUMERIC(11, 8) NOT NULL,
+  icon_color VARCHAR(20) DEFAULT '#14b8a6',
+  icon_type VARCHAR(50),
+  eleitor_id BIGINT REFERENCES eleitores(id) ON DELETE SET NULL,
+  lideranca_id BIGINT REFERENCES liderancas(id) ON DELETE SET NULL,
+  funcionario_id BIGINT REFERENCES funcionarios(id) ON DELETE SET NULL,
+  atendimento_id BIGINT REFERENCES atendimentos(id) ON DELETE SET NULL,
+  status VARCHAR(50) DEFAULT 'ATIVO',
+  nivel_influencia VARCHAR(50),
+  data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================
 -- 4. TABELA DE FUNCIONÁRIOS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS funcionarios (
@@ -450,6 +476,18 @@ CREATE INDEX IF NOT EXISTS idx_eleitores_cpf ON eleitores(cpf);
 CREATE INDEX IF NOT EXISTS idx_eleitores_lideranca ON eleitores(lideranca_id);
 CREATE INDEX IF NOT EXISTS idx_eleitores_cidade ON eleitores(cidade);
 CREATE INDEX IF NOT EXISTS idx_eleitores_status ON eleitores(status);
+
+-- Índices em Lideranças
+CREATE INDEX IF NOT EXISTS idx_liderancas_cpf ON liderancas(cpf);
+CREATE INDEX IF NOT EXISTS idx_liderancas_status ON liderancas(status);
+CREATE INDEX IF NOT EXISTS idx_liderancas_cidade ON liderancas(cidade);
+
+-- Índices em Geolocalização
+CREATE INDEX IF NOT EXISTS idx_geolocalizacao_tipo ON geolocalizacao(tipo);
+CREATE INDEX IF NOT EXISTS idx_geolocalizacao_lideranca ON geolocalizacao(lideranca_id);
+CREATE INDEX IF NOT EXISTS idx_geolocalizacao_eleitor ON geolocalizacao(eleitor_id);
+CREATE INDEX IF NOT EXISTS idx_geolocalizacao_status ON geolocalizacao(status);
+CREATE INDEX IF NOT EXISTS idx_geolocalizacao_lat_lng ON geolocalizacao(latitude, longitude);
 
 -- Índices em Solicitações
 CREATE INDEX IF NOT EXISTS idx_solicitacoes_protocolo ON solicitacoes(protocolo);

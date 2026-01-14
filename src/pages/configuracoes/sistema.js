@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
@@ -15,6 +16,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function ConfiguracaoSistema() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('sistema');
   const [loading, setLoading] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
@@ -52,19 +54,27 @@ export default function ConfiguracaoSistema() {
 
   // Carregar dados da API
   useEffect(() => {
-    carregarConfiguracoes();
+    try {
+      carregarConfiguracoes();
 
-    // Verificar hash para definir aba ativa
-    if (window.location.hash === '#whatsapp') {
-      setActiveTab('whatsapp');
-    } else if (window.location.hash === '#dados') {
-      setActiveTab('sistema');
+      // Verificar hash para definir aba ativa
+      if (window.location.hash === '#whatsapp') {
+        setActiveTab('whatsapp');
+      } else if (window.location.hash === '#dados') {
+        setActiveTab('sistema');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar página de configurações:', error);
     }
   }, []);
 
   const carregarConfiguracoes = async () => {
     try {
       const response = await fetch('/api/configuracoes');
+      if (!response.ok) {
+        console.error('Erro ao carregar configurações:', response.status);
+        return;
+      }
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -95,8 +105,12 @@ export default function ConfiguracaoSistema() {
       console.error('Erro ao carregar configurações:', error);
     }
     
-    // Verificar status WhatsApp
-    verificarStatusWhatsApp();
+    // Verificar status WhatsApp com tratamento de erro
+    try {
+      verificarStatusWhatsApp();
+    } catch (error) {
+      console.error('Erro ao verificar status WhatsApp:', error);
+    }
   };
 
   const verificarStatusWhatsApp = async () => {
@@ -245,7 +259,7 @@ export default function ConfiguracaoSistema() {
   };
 
   return (
-    <Layout>
+    <Layout titulo="Configurações do Sistema">
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-6">

@@ -36,8 +36,15 @@ export function AuthProvider({ children }) {
               localStorage.setItem('usuario', JSON.stringify(usuario));
             }
           } else {
-            setUser(null);
-            localStorage.removeItem('usuario');
+            // NÃO limpar localStorage se já há usuário logado localmente
+            const usuarioLocal = localStorage.getItem('usuario');
+            if (!usuarioLocal) {
+              console.log('[AuthContext] Sem sessão Supabase e sem usuário local, limpando...');
+              setUser(null);
+              localStorage.removeItem('usuario');
+            } else {
+              console.log('[AuthContext] Sem sessão Supabase mas usuário local existe, mantendo...');
+            }
           }
         }
       );

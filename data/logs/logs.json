@@ -606,5 +606,1681 @@
     "timestamp": "2026-01-13T04:11:21.848Z",
     "dataLocal": "13/01/2026, 01:11:21",
     "dataRegistro": "2026-01-13T04:11:21.857Z"
+  },
+  {
+    "id": "1768398640096",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T13:50:39.134Z",
+    "dataLocal": "14/01/2026, 10:50:39",
+    "dataRegistro": "2026-01-14T13:50:40.096Z"
+  },
+  {
+    "id": "1768398651435",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T13:50:51.421Z",
+    "dataLocal": "14/01/2026, 10:50:51",
+    "dataRegistro": "2026-01-14T13:50:51.435Z"
+  },
+  {
+    "id": "1768398651620",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T13:50:51.610Z",
+    "dataLocal": "14/01/2026, 10:50:51",
+    "dataRegistro": "2026-01-14T13:50:51.620Z"
+  },
+  {
+    "id": "1768398659272",
+    "tipoEvento": "ACESSO",
+    "modulo": "ELEITORES",
+    "descricao": "Acesso a Cadastro de Novo Eleitor",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/cadastros/eleitores/novo",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Cadastro de Novo Eleitor"
+    },
+    "timestamp": "2026-01-14T13:50:59.248Z",
+    "dataLocal": "14/01/2026, 10:50:59",
+    "dataRegistro": "2026-01-14T13:50:59.272Z"
+  },
+  {
+    "id": "1768398822744",
+    "tipoEvento": "ACESSO",
+    "modulo": "ELEITORES",
+    "descricao": "Acesso a Cadastro de Novo Eleitor",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/cadastros/eleitores/novo",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Cadastro de Novo Eleitor"
+    },
+    "timestamp": "2026-01-14T13:53:42.493Z",
+    "dataLocal": "14/01/2026, 10:53:42",
+    "dataRegistro": "2026-01-14T13:53:42.744Z"
+  },
+  {
+    "id": "1768399051198",
+    "tipoEvento": "ACESSO",
+    "modulo": "ELEITORES",
+    "descricao": "Acesso a Cadastro de Novo Eleitor",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/cadastros/eleitores/novo",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Cadastro de Novo Eleitor"
+    },
+    "timestamp": "2026-01-14T13:57:31.178Z",
+    "dataLocal": "14/01/2026, 10:57:31",
+    "dataRegistro": "2026-01-14T13:57:31.198Z"
+  },
+  {
+    "id": "1768399533983",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:05:33.862Z",
+    "dataLocal": "14/01/2026, 11:05:33",
+    "dataRegistro": "2026-01-14T14:05:33.983Z"
+  },
+  {
+    "id": "1768399535524",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:05:35.499Z",
+    "dataLocal": "14/01/2026, 11:05:35",
+    "dataRegistro": "2026-01-14T14:05:35.524Z"
+  },
+  {
+    "id": "1768399971867",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:12:51.608Z",
+    "dataLocal": "14/01/2026, 11:12:51",
+    "dataRegistro": "2026-01-14T14:12:51.867Z"
+  },
+  {
+    "id": "1768399972864",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:12:52.844Z",
+    "dataLocal": "14/01/2026, 11:12:52",
+    "dataRegistro": "2026-01-14T14:12:52.864Z"
+  },
+  {
+    "id": "1768400009939",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:13:29.927Z",
+    "dataLocal": "14/01/2026, 11:13:29",
+    "dataRegistro": "2026-01-14T14:13:29.940Z"
+  },
+  {
+    "id": "1768400010127",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:13:30.113Z",
+    "dataLocal": "14/01/2026, 11:13:30",
+    "dataRegistro": "2026-01-14T14:13:30.127Z"
+  },
+  {
+    "id": "1768400049525",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:14:09.511Z",
+    "dataLocal": "14/01/2026, 11:14:09",
+    "dataRegistro": "2026-01-14T14:14:09.525Z"
+  },
+  {
+    "id": "1768400049727",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:14:09.717Z",
+    "dataLocal": "14/01/2026, 11:14:09",
+    "dataRegistro": "2026-01-14T14:14:09.727Z"
+  },
+  {
+    "id": "1768400059215",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:14:19.207Z",
+    "dataLocal": "14/01/2026, 11:14:19",
+    "dataRegistro": "2026-01-14T14:14:19.215Z"
+  },
+  {
+    "id": "1768400059398",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:14:19.384Z",
+    "dataLocal": "14/01/2026, 11:14:19",
+    "dataRegistro": "2026-01-14T14:14:19.398Z"
+  },
+  {
+    "id": "1768400663189",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:24:23.103Z",
+    "dataLocal": "14/01/2026, 11:24:23",
+    "dataRegistro": "2026-01-14T14:24:23.189Z"
+  },
+  {
+    "id": "1768400664360",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:24:24.341Z",
+    "dataLocal": "14/01/2026, 11:24:24",
+    "dataRegistro": "2026-01-14T14:24:24.360Z"
+  },
+  {
+    "id": "1768401673480",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:41:13.368Z",
+    "dataLocal": "14/01/2026, 11:41:13",
+    "dataRegistro": "2026-01-14T14:41:13.480Z"
+  },
+  {
+    "id": "1768401674666",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:41:14.645Z",
+    "dataLocal": "14/01/2026, 11:41:14",
+    "dataRegistro": "2026-01-14T14:41:14.666Z"
+  },
+  {
+    "id": "1768401852014",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:44:11.065Z",
+    "dataLocal": "14/01/2026, 11:44:11",
+    "dataRegistro": "2026-01-14T14:44:12.014Z"
+  },
+  {
+    "id": "1768401858404",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:44:18.390Z",
+    "dataLocal": "14/01/2026, 11:44:18",
+    "dataRegistro": "2026-01-14T14:44:18.404Z"
+  },
+  {
+    "id": "1768401858468",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:44:18.458Z",
+    "dataLocal": "14/01/2026, 11:44:18",
+    "dataRegistro": "2026-01-14T14:44:18.468Z"
+  },
+  {
+    "id": "1768402375113",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T14:52:55.014Z",
+    "dataLocal": "14/01/2026, 11:52:55",
+    "dataRegistro": "2026-01-14T14:52:55.113Z"
+  },
+  {
+    "id": "1768402375966",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T14:52:55.931Z",
+    "dataLocal": "14/01/2026, 11:52:55",
+    "dataRegistro": "2026-01-14T14:52:55.966Z"
+  },
+  {
+    "id": "1768405952795",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T15:52:32.493Z",
+    "dataLocal": "14/01/2026, 12:52:32",
+    "dataRegistro": "2026-01-14T15:52:32.795Z"
+  },
+  {
+    "id": "1768405953454",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T15:52:33.431Z",
+    "dataLocal": "14/01/2026, 12:52:33",
+    "dataRegistro": "2026-01-14T15:52:33.454Z"
+  },
+  {
+    "id": "1768406121872",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T15:55:21.760Z",
+    "dataLocal": "14/01/2026, 12:55:21",
+    "dataRegistro": "2026-01-14T15:55:21.872Z"
+  },
+  {
+    "id": "1768406122733",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T15:55:22.710Z",
+    "dataLocal": "14/01/2026, 12:55:22",
+    "dataRegistro": "2026-01-14T15:55:22.733Z"
+  },
+  {
+    "id": "1768406648522",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T16:04:08.289Z",
+    "dataLocal": "14/01/2026, 13:04:08",
+    "dataRegistro": "2026-01-14T16:04:08.522Z"
+  },
+  {
+    "id": "1768406649306",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T16:04:09.275Z",
+    "dataLocal": "14/01/2026, 13:04:09",
+    "dataRegistro": "2026-01-14T16:04:09.306Z"
+  },
+  {
+    "id": "1768406675943",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T16:04:35.904Z",
+    "dataLocal": "14/01/2026, 13:04:35",
+    "dataRegistro": "2026-01-14T16:04:35.943Z"
+  },
+  {
+    "id": "1768406699153",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T16:04:59.139Z",
+    "dataLocal": "14/01/2026, 13:04:59",
+    "dataRegistro": "2026-01-14T16:04:59.153Z"
+  },
+  {
+    "id": "1768406699515",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T16:04:59.502Z",
+    "dataLocal": "14/01/2026, 13:04:59",
+    "dataRegistro": "2026-01-14T16:04:59.515Z"
+  },
+  {
+    "id": "1768406718887",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T16:05:18.877Z",
+    "dataLocal": "14/01/2026, 13:05:18",
+    "dataRegistro": "2026-01-14T16:05:18.887Z"
+  },
+  {
+    "id": "1768406719208",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T16:05:19.196Z",
+    "dataLocal": "14/01/2026, 13:05:19",
+    "dataRegistro": "2026-01-14T16:05:19.208Z"
+  },
+  {
+    "id": "1768415058612",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T18:24:17.979Z",
+    "dataLocal": "14/01/2026, 15:24:17",
+    "dataRegistro": "2026-01-14T18:24:18.612Z"
+  },
+  {
+    "id": "1768415059532",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T18:24:19.519Z",
+    "dataLocal": "14/01/2026, 15:24:19",
+    "dataRegistro": "2026-01-14T18:24:19.532Z"
+  },
+  {
+    "id": "1768415104684",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T18:25:04.638Z",
+    "dataLocal": "14/01/2026, 15:25:04",
+    "dataRegistro": "2026-01-14T18:25:04.684Z"
+  },
+  {
+    "id": "1768416496968",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T18:48:16.838Z",
+    "dataLocal": "14/01/2026, 15:48:16",
+    "dataRegistro": "2026-01-14T18:48:16.968Z"
+  },
+  {
+    "id": "1768416497856",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T18:48:17.832Z",
+    "dataLocal": "14/01/2026, 15:48:17",
+    "dataRegistro": "2026-01-14T18:48:17.856Z"
+  },
+  {
+    "id": "1768417227919",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:00:27.821Z",
+    "dataLocal": "14/01/2026, 16:00:27",
+    "dataRegistro": "2026-01-14T19:00:27.919Z"
+  },
+  {
+    "id": "1768417348073",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:02:27.698Z",
+    "dataLocal": "14/01/2026, 16:02:27",
+    "dataRegistro": "2026-01-14T19:02:28.073Z"
+  },
+  {
+    "id": "1768417349705",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:02:29.696Z",
+    "dataLocal": "14/01/2026, 16:02:29",
+    "dataRegistro": "2026-01-14T19:02:29.705Z"
+  },
+  {
+    "id": "1768417381214",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:03:01.202Z",
+    "dataLocal": "14/01/2026, 16:03:01",
+    "dataRegistro": "2026-01-14T19:03:01.214Z"
+  },
+  {
+    "id": "1768417381395",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:03:01.385Z",
+    "dataLocal": "14/01/2026, 16:03:01",
+    "dataRegistro": "2026-01-14T19:03:01.395Z"
+  },
+  {
+    "id": "1768417423327",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:03:43.318Z",
+    "dataLocal": "14/01/2026, 16:03:43",
+    "dataRegistro": "2026-01-14T19:03:43.327Z"
+  },
+  {
+    "id": "1768417423614",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:03:43.600Z",
+    "dataLocal": "14/01/2026, 16:03:43",
+    "dataRegistro": "2026-01-14T19:03:43.614Z"
+  },
+  {
+    "id": "1768417437768",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:03:57.757Z",
+    "dataLocal": "14/01/2026, 16:03:57",
+    "dataRegistro": "2026-01-14T19:03:57.768Z"
+  },
+  {
+    "id": "1768417641478",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:07:21.280Z",
+    "dataLocal": "14/01/2026, 16:07:21",
+    "dataRegistro": "2026-01-14T19:07:21.479Z"
+  },
+  {
+    "id": "1768417642202",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:07:22.168Z",
+    "dataLocal": "14/01/2026, 16:07:22",
+    "dataRegistro": "2026-01-14T19:07:22.202Z"
+  },
+  {
+    "id": "1768417964641",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:12:44.025Z",
+    "dataLocal": "14/01/2026, 16:12:44",
+    "dataRegistro": "2026-01-14T19:12:44.641Z"
+  },
+  {
+    "id": "1768417965596",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:12:45.585Z",
+    "dataLocal": "14/01/2026, 16:12:45",
+    "dataRegistro": "2026-01-14T19:12:45.596Z"
+  },
+  {
+    "id": "1768417984607",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:13:04.594Z",
+    "dataLocal": "14/01/2026, 16:13:04",
+    "dataRegistro": "2026-01-14T19:13:04.607Z"
+  },
+  {
+    "id": "1768417984891",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:13:04.876Z",
+    "dataLocal": "14/01/2026, 16:13:04",
+    "dataRegistro": "2026-01-14T19:13:04.891Z"
+  },
+  {
+    "id": "1768417991082",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:13:11.072Z",
+    "dataLocal": "14/01/2026, 16:13:11",
+    "dataRegistro": "2026-01-14T19:13:11.082Z"
+  },
+  {
+    "id": "1768418005752",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:13:25.740Z",
+    "dataLocal": "14/01/2026, 16:13:25",
+    "dataRegistro": "2026-01-14T19:13:25.752Z"
+  },
+  {
+    "id": "1768418296844",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:18:16.355Z",
+    "dataLocal": "14/01/2026, 16:18:16",
+    "dataRegistro": "2026-01-14T19:18:16.844Z"
+  },
+  {
+    "id": "1768418297114",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:18:17.101Z",
+    "dataLocal": "14/01/2026, 16:18:17",
+    "dataRegistro": "2026-01-14T19:18:17.114Z"
+  },
+  {
+    "id": "1768418413111",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:20:13.002Z",
+    "dataLocal": "14/01/2026, 16:20:13",
+    "dataRegistro": "2026-01-14T19:20:13.111Z"
+  },
+  {
+    "id": "1768418413527",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:20:13.498Z",
+    "dataLocal": "14/01/2026, 16:20:13",
+    "dataRegistro": "2026-01-14T19:20:13.527Z"
+  },
+  {
+    "id": "1768418419823",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:20:19.809Z",
+    "dataLocal": "14/01/2026, 16:20:19",
+    "dataRegistro": "2026-01-14T19:20:19.824Z"
+  },
+  {
+    "id": "1768418433194",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:20:33.179Z",
+    "dataLocal": "14/01/2026, 16:20:33",
+    "dataRegistro": "2026-01-14T19:20:33.194Z"
+  },
+  {
+    "id": "1768418433474",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:20:33.465Z",
+    "dataLocal": "14/01/2026, 16:20:33",
+    "dataRegistro": "2026-01-14T19:20:33.474Z"
+  },
+  {
+    "id": "1768418652507",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:24:10.918Z",
+    "dataLocal": "14/01/2026, 16:24:10",
+    "dataRegistro": "2026-01-14T19:24:12.507Z"
+  },
+  {
+    "id": "1768418652902",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:24:12.878Z",
+    "dataLocal": "14/01/2026, 16:24:12",
+    "dataRegistro": "2026-01-14T19:24:12.902Z"
+  },
+  {
+    "id": "1768418666960",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:24:26.950Z",
+    "dataLocal": "14/01/2026, 16:24:26",
+    "dataRegistro": "2026-01-14T19:24:26.960Z"
+  },
+  {
+    "id": "1768418668351",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:24:27.720Z",
+    "dataLocal": "14/01/2026, 16:24:27",
+    "dataRegistro": "2026-01-14T19:24:28.351Z"
+  },
+  {
+    "id": "1768418823105",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:27:02.911Z",
+    "dataLocal": "14/01/2026, 16:27:02",
+    "dataRegistro": "2026-01-14T19:27:03.105Z"
+  },
+  {
+    "id": "1768418824162",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:27:04.137Z",
+    "dataLocal": "14/01/2026, 16:27:04",
+    "dataRegistro": "2026-01-14T19:27:04.162Z"
+  },
+  {
+    "id": "1768418961456",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:29:21.383Z",
+    "dataLocal": "14/01/2026, 16:29:21",
+    "dataRegistro": "2026-01-14T19:29:21.456Z"
+  },
+  {
+    "id": "1768418963123",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:29:23.102Z",
+    "dataLocal": "14/01/2026, 16:29:23",
+    "dataRegistro": "2026-01-14T19:29:23.123Z"
+  },
+  {
+    "id": "1768419094208",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:31:34.046Z",
+    "dataLocal": "14/01/2026, 16:31:34",
+    "dataRegistro": "2026-01-14T19:31:34.208Z"
+  },
+  {
+    "id": "1768419094590",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:31:34.572Z",
+    "dataLocal": "14/01/2026, 16:31:34",
+    "dataRegistro": "2026-01-14T19:31:34.590Z"
+  },
+  {
+    "id": "1768420099702",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:48:19.510Z",
+    "dataLocal": "14/01/2026, 16:48:19",
+    "dataRegistro": "2026-01-14T19:48:19.703Z"
+  },
+  {
+    "id": "1768420102570",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:48:22.528Z",
+    "dataLocal": "14/01/2026, 16:48:22",
+    "dataRegistro": "2026-01-14T19:48:22.570Z"
+  },
+  {
+    "id": "1768420474760",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:54:34.577Z",
+    "dataLocal": "14/01/2026, 16:54:34",
+    "dataRegistro": "2026-01-14T19:54:34.760Z"
+  },
+  {
+    "id": "1768420475816",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:54:35.788Z",
+    "dataLocal": "14/01/2026, 16:54:35",
+    "dataRegistro": "2026-01-14T19:54:35.816Z"
+  },
+  {
+    "id": "1768420644940",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:57:24.373Z",
+    "dataLocal": "14/01/2026, 16:57:24",
+    "dataRegistro": "2026-01-14T19:57:24.940Z"
+  },
+  {
+    "id": "1768420645788",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:57:25.764Z",
+    "dataLocal": "14/01/2026, 16:57:25",
+    "dataRegistro": "2026-01-14T19:57:25.788Z"
+  },
+  {
+    "id": "1768420742364",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T19:59:02.250Z",
+    "dataLocal": "14/01/2026, 16:59:02",
+    "dataRegistro": "2026-01-14T19:59:02.364Z"
+  },
+  {
+    "id": "1768420743062",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T19:59:02.838Z",
+    "dataLocal": "14/01/2026, 16:59:02",
+    "dataRegistro": "2026-01-14T19:59:03.062Z"
+  },
+  {
+    "id": "1768420868154",
+    "tipoEvento": "LOGIN",
+    "modulo": "AUTENTICACAO",
+    "descricao": "Login realizado por Admin Sistema",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/login",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "email": "admin@mandatopro.com"
+    },
+    "timestamp": "2026-01-14T20:01:08.022Z",
+    "dataLocal": "14/01/2026, 17:01:08",
+    "dataRegistro": "2026-01-14T20:01:08.154Z"
+  },
+  {
+    "id": "1768420868768",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "usuarioId": 1,
+    "usuarioNome": "Admin Sistema",
+    "usuarioEmail": "admin@mandatopro.com",
+    "usuarioNivel": "ADMINISTRADOR",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "enderecoIP": "::1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-01-14T20:01:08.746Z",
+    "dataLocal": "14/01/2026, 17:01:08",
+    "dataRegistro": "2026-01-14T20:01:08.768Z"
   }
 ]

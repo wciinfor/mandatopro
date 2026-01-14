@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -7,14 +7,11 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { useRegistrarAcesso } from '@/hooks/useRegistrarAcesso';
-import { registrarCadastro, registrarErro } from '@/services/logService';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function NovoEleitor() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
-  const [usuario, setUsuario] = useState(null);
   const [formData, setFormData] = useState({
     // Dados Pessoais
     cpf: '',
@@ -62,18 +59,6 @@ export default function NovoEleitor() {
     // Status do cadastro
     statusCadastro: 'ATIVO'
   });
-
-  useEffect(() => {
-    const usuarioStr = localStorage.getItem('usuario');
-    if (!usuarioStr) {
-      router.push('/login');
-      return;
-    }
-    setUsuario(JSON.parse(usuarioStr));
-  }, [router]);
-
-  // Registra acesso à página
-  useRegistrarAcesso(usuario, 'ELEITORES', 'Cadastro de Novo Eleitor');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -180,8 +165,6 @@ export default function NovoEleitor() {
       showError('Erro ao conectar com o servidor.');
     }
   };
-
-  if (!usuario) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
 
   return (
     <Layout titulo="Cadastro de Novo Eleitor">
@@ -745,7 +728,7 @@ export default function NovoEleitor() {
                 className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2"
               >
                 <FontAwesomeIcon icon={faArrowLeft} />
-                Voltar para Listagem
+                Voltar para Lista
               </button>
               <button
                 type="submit"
