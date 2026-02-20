@@ -26,7 +26,7 @@
 ### PASSO 1: Criar Tabelas no Banco (5 minutos)
 - [ ] **IMPORTANTE**: Abra Supabase Dashboard
   - URL: https://supabase.com/dashboard
-  - Projeto: fhilsuwlllrnfpebtjvx
+  - Projeto: <SUPABASE_PROJECT_REF>
 - [ ] Vá para **"SQL Editor"** → **"New Query"**
 - [ ] Abra arquivo: `supabase/migrations/001_create_initial_schema.sql`
 - [ ] Copie **TODO** o conteúdo SQL
@@ -204,3 +204,4 @@ Quando tudo estiver funcionando:
 **Último Checklist Atualizado**: 11 de janeiro de 2026  
 **Responsável**: GitHub Copilot  
 **Status Geral**: 🟡 Aguardando execução das etapas 2 e 3
+

@@ -248,3 +248,4 @@ Desenvolvido com ❤️ para melhorar a gestão política no Brasil.
 **Versão**: 1.0.0  
 **Data de Atualização**: 11 de janeiro de 2026  
 **Status**: Em desenvolvimento ativo
+

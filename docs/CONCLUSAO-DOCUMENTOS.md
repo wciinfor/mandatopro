@@ -282,3 +282,4 @@ O código segue as mesmas convenções do projeto, utiliza os mesmos componentes
 **Desenvolvido com ❤️ para MandatoPro**  
 **Versão**: 1.0  
 **Última Atualização**: Novembro 2024
+

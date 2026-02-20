@@ -21,7 +21,7 @@ Há um atraso de cache no Supabase. Você tem 2 opções:
 ### OPÇÃO 1: Dashboard Supabase (5 minutos)
 
 1. Abra: https://supabase.com/dashboard
-2. Projeto: `fhilsuwlllrnfpebtjvx`
+2. Projeto: `<SUPABASE_PROJECT_REF>`
 3. Clique em **"SQL Editor"**
 4. Clique em **"New Query"**
 5. Cole isto:
@@ -140,3 +140,4 @@ await criarUsuario({
 Escolha a opção mais fácil para inserir o usuário (dashboard é mais rápido) e pronto! 🚀
 
 Data: 11 de janeiro de 2026
+

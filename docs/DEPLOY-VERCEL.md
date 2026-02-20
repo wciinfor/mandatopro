@@ -70,10 +70,10 @@ vercel
 4. Adicione as seguintes variáveis:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://fhilsuwlllrnfpebtjvx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_jpj_delZJJTcdIKJ8ZDHSQ_JIZ51bMi
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_iUm54fhzl87WIdbUHYlKXw_wQODZDV3
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyBc30k7GJW3UvC2RGKx4RY8XyxJDJStcWg
+NEXT_PUBLIC_SUPABASE_URL=https://<SUPABASE_PROJECT>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<SUPABASE_ANON_KEY>
+SUPABASE_SERVICE_ROLE_KEY=<SUPABASE_SERVICE_ROLE_KEY>
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<GOOGLE_MAPS_API_KEY>
 WHATSAPP_BUSINESS_PHONE_ID=seu_phone_id_aqui
 WHATSAPP_BUSINESS_ACCESS_TOKEN=seu_access_token_aqui
 WHATSAPP_WEBHOOK_TOKEN=seu_webhook_token_aqui
@@ -129,7 +129,7 @@ vercel env add NEXT_PUBLIC_SUPABASE_URL preview
 ### Via Supabase Dashboard:
 
 1. Acesse: https://supabase.com/dashboard
-2. Projeto: fhilsuwlllrnfpebtjvx
+2. Projeto: <SUPABASE_PROJECT_REF>
 3. Settings → API
 4. **Enable replication** (opcional, para melhor performance)
 5. Verifique RLS policies se necessário
@@ -232,3 +232,4 @@ Deploy em produção
 **Pronto para produção! 🚀**
 
 Data: 11 de janeiro de 2026
+

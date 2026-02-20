@@ -291,3 +291,4 @@ Substituir `alert()` e `confirm()` nos seguintes arquivos:
 - [ ] `/src/pages/cadastros/atendimentos/index.js`
 - [ ] `/src/pages/login.js`
 - [ ] `/src/pages/dashboard.js`
+

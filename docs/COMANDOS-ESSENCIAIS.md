@@ -349,3 +349,4 @@ npm install              # Reinstalar deps (EMERGÊNCIA)
 ---
 
 **Data**: 11 de janeiro de 2026
+

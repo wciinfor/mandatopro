@@ -165,3 +165,4 @@ const carregarLogs = async (filtrosAtualizados = null) => {
 **Data de Correção:** 25 de Novembro 2025  
 **Status:** ✅ RESOLVIDO  
 **Teste:** Server rodando normalmente
+

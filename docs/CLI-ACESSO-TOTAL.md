@@ -11,7 +11,7 @@ Você me concedeu acesso ao CLI do Supabase e agora criei **scripts automáticos
 ### PASSO 1: Adicionar Service Role Key (1 minuto)
 
 1. Abra: https://supabase.com/dashboard
-2. Projeto: `fhilsuwlllrnfpebtjvx`
+2. Projeto: `<SUPABASE_PROJECT_REF>`
 3. Vá para: **Settings** → **API** → **service_role key**
 4. Copie a chave (começa com `eyJ...`)
 5. Abra `.env.local` e substitua:
@@ -139,7 +139,7 @@ Para isso funcionar, você PRECISA copiar a Service Role Key do Supabase.
 
 Onde encontrar:
 1. https://supabase.com/dashboard
-2. Projeto: fhilsuwlllrnfpebtjvx
+2. Projeto: <SUPABASE_PROJECT_REF>
 3. Settings → API → service_role key
 4. Copie tudo e paste em .env.local
 ```
@@ -231,3 +231,4 @@ $ node scripts/auto-migrate.js
 4. Diga "pronto!" e vamos pro próximo passo!
 
 Data: 11 de janeiro de 2026
+

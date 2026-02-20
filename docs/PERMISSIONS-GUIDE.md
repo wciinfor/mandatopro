@@ -338,3 +338,4 @@ Para testar o sistema:
 **Atendimentos:**
 - Status, Prioridade acesso
 5. Use `filterRecordsByRole()` ao buscar dados do banco
+

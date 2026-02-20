@@ -132,3 +132,4 @@ Consulte:
 3. **Painel do Meta** - Analytics e logs
 
 **Boa sorte! 🚀**
+

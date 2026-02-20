@@ -203,3 +203,4 @@ Salva configurações
 - Verifique se há espaço em disco
 - Valide permissões da pasta `public/`
 - Consulte logs do servidor
+

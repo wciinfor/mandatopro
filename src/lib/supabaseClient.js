@@ -26,4 +26,25 @@ export function createClient() {
   return supabase;
 }
 
-export default createClient;
+function getClientOrThrow() {
+  const client = createClient();
+
+  if (!client) {
+    throw new Error('Supabase nao esta configurado. Verifique as variaveis de ambiente.');
+  }
+
+  return client;
+}
+
+const supabaseProxy = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const client = getClientOrThrow();
+      const value = client[prop];
+      return typeof value === 'function' ? value.bind(client) : value;
+    }
+  }
+);
+
+export default supabaseProxy;

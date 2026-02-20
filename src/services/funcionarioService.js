@@ -1,4 +1,4 @@
-import { supabase } from '@/config/supabaseClient';
+import supabase from '@/lib/supabaseClient';
 
 /**
  * Cria um novo funcionário no banco de dados

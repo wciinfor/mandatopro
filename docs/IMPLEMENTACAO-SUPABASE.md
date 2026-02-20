@@ -51,7 +51,7 @@
 
 #### Opção A: Dashboard Supabase (Recomendado)
 1. Abra: https://supabase.com/dashboard
-2. Selecione projeto: `fhilsuwlllrnfpebtjvx`
+2. Selecione projeto: `<SUPABASE_PROJECT_REF>`
 3. Clique em **"SQL Editor"** → **"New Query"**
 4. Copie TODO o conteúdo de: `supabase/migrations/001_create_initial_schema.sql`
 5. Cole no editor
@@ -181,8 +181,8 @@ export default function Dashboard() {
 ## 🔐 Credenciais do Projeto
 
 ```
-URL: https://fhilsuwlllrnfpebtjvx.supabase.co
-Publishable Key: sb_publishable_jpj_delZJJTcdIKJ8ZDHSQ_JIZ51bMi
+URL: https://<SUPABASE_PROJECT>.supabase.co
+Publishable Key: <SUPABASE_ANON_KEY>
 ```
 
 **⚠️ IMPORTANTE**: 
@@ -273,3 +273,4 @@ Você agora tem:
 **Data de Criação**: 11 de janeiro de 2026  
 **Versão**: 1.0  
 **Status**: ✅ PRONTO PARA PRODUÇÃO
+

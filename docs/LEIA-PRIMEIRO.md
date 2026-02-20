@@ -69,10 +69,10 @@ git push -u origin main
 Na tela que aparecer, adicione:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL = https://fhilsuwlllrnfpebtjvx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY = sb_publishable_jpj_delZJJTcdIKJ8ZDHSQ_JIZ51bMi
-SUPABASE_SERVICE_ROLE_KEY = sb_secret_iUm54fhzl87WIdbUHYlKXw_wQODZDV3
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = AIzaSyBc30k7GJW3UvC2RGKx4RY8XyxJDJStcWg
+NEXT_PUBLIC_SUPABASE_URL = https://<SUPABASE_PROJECT>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY = <SUPABASE_ANON_KEY>
+SUPABASE_SERVICE_ROLE_KEY = <SUPABASE_SERVICE_ROLE_KEY>
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = <GOOGLE_MAPS_API_KEY>
 ```
 
 Clique: **"Deploy"**
@@ -106,3 +106,4 @@ Para instruções detalhadas:
 Seu sistema está em produção! 🚀
 
 **URL**: `seu-projeto.vercel.app`
+

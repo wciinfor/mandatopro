@@ -2282,5 +2282,21 @@
     "timestamp": "2026-01-14T20:01:08.746Z",
     "dataLocal": "14/01/2026, 17:01:08",
     "dataRegistro": "2026-01-14T20:01:08.768Z"
+  },
+  {
+    "id": "1771587424667",
+    "tipoEvento": "ACESSO",
+    "modulo": "DASHBOARD",
+    "descricao": "Acesso a Dashboard",
+    "status": "SUCESSO",
+    "enderecoBrowser": "http://localhost:3000/dashboard",
+    "agenteBrowser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
+    "enderecoIP": "::ffff:127.0.0.1",
+    "dados": {
+      "pagina": "Dashboard"
+    },
+    "timestamp": "2026-02-20T11:37:04.173Z",
+    "dataLocal": "20/02/2026, 08:37:04",
+    "dataRegistro": "2026-02-20T11:37:04.667Z"
   }
 ]

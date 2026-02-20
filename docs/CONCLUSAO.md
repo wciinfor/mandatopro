@@ -355,3 +355,4 @@ O MandatoPro agora possui uma área profissional e completa para configurações
 ---
 
 Próximo passo: **Clique em "Configurações" no menu e comece a usar!** 🚀
+

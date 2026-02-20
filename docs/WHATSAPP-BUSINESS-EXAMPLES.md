@@ -443,3 +443,4 @@ export default async function handler(req, res) {
 ## 🚀 **Pronto para usar!**
 
 Escolha o exemplo que se adequa ao seu caso e adapte conforme necessário!
+

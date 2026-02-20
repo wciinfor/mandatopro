@@ -3,8 +3,8 @@
 ## ✅ Status: Configuração Preparada
 
 ### Credenciais Configuradas
-- **Project URL**: `https://fhilsuwlllrnfpebtjvx.supabase.co`
-- **Publishable API Key**: `sb_publishable_jpj_delZJJTcdIKJ8ZDHSQ_JIZ51bMi`
+- **Project URL**: `https://<SUPABASE_PROJECT>.supabase.co`
+- **Publishable API Key**: `<SUPABASE_ANON_KEY>`
 - **Arquivo `.env.local`**: ✅ Criado
 
 ---
@@ -47,7 +47,7 @@ Tabelas criadas:
 
 1. **Acesse o Supabase**
    - URL: https://supabase.com/dashboard
-   - Selecione o projeto: `fhilsuwlllrnfpebtjvx`
+   - Selecione o projeto: `<SUPABASE_PROJECT_REF>`
 
 2. **Abra o SQL Editor**
    - Clique em "SQL Editor" no menu lateral
@@ -77,7 +77,7 @@ npm install -g supabase
 supabase login
 
 # 3. Link com seu projeto
-supabase link --project-ref fhilsuwlllrnfpebtjvx
+supabase link --project-ref <SUPABASE_PROJECT_REF>
 
 # 4. Push das migrações
 supabase db push
@@ -130,7 +130,7 @@ npm install
 No Supabase Dashboard:
 - Authentication → Users → Add User
 - Email: `admin@mandatopro.com`
-- Password: `Mandatopro035862m5`
+- Password: `<ADMIN_PASSWORD>`
 
 Depois criar no banco de dados:
 ```sql
@@ -251,3 +251,4 @@ Se encontrar erros ao aplicar as migrações:
 **Data**: 11 de janeiro de 2026  
 **Status**: 🟢 Pronto para aplicar migrações  
 **Próxima Ação**: Executar SQL no Supabase Dashboard
+

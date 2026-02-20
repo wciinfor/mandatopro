@@ -318,3 +318,4 @@ Dashboard
 2. Usar logo em emails e PDFs
 3. Implementar webhooks do WhatsApp
 4. Criar dashboard com uso de cores personalizadas
+

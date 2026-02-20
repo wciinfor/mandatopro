@@ -313,3 +313,4 @@ Seu sistema **MandatoPro** está completamente configurado, testado e pronto par
 
 Versão: 1.0.0  
 Data: 11 de janeiro de 2026
+

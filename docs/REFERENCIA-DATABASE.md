@@ -418,3 +418,4 @@ export default function ListaEleitores() {
 **Última Atualização**: 11 de janeiro de 2026  
 **Versão**: 1.0  
 **Status**: ✅ Completo e testado
+

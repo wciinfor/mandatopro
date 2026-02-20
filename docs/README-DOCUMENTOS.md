@@ -497,3 +497,4 @@ O sistema está pronto para:
 
 *Desenvolvido com ❤️ para MandatoPro*  
 *Versão: 1.0 | Novembro 2024*
+
