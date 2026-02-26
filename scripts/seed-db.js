@@ -21,12 +21,43 @@ async function seedData() {
   try {
     console.log('🌱 Inserindo dados iniciais...\n');
 
-    // Inserir usuário admin
-    console.log('📝 Criando usuário admin...');
+    // Criar usuário no Supabase Auth
+    console.log('📝 Criando usuário admin no Auth...');
+    const adminEmail = 'admin@mandatopro.com';
+    const adminPassword = 'Teste123!';
+    
+    let userId = null;
+    
+    // Verificar se usuário já existe
+    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const existingAdmin = existingUsers?.users?.find(u => u.email === adminEmail);
+    
+    if (existingAdmin) {
+      userId = existingAdmin.id;
+      console.log('✅ Usuário admin já existe no Auth');
+    } else {
+      // Criar novo usuário no Auth
+      const { data: authUser, error: erroAuth } = await supabase.auth.admin.createUser({
+        email: adminEmail,
+        password: adminPassword,
+        email_confirm: true
+      });
+      
+      if (erroAuth) {
+        console.log(`⚠️  Erro ao criar no Auth: ${erroAuth.message}`);
+      } else {
+        userId = authUser?.user?.id;
+        console.log('✅ Usuário criado no Supabase Auth');
+      }
+    }
+
+    // Inserir/atualizar usuário no banco
+    console.log('📝 Criando usuário no banco de dados...');
     const { data: usuario, error: erroUsuario } = await supabase
       .from('usuarios')
       .upsert({
-        email: 'admin@mandatopro.com',
+        id: userId ? parseInt(userId.substring(0, 19)) : undefined,
+        email: adminEmail,
         nome: 'Admin Sistema',
         nivel: 'ADMINISTRADOR',
         status: 'ATIVO',
@@ -37,7 +68,7 @@ async function seedData() {
     if (erroUsuario) {
       console.log(`⚠️  ${erroUsuario.message}`);
     } else {
-      console.log('✅ Usuário admin criado com sucesso');
+      console.log('✅ Usuário admin criado com sucesso no banco');
     }
 
     // Inserir lideranças de exemplo

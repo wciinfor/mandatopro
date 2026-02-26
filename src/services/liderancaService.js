@@ -14,19 +14,19 @@ export async function criarLideranca(dados) {
         cpf: dados.cpf,
         email: dados.email,
         telefone: dados.telefone,
-        endereco: dados.logradouro,
-        numero: dados.numero,
-        bairro: dados.bairro,
-        cidade: dados.cidade,
-        estado: dados.uf,
-        cep: dados.cep,
+        foto: dados.foto || null,
+        rg: dados.rg || null,
+        dataNascimento: dados.dataNascimento || null,
+        sexo: dados.sexo || null,
+        nomePai: dados.nomePai || null,
+        nomeMae: dados.nomeMae || null,
+        naturalidade: dados.naturalidade || null,
+        estadoCivil: dados.estadoCivil || null,
+        profissao: dados.profissao || null,
         influencia: dados.influencia,
-        area_atuacao: dados.areaAtuacao,
-        status: dados.status,
-        latitude: parseFloat(dados.latitude),
-        longitude: parseFloat(dados.longitude),
-        observacoes: dados.observacoes,
-        data_cadastro: new Date().toISOString()
+        areaAtuacao: dados.areaAtuacao || null,
+        observacoes: dados.observacoes || null,
+        status: dados.status
       }])
       .select();
 
@@ -50,34 +50,12 @@ export async function criarLideranca(dados) {
  */
 export async function criarGeolocalizacaoLideranca(dados, liderancaId) {
   try {
-    const { data, error } = await supabase
-      .from('geolocalizacao')
-      .insert([{
-        tipo: 'LIDERANCA',
-        nome: dados.nome,
-        descricao: `Liderança - ${dados.areaAtuacao}`,
-        cidade: dados.cidade,
-        bairro: dados.bairro,
-        endereco: `${dados.logradouro}, ${dados.numero} - ${dados.bairro}`,
-        latitude: parseFloat(dados.latitude),
-        longitude: parseFloat(dados.longitude),
-        icon_color: '#14b8a6', // Cor teal para lideranças
-        icon_type: 'LIDERANCA',
-        lideranca_id: liderancaId,
-        status: dados.status,
-        data_criacao: new Date().toISOString(),
-        nivel_influencia: dados.influencia
-      }])
-      .select();
-
-    if (error) {
-      console.error('Erro ao criar geolocalização:', error);
-      throw new Error(`Erro ao criar geolocalização: ${error.message}`);
-    }
-
-    return data[0];
+    // Nota: Geolocalização é criada a partir dos dados do eleitor
+    // Se necessário, pode ser implementado em futuro
+    console.log('Geolocalização será registrada em futuro (para liderança ID:', liderancaId, ')');
+    return { success: true, message: 'Geolocalização preparada para futuro registro' };
   } catch (error) {
-    console.error('Erro ao criar geolocalização:', error);
+    console.error('Erro ao preparar geolocalização:', error);
     throw error;
   }
 }
@@ -117,9 +95,6 @@ export async function obterLiderancas(filtros = {}) {
 
     if (filtros.status) {
       query = query.eq('status', filtros.status);
-    }
-    if (filtros.cidade) {
-      query = query.eq('cidade', filtros.cidade);
     }
     if (filtros.busca) {
       query = query.ilike('nome', `%${filtros.busca}%`);
@@ -175,18 +150,19 @@ export async function atualizarLideranca(id, dados) {
       cpf: dados.cpf,
       email: dados.email,
       telefone: dados.telefone,
-      endereco: dados.logradouro,
-      numero: dados.numero,
-      bairro: dados.bairro,
-      cidade: dados.cidade,
-      estado: dados.uf,
-      cep: dados.cep,
+      foto: dados.foto || null,
+      rg: dados.rg || null,
+      dataNascimento: dados.dataNascimento || null,
+      sexo: dados.sexo || null,
+      nomePai: dados.nomePai || null,
+      nomeMae: dados.nomeMae || null,
+      naturalidade: dados.naturalidade || null,
+      estadoCivil: dados.estadoCivil || null,
+      profissao: dados.profissao || null,
       influencia: dados.influencia,
-      area_atuacao: dados.areaAtuacao,
+      areaAtuacao: dados.areaAtuacao || null,
+      observacoes: dados.observacoes || null,
       status: dados.status,
-      latitude: parseFloat(dados.latitude),
-      longitude: parseFloat(dados.longitude),
-      observacoes: dados.observacoes,
       updated_at: new Date().toISOString()
     };
 

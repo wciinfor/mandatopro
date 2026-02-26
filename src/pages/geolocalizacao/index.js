@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
+import { useJsApiLoader, GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faMapMarkedAlt, faFilter, faPrint, faUsers, faMapMarkerAlt, faSearch, faPhone, faEnvelope
@@ -7,6 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
 
 const containerStyle = {
   width: '100%',
@@ -29,7 +30,16 @@ const MAP_OPTIONS = {
 const libraries = ['places'];
 
 export default function Geolocalizacao() {
-  const { modalState, closeModal, showSuccess } = useModal();
+  const { modalState, closeModal, showSuccess, showError } = useModal();
+  
+  // Carregar Google Maps API
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: 'AIzaSyBc30k7GJW3UvC2RGKx4RY8XyxJDJStcWg',
+    libraries: libraries,
+    language: 'pt-BR',
+    region: 'BR'
+  });
   
   const [filtroLideranca, setFiltroLideranca] = useState('');
   const [filtroCidade, setFiltroCidade] = useState('');
@@ -38,48 +48,96 @@ export default function Geolocalizacao() {
   const [tipoMarcador, setTipoMarcador] = useState('TODOS');
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [map, setMap] = useState(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [autoCarregamento, setAutoCarregamento] = useState(true); // Auto-carregamento ativado
+  const [ultimaSincronizacao, setUltimaSincronizacao] = useState(null);
 
-  // Verificar se o Google Maps está carregado
-  useEffect(() => {
-    const checkGoogleMaps = () => {
-      if (window.google && window.google.maps) {
-        setIsLoaded(true);
-      } else {
-        setTimeout(checkGoogleMaps, 100);
+  // Marcadores carregados do Supabase
+  const [marcadores, setMarcadores] = useState([]);
+
+  const carregarMarcadores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('geolocalizacao')
+        .select('id, tipo, nome, descricao, cidade, bairro, endereco, latitude, longitude, status, nivel_influencia, eleitor_id, lideranca_id, eleitores(telefone,celular,whatsapp,email), liderancas(telefone,email,influencia)')
+        .order('id', { ascending: false });
+
+      if (error) {
+        throw error;
       }
-    };
-    checkGoogleMaps();
+
+      const normalizados = (data || []).map(item => {
+        const telefoneEleitor = item.eleitores?.celular || item.eleitores?.telefone || item.eleitores?.whatsapp || null;
+        const telefoneLideranca = item.liderancas?.telefone || null;
+
+        return {
+          id: item.id,
+          tipo: item.tipo,
+          nome: item.nome,
+          cidade: item.cidade,
+          bairro: item.bairro,
+          endereco: item.endereco,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          status: item.status || 'ATIVO',
+          telefone: telefoneEleitor || telefoneLideranca,
+          influencia: item.liderancas?.influencia || item.nivel_influencia || null,
+        };
+      });
+
+      setMarcadores(normalizados);
+    } catch (err) {
+      console.error('Erro ao carregar marcadores:', err);
+      showError('Erro ao carregar marcadores do mapa.');
+    }
+  };
+
+  useEffect(() => {
+    carregarMarcadores();
   }, []);
 
-  // Dados mock de eleitores e lideranças com localização
-  const [marcadores, setMarcadores] = useState([
-    {
-      id: 1,
-      tipo: 'ELEITOR',
-      nome: 'João Silva Santos',
-      cidade: 'Ananindeua',
-      bairro: 'Centro',
-      endereco: 'Rua das Flores, 123',
-      latitude: -1.365396,
-      longitude: -48.372093,
-      status: 'ATIVO',
-      telefone: '(91) 99999-8888'
-    },
-    {
-      id: 2,
-      tipo: 'LIDERANCA',
-      nome: 'Maria Costa Oliveira',
-      cidade: 'Belém',
-      bairro: 'Nazaré',
-      endereco: 'Av. Nazaré, 456',
-      latitude: -1.452222,
-      longitude: -48.488889,
-      status: 'ATIVO',
-      telefone: '(91) 98888-7777',
-      influencia: 'ALTA'
+  // Auto-carregamento a cada 30 segundos
+  useEffect(() => {
+    if (!autoCarregamento) return;
+
+    const intervalo = setInterval(() => {
+      carregarMarcadores();
+    }, 30000); // 30 segundos
+
+    return () => clearInterval(intervalo);
+  }, [autoCarregamento]);
+
+  const handleSincronizar = async () => {
+    setSincronizando(true);
+    try {
+      const response = await fetch('/api/geolocalizacao/sincronizar', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || 'Erro ao sincronizar');
+      }
+
+      const result = await response.json();
+      setUltimaSincronizacao(new Date());
+      
+      let mensagem = 'Sincronização concluída!';
+      if (result.added > 0 || result.updated > 0) {
+        mensagem = `✅ Sincronização: ${result.added} adicionado(s), ${result.updated} atualizado(s).`;
+      } else {
+        mensagem = 'ℹ️ Marcadores já estão atualizados.';
+      }
+      
+      showSuccess(mensagem);
+      await carregarMarcadores();
+    } catch (err) {
+      console.error('Erro ao sincronizar marcadores:', err);
+      showError('Erro ao sincronizar marcadores do mapa.');
+    } finally {
+      setSincronizando(false);
     }
-  ]);
+  };
 
   const marcadoresFiltrados = marcadores.filter(m => {
     const matchLideranca = filtroLideranca === '' || m.nome.toLowerCase().includes(filtroLideranca.toLowerCase());
@@ -194,7 +252,7 @@ export default function Geolocalizacao() {
   const onLoad = (map) => {
     setMap(map);
     // Ajustar o zoom para mostrar todos os marcadores
-    if (marcadoresFiltrados.length > 0) {
+    if (marcadoresFiltrados.length > 0 && window.google && window.google.maps) {
       const bounds = new window.google.maps.LatLngBounds();
       marcadoresFiltrados.forEach(m => {
         if (m.latitude && m.longitude) {
@@ -213,14 +271,26 @@ export default function Geolocalizacao() {
     setSelectedMarker(marcador);
   };
 
-  const getMarkerIcon = (tipo) => {
-    if (!window.google) return null;
+  const getMarkerIcon = (tipo, status) => {
+    if (!isLoaded || !window.google) return null;
     
-    // Ícone de pin do Google Maps (estilo clássico)
+    // Cores baseadas em TIPO (eleitor vs liderança) + STATUS
+    let iconUrl;
+    
+    if (status === 'INATIVO') {
+      // Inativos = Cinza
+      iconUrl = 'http://maps.google.com/mapfiles/ms/icons/gray-dot.png';
+    } else {
+      // Ativos por tipo
+      if (tipo === 'LIDERANCA') {
+        iconUrl = 'http://maps.google.com/mapfiles/ms/icons/purple-dot.png'; // Liderança Ativa = Roxo
+      } else {
+        iconUrl = 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'; // Eleitor Ativo = Azul
+      }
+    }
+    
     return {
-      url: tipo === 'LIDERANCA' 
-        ? 'http://maps.google.com/mapfiles/ms/icons/purple-dot.png'  // Pin roxo para lideranças
-        : 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',   // Pin azul para eleitores
+      url: iconUrl,
       scaledSize: new window.google.maps.Size(40, 40),
       origin: new window.google.maps.Point(0, 0),
       anchor: new window.google.maps.Point(20, 40)
@@ -402,7 +472,15 @@ export default function Geolocalizacao() {
           </div>
         </div>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-4 flex-wrap items-center">
+          <button
+            onClick={handleSincronizar}
+            disabled={sincronizando}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${sincronizando ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+          >
+            <FontAwesomeIcon icon={faUsers} />
+            {sincronizando ? 'Sincronizando...' : 'Sincronizar'}
+          </button>
           <button
             onClick={handleImprimirMapa}
             className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
@@ -417,6 +495,30 @@ export default function Geolocalizacao() {
             <FontAwesomeIcon icon={faMapMarkedAlt} />
             Exportar KML
           </button>
+
+          {/* Toggle Auto-Carregamento */}
+          <div className="ml-auto flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg border border-gray-300">
+            <label className="text-sm font-medium text-gray-700">Auto-carregamento (30s)</label>
+            <button
+              onClick={() => setAutoCarregamento(!autoCarregamento)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                autoCarregamento ? 'bg-teal-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  autoCarregamento ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Último carregamento */}
+          {ultimaSincronizacao && (
+            <div className="text-xs text-gray-500 ml-2">
+              Último: {ultimaSincronizacao.toLocaleTimeString('pt-BR')}
+            </div>
+          )}
         </div>
       </div>
 
@@ -430,6 +532,24 @@ export default function Geolocalizacao() {
           <div className="bg-white px-3 py-2 rounded-lg border border-gray-300">
             <span className="text-sm font-medium text-gray-700">Quantidade de Eleitores: </span>
             <span className="text-lg font-bold text-teal-600">{marcadoresFiltrados.length}</span>
+          </div>
+        </div>
+
+        {/* Legenda dos Marcadores */}
+        <div className="px-6 py-3 bg-blue-50 border-b border-blue-200 no-print">
+          <div className="flex flex-wrap gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-5 rounded-full" style={{ backgroundColor: '#4285F4', clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 50% 85%, 18% 100%, 0% 38%)' }}></div>
+              <span className="font-medium text-gray-700">Eleitores</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-5 rounded-full" style={{ backgroundColor: '#9C27B0', clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 50% 85%, 18% 100%, 0% 38%)' }}></div>
+              <span className="font-medium text-gray-700">Lideranças</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-5 rounded-full" style={{ backgroundColor: '#9E9E9E', clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 50% 85%, 18% 100%, 0% 38%)' }}></div>
+              <span className="font-medium text-gray-700">Inativos</span>
+            </div>
           </div>
         </div>
 
@@ -461,7 +581,7 @@ export default function Geolocalizacao() {
                       lat: parseFloat(marcador.latitude),
                       lng: parseFloat(marcador.longitude)
                     }}
-                    icon={getMarkerIcon(marcador.tipo)}
+                    icon={getMarkerIcon(marcador.tipo, marcador.status)}
                     onClick={() => handleMarkerClick(marcador)}
                     title={marcador.nome}
                   />
@@ -535,10 +655,6 @@ export default function Geolocalizacao() {
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
             <span className="text-sm text-gray-700">Lideranças</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-gray-700">Ativos</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gray-400 rounded-full"></div>

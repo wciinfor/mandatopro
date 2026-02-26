@@ -5,10 +5,17 @@ import {
   faChartBar, faUserTie, faClipboardList, faUniversity, faCoins, faMapMarkerAlt, 
   faBullhorn, faCalendarAlt, faBirthdayCake, faFileAlt, faExclamationTriangle, 
   faUsers, faSignOutAlt, faBell, faChevronUp, faChevronDown, faBars, faTimes,
-  faSave, faArrowLeft, faUser
+  faSave, faArrowLeft, faUser, faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { createClient } from '@supabase/supabase-js';
+import { applyMask, formatCurrencyBRL, parseCurrencyBRL } from '@/utils/inputMasks';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const modulos = [
   { nome: 'Dashboard', icone: faChartBar, submenu: [] },
@@ -52,22 +59,15 @@ export default function EditarFuncionario() {
   const [moduloAtivo, setModuloAtivo] = useState('Cadastros - Funcionários');
   const [menusAbertos, setMenusAbertos] = useState({ Cadastros: true });
   const [sidebarAberto, setSidebarAberto] = useState(false);
-  const [fotoPreview, setFotoPreview] = useState(null);
   const [carregando, setCarregando] = useState(true);
 
   // Estado do formulário
   const [formData, setFormData] = useState({
-    foto: null,
-    cpf: '',
+    id: '',
     nome: '',
-    nomeSocial: '',
-    rg: '',
-    orgaoEmissor: '',
-    dataNascimento: '',
-    sexo: 'MASCULINO',
-    estadoCivil: '',
-    nomePai: '',
-    nomeMae: '',
+    cpf: '',
+    email: '',
+    telefone: '',
     cargo: '',
     departamento: '',
     dataAdmissao: '',
@@ -75,21 +75,6 @@ export default function EditarFuncionario() {
     cargaHoraria: '',
     tipoContrato: 'CLT',
     matricula: '',
-    email: '',
-    telefone: '',
-    celular: '',
-    cep: '',
-    logradouro: '',
-    numero: '',
-    complemento: '',
-    bairro: '',
-    cidade: '',
-    uf: '',
-    banco: '',
-    agencia: '',
-    conta: '',
-    tipoConta: 'CORRENTE',
-    pix: '',
     status: 'ATIVO',
     observacoes: ''
   });
@@ -100,73 +85,100 @@ export default function EditarFuncionario() {
 
   useEffect(() => {
     if (id) {
-      // Aqui você buscaria os dados do funcionário do banco
-      // Por enquanto, simulando com dados mockados
-      const dadosMock = {
-        id: id,
-        foto: null,
-        cpf: '123.456.789-00',
-        nome: 'João da Silva',
-        nomeSocial: '',
-        cargo: 'Analista',
-        departamento: 'TI',
-        telefone: '(11) 98765-4321',
-        email: 'joao@email.com',
-        status: 'ATIVO'
-      };
-      
-      setFormData(dadosMock);
-      setCarregando(false);
+      carregarFuncionario();
     }
   }, [id]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  const carregarFuncionario = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+          .from('funcionarios')
+          .select(`
+            id, eleitor_id, cargo, departamento, dataAdmissao, salario, 
+            cargaHoraria, tipoContrato, matricula, status, observacoes,
+            eleitores:eleitor_id (id, nome, cpf, email, telefone)
+          `)
+          .eq('id', id)
+          .single();
 
-  const handleFotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        showWarning('Por favor, selecione apenas arquivos de imagem.');
-        return;
-      }
-      
-      if (file.size > 5 * 1024 * 1024) {
-        showWarning('A imagem deve ter no máximo 5MB.');
-        return;
-      }
+      if (error) throw error;
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPreview(reader.result);
-        setFormData(prev => ({ ...prev, foto: reader.result }));
-      };
-      reader.readAsDataURL(file);
+      if (data) {
+        setFormData({
+          id: data.id,
+          nome: data.eleitores?.nome || '',
+          cpf: applyMask('cpf', data.eleitores?.cpf || ''),
+          email: data.eleitores?.email || '',
+          telefone: applyMask('telefone', data.eleitores?.telefone || ''),
+          cargo: data.cargo || '',
+          departamento: data.departamento || '',
+           dataAdmissao: data.dataAdmissao || '',
+          salario: formatCurrencyBRL(data.salario || ''),
+           cargaHoraria: data.cargaHoraria || '',
+           tipoContrato: data.tipoContrato || 'CLT',
+          matricula: data.matricula || '',
+          status: data.status || 'ATIVO',
+          observacoes: data.observacoes || '',
+          eleitorId: data.eleitor_id
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar funcionário:', error);
+      showError('Erro ao carregar dados do funcionário');
+    } finally {
+      setCarregando(false);
     }
   };
 
-  const removerFoto = () => {
-    setFotoPreview(null);
-    setFormData(prev => ({ ...prev, foto: null }));
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    const maskedValue = applyMask(name, value);
+    setFormData(prev => ({
+      ...prev,
+      [name]: maskedValue
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.cpf || !formData.nome || !formData.cargo || !formData.departamento) {
-      showWarning('Preencha todos os campos obrigatórios: CPF, Nome, Cargo e Departamento');
+    if (!formData.cargo || !formData.departamento) {
+      showWarning('Preencha todos os campos obrigatórios: Cargo e Departamento');
       return;
     }
 
-    console.log('Dados atualizados:', formData);
-    showSuccess('Funcionário atualizado com sucesso!', () => {
-      router.push('/cadastros/funcionarios');
-    });
+    setCarregando(true);
+
+    try {
+      let { error } = await supabase
+        .from('funcionarios')
+        .update({
+          cargo: formData.cargo,
+          departamento: formData.departamento,
+          dataAdmissao: formData.dataAdmissao || null,
+          salario: parseCurrencyBRL(formData.salario),
+          cargaHoraria: formData.cargaHoraria ? parseInt(formData.cargaHoraria) : null,
+          tipoContrato: formData.tipoContrato,
+          matricula: formData.matricula || null,
+          status: formData.status,
+          observacoes: formData.observacoes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', formData.id);
+
+      if (error) throw error;
+
+      showSuccess('Funcionário atualizado com sucesso!');
+      setTimeout(() => {
+        router.push('/cadastros/funcionarios');
+      }, 2000);
+    } catch (error) {
+      console.error('Erro ao atualizar funcionário:', error);
+      showError('Erro ao atualizar funcionário. Tente novamente.');
+    } finally {
+      setCarregando(false);
+    }
   };
 
   if (!usuario || carregando) {
@@ -311,44 +323,69 @@ export default function EditarFuncionario() {
               </p>
             </div>
 
-            {/* Dados Pessoais - Campos principais */}
-            <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border-l-4 border-teal-600">
+            {/* INFORMAÇÕES DO ELEITOR (READ-ONLY) */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border-l-4 border-gray-600">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <FontAwesomeIcon icon={faUser} className="text-teal-600" />
-                DADOS PESSOAIS
+                <FontAwesomeIcon icon={faUser} className="text-gray-600" />
+                INFORMAÇÕES DO ELEITOR
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CPF <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
                   <input
                     type="text"
                     name="cpf"
                     value={formData.cpf}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    placeholder="000.000.000-00"
-                    required
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nome Completo <span className="text-red-500">*</span>
-                  </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
                   <input
                     type="text"
                     name="nome"
                     value={formData.nome}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    required
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
                   />
                 </div>
 
-                <div className="md:col-span-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                  <input
+                    type="tel"
+                    name="telefone"
+                    value={formData.telefone}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* DADOS PROFISSIONAIS */}
+            <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border-l-4 border-teal-600">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <FontAwesomeIcon icon={faUser} className="text-teal-600" />
+                DADOS PROFISSIONAIS
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Cargo <span className="text-red-500">*</span>
                   </label>
@@ -377,35 +414,67 @@ export default function EditarFuncionario() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Telefone
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data de Admissão</label>
                   <input
-                    type="tel"
-                    name="telefone"
-                    value={formData.telefone}
+                    type="date"
+                    name="dataAdmissao"
+                    value={formData.dataAdmissao}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    E-mail
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salário</label>
                   <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
+                    type="text"
+                    name="salario"
+                    value={formData.salario}
+                    onChange={handleInputChange}
+                    inputMode="decimal"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Carga Horária (h/semana)</label>
+                  <input
+                    type="number"
+                    name="cargaHoraria"
+                    value={formData.cargaHoraria}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Contrato</label>
+                  <select
+                    name="tipoContrato"
+                    value={formData.tipoContrato}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="CLT">CLT</option>
+                    <option value="PJ">PJ</option>
+                    <option value="TEMPORARIO">Temporário</option>
+                    <option value="ESTAGIARIO">Estagiário</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Matrícula</label>
+                  <input
+                    type="text"
+                    name="matricula"
+                    value={formData.matricula}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
                     name="status"
                     value={formData.status}
@@ -413,61 +482,24 @@ export default function EditarFuncionario() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                   >
                     <option value="ATIVO">Ativo</option>
-                    <option value="FERIAS">Férias</option>
-                    <option value="LICENCA">Licença</option>
-                    <option value="AFASTADO">Afastado</option>
                     <option value="INATIVO">Inativo</option>
+                    <option value="AFASTADO">Afastado</option>
                   </select>
                 </div>
               </div>
             </div>
 
-            {/* Upload de Foto */}
-            <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-purple-50 rounded-lg border-l-4 border-teal-600">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <FontAwesomeIcon icon={faUser} className="text-teal-600" />
-                FOTO PARA CRACHÁ
-              </h3>
-              
-              <div className="flex justify-center">
-                <div className="text-center">
-                  <div className="relative inline-block">
-                    {fotoPreview ? (
-                      <div className="relative">
-                        <img
-                          src={fotoPreview}
-                          alt="Preview"
-                          className="w-40 h-40 object-cover rounded-2xl border-4 border-teal-500 shadow-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={removerFoto}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 shadow-lg transition-colors"
-                        >
-                          <FontAwesomeIcon icon={faTimes} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer block">
-                        <div className="w-40 h-40 bg-gradient-to-br from-teal-100 to-purple-100 rounded-2xl border-4 border-dashed border-teal-400 flex flex-col items-center justify-center hover:border-teal-600 transition-colors">
-                          <FontAwesomeIcon icon={faUser} className="text-5xl text-teal-400 mb-2" />
-                          <span className="text-sm text-gray-600 font-semibold">Adicionar Foto</span>
-                          <span className="text-xs text-gray-500 mt-1">JPG, PNG (máx 5MB)</span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFotoChange}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3">
-                    Foto para crachá e identificação
-                  </p>
-                </div>
-              </div>
+            {/* OBSERVAÇÕES */}
+            <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+              <textarea
+                name="observacoes"
+                value={formData.observacoes}
+                onChange={handleInputChange}
+                rows="4"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                placeholder="Observações..."
+              />
             </div>
 
             {/* Botões de Ação */}
@@ -475,17 +507,28 @@ export default function EditarFuncionario() {
               <button
                 type="button"
                 onClick={() => router.push('/cadastros/funcionarios')}
-                className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2"
+                disabled={carregando}
+                className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 <FontAwesomeIcon icon={faArrowLeft} />
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold transition-colors flex items-center gap-2"
+                disabled={carregando}
+                className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                <FontAwesomeIcon icon={faSave} />
-                Atualizar Funcionário
+                {carregando ? (
+                  <>
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon={faSave} />
+                    Atualizar Funcionário
+                  </>
+                )}
               </button>
             </div>
           </form>

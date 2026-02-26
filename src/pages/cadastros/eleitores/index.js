@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
@@ -14,30 +14,42 @@ export default function GerenciarEleitores() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [eleitores, setEleitores] = useState([
-    {
-      id: 1,
-      codigo: 1,
-      nome: 'JOÃO DA SILVA SANTOS',
-      cpf: '12345678900',
-      tituloEleitoral: '123456789012',
-      situacaoTSE: 'ATIVO',
-      telefone: '11987654321',
-      status: 'ATIVO'
-    }
-  ]);
+  const [eleitores, setEleitores] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('');
   const [situacao, setSituacao] = useState('ATIVO');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
 
+  // Carregar eleitores ao montar
+  useEffect(() => {
+    carregarEleitores();
+  }, [situacao]);
+
+  const carregarEleitores = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/cadastros/eleitores?status=${situacao}`);
+      
+      if (!response.ok) {
+        throw new Error('Erro ao carregar eleitores');
+      }
+
+      const data = await response.json();
+      setEleitores(data.data || []);
+    } catch (error) {
+      showError('Erro ao carregar eleitores: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const eleitoresFiltrados = eleitores.filter(el => {
     const matchFiltro = filtro === '' || 
       el.nome.toLowerCase().includes(filtro.toLowerCase()) ||
       el.cpf.includes(filtro) ||
-      el.tituloEleitoral.includes(filtro);
-    const matchSituacao = situacao === 'ATIVO' ? el.status === 'ATIVO' : el.status !== 'ATIVO';
-    return matchFiltro && matchSituacao;
+      (el.tituloEleitoral && el.tituloEleitoral.includes(filtro));
+    return matchFiltro;
   });
 
   const totalPaginas = Math.ceil(eleitoresFiltrados.length / itensPorPagina);
@@ -54,9 +66,21 @@ export default function GerenciarEleitores() {
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir este eleitor?', () => {
-      setEleitores(eleitores.filter(e => e.id !== id));
-      showSuccess('Eleitor excluído com sucesso!');
+    showConfirm('Tem certeza que deseja excluir este eleitor?', async () => {
+      try {
+        const response = await fetch(`/api/cadastros/eleitores/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao excluir eleitor');
+        }
+
+        setEleitores(eleitores.filter(e => e.id !== id));
+        showSuccess('Eleitor excluído com sucesso!');
+      } catch (error) {
+        showError('Erro ao excluir: ' + error.message);
+      }
     });
   };
 
@@ -70,9 +94,9 @@ export default function GerenciarEleitores() {
       el.nome,
       el.cpf,
       el.tituloEleitoral,
-      el.situacaoTSE,
+      el.situacaoTSE || el.situacao_tse || el.situacaotse,
       el.telefone,
-      el.status
+      el.statusCadastro || el.status
     ]);
     
     pdfGen.doc.autoTable({
@@ -103,11 +127,11 @@ export default function GerenciarEleitores() {
     yPos += 10;
     pdfGen.doc.text(`Título Eleitoral: ${eleitor.tituloEleitoral}`, 20, yPos);
     yPos += 10;
-    pdfGen.doc.text(`Situação TSE: ${eleitor.situacaoTSE}`, 20, yPos);
+    pdfGen.doc.text(`Situação TSE: ${eleitor.situacaoTSE || eleitor.situacao_tse || eleitor.situacaotse}`, 20, yPos);
     yPos += 10;
     pdfGen.doc.text(`Telefone: ${eleitor.telefone}`, 20, yPos);
     yPos += 10;
-    pdfGen.doc.text(`Status: ${eleitor.status}`, 20, yPos);
+    pdfGen.doc.text(`Status: ${eleitor.statusCadastro || eleitor.status}`, 20, yPos);
     yPos += 10;
     pdfGen.doc.text(`Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}`, 20, yPos);
     
@@ -222,50 +246,60 @@ export default function GerenciarEleitores() {
                 </tr>
               </thead>
               <tbody>
-                {eleitoresPaginados.map((eleitor, idx) => (
-                  <tr key={eleitor.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
-                    <td className="px-4 py-3 text-sm">{eleitor.codigo}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{eleitor.nome}</td>
-                    <td className="px-4 py-3 text-sm">{eleitor.cpf}</td>
-                    <td className="px-4 py-3 text-sm">{eleitor.tituloEleitoral}</td>
-                    <td className="px-4 py-3 text-sm">{eleitor.situacaoTSE}</td>
-                    <td className="px-4 py-3 text-sm">{eleitor.telefone}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        eleitor.status === 'ATIVO' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {eleitor.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleImprimirFicha(eleitor)}
-                          className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-                          title="Imprimir ficha"
-                        >
-                          <FontAwesomeIcon icon={faPrint} />
-                        </button>
-                        <button
-                          onClick={() => handleEditar(eleitor.id)}
-                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                          title="Editar"
-                        >
-                          <FontAwesomeIcon icon={faEdit} />
-                        </button>
-                        <button
-                          onClick={() => handleExcluir(eleitor.id)}
-                          className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                          title="Excluir"
-                        >
-                          <FontAwesomeIcon icon={faTrash} />
-                        </button>
+                {loading ? (
+                  <tr>
+                    <td colSpan="8" className="px-4 py-8 text-center">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                        <span className="ml-3 text-gray-600">Carregando eleitores...</span>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : eleitoresPaginados.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                      Nenhum eleitor encontrado
+                    </td>
+                  </tr>
+                ) : (
+                  eleitoresPaginados.map((eleitor, idx) => (
+                    <tr key={eleitor.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
+                      <td className="px-4 py-3 text-sm">{eleitor.id}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{eleitor.nome}</td>
+                      <td className="px-4 py-3 text-sm">{eleitor.cpf}</td>
+                      <td className="px-4 py-3 text-sm">{eleitor.tituloEleitoral || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{eleitor.situacaoTSE || eleitor.situacao_tse || eleitor.situacaotse || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{eleitor.telefone || eleitor.celular || '-'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          (eleitor.statusCadastro || eleitor.status) === 'ATIVO' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {eleitor.statusCadastro || eleitor.status || 'ATIVO'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleEditar(eleitor.id)}
+                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            title="Editar"
+                          >
+                            <FontAwesomeIcon icon={faEdit} />
+                          </button>
+                          <button
+                            onClick={() => handleExcluir(eleitor.id)}
+                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                            title="Excluir"
+                          >
+                            <FontAwesomeIcon icon={faTrash} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

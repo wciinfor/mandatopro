@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
@@ -14,30 +14,39 @@ export default function GerenciarAtendimentos() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [atendimentos, setAtendimentos] = useState([
-    {
-      id: 1,
-      codigo: 1,
-      tipoAtendimento: 'ACAO_SOCIAL',
-      eleitor: 'JOÃO DA SILVA SANTOS',
-      eleitorCpf: '123.456.789-00',
-      dataAtendimento: '2025-11-20',
-      status: 'REALIZADO',
-      statusPedido: 'PENDENTE',
-      notificacao: 'EMAIL'
-    }
-  ]);
+  const [atendimentos, setAtendimentos] = useState([]);
+  const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState('');
-  const [situacao, setSituacao] = useState('REALIZADO');
+  const [situacao, setSituacao] = useState('');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
 
+  // Buscar atendimentos do Supabase
+  useEffect(() => {
+    carregarAtendimentos();
+  }, []);
+
+  const carregarAtendimentos = async () => {
+    try {
+      setCarregando(true);
+      const response = await fetch('/api/cadastros/atendimentos');
+      const data = await response.json();
+      setAtendimentos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar atendimentos:', error);
+      showError('Erro ao carregar atendimentos do banco de dados');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const atendimentosFiltrados = atendimentos.filter(at => {
     const matchFiltro = filtro === '' || 
-      at.eleitor.toLowerCase().includes(filtro.toLowerCase()) ||
-      at.eleitorCpf.includes(filtro) ||
-      at.tipoAtendimento.toLowerCase().includes(filtro.toLowerCase());
-    const matchSituacao = situacao === 'REALIZADO' ? at.status === 'REALIZADO' : at.status !== 'REALIZADO';
+      (at.eleitores?.nome?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
+      (at.eleitores?.cpf || '').includes(filtro) ||
+      (at.tipo_atendimento?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
+      (at.protocolo?.toLowerCase() || '').includes(filtro.toLowerCase());
+    const matchSituacao = situacao === '' || at.status === situacao;
     return matchFiltro && matchSituacao;
   });
 
@@ -55,13 +64,25 @@ export default function GerenciarAtendimentos() {
   };
 
   const handleEditar = (id) => {
-    router.push(`/cadastros/atendimentos/${id}/editar`);
+    router.push(`/cadastros/atendimentos/${id}`);
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir este atendimento?', () => {
-      setAtendimentos(atendimentos.filter(a => a.id !== id));
-      showSuccess('Atendimento excluído com sucesso!');
+    showConfirm('Tem certeza que deseja excluir este atendimento?', async () => {
+      try {
+        const response = await fetch(`/api/cadastros/atendimentos/${id}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          showSuccess('Atendimento excluído com sucesso!');
+          carregarAtendimentos(); // Recarregar lista
+        } else {
+          showError('Erro ao excluir atendimento');
+        }
+      } catch (error) {
+        console.error('Erro:', error);
+        showError('Erro ao excluir atendimento');
+      }
     });
   };
 
@@ -71,16 +92,15 @@ export default function GerenciarAtendimentos() {
     pdfGen.addHeader('LISTAGEM DE ATENDIMENTOS');
     
     const tableData = atendimentosFiltrados.map(at => [
-      at.codigo,
-      at.tipoAtendimento,
-      at.eleitor,
-      at.dataAtendimento,
-      at.status,
-      at.statusPedido
+      at.protocolo,
+      at.tipo_atendimento || '-',
+      at.eleitores?.nome || '-',
+      new Date(at.data_atendimento).toLocaleDateString('pt-BR'),
+      at.status || '-'
     ]);
     
     pdfGen.doc.autoTable({
-      head: [['Código', 'Tipo', 'Eleitor', 'Data', 'Status', 'Pedido']],
+      head: [['Protocolo', 'Tipo', 'Eleitor', 'Data', 'Status']],
       body: tableData,
       startY: 50,
       styles: { fontSize: 8, cellPadding: 2 },
@@ -149,8 +169,10 @@ export default function GerenciarAtendimentos() {
                 onChange={(e) => setSituacao(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
+                <option value="">TODAS</option>
                 <option value="REALIZADO">REALIZADO</option>
-                <option value="PENDENTE">PENDENTE</option>
+                <option value="AGENDADO">AGENDADO</option>
+                <option value="CANCELADO">CANCELADO</option>
               </select>
             </div>
             <button
@@ -185,76 +207,80 @@ export default function GerenciarAtendimentos() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-100 border-b-2 border-gray-300">
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Código</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Tipo</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Eleitor</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">CPF</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Data</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Pedido</th>
-                  <th className="px-4 py-3 text-center text-sm font-bold text-gray-700">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {atendimentosPaginados.map((atendimento, idx) => (
-                  <tr key={atendimento.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
-                    <td className="px-4 py-3 text-sm">{atendimento.codigo}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{atendimento.tipoAtendimento}</td>
-                    <td className="px-4 py-3 text-sm">{atendimento.eleitor}</td>
-                    <td className="px-4 py-3 text-sm">{atendimento.eleitorCpf}</td>
-                    <td className="px-4 py-3 text-sm">{new Date(atendimento.dataAtendimento).toLocaleDateString('pt-BR')}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        atendimento.status === 'REALIZADO' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {atendimento.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        atendimento.statusPedido === 'RECEBIDO'
-                          ? 'bg-green-100 text-green-800'
-                          : atendimento.statusPedido === 'ENVIADO'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {atendimento.statusPedido}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => handleVisualizar(atendimento.id)}
-                          className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-                          title="Visualizar"
-                        >
-                          <FontAwesomeIcon icon={faEye} />
-                        </button>
-                        <button
-                          onClick={() => handleEditar(atendimento.id)}
-                          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                          title="Editar"
-                        >
-                          <FontAwesomeIcon icon={faEdit} />
-                        </button>
-                        <button
-                          onClick={() => handleExcluir(atendimento.id)}
-                          className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                          title="Excluir"
-                        >
-                          <FontAwesomeIcon icon={faTrash} />
-                        </button>
-                      </div>
-                    </td>
+            {carregando ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Carregando atendimentos...</p>
+              </div>
+            ) : atendimentosPaginados.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Nenhum atendimento encontrado</p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-300">
+                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">ID</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Protocolo</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Eleitor</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">CPF</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Tipo</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Data</th>
+                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Status</th>
+                    <th className="px-4 py-3 text-center text-sm font-bold text-gray-700">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {atendimentosPaginados.map((atendimento, idx) => (
+                    <tr key={atendimento.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
+                      <td className="px-4 py-3 text-sm font-mono">{atendimento.id}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{atendimento.protocolo}</td>
+                      <td className="px-4 py-3 text-sm">{atendimento.eleitores?.nome || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{atendimento.eleitores?.cpf || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{atendimento.tipo_atendimento || '-'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {new Date(atendimento.data_atendimento).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          atendimento.status === 'REALIZADO' 
+                            ? 'bg-green-100 text-green-800' 
+                            : atendimento.status === 'AGENDADO'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {atendimento.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleVisualizar(atendimento.id)}
+                            className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                            title="Visualizar"
+                          >
+                            <FontAwesomeIcon icon={faEye} />
+                          </button>
+                          <button
+                            onClick={() => handleEditar(atendimento.id)}
+                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                            title="Editar"
+                          >
+                            <FontAwesomeIcon icon={faEdit} />
+                          </button>
+                          <button
+                            onClick={() => handleExcluir(atendimento.id)}
+                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                            title="Excluir"
+                          >
+                            <FontAwesomeIcon icon={faTrash} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Paginação */}

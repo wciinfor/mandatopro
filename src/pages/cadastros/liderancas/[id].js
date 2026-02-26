@@ -9,6 +9,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { atualizarLideranca, obterLiderancaPorId } from '@/services/liderancaService';
+import { applyMask } from '@/utils/inputMasks';
 
 const modulos = [
   { nome: 'Dashboard', icone: faChartBar, submenu: [] },
@@ -53,6 +55,10 @@ export default function EditarLideranca() {
   const [menusAbertos, setMenusAbertos] = useState({ Cadastros: true });
   const [sidebarAberto, setSidebarAberto] = useState(false);
   const [fotoPreview, setFotoPreview] = useState(null);
+  const [fotoScale, setFotoScale] = useState(1);
+  const [fotoOffset, setFotoOffset] = useState({ x: 0, y: 0 });
+  const [arrastandoFoto, setArrastandoFoto] = useState(false);
+  const [inicioArrasto, setInicioArrasto] = useState({ x: 0, y: 0 });
   const [carregando, setCarregando] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -82,30 +88,42 @@ export default function EditarLideranca() {
 
   useEffect(() => {
     if (id) {
-      // Simulando dados mockados
-      const dadosMock = {
-        id: id,
-        foto: null,
-        tipo: 'LOCAL',
-        nome: 'Maria Santos',
-        nomeSocial: 'Maria',
-        cpf: '987.654.321-00',
-        celular: '(11) 99999-8888',
-        cidade: 'São Paulo',
-        uf: 'SP',
-        bairro: 'Centro'
+      const carregar = async () => {
+        setCarregando(true);
+        try {
+          const dados = await obterLiderancaPorId(id);
+          const masked = {
+            ...dados,
+            cpf: applyMask('cpf', dados?.cpf || ''),
+            rg: applyMask('rg', dados?.rg || ''),
+            telefone: applyMask('telefone', dados?.telefone || ''),
+            celular: applyMask('celular', dados?.celular || '')
+          };
+
+          setFormData(prev => ({
+            ...prev,
+            ...masked
+          }));
+          if (dados?.foto) {
+            setFotoPreview(dados.foto);
+          }
+        } catch (error) {
+          showError('Erro ao carregar liderança.');
+        } finally {
+          setCarregando(false);
+        }
       };
-      
-      setFormData(dadosMock);
-      setCarregando(false);
+
+      carregar();
     }
   }, [id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const maskedValue = applyMask(name, value);
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: maskedValue
     }));
   };
 
@@ -126,6 +144,8 @@ export default function EditarLideranca() {
       reader.onloadend = () => {
         setFotoPreview(reader.result);
         setFormData(prev => ({ ...prev, foto: reader.result }));
+        setFotoScale(1);
+        setFotoOffset({ x: 0, y: 0 });
       };
       reader.readAsDataURL(file);
     }
@@ -134,14 +154,105 @@ export default function EditarLideranca() {
   const removerFoto = () => {
     setFotoPreview(null);
     setFormData(prev => ({ ...prev, foto: null }));
+    setFotoScale(1);
+    setFotoOffset({ x: 0, y: 0 });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Dados atualizados:', formData);
-    showSuccess('Liderança atualizada com sucesso!', () => {
-      router.push('/cadastros/liderancas');
+  const handleFotoZoom = (e) => {
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setFotoScale(prev => {
+      const next = Math.min(2, Math.max(0.8, prev + delta));
+      return Number(next.toFixed(2));
     });
+  };
+
+  const aumentarZoom = () => {
+    setFotoScale(prev => {
+      const next = Math.min(2, prev + 0.1);
+      return Number(next.toFixed(2));
+    });
+  };
+
+  const diminuirZoom = () => {
+    setFotoScale(prev => {
+      const next = Math.max(0.8, prev - 0.1);
+      return Number(next.toFixed(2));
+    });
+  };
+
+  const iniciarArrasto = (e) => {
+    e.preventDefault();
+    const ponto = 'touches' in e ? e.touches[0] : e;
+    setArrastandoFoto(true);
+    setInicioArrasto({ x: ponto.clientX - fotoOffset.x, y: ponto.clientY - fotoOffset.y });
+  };
+
+  const moverArrasto = (e) => {
+    if (!arrastandoFoto) return;
+    const ponto = 'touches' in e ? e.touches[0] : e;
+    setFotoOffset({ x: ponto.clientX - inicioArrasto.x, y: ponto.clientY - inicioArrasto.y });
+  };
+
+  const encerrarArrasto = () => {
+    setArrastandoFoto(false);
+  };
+
+  const gerarFotoProcessada = () => {
+    if (!fotoPreview) return null;
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const frameSize = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width = frameSize;
+        canvas.height = frameSize;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas não suportado'));
+          return;
+        }
+
+        // Base scale to cover the frame (object-cover behavior)
+        const baseScale = Math.max(frameSize / img.width, frameSize / img.height);
+        const scale = baseScale * fotoScale;
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
+
+        const drawX = frameSize / 2 - drawW / 2 + fotoOffset.x;
+        const drawY = frameSize / 2 - drawH / 2 + fotoOffset.y;
+
+        ctx.clearRect(0, 0, frameSize, frameSize);
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+      img.src = fotoPreview;
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const fotoProcessada = await gerarFotoProcessada();
+      const payload = {
+        ...formData,
+        cpf: (formData.cpf || '').replace(/\D/g, ''),
+        rg: (formData.rg || '').replace(/\D/g, ''),
+        telefone: (formData.telefone || '').replace(/\D/g, ''),
+        celular: (formData.celular || '').replace(/\D/g, ''),
+        foto: fotoProcessada || formData.foto || null
+      };
+
+      await atualizarLideranca(id, payload);
+      showSuccess('Liderança atualizada com sucesso!', () => {
+        router.push('/cadastros/liderancas');
+      });
+    } catch (error) {
+      showError('Erro ao atualizar liderança.');
+    }
   };
 
   if (!usuario || carregando) {
@@ -431,11 +542,44 @@ export default function EditarLideranca() {
                   <div className="relative inline-block">
                     {fotoPreview ? (
                       <div className="relative">
-                        <img
-                          src={fotoPreview}
-                          alt="Preview"
-                          className="w-40 h-40 object-cover rounded-2xl border-4 border-purple-500 shadow-lg"
-                        />
+                        <div className="relative">
+                          <div
+                            className={`w-40 h-40 rounded-2xl border-4 border-purple-500 shadow-lg overflow-hidden ${arrastandoFoto ? 'cursor-grabbing' : 'cursor-grab'}`}
+                            onWheel={handleFotoZoom}
+                            onMouseDown={iniciarArrasto}
+                            onMouseMove={moverArrasto}
+                            onMouseUp={encerrarArrasto}
+                            onMouseLeave={encerrarArrasto}
+                            onTouchStart={iniciarArrasto}
+                            onTouchMove={moverArrasto}
+                            onTouchEnd={encerrarArrasto}
+                          >
+                            <img
+                              src={fotoPreview}
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                              style={{ transform: `translate(${fotoOffset.x}px, ${fotoOffset.y}px) scale(${fotoScale})`, transformOrigin: 'center' }}
+                            />
+                          </div>
+                          <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={diminuirZoom}
+                              className="w-8 h-8 bg-white border border-purple-200 text-purple-700 rounded-full shadow hover:bg-purple-50"
+                              title="Diminuir zoom"
+                            >
+                              -
+                            </button>
+                            <button
+                              type="button"
+                              onClick={aumentarZoom}
+                              className="w-8 h-8 bg-white border border-purple-200 text-purple-700 rounded-full shadow hover:bg-purple-50"
+                              title="Aumentar zoom"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           onClick={removerFoto}
@@ -461,7 +605,7 @@ export default function EditarLideranca() {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-3">
-                    Foto 3x4 para crachá de identificação
+                    Foto 3x4 para crachá de identificação. Use o scroll para ajustar o zoom.
                   </p>
                 </div>
               </div>

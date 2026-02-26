@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { createClient } from '@supabase/supabase-js';
 import {
   faList, faPlus, faFilter, faPrint, faEdit, faTrash, faChevronLeft, faChevronRight, 
   faAngleDoubleLeft, faAngleDoubleRight, faIdCard
 } from '@fortawesome/free-solid-svg-icons';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const modulos = [
   { nome: 'Dashboard', icone: faPlus, submenu: [] },
@@ -23,22 +29,70 @@ export default function GerenciarFuncionarios() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [funcionarios, setFuncionarios] = useState([
-    {
-      id: 1,
-      codigo: 1,
-      nome: 'MARIA OLIVEIRA SANTOS',
-      cpf: '98765432100',
-      cargo: 'Assessor Parlamentar',
-      departamento: 'Gabinete',
-      telefone: '11987654321',
-      status: 'ATIVO'
-    }
-  ]);
+  const [funcionarios, setFuncionarios] = useState([]);
+  const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState('');
   const [situacao, setSituacao] = useState('ATIVO');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
+
+  // Carregar funcionários do Supabase
+  useEffect(() => {
+    carregarFuncionarios();
+  }, []);
+
+  const carregarFuncionarios = async () => {
+    setCarregando(true);
+    try {
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .select(`
+          id,
+          eleitor_id,
+          cargo,
+          departamento,
+          dataAdmissao,
+          salario,
+          matricula,
+          status,
+          observacoes,
+          eleitores:eleitor_id (
+            id,
+            nome,
+            cpf,
+            email,
+            telefone
+          )
+        `)
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+
+      // Mapear dados para estrutura esperada
+      const funcionariosFormatados = (data || []).map(func => ({
+        id: func.id,
+        eleitor_id: func.eleitor_id,
+        nome: func.eleitores?.nome || '',
+        cpf: func.eleitores?.cpf || '',
+        email: func.eleitores?.email || '',
+        telefone: func.eleitores?.telefone || '',
+        cargo: func.cargo || '',
+        departamento: func.departamento || '',
+        data_admissao: func.dataAdmissao || '',
+        salario: func.salario || '',
+        matricula: func.matricula || '',
+        status: func.status || 'ATIVO',
+        observacoes: func.observacoes || ''
+      }));
+
+      setFuncionarios(funcionariosFormatados);
+    } catch (error) {
+      console.error('Erro ao carregar funcionários:', error);
+      showError('Erro ao carregar funcionários');
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
@@ -68,9 +122,21 @@ export default function GerenciarFuncionarios() {
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir este funcionário?', () => {
-      setFuncionarios(funcionarios.filter(f => f.id !== id));
-      showSuccess('Funcionário excluído com sucesso!');
+    showConfirm('Tem certeza que deseja excluir este funcionário?', async () => {
+      try {
+        const { error } = await supabase
+          .from('funcionarios')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setFuncionarios(funcionarios.filter(f => f.id !== id));
+        showSuccess('Funcionário excluído com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir:', error);
+        showError('Erro ao excluir funcionário');
+      }
     });
   };
 
@@ -242,9 +308,11 @@ export default function GerenciarFuncionarios() {
                 </tr>
               </thead>
               <tbody>
-                {funcionariosPaginados.map((funcionario, idx) => (
+                {funcionariosPaginados.map((funcionario, idx) => {
+                  const temFoto = false;
+                  return (
                   <tr key={funcionario.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
-                    <td className="px-4 py-3 text-sm">{funcionario.codigo}</td>
+                    <td className="px-4 py-3 text-sm">{funcionario.matricula || funcionario.id}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{funcionario.nome}</td>
                     <td className="px-4 py-3 text-sm">{funcionario.cpf}</td>
                     <td className="px-4 py-3 text-sm">{funcionario.cargo}</td>
@@ -269,9 +337,10 @@ export default function GerenciarFuncionarios() {
                           <FontAwesomeIcon icon={faPrint} />
                         </button>
                         <button
-                          onClick={() => handleGerarCracha(funcionario)}
-                          className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                          title="Gerar crachá"
+                          onClick={() => temFoto && handleGerarCracha(funcionario)}
+                          disabled={!temFoto}
+                          className={`p-2 rounded-lg transition ${temFoto ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-purple-300 text-white cursor-not-allowed opacity-60'}`}
+                          title={temFoto ? 'Gerar crachá' : 'Adicionar foto para gerar crachá'}
                         >
                           <FontAwesomeIcon icon={faIdCard} />
                         </button>
@@ -292,7 +361,8 @@ export default function GerenciarFuncionarios() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

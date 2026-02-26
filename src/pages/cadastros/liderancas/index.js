@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { obterLiderancas } from '@/services/liderancaService';
 import {
   faList, faPlus, faFilter, faPrint, faEdit, faTrash, faChevronLeft, faChevronRight, 
   faAngleDoubleLeft, faAngleDoubleRight, faIdCard
@@ -14,29 +15,23 @@ export default function GerenciarLiderancas() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [liderancas, setLiderancas] = useState([
-    {
-      id: 1,
-      codigo: 1,
-      nomeSocial: 'PR ASSIS ALCANTARA',
-      cpf: '96448972387',
-      uf: 'PA',
-      cidade: 'ANANINDEUA',
-      bairro: 'ATALAIA',
-      telefone: '91993129501',
-      status: 'ATIVO'
-    }
-  ]);
+  const [liderancas, setLiderancas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState('');
   const [situacao, setSituacao] = useState('ATIVO');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
 
   const liderancasFiltradas = liderancas.filter(lid => {
+    const nome = (lid.nome || lid.nomeSocial || '').toLowerCase();
+    const cpf = lid.cpf || '';
+    const telefone = lid.telefone || '';
+    const areaAtuacao = (lid.areaAtuacao || '').toLowerCase();
     const matchFiltro = filtro === '' || 
-      lid.nomeSocial.toLowerCase().includes(filtro.toLowerCase()) ||
-      lid.cpf.includes(filtro) ||
-      lid.cidade.toLowerCase().includes(filtro.toLowerCase());
+      nome.includes(filtro.toLowerCase()) ||
+      cpf.includes(filtro) ||
+      telefone.includes(filtro) ||
+      areaAtuacao.includes(filtro.toLowerCase());
     const matchSituacao = situacao === 'ATIVO' ? lid.status === 'ATIVO' : lid.status !== 'ATIVO';
     return matchFiltro && matchSituacao;
   });
@@ -49,6 +44,22 @@ export default function GerenciarLiderancas() {
   const handleInserir = () => {
     router.push('/cadastros/liderancas/novo');
   };
+
+  const carregarLiderancas = async () => {
+    setCarregando(true);
+    try {
+      const dados = await obterLiderancas();
+      setLiderancas(dados || []);
+    } catch (error) {
+      showError('Erro ao carregar liderancas. Tente novamente.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarLiderancas();
+  }, []);
 
   const handleEditar = (id) => {
     router.push(`/cadastros/liderancas/${id}`);
@@ -73,18 +84,17 @@ export default function GerenciarLiderancas() {
     pdfGen.addHeader('LISTAGEM DE LIDERANÇAS');
     
     const tableData = liderancasFiltradas.map(lid => [
-      lid.codigo,
-      lid.nomeSocial,
+      lid.id,
+      lid.nome || lid.nomeSocial,
       lid.cpf,
-      lid.uf,
-      lid.cidade,
-      lid.bairro,
       lid.telefone,
+      lid.influencia || '-',
+      lid.areaAtuacao || '-',
       lid.status
     ]);
     
     pdfGen.doc.autoTable({
-      head: [['Código', 'Nome Social', 'CPF', 'UF', 'Cidade', 'Bairro', 'Telefone', 'Status']],
+      head: [['Código', 'Nome', 'CPF', 'Telefone', 'Influência', 'Área de Atuação', 'Status']],
       body: tableData,
       startY: 50,
       styles: { fontSize: 8, cellPadding: 2 },
@@ -103,15 +113,17 @@ export default function GerenciarLiderancas() {
     
     let yPos = 60;
     pdfGen.doc.setFontSize(12);
-    pdfGen.doc.text(`Código: ${lideranca.codigo}`, 20, yPos);
+    pdfGen.doc.text(`Código: ${lideranca.id}`, 20, yPos);
     yPos += 10;
-    pdfGen.doc.text(`Nome Social: ${lideranca.nomeSocial}`, 20, yPos);
+    pdfGen.doc.text(`Nome: ${lideranca.nome || lideranca.nomeSocial}`, 20, yPos);
     yPos += 10;
     pdfGen.doc.text(`CPF: ${lideranca.cpf}`, 20, yPos);
     yPos += 10;
-    pdfGen.doc.text(`Localização: ${lideranca.bairro}, ${lideranca.cidade} - ${lideranca.uf}`, 20, yPos);
+    pdfGen.doc.text(`Telefone: ${lideranca.telefone || '-'}`, 20, yPos);
     yPos += 10;
-    pdfGen.doc.text(`Telefone: ${lideranca.telefone}`, 20, yPos);
+    pdfGen.doc.text(`Influência: ${lideranca.influencia || '-'}`, 20, yPos);
+    yPos += 10;
+    pdfGen.doc.text(`Área de Atuação: ${lideranca.areaAtuacao || '-'}`, 20, yPos);
     yPos += 10;
     pdfGen.doc.text(`Status: ${lideranca.status}`, 20, yPos);
     yPos += 10;
@@ -159,7 +171,7 @@ export default function GerenciarLiderancas() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                BUSCAR POR NOME, CPF, CIDADE...
+                BUSCAR POR NOME, CPF, TELEFONE...
               </label>
               <input
                 type="text"
@@ -214,30 +226,37 @@ export default function GerenciarLiderancas() {
           </div>
 
           <div className="overflow-x-auto">
+            {carregando && (
+              <div className="py-6 text-center text-gray-500">Carregando liderancas...</div>
+            )}
+            {!carregando && liderancasFiltradas.length === 0 && (
+              <div className="py-6 text-center text-gray-500">Nenhuma liderança encontrada.</div>
+            )}
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-100 border-b-2 border-gray-300">
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Código</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nome Social</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nome</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">CPF</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">UF</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Cidade</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Bairro</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Telefone</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Influência</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Área de Atuação</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Status</th>
                   <th className="px-4 py-3 text-center text-sm font-bold text-gray-700">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {liderancasPaginadas.map((lideranca, idx) => (
+                {liderancasPaginadas.map((lideranca, idx) => {
+                  const temFoto = Boolean(lideranca.foto || lideranca.fotoUrl || lideranca.imagem || lideranca.avatar);
+
+                  return (
                   <tr key={lideranca.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
-                    <td className="px-4 py-3 text-sm">{lideranca.codigo}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{lideranca.nomeSocial}</td>
+                    <td className="px-4 py-3 text-sm">{lideranca.id}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{lideranca.nome || lideranca.nomeSocial}</td>
                     <td className="px-4 py-3 text-sm">{lideranca.cpf}</td>
-                    <td className="px-4 py-3 text-sm">{lideranca.uf}</td>
-                    <td className="px-4 py-3 text-sm">{lideranca.cidade}</td>
-                    <td className="px-4 py-3 text-sm">{lideranca.bairro}</td>
                     <td className="px-4 py-3 text-sm">{lideranca.telefone}</td>
+                    <td className="px-4 py-3 text-sm">{lideranca.influencia || '-'}</td>
+                    <td className="px-4 py-3 text-sm">{lideranca.areaAtuacao || '-'}</td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         lideranca.status === 'ATIVO' 
@@ -257,9 +276,10 @@ export default function GerenciarLiderancas() {
                           <FontAwesomeIcon icon={faPrint} />
                         </button>
                         <button
-                          onClick={() => handleGerarCracha(lideranca)}
-                          className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                          title="Gerar crachá"
+                          onClick={() => temFoto && handleGerarCracha(lideranca)}
+                          disabled={!temFoto}
+                          className={`p-2 rounded-lg transition ${temFoto ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-purple-300 text-white cursor-not-allowed opacity-60'}`}
+                          title={temFoto ? 'Gerar crachá' : 'Adicionar foto para gerar crachá'}
                         >
                           <FontAwesomeIcon icon={faIdCard} />
                         </button>
@@ -280,7 +300,8 @@ export default function GerenciarLiderancas() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

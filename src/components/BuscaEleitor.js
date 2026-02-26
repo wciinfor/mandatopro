@@ -6,109 +6,9 @@ export default function BuscaEleitor({ onSelecionarEleitor, eleitorSelecionado }
   const [busca, setBusca] = useState('');
   const [resultados, setResultados] = useState([]);
   const [mostrarResultados, setMostrarResultados] = useState(false);
+  const [carregando, setCarregando] = useState(false);
 
-  // Simular banco de dados de eleitores
-  // TODO: Substituir por chamada à API/Supabase
-  const eleitoresCadastrados = [
-    {
-      id: 1,
-      nome: 'JOÃO DA SILVA SANTOS',
-      cpf: '123.456.789-00',
-      tituloEleitoral: '1234567890123',
-      rg: '12.345.678-9',
-      orgaoEmissor: 'SSP/SP',
-      dataNascimento: '1985-05-15',
-      sexo: 'MASCULINO',
-      nomeMae: 'MARIA DA SILVA',
-      nomePai: 'JOSÉ SANTOS',
-      telefone: '(11) 3333-3333',
-      celular: '(11) 98888-8888',
-      email: 'joao.silva@email.com',
-      cep: '01310-100',
-      logradouro: 'Avenida Paulista',
-      numero: '1000',
-      complemento: 'Apto 101',
-      bairro: 'Bela Vista',
-      cidade: 'São Paulo',
-      uf: 'SP',
-      situacaoTSE: 'ATIVO',
-      status: 'ATIVO'
-    },
-    {
-      id: 2,
-      nome: 'MARIA OLIVEIRA SANTOS',
-      cpf: '987.654.321-00',
-      tituloEleitoral: '9876543210987',
-      rg: '98.765.432-1',
-      orgaoEmissor: 'SSP/SP',
-      dataNascimento: '1990-08-20',
-      sexo: 'FEMININO',
-      nomeMae: 'ANA OLIVEIRA',
-      nomePai: 'CARLOS SANTOS',
-      telefone: '(11) 2222-2222',
-      celular: '(11) 97777-7777',
-      email: 'maria.oliveira@email.com',
-      cep: '04567-890',
-      logradouro: 'Rua das Flores',
-      numero: '500',
-      complemento: '',
-      bairro: 'Vila Mariana',
-      cidade: 'São Paulo',
-      uf: 'SP',
-      situacaoTSE: 'ATIVO',
-      status: 'ATIVO'
-    },
-    {
-      id: 3,
-      nome: 'PEDRO HENRIQUE COSTA',
-      cpf: '456.789.123-00',
-      tituloEleitoral: '4567891230456',
-      rg: '45.678.912-3',
-      orgaoEmissor: 'SSP/RJ',
-      dataNascimento: '1978-12-10',
-      sexo: 'MASCULINO',
-      nomeMae: 'HELENA COSTA',
-      nomePai: 'ROBERTO COSTA',
-      telefone: '(21) 3333-4444',
-      celular: '(21) 99999-8888',
-      email: 'pedro.costa@email.com',
-      cep: '20040-020',
-      logradouro: 'Avenida Rio Branco',
-      numero: '123',
-      complemento: 'Sala 5',
-      bairro: 'Centro',
-      cidade: 'Rio de Janeiro',
-      uf: 'RJ',
-      situacaoTSE: 'ATIVO',
-      status: 'ATIVO'
-    },
-    {
-      id: 4,
-      nome: 'ANA PAULA FERREIRA',
-      cpf: '321.654.987-00',
-      tituloEleitoral: '3216549870321',
-      rg: '32.165.498-7',
-      orgaoEmissor: 'SSP/MG',
-      dataNascimento: '1995-03-25',
-      sexo: 'FEMININO',
-      nomeMae: 'LUCIA FERREIRA',
-      nomePai: 'MARCOS FERREIRA',
-      telefone: '(31) 3555-6666',
-      celular: '(31) 98888-7777',
-      email: 'ana.ferreira@email.com',
-      cep: '30130-100',
-      logradouro: 'Avenida Afonso Pena',
-      numero: '789',
-      complemento: 'Apto 202',
-      bairro: 'Centro',
-      cidade: 'Belo Horizonte',
-      uf: 'MG',
-      situacaoTSE: 'ATIVO',
-      status: 'ATIVO'
-    }
-  ];
-
-  const buscarEleitor = (termo) => {
+  const buscarEleitor = async (termo) => {
     setBusca(termo);
     
     if (termo.length < 3) {
@@ -117,15 +17,19 @@ export default function BuscaEleitor({ onSelecionarEleitor, eleitorSelecionado }
       return;
     }
 
-    // Buscar por nome ou CPF
-    const termoLower = termo.toLowerCase();
-    const encontrados = eleitoresCadastrados.filter(eleitor => 
-      eleitor.nome.toLowerCase().includes(termoLower) ||
-      eleitor.cpf.includes(termo)
-    );
-
-    setResultados(encontrados);
-    setMostrarResultados(true);
+    setCarregando(true);
+    try {
+      const response = await fetch(`/api/cadastros/eleitores/buscar?q=${encodeURIComponent(termo)}`);
+      const data = await response.json();
+      setResultados(data || []);
+      setMostrarResultados(true);
+    } catch (error) {
+      console.error('Erro ao buscar eleitores:', error);
+      setResultados([]);
+      setMostrarResultados(true);
+    } finally {
+      setCarregando(false);
+    }
   };
 
   const selecionarEleitor = (eleitor) => {
@@ -154,13 +58,21 @@ export default function BuscaEleitor({ onSelecionarEleitor, eleitorSelecionado }
                 type="text"
                 value={busca}
                 onChange={(e) => buscarEleitor(e.target.value)}
-                className="w-full px-4 py-3 pl-10 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={carregando}
+                className="w-full px-4 py-3 pl-10 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                 placeholder="Digite o nome ou CPF do eleitor..."
               />
               <FontAwesomeIcon 
                 icon={faSearch} 
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
               />
+              {carregando && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin">
+                    <FontAwesomeIcon icon={faSearch} className="text-blue-500" />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -185,10 +97,12 @@ export default function BuscaEleitor({ onSelecionarEleitor, eleitorSelecionado }
                           <FontAwesomeIcon icon={faIdCard} className="mr-1 text-blue-600" />
                           CPF: {eleitor.cpf}
                         </span>
-                        <span>
-                          <FontAwesomeIcon icon={faUser} className="mr-1 text-blue-600" />
-                          Título: {eleitor.tituloEleitoral}
-                        </span>
+                        {eleitor.titulo_eleitoral && (
+                          <span>
+                            <FontAwesomeIcon icon={faUser} className="mr-1 text-blue-600" />
+                            Título: {eleitor.titulo_eleitoral}
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-500 mt-1">
                         {eleitor.cidade}/{eleitor.uf} - {eleitor.bairro}
@@ -200,7 +114,7 @@ export default function BuscaEleitor({ onSelecionarEleitor, eleitorSelecionado }
             </div>
           )}
 
-          {mostrarResultados && resultados.length === 0 && (
+          {mostrarResultados && resultados.length === 0 && !carregando && (
             <div className="absolute z-50 w-full mt-2 bg-white border-2 border-blue-300 rounded-lg shadow-xl p-4 text-center text-gray-600">
               <FontAwesomeIcon icon={faSearch} className="text-3xl text-gray-400 mb-2" />
               <p className="font-semibold">Nenhum eleitor encontrado</p>
@@ -234,13 +148,17 @@ export default function BuscaEleitor({ onSelecionarEleitor, eleitorSelecionado }
                     <FontAwesomeIcon icon={faIdCard} className="mr-2 text-blue-600" />
                     <strong>CPF:</strong> {eleitorSelecionado.cpf}
                   </div>
-                  <div>
-                    <FontAwesomeIcon icon={faUser} className="mr-2 text-blue-600" />
-                    <strong>Título:</strong> {eleitorSelecionado.tituloEleitoral}
-                  </div>
-                  <div className="md:col-span-2">
-                    <strong>Endereço:</strong> {eleitorSelecionado.logradouro}, {eleitorSelecionado.numero} - {eleitorSelecionado.bairro}, {eleitorSelecionado.cidade}/{eleitorSelecionado.uf}
-                  </div>
+                  {eleitorSelecionado.titulo_eleitoral && (
+                    <div>
+                      <FontAwesomeIcon icon={faUser} className="mr-2 text-blue-600" />
+                      <strong>Título:</strong> {eleitorSelecionado.titulo_eleitoral}
+                    </div>
+                  )}
+                  {eleitorSelecionado.logradouro && (
+                    <div className="md:col-span-2">
+                      <strong>Endereço:</strong> {eleitorSelecionado.logradouro}, {eleitorSelecionado.numero} - {eleitorSelecionado.bairro}, {eleitorSelecionado.cidade}/{eleitorSelecionado.uf}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

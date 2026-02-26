@@ -341,9 +341,14 @@ class PDFGenerator {
     };
     
     const statusMap = {
-      'NAO_REALIZADO': 'Não Realizado',
-      'EM_PROCESSO': 'Em Processo',
-      'REALIZADO': 'Realizado'
+      // Status atuais (Supabase)
+      'AGENDADO': 'Agendado',
+      'REALIZADO': 'Realizado',
+      'CANCELADO': 'Cancelado',
+
+      // Fallback legado
+      'NAO_REALIZADO': 'Cancelado',
+      'EM_PROCESSO': 'Agendado'
     };
     
     this.doc.autoTable({

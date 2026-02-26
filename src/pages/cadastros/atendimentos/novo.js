@@ -2,23 +2,30 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faSave, faArrowLeft, faSearch, faCheckCircle, 
-  faHourglassHalf, faTimesCircle, faClock, faMapMarkedAlt, faBell, faUserTie, faHandshake, faStethoscope,
-  faEye, faHospital, faFileAlt, faGavel, faEnvelope, faPhone
+  faSave, faArrowLeft, faCheckCircle, 
+  faHourglassHalf, faTimesCircle, faClock, faMapMarkedAlt, faBell, faUserTie, faHandshake,
+  faFileAlt, faGavel, faEnvelope, faPhone
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import Layout from '@/components/Layout';
 import BuscaEleitor from '@/components/BuscaEleitor';
+import BuscaCampanha from '@/components/BuscaCampanha';
+import BuscaLideranca from '@/components/BuscaLideranca';
+import BuscaDinamica from '@/components/BuscaDinamica';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 
 export default function NovoAtendimento() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+  const [salvando, setSalvando] = useState(false);
   const [eleitorSelecionado, setEleitorSelecionado] = useState(null);
+  const [campanhaSelecionada, setCampanhaSelecionada] = useState(null);
+  const [liderancaSelecionada, setLiderancaSelecionada] = useState(null);
+  const [servicosCampanha, setServicosCampanha] = useState([]);
+  const [servicosSelecionados, setServicosSelecionados] = useState([]);
 
-  // Estado do formulário
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     // Ação Social
     tipoAtendimento: 'ACAO_SOCIAL',
     liderancaResponsavel: '',
@@ -43,7 +50,7 @@ export default function NovoAtendimento() {
     agendamento: '',
     
     // Status e Acompanhamento
-    statusAtendimento: 'NAO_REALIZADO', // NAO_REALIZADO, EM_PROCESSO, REALIZADO
+    statusAtendimento: 'AGENDADO', // AGENDADO, REALIZADO, CANCELADO
     dataAtendimento: '',
     dataConclusao: '',
     
@@ -52,9 +59,12 @@ export default function NovoAtendimento() {
     observacoes: '',
     
     // Notificações
-    notificarEleitor: true,
+    notificarEleitor: false,
     modoNotificacao: 'WHATSAPP' // EMAIL, SMS, WHATSAPP
-  });
+  };
+
+  // Estado do formulário
+  const [formData, setFormData] = useState(initialFormData);
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
@@ -93,14 +103,94 @@ export default function NovoAtendimento() {
     }
   };
 
-  const buscarEleitor = async () => {
-    if (!formData.eleitorCpf) {
-      alert('Digite o CPF do eleitor');
-      return;
-    }
+  const handleSelecionarCampanha = (campanha) => {
+    setCampanhaSelecionada(campanha);
+    setLiderancaSelecionada(null); // Limpar liderança anterior
+    setServicosSelecionados([]); // Limpar serviços selecionados
     
-    // Aqui você implementará a busca no Supabase
-    alert('Funcionalidade de busca será implementada com Supabase');
+    if (campanha) {
+      // Se atendimento avulso, não preencher dados da campanha
+      if (campanha.id === 'AVULSO') {
+        setServicosCampanha([]);
+        setFormData(prev => ({
+          ...prev,
+          localidadeAtendida: '',
+          dataAtendimento: ''
+        }));
+      } else {
+        // Preencher automaticamente os dados da campanha
+        const servicos = campanha.campanhas_servicos?.map(s => s.categorias_servicos?.nome).filter(Boolean) || [];
+        setServicosCampanha(servicos);
+        
+        // Preencher localidade
+        setFormData(prev => ({
+          ...prev,
+          localidadeAtendida: campanha.local || '',
+          dataAtendimento: campanha.data_campanha || ''
+        }));
+        
+        // Selecionar liderança com MAIOR hierarquia
+        if (campanha.campanhas_liderancas && campanha.campanhas_liderancas.length > 0) {
+          // Define a ordem de prioridade: SUPERVISOR > COORDENADOR > APOIO
+          const hierarquia = { 'SUPERVISOR': 3, 'COORDENADOR': 2, 'APOIO': 1 };
+          
+          // Encontrar a liderança com maior hierarquia
+          const liderancaComMaiorHierarquia = campanha.campanhas_liderancas.reduce((maior, atual) => {
+            const hierarquiaAtual = hierarquia[atual.papel] || 0;
+            const hierarquiaMaior = hierarquia[maior.papel] || 0;
+            return hierarquiaAtual > hierarquiaMaior ? atual : maior;
+          });
+          
+          const liderancaSelecionadaFinal = {
+            id: liderancaComMaiorHierarquia.lideranca_id,
+            nome: liderancaComMaiorHierarquia.liderancas?.nome || '',
+            telefone: liderancaComMaiorHierarquia.liderancas?.telefone || '',
+            influencia: liderancaComMaiorHierarquia.liderancas?.influencia || '',
+            area_atuacao: liderancaComMaiorHierarquia.liderancas?.area_atuacao || '',
+            papel: liderancaComMaiorHierarquia.papel || ''
+          };
+          
+          setLiderancaSelecionada(liderancaSelecionadaFinal);
+          setFormData(prev => ({
+            ...prev,
+            liderancaResponsavel: liderancaSelecionadaFinal.nome || ''
+          }));
+        }
+      }
+    } else {
+      setServicosCampanha([]);
+      setServicosSelecionados([]);
+      setFormData(prev => ({
+        ...prev,
+        localidadeAtendida: '',
+        liderancaResponsavel: '',
+        dataAtendimento: ''
+      }));
+    }
+  };
+
+  const toggleServicoCampanha = (servico) => {
+    setServicosSelecionados(prev => {
+      if (prev.includes(servico)) {
+        return prev.filter(item => item !== servico);
+      }
+      return [...prev, servico];
+    });
+  };
+
+  const handleSelecionarLideranca = (lideranca) => {
+    setLiderancaSelecionada(lideranca);
+    if (lideranca) {
+      setFormData(prev => ({
+        ...prev,
+        liderancaResponsavel: lideranca.nome || ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        liderancaResponsavel: ''
+      }));
+    }
   };
 
   const enviarNotificacao = async (tipo, mensagem) => {
@@ -158,8 +248,26 @@ export default function NovoAtendimento() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (salvando) {
+      return;
+    }
     
-    console.log('Dados do atendimento:', formData);
+    if (!eleitorSelecionado?.id) {
+      showWarning('Selecione um eleitor antes de salvar');
+      return;
+    }
+
+    const payload = {
+      eleitorId: eleitorSelecionado.id,
+      tipoAtendimento: formData.tipoAtendimento,
+      assunto: formData.tipoEspecifico || formData.tipoAtendimentoJuridico || '',
+      descricao: formData.descricao || formData.servicosOferecidos || '',
+      resultado: formData.observacoes || '',
+      status: formData.statusAtendimento,
+      dataAtendimento: formData.dataAtendimento || null,
+      servicosSelecionados
+    };
     
     // Enviar notificação se habilitado
     if (formData.notificarEleitor && formData.eleitorCelular) {
@@ -168,8 +276,33 @@ export default function NovoAtendimento() {
       await enviarNotificacao(formData.modoNotificacao, mensagem);
     }
     
-    // Aqui você implementará a integração com Supabase
-    alert('Atendimento cadastrado com sucesso!');
+    try {
+      setSalvando(true);
+      const response = await fetch('/api/cadastros/atendimentos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao salvar atendimento');
+      }
+
+      showSuccess('Atendimento cadastrado com sucesso!', () => {
+        setFormData(initialFormData);
+        setEleitorSelecionado(null);
+        setCampanhaSelecionada(null);
+        setLiderancaSelecionada(null);
+        setServicosCampanha([]);
+        setServicosSelecionados([]);
+        router.push('/cadastros/atendimentos');
+      });
+    } catch (error) {
+      showError('Erro ao salvar atendimento: ' + error.message);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const atualizarStatus = async (novoStatus) => {
@@ -178,9 +311,9 @@ export default function NovoAtendimento() {
     // Notificar eleitor sobre mudança de status
     if (formData.notificarEleitor) {
       const statusTexto = {
-        'NAO_REALIZADO': 'Aguardando início',
-        'EM_PROCESSO': 'Em andamento',
-        'REALIZADO': 'Concluído'
+        'AGENDADO': 'Agendado',
+        'REALIZADO': 'Concluído',
+        'CANCELADO': 'Cancelado'
       };
       
       const mensagem = `Atualização do seu atendimento: Status alterado para ${statusTexto[novoStatus]}`;
@@ -190,11 +323,31 @@ export default function NovoAtendimento() {
 
   return (
     <Layout titulo="Novo Atendimento">
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={closeModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+      />
+
       {/* Busca de Eleitor */}
       <BuscaEleitor 
         onSelecionarEleitor={handleSelecionarEleitor}
         eleitorSelecionado={eleitorSelecionado}
       />
+
+      {/* Busca de Campanha - após seleção do eleitor */}
+      {eleitorSelecionado && (
+        <BuscaCampanha 
+          onSelecionarCampanha={handleSelecionarCampanha}
+          campanhaSelecionada={campanhaSelecionada}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6">
             {/* Status do Atendimento - Badge no Topo */}
@@ -202,27 +355,27 @@ export default function NovoAtendimento() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => atualizarStatus('NAO_REALIZADO')}
+                  onClick={() => atualizarStatus('AGENDADO')}
                   className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${
-                    formData.statusAtendimento === 'NAO_REALIZADO'
+                    formData.statusAtendimento === 'AGENDADO'
+                      ? 'bg-yellow-500 text-white'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faClock} />
+                  Agendado
+                </button>
+                <button
+                  type="button"
+                  onClick={() => atualizarStatus('CANCELADO')}
+                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${
+                    formData.statusAtendimento === 'CANCELADO'
                       ? 'bg-red-500 text-white'
                       : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                   }`}
                 >
                   <FontAwesomeIcon icon={faTimesCircle} />
-                  Não Realizado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => atualizarStatus('EM_PROCESSO')}
-                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${
-                    formData.statusAtendimento === 'EM_PROCESSO'
-                      ? 'bg-yellow-500 text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faHourglassHalf} />
-                  Em Processo
+                  Cancelado
                 </button>
                 <button
                   type="button"
@@ -239,24 +392,26 @@ export default function NovoAtendimento() {
               </div>
             </div>
 
-            {/* Tipo de Atendimento */}
-            <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border-l-4 border-teal-600">
-              <h3 className="text-lg font-bold text-gray-800 mb-3">Tipo de Atendimento</h3>
-              <select
-                name="tipoAtendimento"
-                value={formData.tipoAtendimento}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-semibold"
-              >
-                <option value="ACAO_SOCIAL">Ação Social</option>
-                <option value="EMISSAO_DOCUMENTOS">Emissão de Documentos</option>
-                <option value="ATENDIMENTO_JURIDICO">Atendimento Jurídico</option>
-                <option value="OUTROS">Outros Atendimentos</option>
-              </select>
-            </div>
+            {/* Tipo de Atendimento - Oculto se campanha existente selecionada */}
+            {(!campanhaSelecionada || campanhaSelecionada.id === 'AVULSO') && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border-l-4 border-teal-600">
+                <h3 className="text-lg font-bold text-gray-800 mb-3">Tipo de Atendimento</h3>
+                <select
+                  name="tipoAtendimento"
+                  value={formData.tipoAtendimento}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-semibold"
+                >
+                  <option value="ACAO_SOCIAL">Ação Social</option>
+                  <option value="EMISSAO_DOCUMENTOS">Emissão de Documentos</option>
+                  <option value="ATENDIMENTO_JURIDICO">Atendimento Jurídico</option>
+                  <option value="OUTROS">Outros Atendimentos</option>
+                </select>
+              </div>
+            )}
 
             {/* Ação Social */}
-            {formData.tipoAtendimento === 'ACAO_SOCIAL' && (
+            {formData.tipoAtendimento === 'ACAO_SOCIAL' && campanhaSelecionada && (
               <div className="border-t pt-6 mb-6">
                 <h3 className="text-lg font-bold text-teal-700 mb-4 flex items-center gap-2">
                   <FontAwesomeIcon icon={faHandshake} className="text-teal-600" />
@@ -264,20 +419,43 @@ export default function NovoAtendimento() {
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Liderança Responsável */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Liderança Responsável <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="liderancaResponsavel"
-                      value={formData.liderancaResponsavel}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
+                    {campanhaSelecionada?.id === 'AVULSO' ? (
+                      <BuscaLideranca
+                        onSelecionarLideranca={handleSelecionarLideranca}
+                        liderancaSelecionada={liderancaSelecionada}
+                        label="Liderança Responsável"
+                      />
+                    ) : (
+                      <>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Liderança Responsável <span className="text-red-500">*</span>
+                        </label>
+                        <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 space-y-1">
+                          {formData.liderancaResponsavel ? (
+                            <>
+                              <div className="font-semibold">{formData.liderancaResponsavel}</div>
+                              <div className="text-sm text-gray-600">
+                                <span className="inline-block bg-teal-100 text-teal-700 px-2 py-1 rounded text-xs font-semibold">
+                                  {liderancaSelecionada?.papel || 'APOIO'}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-gray-500">Sem liderança vinculada</div>
+                          )}
+                        </div>
+                        {formData.liderancaResponsavel ? (
+                          <p className="text-xs text-gray-500 mt-1">✓ Selecionada automaticamente (maior hierarquia)</p>
+                        ) : (
+                          <p className="text-xs text-yellow-600 mt-1">⚠️ Campanha sem liderança cadastrada</p>
+                        )}
+                      </>
+                    )}
                   </div>
 
+                  {/* Localidade Atendida - Preenchida automaticamente ou editable */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Localidade Atendida <span className="text-red-500">*</span>
@@ -289,70 +467,71 @@ export default function NovoAtendimento() {
                       onChange={handleInputChange}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                      placeholder={campanhaSelecionada?.id === 'AVULSO' ? 'Informar localidade...' : ''}
                     />
+                    {campanhaSelecionada?.id !== 'AVULSO' && (
+                      <p className="text-xs text-gray-500 mt-1">✓ Preenchido automaticamente da campanha</p>
+                    )}
                   </div>
                 </div>
 
+                {/* Serviços da Campanha */}
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Serviços Oferecidos
+                    Serviços Oferecidos {campanhaSelecionada?.id === 'AVULSO' ? '(Selecione os serviços)' : '(Da campanha)'}
                   </label>
-                  <textarea
-                    name="servicosOferecidos"
-                    value={formData.servicosOferecidos}
-                    onChange={handleInputChange}
-                    rows="3"
-                    placeholder="Descreva os serviços oferecidos na ação social..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                  />
+                  
+                  {campanhaSelecionada?.id === 'AVULSO' ? (
+                    // Atendimento Avulso - Mostrar todos os serviços disponíveis
+                    <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3">
+                      <p className="text-sm text-gray-700 mb-3">
+                        💡 Atendimento avulso - Selecione os serviços oferecidos ou crie um personalizado
+                      </p>
+                      <textarea
+                        name="servicosOferecidos"
+                        value={formData.servicosOferecidos}
+                        onChange={handleInputChange}
+                        rows="3"
+                        placeholder="Descreva os serviços oferecidos neste atendimento avulso..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  ) : servicosCampanha.length > 0 ? (
+                    // Serviços da campanha selecionada
+                    <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {servicosCampanha.map((servico, idx) => (
+                          <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-green-200">
+                            <input
+                              type="checkbox"
+                              id={`servico-${idx}`}
+                              checked={servicosSelecionados.includes(servico)}
+                              onChange={() => toggleServicoCampanha(servico)}
+                              className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                            />
+                            <label htmlFor={`servico-${idx}`} className="text-sm text-gray-700 cursor-pointer">
+                              {servico}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 text-sm text-yellow-800">
+                      ⚠️ Esta campanha não possui serviços cadastrados. Descreva os serviços abaixo:
+                      <textarea
+                        name="servicosOferecidos"
+                        value={formData.servicosOferecidos}
+                        onChange={handleInputChange}
+                        rows="2"
+                        placeholder="Descreva os serviços oferecidos..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 mt-2"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                {/* Tipo Específico - Atendimento Médico/Oftalmologista/Hospitalar */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Tipo de Atendimento Médico
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, tipoEspecifico: 'MEDICO' }))}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        formData.tipoEspecifico === 'MEDICO'
-                          ? 'border-teal-600 bg-teal-50'
-                          : 'border-gray-300 hover:border-teal-400'
-                      }`}
-                    >
-                      <FontAwesomeIcon icon={faStethoscope} className="text-2xl text-teal-600 mb-2" />
-                      <div className="font-semibold">Atendimento Médico</div>
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, tipoEspecifico: 'OFTALMOLOGISTA' }))}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        formData.tipoEspecifico === 'OFTALMOLOGISTA'
-                          ? 'border-teal-600 bg-teal-50'
-                          : 'border-gray-300 hover:border-teal-400'
-                      }`}
-                    >
-                      <FontAwesomeIcon icon={faEye} className="text-2xl text-teal-600 mb-2" />
-                      <div className="font-semibold">Oftamologista</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, tipoEspecifico: 'HOSPITALAR' }))}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        formData.tipoEspecifico === 'HOSPITALAR'
-                          ? 'border-teal-600 bg-teal-50'
-                          : 'border-gray-300 hover:border-teal-400'
-                      }`}
-                    >
-                      <FontAwesomeIcon icon={faHospital} className="text-2xl text-teal-600 mb-2" />
-                      <div className="font-semibold">Procedimento Hospitalar</div>
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -439,32 +618,21 @@ export default function NovoAtendimento() {
             <div className="border-t pt-6 mb-6">
               <h3 className="text-lg font-bold text-teal-700 mb-4">DADOS DO ELEITOR</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     CPF do Eleitor <span className="text-red-500">*</span>
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      name="eleitorCpf"
-                      value={formData.eleitorCpf}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="000.000.000-00"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={buscarEleitor}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-                    >
-                      <FontAwesomeIcon icon={faSearch} />
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    name="eleitorCpf"
+                    value={formData.eleitorCpf}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
                 </div>
 
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Nome do Eleitor <span className="text-red-500">*</span>
                   </label>
@@ -472,14 +640,13 @@ export default function NovoAtendimento() {
                     type="text"
                     name="eleitorNome"
                     value={formData.eleitorNome}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Email
@@ -488,9 +655,8 @@ export default function NovoAtendimento() {
                     type="email"
                     name="eleitorEmail"
                     value={formData.eleitorEmail}
-                    onChange={handleInputChange}
-                    placeholder="email@exemplo.com"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
                   />
                 </div>
 
@@ -503,9 +669,8 @@ export default function NovoAtendimento() {
                     type="tel"
                     name="eleitorCelular"
                     value={formData.eleitorCelular}
-                    onChange={handleInputChange}
-                    placeholder="(00) 00000-0000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -557,7 +722,12 @@ export default function NovoAtendimento() {
                     name="dataAtendimento"
                     value={formData.dataAtendimento}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    disabled={campanhaSelecionada?.id && campanhaSelecionada.id !== 'AVULSO'}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                      campanhaSelecionada?.id && campanhaSelecionada.id !== 'AVULSO'
+                        ? 'bg-gray-100 text-gray-700 cursor-not-allowed'
+                        : ''
+                    }`}
                   />
                 </div>
 
@@ -657,10 +827,11 @@ export default function NovoAtendimento() {
               </button>
               <button
                 type="submit"
+                disabled={salvando}
                 className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold transition-colors flex items-center gap-2"
               >
                 <FontAwesomeIcon icon={faSave} />
-                Salvar Atendimento
+                {salvando ? 'Salvando...' : 'Salvar Atendimento'}
               </button>
             </div>
           </form>

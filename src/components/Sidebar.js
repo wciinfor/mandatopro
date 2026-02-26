@@ -36,7 +36,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     {
       nome: 'Cadastros',
       icone: faClipboardList,
-      submenu: ['Eleitores', 'Lideranças', 'Funcionários', 'Atendimentos']
+      submenu: ['Eleitores', 'Lideranças', 'Funcionários', 'Campanhas', 'Atendimentos']
     },
     {
       nome: 'Emendas',
@@ -110,6 +110,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     'Lideranças': '/cadastros/liderancas',
     'Funcionários': '/cadastros/funcionarios',
     'Atendimentos': '/cadastros/atendimentos',
+    'Campanhas': '/cadastros/campanhas',
     
     // Emendas
     'Órgãos': '/emendas/orgaos',

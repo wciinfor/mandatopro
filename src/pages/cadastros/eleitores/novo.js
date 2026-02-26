@@ -8,6 +8,7 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { applyMask, onlyDigits } from '@/utils/inputMasks';
 
 export default function NovoEleitor() {
   const router = useRouter();
@@ -62,43 +63,109 @@ export default function NovoEleitor() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const maskedValue = applyMask(name, value);
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: maskedValue
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Validações básicas
+      if (!formData.nome.trim()) {
+        showWarning('Nome é obrigatório');
+        return;
+      }
+
+      if (!formData.cpf.trim()) {
+        showWarning('CPF é obrigatório');
+        return;
+      }
+
+      if (formData.tituloEleitoral && formData.tituloEleitoral.length > 12) {
+        showWarning('Nº Título deve ter no máximo 12 caracteres');
+        return;
+      }
+
       console.log('Dados do formulário:', formData);
-      // Aqui você implementará a integração com Supabase
       
-      // Registra o cadastro bem-sucedido
-      await registrarCadastro(
-        usuario,
-        'ELEITORES',
-        'Eleitor',
-        `eleitor-${Date.now()}`,
-        {
-          nome: formData.nome,
-          cpf: formData.cpf,
-          email: formData.email,
-          celular: formData.celular
+      let latitude = formData.latitude ? parseFloat(formData.latitude) : null;
+      let longitude = formData.longitude ? parseFloat(formData.longitude) : null;
+
+      // Geocodificar endereco se coordenadas estiverem vazias
+      if (!latitude || !longitude) {
+        const enderecoPartes = [
+          formData.logradouro,
+          formData.numero,
+          formData.bairro,
+          formData.cidade,
+          formData.uf,
+          formData.cep
+        ].filter(Boolean);
+
+        if (enderecoPartes.length < 3) {
+          showWarning('Preencha endereco completo para gerar as coordenadas.');
+          return;
         }
-      );
+
+        const endereco = enderecoPartes.join(', ');
+        const geoResponse = await fetch('/api/geolocalizacao/geocodificar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: endereco })
+        });
+
+        if (!geoResponse.ok) {
+          const geoError = await geoResponse.json();
+          throw new Error(geoError.error || 'Erro ao gerar coordenadas');
+        }
+
+        const geoData = await geoResponse.json();
+        latitude = geoData.latitude;
+        longitude = geoData.longitude;
+      }
+
+      // Normalizar campos numericos
+      const payload = {
+        ...formData,
+        cpf: onlyDigits(formData.cpf),
+        rg: onlyDigits(formData.rg),
+        telefone: onlyDigits(formData.telefone),
+        celular: onlyDigits(formData.celular),
+        whatsapp: onlyDigits(formData.whatsapp),
+        cep: onlyDigits(formData.cep),
+        tituloEleitoral: onlyDigits(formData.tituloEleitoral),
+        latitude,
+        longitude
+      };
+
+      // Enviar para API
+      const response = await fetch('/api/cadastros/eleitores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        const detalhes = [error.message, error.details, error.hint].filter(Boolean).join(' | ');
+        throw new Error(detalhes || 'Erro ao criar eleitor');
+      }
+
+      const eleitorCriado = await response.json();
+
+      // Registra o cadastro bem-sucedido
+      console.log('Eleitor criado com sucesso:', eleitorCriado);
       
       showSuccess('Eleitor cadastrado com sucesso!', () => {
         router.push('/cadastros/eleitores');
       });
     } catch (error) {
-      // Registra o erro
-      await registrarErro(
-        usuario,
-        'ELEITORES',
-        'Erro ao cadastrar eleitor',
-        error
-      );
+      console.error('Erro ao cadastrar:', error);
       showError('Erro ao cadastrar: ' + error.message);
     }
   };
@@ -110,9 +177,10 @@ export default function NovoEleitor() {
   };
 
   const buscarCep = async () => {
-    if (formData.cep.length === 8) {
+    const cepDigits = onlyDigits(formData.cep);
+    if (cepDigits.length === 8) {
       try {
-        const response = await fetch(`https://viacep.com.br/ws/${formData.cep}/json/`);
+        const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
         const data = await response.json();
         if (!data.erro) {
           setFormData(prev => ({
@@ -542,6 +610,7 @@ export default function NovoEleitor() {
                     name="tituloEleitoral"
                     value={formData.tituloEleitoral}
                     onChange={handleInputChange}
+                    maxLength="12"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>

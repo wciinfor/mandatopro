@@ -75,12 +75,15 @@ export function NotificationProvider({ children }) {
     }
   };
 
-  // Solicitar permissão para notificações do navegador
-  useEffect(() => {
+  const requestNotificationPermission = async () => {
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+      try {
+        await Notification.requestPermission();
+      } catch (e) {
+        console.log('Permissão de notificação não concedida');
+      }
     }
-  }, []);
+  };
 
   const value = {
     notifications,
@@ -89,7 +92,8 @@ export function NotificationProvider({ children }) {
     removeNotification,
     markAsRead,
     markAllAsRead,
-    clearAll
+    clearAll,
+    requestNotificationPermission
   };
 
   return (

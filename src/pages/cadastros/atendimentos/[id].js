@@ -60,7 +60,7 @@ export default function EditarAtendimento() {
     eleitorNome: '',
     eleitorCpf: '',
     tipoEspecifico: '',
-    statusAtendimento: 'NAO_REALIZADO',
+    statusAtendimento: 'AGENDADO',
     dataAtendimento: '',
     dataConclusao: '',
     descricao: '',
@@ -122,10 +122,9 @@ export default function EditarAtendimento() {
   });
 
   const statusOptions = {
-    'NAO_REALIZADO': { label: 'Não Realizado', icon: faTimesCircle, color: 'red' },
-    'EM_PROCESSO': { label: 'Em Processo', icon: faHourglassHalf, color: 'yellow' },
+    'AGENDADO': { label: 'Agendado', icon: faClock, color: 'blue' },
     'REALIZADO': { label: 'Realizado', icon: faCheckCircle, color: 'green' },
-    'CANCELADO': { label: 'Cancelado', icon: faTimes, color: 'gray' }
+    'CANCELADO': { label: 'Cancelado', icon: faTimesCircle, color: 'red' }
   };
 
   useEffect(() => {
@@ -150,14 +149,8 @@ export default function EditarAtendimento() {
           {
             data: '2025-11-08 09:15',
             usuario: 'Admin',
-            status: 'NAO_REALIZADO',
+            status: 'AGENDADO',
             observacao: 'Atendimento agendado'
-          },
-          {
-            data: '2025-11-10 14:30',
-            usuario: 'João Silva',
-            status: 'EM_PROCESSO',
-            observacao: 'Paciente em consulta'
           },
           {
             data: '2025-11-10 15:45',

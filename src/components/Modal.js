@@ -72,7 +72,7 @@ export default function Modal({
           {/* Botão Fechar */}
           {!showCancel && (
             <button
-              onClick={handleCancel}
+              onClick={handleConfirm}
               className="absolute top-4 right-4 text-white hover:text-teal-200 transition-colors"
             >
               <FontAwesomeIcon icon={faTimes} className="text-lg" />
@@ -91,9 +91,15 @@ export default function Modal({
               />
             </div>
             <div className="flex-1 pt-2">
-              <p className="text-gray-800 text-lg leading-relaxed">
-                {message}
-              </p>
+              {typeof message === 'string' ? (
+                <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-line">
+                  {message}
+                </p>
+              ) : (
+                <div className="text-gray-800 text-sm">
+                  {message}
+                </div>
+              )}
             </div>
           </div>
         </div>
