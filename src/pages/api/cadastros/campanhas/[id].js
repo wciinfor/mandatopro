@@ -23,6 +23,41 @@ export default async function handler(req, res) {
         });
       }
 
+      if (campanha && Array.isArray(campanha.campanhas_servicos)) {
+        const { data: atendimentos } = await supabase
+          .from('atendimentos')
+          .select('id')
+          .eq('campanha_id', campanha.id);
+
+        const atendimentoIds = (atendimentos || []).map(a => a.id);
+        let servicosAtendimentos = [];
+
+        if (atendimentoIds.length > 0) {
+          const { data: servicosData } = await supabase
+            .from('atendimentos_servicos')
+            .select('atendimento_id, categoria_servico_id')
+            .in('atendimento_id', atendimentoIds);
+          servicosAtendimentos = servicosData || [];
+        }
+
+        const usoPorServico = {};
+        servicosAtendimentos.forEach((item) => {
+          const key = item.categoria_servico_id;
+          usoPorServico[key] = (usoPorServico[key] || 0) + 1;
+        });
+
+        campanha.campanhas_servicos = campanha.campanhas_servicos.map((cs) => {
+          const total = cs.quantidade || 0;
+          const usados = usoPorServico[cs.categoria_servico_id] || 0;
+          const disponiveis = Math.max(total - usados, 0);
+          return {
+            ...cs,
+            quantidade_usada: usados,
+            quantidade_disponivel: disponiveis
+          };
+        });
+      }
+
       return res.status(200).json({ data: campanha });
     }
 

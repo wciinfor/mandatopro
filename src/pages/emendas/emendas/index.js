@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -8,71 +8,51 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFEmendas, gerarExcelEmendas } from '@/utils/relatorios';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function GerenciarEmendas() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [emendas, setEmendas] = useState([
-    {
-      id: 1,
-      codigo: 'EMD-2024-001',
-      numero: '001/2024',
-      tipo: 'INDIVIDUAL',
-      autor: 'Deputado José Santos',
-      orgao: 'SECRETARIA MUNICIPAL DE SAÚDE',
-      responsavel: 'Dr. João Silva',
-      finalidade: 'Aquisição de equipamentos médicos',
-      valorEmpenhado: 500000.00,
-      valorExecutado: 350000.00,
-      dataEmpenho: '2024-01-15',
-      dataVencimento: '2024-12-31',
-      status: 'EM_EXECUCAO',
-      observacoes: 'Equipamentos em processo de licitação'
-    },
-    {
-      id: 2,
-      codigo: 'EMD-2024-002',
-      numero: '002/2024',
-      tipo: 'BANCADA',
-      autor: 'Bancada Federal do Pará',
-      orgao: 'SECRETARIA ESTADUAL DE EDUCAÇÃO',
-      responsavel: 'Profª Maria Santos',
-      finalidade: 'Construção de escola técnica',
-      valorEmpenhado: 2000000.00,
-      valorExecutado: 2000000.00,
-      dataEmpenho: '2024-02-20',
-      dataVencimento: '2024-11-30',
-      status: 'EXECUTADA',
-      observacoes: 'Obra concluída e inaugurada'
-    },
-    {
-      id: 3,
-      codigo: 'EMD-2024-003',
-      numero: '003/2024',
-      tipo: 'COMISSAO',
-      autor: 'Comissão de Infraestrutura',
-      orgao: 'SECRETARIA MUNICIPAL DE OBRAS',
-      responsavel: 'Eng. Carlos Oliveira',
-      finalidade: 'Pavimentação de vias urbanas',
-      valorEmpenhado: 1500000.00,
-      valorExecutado: 0.00,
-      dataEmpenho: '2024-03-10',
-      dataVencimento: '2024-12-31',
-      status: 'PENDENTE',
-      observacoes: 'Aguardando liberação de recursos'
-    }
-  ]);
-
+  const [emendas, setEmendas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('TODOS');
   const [statusFiltro, setStatusFiltro] = useState('TODOS');
 
+  useEffect(() => {
+    carregarEmendas();
+  }, []);
+
+  const carregarEmendas = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+        .from('emendas')
+        .select('*')
+        .order('numero', { ascending: true });
+
+      if (error) throw error;
+
+      setEmendas(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar emendas:', error);
+      showError('Erro ao carregar emendas');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const emendasFiltradas = emendas.filter(emenda => {
     const matchFiltro = filtro === '' || 
-      emenda.numero.toLowerCase().includes(filtro.toLowerCase()) ||
-      emenda.autor.toLowerCase().includes(filtro.toLowerCase()) ||
-      emenda.finalidade.toLowerCase().includes(filtro.toLowerCase());
+      (emenda.numero && emenda.numero.toLowerCase().includes(filtro.toLowerCase())) ||
+      (emenda.autor && emenda.autor.toLowerCase().includes(filtro.toLowerCase())) ||
+      (emenda.finalidade && emenda.finalidade.toLowerCase().includes(filtro.toLowerCase()));
     const matchTipo = tipoFiltro === 'TODOS' || emenda.tipo === tipoFiltro;
     const matchStatus = statusFiltro === 'TODOS' || emenda.status === statusFiltro;
     return matchFiltro && matchTipo && matchStatus;
@@ -115,9 +95,21 @@ export default function GerenciarEmendas() {
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir esta emenda?', () => {
-      setEmendas(emendas.filter(e => e.id !== id));
-      showSuccess('Emenda excluída com sucesso!');
+    showConfirm('Tem certeza que deseja excluir esta emenda?', async () => {
+      try {
+        const { error } = await supabase
+          .from('emendas')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setEmendas(emendas.filter(e => e.id !== id));
+        showSuccess('Emenda excluída com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir emenda:', error);
+        showError('Erro ao excluir emenda: ' + error.message);
+      }
     });
   };
 
@@ -137,6 +129,18 @@ export default function GerenciarEmendas() {
 
   const totalEmpenhado = emendasFiltradas.reduce((acc, e) => acc + e.valorEmpenhado, 0);
   const totalExecutado = emendasFiltradas.reduce((acc, e) => acc + e.valorExecutado, 0);
+
+  if (carregando) {
+    return (
+      <Layout titulo="Gerenciar Emendas">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-700">Carregando emendas...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout titulo="Gerenciar Emendas">

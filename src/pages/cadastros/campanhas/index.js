@@ -73,6 +73,16 @@ export default function GerenciarCampanhas() {
 
   const handleVisualizar = (campanha) => {
     // Construir conteúdo estruturado para o modal
+    const resumoServicos = (campanha.campanhas_servicos || []).reduce(
+      (acc, cs) => {
+        acc.total += cs.quantidade || 0;
+        acc.usados += cs.quantidade_usada || 0;
+        acc.disponiveis += cs.quantidade_disponivel ?? Math.max((cs.quantidade || 0) - (cs.quantidade_usada || 0), 0);
+        return acc;
+      },
+      { total: 0, usados: 0, disponiveis: 0 }
+    );
+
     const conteudo = (
       <div className="space-y-3">
         <div>
@@ -111,13 +121,35 @@ export default function GerenciarCampanhas() {
         <div>
           <div className="font-bold mb-2">Serviços:</div>
           {campanha.campanhas_servicos && campanha.campanhas_servicos.length > 0 ? (
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              {campanha.campanhas_servicos.map((cs, idx) => (
-                <li key={idx}>{cs.categorias_servicos.nome}</li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="w-full border border-gray-200 text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Serviço</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Total</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Disponíveis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {campanha.campanhas_servicos.map((cs, idx) => (
+                    <tr key={idx} className="border-t">
+                      <td className="px-3 py-2 text-gray-700">{cs.categorias_servicos.nome}</td>
+                      <td className="px-3 py-2 text-right text-gray-700">{cs.quantidade || 0}</td>
+                      <td className="px-3 py-2 text-right text-red-600 font-semibold">
+                        {cs.quantidade_disponivel ?? Math.max((cs.quantidade || 0) - (cs.quantidade_usada || 0), 0)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <p className="text-gray-600 ml-2">Nenhum serviço cadastrado</p>
+          )}
+          {campanha.campanhas_servicos && campanha.campanhas_servicos.length > 0 && (
+            <div className="mt-3 text-sm text-gray-700 ml-2">
+              <span className="font-semibold">Resumo:</span> Total {resumoServicos.total} | Usados {resumoServicos.usados} | Disponíveis <span className="text-red-600 font-semibold">{resumoServicos.disponiveis}</span>
+            </div>
           )}
         </div>
       </div>
@@ -341,6 +373,7 @@ export default function GerenciarCampanhas() {
                   <th className="px-6 py-3 text-left text-sm font-semibold">Local</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Data</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Lideranças</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Serviços</th>
                   <th className="px-6 py-3 text-center text-sm font-semibold">Status</th>
                   <th className="px-6 py-3 text-center text-sm font-semibold">Ações</th>
                 </tr>
@@ -348,13 +381,13 @@ export default function GerenciarCampanhas() {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-4 text-center text-gray-600">
+                    <td colSpan="8" className="px-6 py-4 text-center text-gray-600">
                       Carregando campanhas...
                     </td>
                   </tr>
                 ) : campanhasPaginadas.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-4 text-center text-gray-600">
+                    <td colSpan="8" className="px-6 py-4 text-center text-gray-600">
                       Nenhuma campanha encontrada
                     </td>
                   </tr>
@@ -371,6 +404,30 @@ export default function GerenciarCampanhas() {
                         <span className="badge badge-sm badge-info">
                           {campanha.campanhas_liderancas?.length || 0} líderes
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {(() => {
+                          const resumo = (campanha.campanhas_servicos || []).reduce(
+                            (acc, cs) => {
+                              acc.total += cs.quantidade || 0;
+                              acc.usados += cs.quantidade_usada || 0;
+                              acc.disponiveis += cs.quantidade_disponivel ?? Math.max((cs.quantidade || 0) - (cs.quantidade_usada || 0), 0);
+                              return acc;
+                            },
+                            { total: 0, usados: 0, disponiveis: 0 }
+                          );
+
+                          if (!campanha.campanhas_servicos || campanha.campanhas_servicos.length === 0) {
+                            return <span className="text-gray-600">-</span>;
+                          }
+
+                          return (
+                            <span className="inline-flex items-center gap-2">
+                              <span className="text-gray-700">{resumo.disponiveis}/{resumo.total}</span>
+                              <span className="text-xs text-gray-500">(usados {resumo.usados})</span>
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(campanha.status)}`}>

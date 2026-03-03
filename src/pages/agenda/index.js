@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendarAlt, faPlus, faEdit, faTrash, faEye, faUsers, faMapMarkerAlt, faClock, faFilter, faCheckCircle, faPrint
@@ -9,9 +9,17 @@ import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
 import PDFGenerator from '@/utils/pdfGenerator';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function Agenda() {
   const { user } = useAuth();
+  const [eventos, setEventos] = useState([]);
+  const [carregando, setCarregando] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
   const [filtroMes, setFiltroMes] = useState(new Date().getMonth() + 1);
   const [filtroAno, setFiltroAno] = useState(new Date().getFullYear());
@@ -19,92 +27,45 @@ export default function Agenda() {
   const [modalExcluir, setModalExcluir] = useState(false);
   const [eventoParaExcluir, setEventoParaExcluir] = useState(null);
 
-  // Mock de eventos
-  const eventosMock = [
-    {
-      id: 1,
-      titulo: 'Reunião com Líderes Comunitários',
-      descricao: 'Discussão sobre projetos para o bairro',
-      data: '2025-11-25',
-      horaInicio: '14:00',
-      horaFim: '16:00',
-      local: 'Salão Paroquial - Pedreira',
-      tipo: 'PARLAMENTAR', // PARLAMENTAR ou LOCAL
-      criadoPor: 'Admin Sistema',
-      criadoPorId: 1,
-      criadoPorNivel: 'ADMINISTRADOR',
-      participantes: 15,
-      confirmados: 8,
-      categoria: 'Reunião',
-      observacoes: 'Levar material de apresentação'
-    },
-    {
-      id: 2,
-      titulo: 'Inauguração Praça da Juventude',
-      descricao: 'Cerimônia de inauguração da praça reformada',
-      data: '2025-11-28',
-      horaInicio: '10:00',
-      horaFim: '12:00',
-      local: 'Praça da Juventude - Guamá',
-      tipo: 'PARLAMENTAR',
-      criadoPor: 'Admin Sistema',
-      criadoPorId: 1,
-      criadoPorNivel: 'ADMINISTRADOR',
-      participantes: 50,
-      confirmados: 35,
-      categoria: 'Evento Público',
-      observacoes: ''
-    },
-    {
-      id: 3,
-      titulo: 'Atendimento à População',
-      descricao: 'Atendimento social no bairro',
-      data: '2025-11-26',
-      horaInicio: '09:00',
-      horaFim: '13:00',
-      local: 'Associação de Moradores - Terra Firme',
-      tipo: 'LOCAL',
-      criadoPor: 'Liderança Carlos',
-      criadoPorId: 1,
-      criadoPorNivel: 'LIDERANCA',
-      liderancaId: 1,
-      participantes: 10,
-      confirmados: 7,
-      categoria: 'Atendimento',
-      observacoes: 'Necessário levar formulários'
-    },
-    {
-      id: 4,
-      titulo: 'Culto Evangélico',
-      descricao: 'Participação em culto da igreja',
-      data: '2025-11-24',
-      horaInicio: '19:00',
-      horaFim: '21:00',
-      local: 'Igreja Assembleia de Deus - Marambaia',
-      tipo: 'PARLAMENTAR',
-      criadoPor: 'Admin Sistema',
-      criadoPorId: 1,
-      criadoPorNivel: 'ADMINISTRADOR',
-      participantes: 5,
-      confirmados: 5,
-      categoria: 'Evento Religioso',
-      observacoes: ''
+  useEffect(() => {
+    carregarEventos();
+  }, []);
+
+  const normalizarEvento = (evento) => ({
+    ...evento,
+    horaInicio: evento.horaInicio || evento.hora_inicio || '',
+    horaFim: evento.horaFim || evento.hora_fim || '',
+    confirmados: evento.confirmados ?? 0,
+    participantes: evento.participantes ?? 0,
+    criado_por_id: evento.criado_por_id ?? null
+  });
+
+  const carregarEventos = async () => {
+    setCarregando(true);
+    try {
+      const { data, error } = await supabase
+        .from('agenda_eventos')
+        .select('*')
+        .order('data', { ascending: true });
+
+      if (error) throw error;
+
+      setEventos((data || []).map(normalizarEvento));
+    } catch (error) {
+      console.error('Erro ao carregar eventos:', error);
+    } finally {
+      setCarregando(false);
     }
-  ];
+  };
 
   // Filtrar eventos baseado em permissões
-  const eventosFiltrados = eventosMock.filter(evento => {
+  const eventosFiltrados = eventos.filter(evento => {
     // Filtro de permissão
     if (user?.nivel === 'ADMINISTRADOR') {
       // Admin vê tudo
-    } else if (user?.nivel === 'LIDERANCA') {
-      // Liderança vê eventos parlamentares + seus próprios eventos locais
-      if (evento.tipo === 'LOCAL' && evento.liderancaId !== user?.liderancaId) {
-        return false;
-      }
-    } else if (user?.nivel === 'OPERADOR') {
-      // Operador vê eventos parlamentares + eventos locais da sua liderança
-      if (evento.tipo === 'LOCAL' && evento.liderancaId !== user?.liderancaId) {
+    } else {
+      // Usuários não-admin veem eventos parlamentares e eventos locais criados por eles
+      if (evento.tipo === 'LOCAL' && evento.criado_por_id !== user?.id) {
         return false;
       }
     }
@@ -115,8 +76,8 @@ export default function Agenda() {
     const eventoData = new Date(evento.data + 'T00:00:00');
     if (eventoData.getMonth() + 1 !== filtroMes || eventoData.getFullYear() !== filtroAno) return false;
 
-    if (busca && !evento.titulo.toLowerCase().includes(busca.toLowerCase()) &&
-        !evento.local.toLowerCase().includes(busca.toLowerCase())) return false;
+    if (busca && !evento.titulo?.toLowerCase().includes(busca.toLowerCase()) &&
+      !evento.local?.toLowerCase().includes(busca.toLowerCase())) return false;
 
     return true;
   });
@@ -136,10 +97,29 @@ export default function Agenda() {
     setModalExcluir(true);
   };
 
-  const confirmarExclusao = () => {
-    console.log('Excluindo evento:', eventoParaExcluir);
-    setModalExcluir(false);
-    setEventoParaExcluir(null);
+  const confirmarExclusao = async () => {
+    if (!eventoParaExcluir?.id) {
+      setModalExcluir(false);
+      setEventoParaExcluir(null);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('agenda_eventos')
+        .delete()
+        .eq('id', eventoParaExcluir.id);
+
+      if (error) throw error;
+
+      setEventos(eventos.filter(evento => evento.id !== eventoParaExcluir.id));
+      setModalExcluir(false);
+      setEventoParaExcluir(null);
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error);
+      setModalExcluir(false);
+      setEventoParaExcluir(null);
+    }
   };
 
   const handleImprimirAgenda = () => {
@@ -160,7 +140,8 @@ export default function Agenda() {
       pdfGenerator.doc.setTextColor(100, 100, 100);
       
       const tipoTexto = filtroTipo === 'TODOS' ? 'Todos os Eventos' : 
-                       filtroTipo === 'PARLAMENTAR' ? 'Agenda Parlamentar' : 'Agenda Local';
+               filtroTipo === 'PARLAMENTAR' ? 'Agenda Parlamentar' :
+               filtroTipo === 'LOCAL' ? 'Agenda Local' : 'Eventos';
       pdfGenerator.doc.text(`Tipo: ${tipoTexto}`, pdfGenerator.margin, yPos);
       yPos += 6;
       pdfGenerator.doc.text(`Total de Eventos: ${eventosFiltrados.length}`, pdfGenerator.margin, yPos);
@@ -200,13 +181,21 @@ export default function Agenda() {
           pdfGenerator.doc.roundedRect(pdfGenerator.margin, yPos, pdfGenerator.pageWidth - (pdfGenerator.margin * 2), 28, 2, 2, 'D');
           
           // Tipo do evento (badge)
-          const badgeColor = evento.tipo === 'PARLAMENTAR' ? [59, 130, 246] : [168, 85, 247];
+          const badgeColor = evento.tipo === 'PARLAMENTAR'
+            ? [59, 130, 246]
+            : evento.tipo === 'LOCAL'
+              ? [168, 85, 247]
+              : [20, 184, 166];
           pdfGenerator.doc.setFillColor(...badgeColor);
           pdfGenerator.doc.roundedRect(pdfGenerator.margin + 3, yPos + 3, 30, 5, 1, 1, 'F');
           pdfGenerator.doc.setFontSize(7);
           pdfGenerator.doc.setFont('helvetica', 'bold');
           pdfGenerator.doc.setTextColor(255, 255, 255);
-          const badgeText = evento.tipo === 'PARLAMENTAR' ? 'PARLAMENTAR' : 'LOCAL';
+          const badgeText = evento.tipo === 'PARLAMENTAR'
+            ? 'PARLAMENTAR'
+            : evento.tipo === 'LOCAL'
+              ? 'LOCAL'
+              : 'EVENTO';
           pdfGenerator.doc.text(badgeText, pdfGenerator.margin + 18, yPos + 6.5, { align: 'center' });
           
           // Título
@@ -258,6 +247,21 @@ export default function Agenda() {
     };
   };
 
+  if (carregando) {
+    return (
+      <ProtectedRoute module={MODULES.AGENDA}>
+        <Layout titulo="Agenda">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600 mx-auto mb-3"></div>
+              <p className="text-gray-600">Carregando eventos...</p>
+            </div>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute module={MODULES.AGENDA}>
       <Layout titulo="Agenda">
@@ -308,6 +312,7 @@ export default function Agenda() {
                 <option value="TODOS">Todos os Eventos</option>
                 <option value="PARLAMENTAR">Agenda Parlamentar</option>
                 <option value="LOCAL">Agenda Local</option>
+                <option value="EVENTO">Eventos</option>
               </select>
             </div>
 
@@ -390,7 +395,11 @@ export default function Agenda() {
                               key={evento.id}
                               className="bg-white rounded-xl shadow-md border-l-4 hover:shadow-xl transition-all duration-300 overflow-hidden group"
                               style={{
-                                borderLeftColor: evento.tipo === 'PARLAMENTAR' ? '#3b82f6' : '#a855f7'
+                                borderLeftColor: evento.tipo === 'PARLAMENTAR'
+                                  ? '#3b82f6'
+                                  : evento.tipo === 'LOCAL'
+                                    ? '#a855f7'
+                                    : '#14b8a6'
                               }}
                             >
                               <div className="p-4">
@@ -401,9 +410,15 @@ export default function Agenda() {
                                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                                         evento.tipo === 'PARLAMENTAR' 
                                           ? 'bg-blue-100 text-blue-700' 
-                                          : 'bg-purple-100 text-purple-700'
+                                          : evento.tipo === 'LOCAL'
+                                            ? 'bg-purple-100 text-purple-700'
+                                            : 'bg-teal-100 text-teal-700'
                                       }`}>
-                                        {evento.tipo === 'PARLAMENTAR' ? '📍 PARLAMENTAR' : '📌 LOCAL'}
+                                        {evento.tipo === 'PARLAMENTAR'
+                                          ? '📍 PARLAMENTAR'
+                                          : evento.tipo === 'LOCAL'
+                                            ? '📌 LOCAL'
+                                            : '🎯 EVENTO'}
                                       </span>
                                       <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">
                                         {evento.categoria}
@@ -423,11 +438,10 @@ export default function Agenda() {
                                     >
                                       <FontAwesomeIcon icon={faEye} className="text-sm" />
                                     </button>
-                                    {(user?.nivel === 'ADMINISTRADOR' || 
-                                      (evento.criadoPorNivel === 'LIDERANCA' && evento.criadoPorId === user?.id)) && (
+                                    {(user?.nivel === 'ADMINISTRADOR' || evento.criado_por_id === user?.id) && (
                                       <>
                                         <button
-                                          onClick={() => window.location.href = `/agenda/${evento.id}/editar`}
+                                          onClick={() => window.location.href = `/agenda/novo?id=${evento.id}`}
                                           className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
                                           title="Editar"
                                         >
@@ -497,12 +511,20 @@ export default function Agenda() {
                                 <div className="mt-3">
                                   <div className="flex justify-between text-xs text-gray-600 mb-1">
                                     <span>Taxa de Confirmação</span>
-                                    <span className="font-bold">{Math.round((evento.confirmados / evento.participantes) * 100)}%</span>
+                                    <span className="font-bold">
+                                      {evento.participantes > 0
+                                        ? Math.round((evento.confirmados / evento.participantes) * 100)
+                                        : 0}%
+                                    </span>
                                   </div>
                                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                                     <div 
                                       className="bg-gradient-to-r from-teal-500 to-teal-600 h-full rounded-full transition-all duration-300"
-                                      style={{ width: `${(evento.confirmados / evento.participantes) * 100}%` }}
+                                      style={{
+                                        width: `${evento.participantes > 0
+                                          ? (evento.confirmados / evento.participantes) * 100
+                                          : 0}%`
+                                      }}
                                     ></div>
                                   </div>
                                 </div>

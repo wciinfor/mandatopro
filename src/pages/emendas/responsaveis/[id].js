@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserTie, faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import {
+  faSave, faArrowLeft, faUserTie, faEdit, faSpinner
+} from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
@@ -12,9 +14,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export default function NovoResponsavel() {
+export default function EditarResponsavel() {
   const router = useRouter();
-  const { modalState, closeModal, showSuccess, showError } = useModal();
+  const { id } = router.query;
+  const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+
+  const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -29,54 +34,106 @@ export default function NovoResponsavel() {
     status: 'ATIVO'
   });
 
-  const handleChange = (e) => {
+  useEffect(() => {
+    if (id) {
+      carregarResponsavel();
+    }
+  }, [id]);
+
+  const carregarResponsavel = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+        .from('responsaveis_emendas')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFormData({
+          nome: data.nome || '',
+          cargo: data.cargo || '',
+          orgao: data.orgao || '',
+          cpf: data.cpf || '',
+          telefone: data.telefone || '',
+          email: data.email || '',
+          whatsapp: data.whatsapp || '',
+          observacoes: data.observacoes || '',
+          status: data.status || 'ATIVO'
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar responsável:', error);
+      showError('Erro ao carregar dados do responsável');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    // Validações
     if (!formData.nome || !formData.cargo || !formData.orgao) {
-      showError('Preencha todos os campos obrigatórios!');
+      showWarning('Preencha todos os campos obrigatórios: Nome, Cargo e Órgão!');
       return;
     }
 
     setSalvando(true);
 
     try {
-      const { data, error } = await supabase
+      let { error } = await supabase
         .from('responsaveis_emendas')
-        .insert([
-          {
-            nome: formData.nome,
-            cargo: formData.cargo,
-            orgao: formData.orgao,
-            cpf: formData.cpf || null,
-            telefone: formData.telefone || null,
-            email: formData.email || null,
-            whatsapp: formData.whatsapp || null,
-            observacoes: formData.observacoes || null,
-            status: formData.status
-          }
-        ])
-        .select();
+        .update({
+          nome: formData.nome,
+          cargo: formData.cargo,
+          orgao: formData.orgao,
+          cpf: formData.cpf || null,
+          telefone: formData.telefone || null,
+          email: formData.email || null,
+          whatsapp: formData.whatsapp || null,
+          observacoes: formData.observacoes || null,
+          status: formData.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
 
       if (error) throw error;
 
-      showSuccess('Responsável cadastrado com sucesso!', () => {
+      showSuccess('Responsável atualizado com sucesso!');
+      setTimeout(() => {
         router.push('/emendas/responsaveis');
-      });
+      }, 2000);
     } catch (error) {
-      console.error('Erro ao cadastrar responsável:', error);
-      showError('Erro ao cadastrar responsável: ' + error.message);
+      console.error('Erro ao atualizar responsável:', error);
+      showError('Erro ao atualizar responsável. Tente novamente.');
     } finally {
       setSalvando(false);
     }
   };
 
+  if (carregando) {
+    return (
+      <Layout titulo="Editar Responsável">
+        <div className="flex items-center justify-center h-screen">
+          <FontAwesomeIcon icon={faSpinner} className="text-4xl animate-spin text-teal-600" />
+        </div>
+      </Layout>
+    );
+  }
+
   return (
-    <Layout titulo="Novo Responsável">
+    <Layout titulo="Editar Responsável">
       <Modal
         isOpen={modalState.isOpen}
         onClose={closeModal}
@@ -86,16 +143,17 @@ export default function NovoResponsavel() {
         type={modalState.type}
         confirmText={modalState.confirmText}
         cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
       />
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center gap-3 mb-6">
-          <FontAwesomeIcon icon={faUserTie} className="text-teal-600 text-2xl" />
-          <h2 className="text-2xl font-bold text-gray-800">Cadastrar Novo Responsável</h2>
+          <FontAwesomeIcon icon={faEdit} className="text-teal-600 text-2xl" />
+          <h2 className="text-2xl font-bold text-gray-800">Editar Responsável</h2>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Nome */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -105,7 +163,7 @@ export default function NovoResponsavel() {
                 type="text"
                 name="nome"
                 value={formData.nome}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
               />
@@ -120,7 +178,7 @@ export default function NovoResponsavel() {
                 type="text"
                 name="cargo"
                 value={formData.cargo}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
               />
@@ -131,18 +189,14 @@ export default function NovoResponsavel() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Órgão <span className="text-red-500">*</span>
               </label>
-              <select
+              <input
+                type="text"
                 name="orgao"
                 value={formData.orgao}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
-              >
-                <option value="">Selecione...</option>
-                <option value="SECRETARIA MUNICIPAL DE SAÚDE">Secretaria Municipal de Saúde</option>
-                <option value="SECRETARIA ESTADUAL DE EDUCAÇÃO">Secretaria Estadual de Educação</option>
-                <option value="SECRETARIA MUNICIPAL DE OBRAS">Secretaria Municipal de Obras</option>
-              </select>
+              />
             </div>
 
             {/* CPF */}
@@ -154,7 +208,7 @@ export default function NovoResponsavel() {
                 type="text"
                 name="cpf"
                 value={formData.cpf}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="000.000.000-00"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -169,7 +223,7 @@ export default function NovoResponsavel() {
                 type="text"
                 name="telefone"
                 value={formData.telefone}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="(00) 0000-0000"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -184,7 +238,7 @@ export default function NovoResponsavel() {
                 type="email"
                 name="email"
                 value={formData.email}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
@@ -198,7 +252,7 @@ export default function NovoResponsavel() {
                 type="text"
                 name="whatsapp"
                 value={formData.whatsapp}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="(00) 00000-0000"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -212,7 +266,7 @@ export default function NovoResponsavel() {
               <select
                 name="status"
                 value={formData.status}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="ATIVO">Ativo</option>
@@ -228,7 +282,7 @@ export default function NovoResponsavel() {
               <textarea
                 name="observacoes"
                 value={formData.observacoes}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 rows="3"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -236,15 +290,7 @@ export default function NovoResponsavel() {
           </div>
 
           {/* Botões */}
-          <div className="flex gap-4 mt-6">
-            <button
-              type="submit"
-              className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-              disabled={salvando}
-            >
-              <FontAwesomeIcon icon={faSave} />
-              <span>{salvando ? 'Salvando...' : 'Salvar'}</span>
-            </button>
+          <div className="flex gap-4 justify-end pt-6 border-t">
             <button
               type="button"
               onClick={() => router.push('/emendas/responsaveis')}
@@ -252,7 +298,16 @@ export default function NovoResponsavel() {
               disabled={salvando}
             >
               <FontAwesomeIcon icon={faArrowLeft} />
-              <span>Voltar para Lista</span>
+              Voltar para Lista
+            </button>
+
+            <button
+              type="submit"
+              className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+              disabled={salvando}
+            >
+              <FontAwesomeIcon icon={faSave} />
+              {salvando ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </form>

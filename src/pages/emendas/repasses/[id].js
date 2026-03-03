@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileInvoiceDollar, faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faMoneyBillWave, faSave, faArrowLeft, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
@@ -12,25 +12,65 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export default function NovaEmenda() {
+export default function EditarRepasse() {
   const router = useRouter();
+  const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError } = useModal();
+  
+  const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
   const [formData, setFormData] = useState({
-    numero: '',
-    tipo: 'INDIVIDUAL',
-    autor: '',
+    codigo: '',
+    emenda: '',
+    parcela: 1,
+    totalParcelas: 1,
+    valor: '',
+    dataPrevista: '',
+    dataEfetivada: '',
     orgao: '',
     responsavel: '',
-    finalidade: '',
-    valorEmpenhado: '',
-    valorExecutado: '0',
-    dataEmpenho: '',
-    dataVencimento: '',
     status: 'PENDENTE',
     observacoes: ''
   });
+
+  useEffect(() => {
+    if (id) {
+      carregarRepasse();
+    }
+  }, [id]);
+
+  const carregarRepasse = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+        .from('repasses')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      setFormData({
+        codigo: data.codigo || '',
+        emenda: data.emenda || '',
+        parcela: data.parcela || 1,
+        totalParcelas: data.totalParcelas || 1,
+        valor: data.valor || '',
+        dataPrevista: data.dataPrevista || '',
+        dataEfetivada: data.dataEfetivada || '',
+        orgao: data.orgao || '',
+        responsavel: data.responsavel || '',
+        status: data.status || 'PENDENTE',
+        observacoes: data.observacoes || ''
+      });
+    } catch (error) {
+      console.error('Erro ao carregar repasse:', error);
+      showError('Erro ao carregar repasse');
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -40,7 +80,7 @@ export default function NovaEmenda() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.numero || !formData.autor || !formData.orgao || !formData.finalidade || !formData.valorEmpenhado) {
+    if (!formData.emenda || !formData.valor || !formData.dataPrevista) {
       showError('Preencha todos os campos obrigatórios!');
       return;
     }
@@ -48,41 +88,52 @@ export default function NovaEmenda() {
     setSalvando(true);
 
     try {
-      const { data, error } = await supabase
-        .from('emendas')
-        .insert([
-          {
-            numero: formData.numero,
-            tipo: formData.tipo,
-            autor: formData.autor,
-            orgao: formData.orgao,
-            responsavel: formData.responsavel || null,
-            finalidade: formData.finalidade,
-            valorEmpenhado: parseFloat(formData.valorEmpenhado) || null,
-            valorExecutado: parseFloat(formData.valorExecutado) || 0,
-            dataEmpenho: formData.dataEmpenho || null,
-            dataVencimento: formData.dataVencimento || null,
-            status: formData.status,
-            observacoes: formData.observacoes || null
-          }
-        ])
-        .select();
+      const { error } = await supabase
+        .from('repasses')
+        .update({
+          codigo: formData.codigo,
+          emenda: formData.emenda,
+          parcela: parseInt(formData.parcela) || 1,
+          totalParcelas: parseInt(formData.totalParcelas) || 1,
+          valor: parseFloat(formData.valor) || null,
+          dataPrevista: formData.dataPrevista || null,
+          dataEfetivada: formData.dataEfetivada || null,
+          orgao: formData.orgao || null,
+          responsavel: formData.responsavel || null,
+          status: formData.status,
+          observacoes: formData.observacoes || null,
+          updated_at: new Date()
+        })
+        .eq('id', id);
 
       if (error) throw error;
 
-      showSuccess('Emenda cadastrada com sucesso!', () => {
-        router.push('/emendas/emendas');
+      showSuccess('Repasse atualizado com sucesso!', () => {
+        router.push('/emendas/repasses');
       });
     } catch (error) {
-      console.error('Erro ao cadastrar emenda:', error);
-      showError('Erro ao cadastrar emenda: ' + error.message);
+      console.error('Erro ao atualizar repasse:', error);
+      showError('Erro ao atualizar repasse: ' + error.message);
     } finally {
       setSalvando(false);
     }
   };
 
+  if (carregando) {
+    return (
+      <Layout titulo="Editar Repasse">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <FontAwesomeIcon icon={faSpinner} className="text-teal-600 text-4xl mb-4 animate-spin" />
+            <p className="text-lg font-semibold text-gray-700">Carregando repasse...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
-    <Layout titulo="Nova Emenda">
+    <Layout titulo="Editar Repasse">
       <Modal
         isOpen={modalState.isOpen}
         onClose={closeModal}
@@ -96,79 +147,130 @@ export default function NovaEmenda() {
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex items-center gap-3 mb-6">
-          <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-teal-600 text-2xl" />
-          <h2 className="text-2xl font-bold text-gray-800">Cadastrar Nova Emenda</h2>
+          <FontAwesomeIcon icon={faMoneyBillWave} className="text-teal-600 text-2xl" />
+          <h2 className="text-2xl font-bold text-gray-800">Editar Repasse</h2>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Número */}
+            {/* Código */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Número da Emenda <span className="text-red-500">*</span>
+                Código
               </label>
               <input
                 type="text"
-                name="numero"
-                value={formData.numero}
+                name="codigo"
+                value={formData.codigo}
                 onChange={handleChange}
-                placeholder="Ex: 001/2024"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                readOnly
+              />
+            </div>
+
+            {/* Emenda */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Emenda <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="emenda"
+                value={formData.emenda}
+                onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
               />
             </div>
 
-            {/* Tipo */}
+            {/* Parcela */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="tipo"
-                value={formData.tipo}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                required
-              >
-                <option value="INDIVIDUAL">Individual</option>
-                <option value="BANCADA">Bancada</option>
-                <option value="COMISSAO">Comissão</option>
-              </select>
-            </div>
-
-            {/* Autor */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Autor <span className="text-red-500">*</span>
+                Parcela
               </label>
               <input
-                type="text"
-                name="autor"
-                value={formData.autor}
+                type="number"
+                name="parcela"
+                value={formData.parcela}
                 onChange={handleChange}
-                placeholder="Ex: Deputado José Santos"
+                min="1"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Total de Parcelas */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Total de Parcelas
+              </label>
+              <input
+                type="number"
+                name="totalParcelas"
+                value={formData.totalParcelas}
+                onChange={handleChange}
+                min="1"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Valor */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Valor <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="valor"
+                value={formData.valor}
+                onChange={handleChange}
+                step="0.01"
+                min="0"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
+              />
+            </div>
+
+            {/* Data Prevista */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data Prevista <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="dataPrevista"
+                value={formData.dataPrevista}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            {/* Data Efetivada */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data Efetivada
+              </label>
+              <input
+                type="date"
+                name="dataEfetivada"
+                value={formData.dataEfetivada}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
 
             {/* Órgão */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Órgão Beneficiário <span className="text-red-500">*</span>
+                Órgão
               </label>
-              <select
+              <input
+                type="text"
                 name="orgao"
                 value={formData.orgao}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                required
-              >
-                <option value="">Selecione...</option>
-                <option value="SECRETARIA MUNICIPAL DE SAÚDE">Secretaria Municipal de Saúde</option>
-                <option value="SECRETARIA ESTADUAL DE EDUCAÇÃO">Secretaria Estadual de Educação</option>
-                <option value="SECRETARIA MUNICIPAL DE OBRAS">Secretaria Municipal de Obras</option>
-              </select>
+              />
             </div>
 
             {/* Responsável */}
@@ -176,93 +278,10 @@ export default function NovaEmenda() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Responsável
               </label>
-              <select
+              <input
+                type="text"
                 name="responsavel"
                 value={formData.responsavel}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              >
-                <option value="">Selecione...</option>
-                <option value="Dr. João Silva">Dr. João Silva</option>
-                <option value="Profª Maria Santos">Profª Maria Santos</option>
-                <option value="Eng. Carlos Oliveira">Eng. Carlos Oliveira</option>
-              </select>
-            </div>
-
-            {/* Finalidade */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Finalidade <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                name="finalidade"
-                value={formData.finalidade}
-                onChange={handleChange}
-                rows="2"
-                placeholder="Descreva a finalidade da emenda..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            {/* Valor Empenhado */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Valor Empenhado <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="valorEmpenhado"
-                value={formData.valorEmpenhado}
-                onChange={handleChange}
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            {/* Valor Executado */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Valor Executado
-              </label>
-              <input
-                type="number"
-                name="valorExecutado"
-                value={formData.valorExecutado}
-                onChange={handleChange}
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Data Empenho */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Data do Empenho
-              </label>
-              <input
-                type="date"
-                name="dataEmpenho"
-                value={formData.dataEmpenho}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Data Vencimento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Data de Vencimento
-              </label>
-              <input
-                type="date"
-                name="dataVencimento"
-                value={formData.dataVencimento}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -280,25 +299,24 @@ export default function NovaEmenda() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="PENDENTE">Pendente</option>
-                <option value="EM_EXECUCAO">Em Execução</option>
-                <option value="EXECUTADA">Executada</option>
-                <option value="CANCELADA">Cancelada</option>
+                <option value="EFETIVADO">Efetivado</option>
+                <option value="CANCELADO">Cancelado</option>
               </select>
             </div>
+          </div>
 
-            {/* Observações */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Observações
-              </label>
-              <textarea
-                name="observacoes"
-                value={formData.observacoes}
-                onChange={handleChange}
-                rows="3"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
-            </div>
+          {/* Observações */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Observações
+            </label>
+            <textarea
+              name="observacoes"
+              value={formData.observacoes}
+              onChange={handleChange}
+              rows="4"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            ></textarea>
           </div>
 
           {/* Botões */}
@@ -313,7 +331,7 @@ export default function NovaEmenda() {
             </button>
             <button
               type="button"
-              onClick={() => router.push('/emendas/emendas')}
+              onClick={() => router.push('/emendas/repasses')}
               className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
               disabled={salvando}
             >

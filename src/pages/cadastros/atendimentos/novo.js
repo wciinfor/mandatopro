@@ -19,6 +19,10 @@ export default function NovoAtendimento() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
   const [salvando, setSalvando] = useState(false);
+  
+  // Modo: 'buscar' (eleitor existente) ou 'registrar' (novo eleitor)
+  const [modoEleitor, setModoEleitor] = useState('buscar');
+  
   const [eleitorSelecionado, setEleitorSelecionado] = useState(null);
   const [campanhaSelecionada, setCampanhaSelecionada] = useState(null);
   const [liderancaSelecionada, setLiderancaSelecionada] = useState(null);
@@ -27,16 +31,28 @@ export default function NovoAtendimento() {
 
   const initialFormData = {
     // Ação Social
-    tipoAtendimento: 'ACAO_SOCIAL',
+    tipoAtendimento: 'ATENDIMENTO_MEDICO',
     liderancaResponsavel: '',
     localidadeAtendida: '',
     servicosOferecidos: '',
     
     // Dados do Eleitor
-    eleitorCpf: '',
     eleitorNome: '',
+    eleitorCpf: '',
+    eleitorRg: '',
+    eleitorDataNascimento: '',
+    eleitorSexo: '',
     eleitorEmail: '',
     eleitorCelular: '',
+    eleitorTelefone: '',
+    eleitorEndereco: '',
+    eleitorNumero: '',
+    eleitorComplemento: '',
+    eleitorBairro: '',
+    eleitorCidade: '',
+    eleitorEstado: '',
+    eleitorCep: '',
+    eleitorProfissao: '',
     
     // Tipo específico de atendimento
     tipoEspecifico: '', // MEDICO, OFTAMOLOGISTA, HOSPITALAR, JURIDICO, OUTROS
@@ -71,12 +87,97 @@ export default function NovoAtendimento() {
     router.push('/login');
   };
 
+  // Funções de máscara
+  const aplicarMascaraCPF = (valor) => {
+    const cpf = valor.replace(/\D/g, '');
+    return cpf
+      .slice(0, 11)
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  };
+
+  const aplicarMascaraCEP = (valor) => {
+    const cep = valor.replace(/\D/g, '');
+    return cep
+      .slice(0, 8)
+      .replace(/(\d{5})(\d)/, '$1-$2');
+  };
+
+  const aplicarMascaraCelular = (valor) => {
+    const celular = valor.replace(/\D/g, '');
+    return celular
+      .slice(0, 11)
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2');
+  };
+
+  const removerMascaras = (dados) => {
+    const dadosLimpos = { ...dados };
+    if (dadosLimpos.eleitorCpf) {
+      dadosLimpos.eleitorCpf = dadosLimpos.eleitorCpf.replace(/\D/g, '');
+    }
+    if (dadosLimpos.eleitorCelular) {
+      dadosLimpos.eleitorCelular = dadosLimpos.eleitorCelular.replace(/\D/g, '');
+    }
+    if (dadosLimpos.eleitorCep) {
+      dadosLimpos.eleitorCep = dadosLimpos.eleitorCep.replace(/\D/g, '');
+    }
+    return dadosLimpos;
+  };
+
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    let { name, value, type, checked } = e.target;
+    
+    // Aplicar máscaras
+    if (name === 'eleitorCpf') {
+      value = aplicarMascaraCPF(value);
+    } else if (name === 'eleitorCep') {
+      value = aplicarMascaraCEP(value);
+    } else if (name === 'eleitorCelular') {
+      value = aplicarMascaraCelular(value);
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Se o campo alterado é o CEP, fazer busca automática
+    if (name === 'eleitorCep') {
+      const cepLimpo = value.replace(/\D/g, '');
+      if (cepLimpo.length === 8) {
+        handleBuscaCep(cepLimpo);
+      }
+    }
+  };
+
+  const handleBuscaCep = async (cepLimpo) => {
+    if (cepLimpo.length !== 8) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      
+      if (data.erro) {
+        showWarning('CEP não encontrado. Preencha o endereço manualmente.');
+        return;
+      }
+      
+      // Preencher automaticamente os campos
+      setFormData(prev => ({
+        ...prev,
+        eleitorEndereco: data.logradouro || '',
+        eleitorBairro: data.bairro || '',
+        eleitorCidade: data.localidade || '',
+        eleitorEstado: data.uf || ''
+      }));
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+      showError('Erro ao buscar CEP. Tente novamente.');
+    }
   };
 
   const handleSelecionarEleitor = (eleitor) => {
@@ -86,19 +187,43 @@ export default function NovoAtendimento() {
       // Preencher automaticamente os dados do eleitor no atendimento
       setFormData(prev => ({
         ...prev,
-        eleitorCpf: eleitor.cpf || '',
         eleitorNome: eleitor.nome || '',
+        eleitorCpf: eleitor.cpf || '',
+        eleitorRg: eleitor.rg || '',
         eleitorEmail: eleitor.email || '',
-        eleitorCelular: eleitor.celular || ''
+        eleitorCelular: eleitor.celular || eleitor.telefone || '',
+        eleitorTelefone: eleitor.telefone || '',
+        eleitorEndereco: eleitor.endereco || '',
+        eleitorNumero: eleitor.numero || '',
+        eleitorComplemento: eleitor.complemento || '',
+        eleitorBairro: eleitor.bairro || '',
+        eleitorCidade: eleitor.cidade || '',
+        eleitorEstado: eleitor.estado || '',
+        eleitorCep: eleitor.cep || '',
+        eleitorDataNascimento: eleitor.data_nascimento || '',
+        eleitorSexo: eleitor.sexo || '',
+        eleitorProfissao: eleitor.profissao || ''
       }));
     } else {
       // Limpar dados do eleitor
       setFormData(prev => ({
         ...prev,
-        eleitorCpf: '',
         eleitorNome: '',
+        eleitorCpf: '',
+        eleitorRg: '',
         eleitorEmail: '',
-        eleitorCelular: ''
+        eleitorCelular: '',
+        eleitorTelefone: '',
+        eleitorEndereco: '',
+        eleitorNumero: '',
+        eleitorComplemento: '',
+        eleitorBairro: '',
+        eleitorCidade: '',
+        eleitorEstado: '',
+        eleitorCep: '',
+        eleitorDataNascimento: '',
+        eleitorSexo: '',
+        eleitorProfissao: ''
       }));
     }
   };
@@ -119,7 +244,12 @@ export default function NovoAtendimento() {
         }));
       } else {
         // Preencher automaticamente os dados da campanha
-        const servicos = campanha.campanhas_servicos?.map(s => s.categorias_servicos?.nome).filter(Boolean) || [];
+        // Extrair serviços da campanha com ESTRUTURA { id, nome } para uso posterior na persistência
+        const servicos = campanha.campanhas_servicos?.map(s => ({
+          id: s.categorias_servicos?.id,
+          nome: s.categorias_servicos?.nome
+        })).filter(s => s.id && s.nome) || [];
+        
         setServicosCampanha(servicos);
         
         // Preencher localidade
@@ -171,11 +301,52 @@ export default function NovoAtendimento() {
 
   const toggleServicoCampanha = (servico) => {
     setServicosSelecionados(prev => {
-      if (prev.includes(servico)) {
-        return prev.filter(item => item !== servico);
+      // Comparar por ID de serviço para evitar problemas com referência de objeto
+      const servicoId = servico.id;
+      const jaExiste = prev.some(s => s.id === servicoId);
+      
+      if (jaExiste) {
+        return prev.filter(item => item.id !== servicoId);
       }
       return [...prev, servico];
     });
+  };
+
+  const normalizarServicoNome = (nome) => {
+    if (!nome) return '';
+    return nome
+      .toString()
+      .trim()
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+  };
+
+  const mapServicoParaTipoAtendimento = (nomeServico) => {
+    const normalizado = normalizarServicoNome(nomeServico);
+    const mapa = {
+      'ATENDIMENTO MEDICO': 'ATENDIMENTO_MEDICO',
+      'ATENDIMENTO ODONTOLOGICO': 'ATENDIMENTO_ODONTOLOGICO',
+      'CADASTRO BENEFICIOS': 'CADASTRO_BENEFICIOS',
+      'CADASTRO DE BENEFICIOS': 'CADASTRO_BENEFICIOS',
+      'CURSOS PROFISSIONALIZANTES': 'CURSOS_PROFISSIONALIZANTES',
+      'DISTRIBUICAO ALIMENTOS': 'DISTRIBUICAO_ALIMENTOS',
+      'DISTRIBUICAO DE ALIMENTOS': 'DISTRIBUICAO_ALIMENTOS',
+      'EMISSAO DOCUMENTOS': 'EMISSAO_DOCUMENTOS',
+      'EMISSAO DE DOCUMENTOS': 'EMISSAO_DOCUMENTOS',
+      'ENCAMINHAMENTO SOCIAL': 'ENCAMINHAMENTO_SOCIAL',
+      'OFICINAS CAPACITACAO': 'OFICINAS_CAPACITACAO',
+      'OFICINAS DE CAPACITACAO': 'OFICINAS_CAPACITACAO',
+      'OFTALMOLOGISTA': 'OFTALMOLOGISTA',
+      'ORIENTACAO SAUDE': 'ORIENTACAO_SAUDE',
+      'ORIENTACAO DE SAUDE': 'ORIENTACAO_SAUDE',
+      'ORIENTACAO JURIDICA': 'ORIENTACAO_JURIDICA',
+      'ORIENTACAO JURIDICA': 'ORIENTACAO_JURIDICA',
+      'OUTROS': 'OUTROS'
+    };
+
+    return mapa[normalizado] || 'OUTROS';
   };
 
   const handleSelecionarLideranca = (lideranca) => {
@@ -253,20 +424,84 @@ export default function NovoAtendimento() {
       return;
     }
     
-    if (!eleitorSelecionado?.id) {
-      showWarning('Selecione um eleitor antes de salvar');
-      return;
+    let eleitorIdParaAtendimento = null;
+    
+    // Modo 1: Buscar eleitor existente
+    if (modoEleitor === 'buscar') {
+      if (!eleitorSelecionado?.id) {
+        showWarning('Selecione um eleitor antes de salvar');
+        return;
+      }
+      eleitorIdParaAtendimento = eleitorSelecionado.id;
+    }
+    
+    // Modo 2: Registrar novo eleitor
+    if (modoEleitor === 'registrar') {
+      if (!formData.eleitorNome || !formData.eleitorCpf) {
+        showWarning('Preencha o nome e CPF/RG do novo eleitor');
+        return;
+      }
+      
+      // Criar novo eleitor primeiro
+      try {
+        setSalvando(true);
+        
+        // Limpar máscaras dos dados antes de enviar
+        const dadosLimpos = removerMascaras(formData);
+        
+        const novoEleitorResponse = await fetch('/api/cadastros/eleitores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nome: dadosLimpos.eleitorNome,
+            cpf: dadosLimpos.eleitorCpf,
+            rg: dadosLimpos.eleitorRg || '',
+            email: dadosLimpos.eleitorEmail || '',
+            celular: dadosLimpos.eleitorCelular || '',
+            telefone: dadosLimpos.eleitorTelefone || '',
+            endereco: dadosLimpos.eleitorEndereco || '',
+            numero: dadosLimpos.eleitorNumero || '',
+            complemento: dadosLimpos.eleitorComplemento || '',
+            bairro: dadosLimpos.eleitorBairro || '',
+            cidade: dadosLimpos.eleitorCidade || '',
+            estado: dadosLimpos.eleitorEstado || '',
+            cep: dadosLimpos.eleitorCep || '',
+            data_nascimento: dadosLimpos.eleitorDataNascimento || '',
+            sexo: dadosLimpos.eleitorSexo || '',
+            profissao: dadosLimpos.eleitorProfissao || '',
+            status: 'ATIVO'
+          })
+        });
+
+        if (!novoEleitorResponse.ok) {
+          const error = await novoEleitorResponse.json();
+          throw new Error(error.error || 'Erro ao criar novo eleitor');
+        }
+
+        const novoEleitorData = await novoEleitorResponse.json();
+        eleitorIdParaAtendimento = novoEleitorData.id;
+        
+        // Atualizar o formulário com os dados do eleitor criado
+        setEleitorSelecionado(novoEleitorData);
+        showSuccess(`Eleitor "${formData.eleitorNome}" criado com sucesso!`);
+        
+      } catch (error) {
+        showError('Erro ao criar novo eleitor: ' + error.message);
+        setSalvando(false);
+        return;
+      }
     }
 
-    const payload = {
-      eleitorId: eleitorSelecionado.id,
-      tipoAtendimento: formData.tipoAtendimento,
-      assunto: formData.tipoEspecifico || formData.tipoAtendimentoJuridico || '',
+    // Criar o atendimento vinculado ao eleitor
+    const campanhaValida = campanhaSelecionada?.id && campanhaSelecionada?.id !== 'AVULSO';
+    const temServicosSelecionados = campanhaValida && servicosSelecionados.length > 0;
+    const payloadBase = {
+      eleitorId: eleitorIdParaAtendimento,
       descricao: formData.descricao || formData.servicosOferecidos || '',
       resultado: formData.observacoes || '',
       status: formData.statusAtendimento,
       dataAtendimento: formData.dataAtendimento || null,
-      servicosSelecionados
+      campanhaId: campanhaValida ? campanhaSelecionada.id : null
     };
     
     // Enviar notificação se habilitado
@@ -277,25 +512,62 @@ export default function NovoAtendimento() {
     }
     
     try {
-      setSalvando(true);
-      const response = await fetch('/api/cadastros/atendimentos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      if (temServicosSelecionados) {
+        for (const servico of servicosSelecionados) {
+          const nomeServico = typeof servico === 'string' ? servico : servico.nome;
+          const tipoAtendimento = mapServicoParaTipoAtendimento(nomeServico);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao salvar atendimento');
+          const payload = {
+            ...payloadBase,
+            tipoAtendimento,
+            assunto: nomeServico || formData.tipoEspecifico || formData.tipoAtendimentoJuridico || '',
+            servicosSelecionados: [servico]
+          };
+
+          const response = await fetch('/api/cadastros/atendimentos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Erro ao salvar atendimento');
+          }
+        }
+      } else {
+        const payload = {
+          ...payloadBase,
+          tipoAtendimento: formData.tipoAtendimento,
+          assunto: formData.tipoEspecifico || formData.tipoAtendimentoJuridico || '',
+          servicosSelecionados
+        };
+
+        const response = await fetch('/api/cadastros/atendimentos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Erro ao salvar atendimento');
+        }
       }
 
-      showSuccess('Atendimento cadastrado com sucesso!', () => {
+      const totalCriados = temServicosSelecionados ? servicosSelecionados.length : 1;
+      const mensagemSucesso = totalCriados > 1
+        ? `${totalCriados} atendimentos criados com sucesso!`
+        : 'Atendimento cadastrado com sucesso!';
+
+      showSuccess(mensagemSucesso, () => {
         setFormData(initialFormData);
         setEleitorSelecionado(null);
         setCampanhaSelecionada(null);
         setLiderancaSelecionada(null);
         setServicosCampanha([]);
         setServicosSelecionados([]);
+        setModoEleitor('buscar');
         router.push('/cadastros/atendimentos');
       });
     } catch (error) {
@@ -335,18 +607,293 @@ export default function NovoAtendimento() {
         showCancel={modalState.showCancel}
       />
 
-      {/* Busca de Eleitor */}
-      <BuscaEleitor 
-        onSelecionarEleitor={handleSelecionarEleitor}
-        eleitorSelecionado={eleitorSelecionado}
-      />
 
-      {/* Busca de Campanha - após seleção do eleitor */}
-      {eleitorSelecionado && (
-        <BuscaCampanha 
-          onSelecionarCampanha={handleSelecionarCampanha}
-          campanhaSelecionada={campanhaSelecionada}
-        />
+      {/* Toggle: Buscar Eleitor Existente ou Registrar Novo */}
+      <div className="max-w-6xl mx-auto mb-6 bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-lg font-bold text-gray-700 mb-4">Como deseja começar?</h2>
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={() => setModoEleitor('buscar')}
+            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
+              modoEleitor === 'buscar'
+                ? 'bg-teal-600 text-white shadow-lg'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            🔍 Buscar Eleitor Existente
+          </button>
+          <button
+            type="button"
+            onClick={() => setModoEleitor('registrar')}
+            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
+              modoEleitor === 'registrar'
+                ? 'bg-teal-600 text-white shadow-lg'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            ➕ Registrar Novo Eleitor
+          </button>
+        </div>
+      </div>
+
+      {/* Busca de Eleitor Existente */}
+      {modoEleitor === 'buscar' && (
+        <div className="max-w-6xl mx-auto mb-6">
+          <BuscaEleitor 
+            onSelecionarEleitor={handleSelecionarEleitor}
+            eleitorSelecionado={eleitorSelecionado}
+          />
+        </div>
+      )}
+
+      {/* Registrar Novo Eleitor */}
+      {modoEleitor === 'registrar' && (
+        <div className="max-w-6xl mx-auto mb-6 bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
+          <h3 className="text-lg font-bold text-blue-900 mb-4">Dados do Novo Eleitor</h3>
+          <p className="text-sm text-blue-800 mb-4">📝 Preencha os dados da ficha entregue. Os campos marcados com * são obrigatórios. Você pode completar os dados depois.</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Nome Completo */}
+            <div className="md:col-span-3">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Nome Completo *
+              </label>
+              <input
+                type="text"
+                name="eleitorNome"
+                value={formData.eleitorNome}
+                onChange={handleInputChange}
+                placeholder="Nome da pessoa"
+                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            {/* RG */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                RG
+              </label>
+              <input
+                type="text"
+                name="eleitorRg"
+                value={formData.eleitorRg}
+                onChange={handleInputChange}
+                placeholder="RG (opcional)"
+                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* CPF */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                CPF *
+              </label>
+              <input
+                type="text"
+                name="eleitorCpf"
+                value={formData.eleitorCpf}
+                onChange={handleInputChange}
+                placeholder="000.000.000-00"
+                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            {/* Data de Nascimento */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Data de Nascimento
+              </label>
+              <input
+                type="date"
+                name="eleitorDataNascimento"
+                value={formData.eleitorDataNascimento}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Sexo */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Sexo
+              </label>
+              <select
+                name="eleitorSexo"
+                value={formData.eleitorSexo}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Selecionar</option>
+                <option value="M">Masculino</option>
+                <option value="F">Feminino</option>
+              </select>
+            </div>
+
+            {/* Celular / WhatsApp */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Celular / WhatsApp
+              </label>
+              <input
+                type="tel"
+                name="eleitorCelular"
+                value={formData.eleitorCelular}
+                onChange={handleInputChange}
+                placeholder="(85) 98765-4321"
+                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                name="eleitorEmail"
+                value={formData.eleitorEmail}
+                onChange={handleInputChange}
+                placeholder="email@example.com"
+                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Container de Endereço */}
+          <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-300">
+            <h4 className="text-base font-bold text-green-900 mb-4 flex items-center gap-2">
+              <FontAwesomeIcon icon={faMapMarkedAlt} />
+              Endereço
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* CEP */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  CEP
+                </label>
+                <input
+                  type="text"
+                  name="eleitorCep"
+                  value={formData.eleitorCep}
+                  onChange={handleInputChange}
+                  placeholder="00000-000"
+                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                />
+                <p className="text-xs text-green-700 mt-1">Pressione TAB ou clique fora para buscar</p>
+              </div>
+
+              {/* Endereço */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Endereço
+                </label>
+                <input
+                  type="text"
+                  name="eleitorEndereco"
+                  value={formData.eleitorEndereco}
+                  onChange={handleInputChange}
+                  placeholder="Rua, Avenida, etc"
+                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Número */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Número
+                </label>
+                <input
+                  type="text"
+                  name="eleitorNumero"
+                  value={formData.eleitorNumero}
+                  onChange={handleInputChange}
+                  placeholder="000"
+                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Complemento */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Complemento
+                </label>
+                <input
+                  type="text"
+                  name="eleitorComplemento"
+                  value={formData.eleitorComplemento}
+                  onChange={handleInputChange}
+                  placeholder="Apto 101, Bloco A, etc"
+                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Bairro */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Bairro
+                </label>
+                <input
+                  type="text"
+                  name="eleitorBairro"
+                  value={formData.eleitorBairro}
+                  onChange={handleInputChange}
+                  placeholder="Nome do bairro"
+                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Cidade */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Cidade
+                </label>
+                <input
+                  type="text"
+                  name="eleitorCidade"
+                  value={formData.eleitorCidade}
+                  onChange={handleInputChange}
+                  placeholder="Nome da cidade"
+                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Estado */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Estado
+                </label>
+                <input
+                  type="text"
+                  name="eleitorEstado"
+                  value={formData.eleitorEstado}
+                  onChange={handleInputChange}
+                  placeholder="CE"
+                  maxLength="2"
+                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-blue-700 mt-4 bg-blue-100 p-3 rounded">
+            ✅ Após salvar, os dados serão registrados na base de eleitores e você poderá completar o cadastro depois.
+          </p>
+        </div>
+      )}
+
+      {/* Busca de Campanha - após seleção do eleitor ou preenchimento de nome (registrar novo) */}
+      {(eleitorSelecionado || modoEleitor === 'registrar') && formData.eleitorNome && (
+        <div className="max-w-6xl mx-auto mb-6">
+          <BuscaCampanha 
+            onSelecionarCampanha={handleSelecionarCampanha}
+            campanhaSelecionada={campanhaSelecionada}
+          />
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6">
@@ -402,20 +949,28 @@ export default function NovoAtendimento() {
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-semibold"
                 >
-                  <option value="ACAO_SOCIAL">Ação Social</option>
+                  <option value="ATENDIMENTO_MEDICO">Atendimento Médico</option>
+                  <option value="ATENDIMENTO_ODONTOLOGICO">Atendimento Odontológico</option>
+                  <option value="CADASTRO_BENEFICIOS">Cadastro de Benefícios</option>
+                  <option value="CURSOS_PROFISSIONALIZANTES">Cursos Profissionalizantes</option>
+                  <option value="DISTRIBUICAO_ALIMENTOS">Distribuição de Alimentos</option>
                   <option value="EMISSAO_DOCUMENTOS">Emissão de Documentos</option>
-                  <option value="ATENDIMENTO_JURIDICO">Atendimento Jurídico</option>
-                  <option value="OUTROS">Outros Atendimentos</option>
+                  <option value="ENCAMINHAMENTO_SOCIAL">Encaminhamento Social</option>
+                  <option value="OFICINAS_CAPACITACAO">Oficinas de Capacitação</option>
+                  <option value="OFTALMOLOGISTA">Oftalmologista</option>
+                  <option value="ORIENTACAO_SAUDE">Orientação de Saúde</option>
+                  <option value="ORIENTACAO_JURIDICA">Orientação Jurídica</option>
+                  <option value="OUTROS">Outros</option>
                 </select>
               </div>
             )}
 
-            {/* Ação Social */}
-            {formData.tipoAtendimento === 'ACAO_SOCIAL' && campanhaSelecionada && (
+            {/* Campanha selecionada */}
+            {campanhaSelecionada && campanhaSelecionada.id !== 'AVULSO' && (
               <div className="border-t pt-6 mb-6">
                 <h3 className="text-lg font-bold text-teal-700 mb-4 flex items-center gap-2">
                   <FontAwesomeIcon icon={faHandshake} className="text-teal-600" />
-                  AÇÃO SOCIAL
+                  CAMPANHA SELECIONADA
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -505,12 +1060,12 @@ export default function NovoAtendimento() {
                             <input
                               type="checkbox"
                               id={`servico-${idx}`}
-                              checked={servicosSelecionados.includes(servico)}
+                              checked={servicosSelecionados.some(s => (typeof s === 'string' ? s === servico.nome : s.id === servico.id))}
                               onChange={() => toggleServicoCampanha(servico)}
                               className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
                             />
                             <label htmlFor={`servico-${idx}`} className="text-sm text-gray-700 cursor-pointer">
-                              {servico}
+                              {servico.nome}
                             </label>
                           </div>
                         ))}
@@ -532,46 +1087,6 @@ export default function NovoAtendimento() {
                 </div>
 
 
-              </div>
-            )}
-
-            {/* Emissão de Documentos */}
-            {formData.tipoAtendimento === 'EMISSAO_DOCUMENTOS' && (
-              <div className="border-t pt-6 mb-6">
-                <h3 className="text-lg font-bold text-teal-700 mb-4 flex items-center gap-2">
-                  <FontAwesomeIcon icon={faFileAlt} className="text-teal-600" />
-                  EMISSÃO DE DOCUMENTOS
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Descrição do Documento
-                    </label>
-                    <textarea
-                      name="descricaoDocumento"
-                      value={formData.descricaoDocumento}
-                      onChange={handleInputChange}
-                      rows="3"
-                      placeholder="Descreva o documento solicitado..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Encaminhamento
-                    </label>
-                    <textarea
-                      name="encaminhamento"
-                      value={formData.encaminhamento}
-                      onChange={handleInputChange}
-                      rows="3"
-                      placeholder="Para onde o documento será encaminhado..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                </div>
               </div>
             )}
 

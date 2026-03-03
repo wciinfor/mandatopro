@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -8,69 +8,42 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFRepasses, gerarExcelRepasses } from '@/utils/relatorios';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function GerenciarRepasses() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [repasses, setRepasses] = useState([
-    {
-      id: 1,
-      codigo: 'REP-2024-001',
-      emenda: 'EMD-2024-001 - 001/2024',
-      parcela: 1,
-      totalParcelas: 3,
-      valor: 150000.00,
-      dataPrevista: '2024-05-15',
-      dataEfetivada: '2024-05-10',
-      orgao: 'SECRETARIA MUNICIPAL DE SAÚDE',
-      responsavel: 'Dr. João Silva',
-      status: 'EFETIVADO',
-      observacoes: 'Primeira parcela da emenda'
-    },
-    {
-      id: 2,
-      codigo: 'REP-2024-002',
-      emenda: 'EMD-2024-001 - 001/2024',
-      parcela: 2,
-      totalParcelas: 3,
-      valor: 150000.00,
-      dataPrevista: '2024-08-15',
-      dataEfetivada: '2024-08-12',
-      orgao: 'SECRETARIA MUNICIPAL DE SAÚDE',
-      responsavel: 'Dr. João Silva',
-      status: 'EFETIVADO',
-      observacoes: 'Segunda parcela da emenda'
-    },
-    {
-      id: 3,
-      codigo: 'REP-2024-003',
-      emenda: 'EMD-2024-001 - 001/2024',
-      parcela: 3,
-      totalParcelas: 3,
-      valor: 200000.00,
-      dataPrevista: '2024-11-30',
-      dataEfetivada: null,
-      orgao: 'SECRETARIA MUNICIPAL DE SAÚDE',
-      responsavel: 'Dr. João Silva',
-      status: 'PENDENTE',
-      observacoes: 'Última parcela - aguardando liberação'
-    },
-    {
-      id: 4,
-      codigo: 'REP-2024-004',
-      emenda: 'EMD-2024-002 - 002/2024',
-      parcela: 1,
-      totalParcelas: 1,
-      valor: 2000000.00,
-      dataPrevista: '2024-03-01',
-      dataEfetivada: '2024-02-28',
-      orgao: 'SECRETARIA ESTADUAL DE EDUCAÇÃO',
-      responsavel: 'Profª Maria Santos',
-      status: 'EFETIVADO',
-      observacoes: 'Repasse único - obra concluída'
+  const [repasses, setRepasses] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    carregarRepasses();
+  }, []);
+
+  const carregarRepasses = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+        .from('repasses')
+        .select('*')
+        .order('dataPrevista', { ascending: true });
+
+      if (error) throw error;
+
+      setRepasses(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar repasses:', error);
+      showError('Erro ao carregar repasses');
+    } finally {
+      setCarregando(false);
     }
-  ]);
+  };
 
   const [filtro, setFiltro] = useState('');
   const [statusFiltro, setStatusFiltro] = useState('TODOS');
@@ -79,9 +52,9 @@ export default function GerenciarRepasses() {
 
   const repassesFiltrados = repasses.filter(repasse => {
     const matchFiltro = filtro === '' || 
-      repasse.codigo.toLowerCase().includes(filtro.toLowerCase()) ||
-      repasse.emenda.toLowerCase().includes(filtro.toLowerCase()) ||
-      repasse.orgao.toLowerCase().includes(filtro.toLowerCase());
+      (repasse.codigo && repasse.codigo.toLowerCase().includes(filtro.toLowerCase())) ||
+      (repasse.emenda && repasse.emenda.toLowerCase().includes(filtro.toLowerCase())) ||
+      (repasse.orgao && repasse.orgao.toLowerCase().includes(filtro.toLowerCase()));
     const matchStatus = statusFiltro === 'TODOS' || repasse.status === statusFiltro;
     
     let matchPeriodo = true;
@@ -130,9 +103,21 @@ export default function GerenciarRepasses() {
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir este repasse?', () => {
-      setRepasses(repasses.filter(r => r.id !== id));
-      showSuccess('Repasse excluído com sucesso!');
+    showConfirm('Tem certeza que deseja excluir este repasse?', async () => {
+      try {
+        const { error } = await supabase
+          .from('repasses')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setRepasses(repasses.filter(r => r.id !== id));
+        showSuccess('Repasse excluído com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir repasse:', error);
+        showError('Erro ao excluir repasse: ' + error.message);
+      }
     });
   };
 
@@ -153,6 +138,18 @@ export default function GerenciarRepasses() {
   const totalRepasses = repassesFiltrados.reduce((acc, r) => acc + r.valor, 0);
   const totalEfetivados = repassesFiltrados.filter(r => r.status === 'EFETIVADO').reduce((acc, r) => acc + r.valor, 0);
   const totalPendentes = repassesFiltrados.filter(r => r.status === 'PENDENTE').reduce((acc, r) => acc + r.valor, 0);
+
+  if (carregando) {
+    return (
+      <Layout titulo="Gerenciar Repasses">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-700">Carregando repasses...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout titulo="Gerenciar Repasses">

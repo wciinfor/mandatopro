@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCalendarAlt, faMapMarkerAlt, faClock, faUsers, faCheckCircle, faEdit, faTrash, faArrowLeft, faUserCheck, faComments
+  faCalendarAlt, faMapMarkerAlt, faClock, faUsers, faCheckCircle, faEdit, faTrash, faArrowLeft, faUserCheck, faComments, faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function DetalhesEvento() {
   const router = useRouter();
@@ -17,57 +23,85 @@ export default function DetalhesEvento() {
   const [modalExcluir, setModalExcluir] = useState(false);
   const [modalConfirmar, setModalConfirmar] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
+  const [evento, setEvento] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+  const [participantes, setParticipantes] = useState([]);
 
-  // Mock do evento
-  const evento = {
-    id: 1,
-    titulo: 'Reunião com Líderes Comunitários',
-    descricao: 'Discussão sobre projetos para o bairro e planejamento de ações sociais para o próximo trimestre. Participação obrigatória de todos os líderes comunitários.',
-    data: '2025-11-25',
-    horaInicio: '14:00',
-    horaFim: '16:00',
-    local: 'Salão Paroquial - Pedreira',
-    endereco: 'Rua da Igreja, 123 - Pedreira, Belém - PA',
-    tipo: 'PARLAMENTAR',
-    criadoPor: 'Admin Sistema',
-    criadoPorId: 1,
-    criadoPorNivel: 'ADMINISTRADOR',
-    participantes: 15,
-    confirmados: 8,
-    categoria: 'Reunião',
-    observacoes: 'Levar material de apresentação',
-    criadoEm: '2025-11-20 10:30',
-    atualizadoEm: '2025-11-21 15:45'
+  useEffect(() => {
+    if (id) {
+      carregarEvento();
+    }
+  }, [id]);
+
+  const carregarEvento = async () => {
+    setCarregando(true);
+    try {
+      const { data, error } = await supabase
+        .from('agenda_eventos')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      setEvento({
+        ...data,
+        horaInicio: data.horaInicio || data.hora_inicio || '',
+        horaFim: data.horaFim || data.hora_fim || '',
+        confirmados: data.confirmados ?? 0,
+        participantes: data.participantes ?? 0
+      });
+      setParticipantes([]);
+    } catch (error) {
+      console.error('Erro ao carregar evento:', error);
+    } finally {
+      setCarregando(false);
+    }
   };
-
-  // Mock de participantes
-  const participantesMock = [
-    { id: 1, nome: 'João Silva', status: 'CONFIRMADO', dataConfirmacao: '2025-11-21', foto: null },
-    { id: 2, nome: 'Maria Santos', status: 'CONFIRMADO', dataConfirmacao: '2025-11-21', foto: null },
-    { id: 3, nome: 'Pedro Costa', status: 'PENDENTE', dataConfirmacao: null, foto: null },
-    { id: 4, nome: 'Ana Oliveira', status: 'CONFIRMADO', dataConfirmacao: '2025-11-22', foto: null },
-    { id: 5, nome: 'Carlos Lima', status: 'CONFIRMADO', dataConfirmacao: '2025-11-22', foto: null },
-    { id: 6, nome: 'Julia Ferreira', status: 'PENDENTE', dataConfirmacao: null, foto: null },
-    { id: 7, nome: 'Roberto Alves', status: 'CONFIRMADO', dataConfirmacao: '2025-11-21', foto: null },
-    { id: 8, nome: 'Fernanda Souza', status: 'CONFIRMADO', dataConfirmacao: '2025-11-22', foto: null },
-  ];
 
   const handleExcluir = () => {
     setModalExcluir(true);
   };
 
-  const confirmarExclusao = () => {
-    console.log('Excluindo evento:', id);
-    router.push('/agenda');
+  const confirmarExclusao = async () => {
+    try {
+      const { error } = await supabase
+        .from('agenda_eventos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      router.push('/agenda');
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error);
+    }
   };
 
   const handleConfirmarPresenca = () => {
     setModalConfirmar(true);
   };
 
-  const confirmarPresenca = () => {
-    setConfirmado(true);
-    setModalConfirmar(false);
+  const confirmarPresenca = async () => {
+    if (!evento) return;
+
+    const novoConfirmados = (evento.confirmados || 0) + 1;
+
+    try {
+      const { error } = await supabase
+        .from('agenda_eventos')
+        .update({ confirmados: novoConfirmados })
+        .eq('id', evento.id);
+
+      if (error) throw error;
+
+      setEvento({ ...evento, confirmados: novoConfirmados });
+      setConfirmado(true);
+      setModalConfirmar(false);
+    } catch (error) {
+      console.error('Erro ao confirmar presença:', error);
+      setModalConfirmar(false);
+    }
   };
 
   const formatarData = (dataStr) => {
@@ -76,8 +110,36 @@ export default function DetalhesEvento() {
     return data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) + ' (' + dias[data.getDay()] + ')';
   };
 
-  const podeEditar = user?.nivel === 'ADMINISTRADOR' || 
-                     (evento.criadoPorNivel === 'LIDERANCA' && evento.criadoPorId === user?.id);
+  const podeEditar = user?.nivel === 'ADMINISTRADOR' || evento?.criado_por_id === user?.id;
+
+  if (carregando) {
+    return (
+      <ProtectedRoute module={MODULES.AGENDA}>
+        <Layout titulo="Detalhes do Evento">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <FontAwesomeIcon icon={faSpinner} className="text-teal-600 text-3xl mb-3 animate-spin" />
+              <p className="text-gray-600">Carregando evento...</p>
+            </div>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (!evento) {
+    return (
+      <ProtectedRoute module={MODULES.AGENDA}>
+        <Layout titulo="Detalhes do Evento">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <p className="text-gray-600">Evento não encontrado.</p>
+            </div>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute module={MODULES.AGENDA}>
@@ -103,9 +165,15 @@ export default function DetalhesEvento() {
                     <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
                       evento.tipo === 'PARLAMENTAR' 
                         ? 'bg-blue-100 text-blue-700' 
-                        : 'bg-purple-100 text-purple-700'
+                        : evento.tipo === 'LOCAL'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-teal-100 text-teal-700'
                     }`}>
-                      {evento.tipo === 'PARLAMENTAR' ? '📋 Agenda Parlamentar' : '📍 Agenda Local'}
+                      {evento.tipo === 'PARLAMENTAR'
+                        ? '📋 Agenda Parlamentar'
+                        : evento.tipo === 'LOCAL'
+                          ? '📍 Agenda Local'
+                          : '🎯 Evento'}
                     </span>
                     <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
                       {evento.categoria}
@@ -120,7 +188,7 @@ export default function DetalhesEvento() {
                 {podeEditar && (
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => router.push(`/agenda/${id}/editar`)}
+                      onClick={() => router.push(`/agenda/novo?id=${id}`)}
                       className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
                       title="Editar evento"
                     >
@@ -185,7 +253,7 @@ export default function DetalhesEvento() {
               )}
 
               {/* Botão de Confirmação */}
-              {!confirmado && (
+              {!confirmado && evento.permitirConfirmacao !== false && (
                 <div className="border-t pt-6 mt-6">
                   <button
                     onClick={handleConfirmarPresenca}
@@ -214,20 +282,20 @@ export default function DetalhesEvento() {
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <FontAwesomeIcon icon={faUsers} className="text-teal-600" />
-                Participantes ({participantesMock.length})
+                Participantes ({evento.participantes ?? 0})
               </h3>
 
               {/* Estatísticas */}
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-green-50 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {participantesMock.filter(p => p.status === 'CONFIRMADO').length}
+                    {evento.confirmados ?? 0}
                   </div>
                   <div className="text-sm text-gray-600">Confirmados</div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-gray-600">
-                    {participantesMock.filter(p => p.status === 'PENDENTE').length}
+                    {Math.max((evento.participantes ?? 0) - (evento.confirmados ?? 0), 0)}
                   </div>
                   <div className="text-sm text-gray-600">Pendentes</div>
                 </div>
@@ -235,42 +303,46 @@ export default function DetalhesEvento() {
 
               {/* Lista */}
               <div className="space-y-2">
-                {participantesMock.map((participante) => (
-                  <div
-                    key={participante.id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      participante.status === 'CONFIRMADO' ? 'bg-green-50' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {participante.foto ? (
-                        <img src={participante.foto} alt={participante.nome} className="w-10 h-10 rounded-full" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">
-                            {participante.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-semibold text-gray-800">{participante.nome}</div>
-                        {participante.dataConfirmacao && (
-                          <div className="text-xs text-gray-500">
-                            Confirmado em {new Date(participante.dataConfirmacao).toLocaleDateString('pt-BR')}
+                {participantes.length === 0 ? (
+                  <div className="text-sm text-gray-500">Sem participantes cadastrados.</div>
+                ) : (
+                  participantes.map((participante) => (
+                    <div
+                      key={participante.id}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        participante.status === 'CONFIRMADO' ? 'bg-green-50' : 'bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {participante.foto ? (
+                          <img src={participante.foto} alt={participante.nome} className="w-10 h-10 rounded-full" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">
+                              {participante.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                            </span>
                           </div>
                         )}
+                        <div>
+                          <div className="font-semibold text-gray-800">{participante.nome}</div>
+                          {participante.dataConfirmacao && (
+                            <div className="text-xs text-gray-500">
+                              Confirmado em {new Date(participante.dataConfirmacao).toLocaleDateString('pt-BR')}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      participante.status === 'CONFIRMADO'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {participante.status === 'CONFIRMADO' ? '✓ Confirmado' : 'Pendente'}
-                    </span>
-                  </div>
-                ))}
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        participante.status === 'CONFIRMADO'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {participante.status === 'CONFIRMADO' ? '✓ Confirmado' : 'Pendente'}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -283,15 +355,21 @@ export default function DetalhesEvento() {
               <div className="space-y-3 text-sm">
                 <div>
                   <div className="text-gray-600">Criado por</div>
-                  <div className="font-semibold text-gray-800">{evento.criadoPor}</div>
+                  <div className="font-semibold text-gray-800">
+                    {evento.criado_por_id ? `Usuario #${evento.criado_por_id}` : 'Nao informado'}
+                  </div>
                 </div>
                 <div>
                   <div className="text-gray-600">Data de criação</div>
-                  <div className="font-semibold text-gray-800">{evento.criadoEm}</div>
+                  <div className="font-semibold text-gray-800">
+                    {evento.created_at ? new Date(evento.created_at).toLocaleString('pt-BR') : 'Nao informado'}
+                  </div>
                 </div>
                 <div>
                   <div className="text-gray-600">Última atualização</div>
-                  <div className="font-semibold text-gray-800">{evento.atualizadoEm}</div>
+                  <div className="font-semibold text-gray-800">
+                    {evento.updated_at ? new Date(evento.updated_at).toLocaleString('pt-BR') : 'Nao informado'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -302,12 +380,14 @@ export default function DetalhesEvento() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span>Total de Participantes</span>
-                  <span className="text-2xl font-bold">{participantesMock.length}</span>
+                  <span className="text-2xl font-bold">{evento.participantes ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Taxa de Confirmação</span>
                   <span className="text-2xl font-bold">
-                    {Math.round((participantesMock.filter(p => p.status === 'CONFIRMADO').length / participantesMock.length) * 100)}%
+                    {(evento.participantes ?? 0) > 0
+                      ? Math.round(((evento.confirmados ?? 0) / (evento.participantes ?? 0)) * 100)
+                      : 0}%
                   </span>
                 </div>
               </div>

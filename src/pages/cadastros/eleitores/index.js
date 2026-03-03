@@ -47,7 +47,7 @@ export default function GerenciarEleitores() {
   const eleitoresFiltrados = eleitores.filter(el => {
     const matchFiltro = filtro === '' || 
       el.nome.toLowerCase().includes(filtro.toLowerCase()) ||
-      el.cpf.includes(filtro) ||
+      (el.rg && el.rg.includes(filtro)) ||
       (el.tituloEleitoral && el.tituloEleitoral.includes(filtro));
     return matchFiltro;
   });
@@ -92,7 +92,7 @@ export default function GerenciarEleitores() {
     const tableData = eleitoresFiltrados.map(el => [
       el.codigo,
       el.nome,
-      el.cpf,
+      el.rg,
       el.tituloEleitoral,
       el.situacaoTSE || el.situacao_tse || el.situacaotse,
       el.telefone,
@@ -100,7 +100,7 @@ export default function GerenciarEleitores() {
     ]);
     
     pdfGen.doc.autoTable({
-      head: [['Código', 'Nome', 'CPF', 'Título Eleitoral', 'Situação TSE', 'Telefone', 'Status']],
+      head: [['Código', 'Nome', 'RG', 'Título Eleitoral', 'Situação TSE', 'Telefone', 'Status']],
       body: tableData,
       startY: 50,
       styles: { fontSize: 8, cellPadding: 2 },
@@ -123,7 +123,7 @@ export default function GerenciarEleitores() {
     yPos += 10;
     pdfGen.doc.text(`Nome: ${eleitor.nome}`, 20, yPos);
     yPos += 10;
-    pdfGen.doc.text(`CPF: ${eleitor.cpf}`, 20, yPos);
+    pdfGen.doc.text(`RG: ${eleitor.rg}`, 20, yPos);
     yPos += 10;
     pdfGen.doc.text(`Título Eleitoral: ${eleitor.tituloEleitoral}`, 20, yPos);
     yPos += 10;
@@ -177,7 +177,7 @@ export default function GerenciarEleitores() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                BUSCAR POR NOME, CPF, TÍTULO...
+                BUSCAR POR NOME, RG, TÍTULO...
               </label>
               <input
                 type="text"
@@ -237,7 +237,7 @@ export default function GerenciarEleitores() {
                 <tr className="bg-gray-100 border-b-2 border-gray-300">
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Código</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">CPF</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">RG</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Título Eleitoral</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Situação TSE</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Telefone</th>
@@ -266,7 +266,7 @@ export default function GerenciarEleitores() {
                     <tr key={eleitor.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
                       <td className="px-4 py-3 text-sm">{eleitor.id}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">{eleitor.nome}</td>
-                      <td className="px-4 py-3 text-sm">{eleitor.cpf}</td>
+                      <td className="px-4 py-3 text-sm">{eleitor.rg}</td>
                       <td className="px-4 py-3 text-sm">{eleitor.tituloEleitoral || '-'}</td>
                       <td className="px-4 py-3 text-sm">{eleitor.situacaoTSE || eleitor.situacao_tse || eleitor.situacaotse || '-'}</td>
                       <td className="px-4 py-3 text-sm">{eleitor.telefone || eleitor.celular || '-'}</td>

@@ -1,64 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChartBar, faUserTie, faClipboardList, faUniversity, faCoins, faMapMarkerAlt, 
-  faBullhorn, faCalendarAlt, faBirthdayCake, faFileAlt, faExclamationTriangle, 
-  faUsers, faSignOutAlt, faBell, faChevronUp, faChevronDown, faBars, faTimes,
-  faSave, faArrowLeft, faCheckCircle, faHourglassHalf, faTimesCircle, 
-  faClock, faHistory, faEdit, faEye, faUserMd, faHospital, faGavel
+  faSave,
+  faArrowLeft,
+  faCheckCircle,
+  faTimesCircle,
+  faClock,
+  faHistory,
+  faEdit,
+  faEye,
+  faUserMd,
+  faHospital,
+  faGavel
 } from '@fortawesome/free-solid-svg-icons';
+import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-
-const modulos = [
-  { nome: 'Dashboard', icone: faChartBar, submenu: [] },
-  {
-    nome: 'Cadastros',
-    icone: faClipboardList,
-    submenu: ['Eleitores', 'Lideranças', 'Funcionários', 'Atendimentos']
-  },
-  {
-    nome: 'Emendas',
-    icone: faUniversity,
-    submenu: ['Órgãos', 'Responsáveis', 'Emendas', 'Repasses', 'Relatórios']
-  },
-  {
-    nome: 'Financeiro',
-    icone: faCoins,
-    submenu: ['Receitas', 'Despesas', 'Relatórios Financeiros']
-  },
-  { nome: 'Geolocalização', icone: faMapMarkerAlt, submenu: [] },
-  { nome: 'Comunicados', icone: faBullhorn, submenu: [] },
-  {
-    nome: 'Agenda',
-    icone: faCalendarAlt,
-    submenu: ['Compromissos', 'Reuniões', 'Eventos']
-  },
-  { nome: 'Aniversariantes', icone: faBirthdayCake, submenu: [] },
-  {
-    nome: 'Documentos',
-    icone: faFileAlt,
-    submenu: ['Ofícios', 'Relatórios', 'Contratos']
-  },
-  { nome: 'Solicitações', icone: faExclamationTriangle, submenu: [] },
-  { nome: 'Usuários', icone: faUsers, submenu: [] },
-];
 
 export default function EditarAtendimento() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
   const [usuario, setUsuario] = useState(null);
-  const [moduloAtivo, setModuloAtivo] = useState('Cadastros - Atendimentos');
-  const [menusAbertos, setMenusAbertos] = useState({ Cadastros: true });
-  const [sidebarAberto, setSidebarAberto] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const ultimoIdCarregado = useRef(null);
+  const [historicoNovos, setHistoricoNovos] = useState([]);
 
   const [formData, setFormData] = useState({
     tipoAtendimento: 'ACAO_SOCIAL',
     eleitorNome: '',
     eleitorCpf: '',
+    campanhaNome: '',
     tipoEspecifico: '',
     statusAtendimento: 'AGENDADO',
     dataAtendimento: '',
@@ -127,91 +100,105 @@ export default function EditarAtendimento() {
     'CANCELADO': { label: 'Cancelado', icon: faTimesCircle, color: 'red' }
   };
 
+  const mapTipoAtendimentoParaEspecifico = (tipoAtendimento) => {
+    switch (tipoAtendimento) {
+      case 'ATENDIMENTO_MEDICO':
+        return 'MEDICO';
+      case 'OFTALMOLOGISTA':
+        return 'OFTALMOLOGISTA';
+      case 'ATENDIMENTO_JURIDICO':
+      case 'ORIENTACAO_JURIDICA':
+        return 'JURIDICO';
+      case 'HOSPITALAR':
+        return 'HOSPITALAR';
+      default:
+        return '';
+    }
+  };
+
+  const mapTipoEspecificoParaAtendimento = (tipoEspecifico) => {
+    switch (tipoEspecifico) {
+      case 'MEDICO':
+        return 'ATENDIMENTO_MEDICO';
+      case 'OFTALMOLOGISTA':
+        return 'OFTALMOLOGISTA';
+      case 'JURIDICO':
+        return 'ORIENTACAO_JURIDICA';
+      case 'HOSPITALAR':
+        return 'HOSPITALAR';
+      default:
+        return '';
+    }
+  };
+
+  const formatarDataHistorico = (dataIso) => {
+    if (!dataIso) return '';
+    const data = new Date(dataIso);
+    if (Number.isNaN(data.getTime())) return '';
+    return data.toLocaleString('pt-BR');
+  };
+
   useEffect(() => {
     setUsuario({ nome: 'Administrador' });
   }, []);
 
   useEffect(() => {
-    if (id) {
-      // Simulando dados mockados com histórico
-      const dadosMock = {
-        id: id,
-        tipoAtendimento: 'OFTAMOLOGISTA',
-        eleitorNome: 'Maria Silva Santos',
-        eleitorCpf: '123.456.789-00',
-        tipoEspecifico: 'OFTAMOLOGISTA',
-        statusAtendimento: 'REALIZADO',
-        dataAtendimento: '2025-11-10',
-        dataConclusao: '2025-11-10',
-        descricao: 'Consulta oftalmológica com prescrição de óculos',
-        observacoes: 'Paciente necessita óculos multifocal. Receita válida por 1 ano.',
-        historico: [
-          {
-            data: '2025-11-08 09:15',
-            usuario: 'Admin',
-            status: 'AGENDADO',
-            observacao: 'Atendimento agendado'
-          },
-          {
-            data: '2025-11-10 15:45',
-            usuario: 'João Silva',
-            status: 'REALIZADO',
-            observacao: 'Consulta realizada, receita emitida'
-          }
-        ],
-        
-        // Dados específicos de oftalmologista
-        oftalmologista: {
-          odEsferico: '-2.00',
-          odCilindrico: '-0.75',
-          odEixo: '180',
-          odAdicao: '+2.00',
-          odDNP: '32',
-          oeEsferico: '-2.25',
-          oeCilindrico: '-1.00',
-          oeEixo: '175',
-          oeAdicao: '+2.00',
-          oeDNP: '32',
-          tipoLente: 'MULTIFOCAL',
-          observacoesReceita: 'Lentes com anti-reflexo recomendadas'
-        },
-        
-        // Inicializa campos vazios dos outros tipos
-        medico: {
-          especialidade: '',
-          diagnostico: '',
-          prescricao: '',
-          medicamentos: '',
-          posologia: '',
-          orientacoes: '',
-          retorno: ''
-        },
-        hospitalar: {
-          procedimento: '',
-          hospital: '',
-          dataAgendamento: '',
-          horario: '',
-          especialidade: '',
-          medicoResponsavel: '',
-          examesNecessarios: '',
-          preparoProcedimento: '',
-          acompanhante: ''
-        },
-        juridico: {
-          area: '',
-          tipoProcesso: '',
-          numeroProcesso: '',
-          vara: '',
-          advogadoResponsavel: '',
-          situacaoProcesso: '',
-          proximaAudiencia: '',
-          documentosNecessarios: ''
+    if (!id || ultimoIdCarregado.current === id) return;
+    ultimoIdCarregado.current = id;
+
+    const carregarAtendimento = async () => {
+      setCarregando(true);
+
+      try {
+        const response = await fetch(`/api/cadastros/atendimentos/${id}`);
+        if (!response.ok) {
+          const errorPayload = await response.json().catch(() => null);
+          const mensagem = errorPayload?.error
+            ? `${errorPayload.error} (${response.status})`
+            : `Erro ao carregar atendimento (${response.status})`;
+          throw new Error(mensagem);
         }
-      };
-      
-      setFormData(dadosMock);
-      setCarregando(false);
-    }
+
+        const data = await response.json();
+        const dataAtendimento = data.data_atendimento
+          ? new Date(data.data_atendimento).toISOString().split('T')[0]
+          : '';
+        const dataConclusao = data.data_conclusao
+          ? new Date(data.data_conclusao).toISOString().split('T')[0]
+          : '';
+
+        const historicoNormalizado = Array.isArray(data.historico)
+          ? data.historico.map((item) => ({
+              data: item.data || formatarDataHistorico(item.created_at),
+              usuario: item.usuario || item.usuario_nome || 'Sistema',
+              status: item.status || 'AGENDADO',
+              observacao: item.observacao || ''
+            }))
+          : [];
+
+        setFormData(prev => ({
+          ...prev,
+          tipoAtendimento: data.tipo_atendimento || '',
+          eleitorNome: data.eleitores?.nome || '',
+          eleitorCpf: data.eleitores?.cpf || '',
+          campanhaNome: data.campanhas?.nome || '',
+          tipoEspecifico: mapTipoAtendimentoParaEspecifico(data.tipo_atendimento),
+          statusAtendimento: data.status || 'AGENDADO',
+          dataAtendimento,
+          dataConclusao,
+          descricao: data.descricao || '',
+          observacoes: data.resultado || '',
+          historico: historicoNormalizado
+        }));
+      } catch (error) {
+        console.error('Erro ao carregar atendimento:', error);
+        showError('Erro ao carregar atendimento. Tente novamente.');
+      } finally {
+        setCarregando(false);
+      }
+    };
+
+    carregarAtendimento();
   }, [id]);
 
   const handleInputChange = (e) => {
@@ -223,9 +210,11 @@ export default function EditarAtendimento() {
   };
 
   const handleStatusChange = (novoStatus) => {
-    const dataAtual = new Date().toLocaleString('pt-BR');
+    const dataIso = new Date().toISOString();
+    const dataAtual = new Date(dataIso).toLocaleString('pt-BR');
     const novoHistorico = {
       data: dataAtual,
+      dataIso,
       usuario: usuario.nome,
       status: novoStatus,
       observacao: formData.observacoes || 'Status atualizado'
@@ -238,153 +227,69 @@ export default function EditarAtendimento() {
       dataConclusao: novoStatus === 'REALIZADO' ? new Date().toISOString().split('T')[0] : prev.dataConclusao
     }));
 
+    setHistoricoNovos(prev => [...prev, novoHistorico]);
+
     showSuccess(`Status atualizado para: ${statusOptions[novoStatus].label}`);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Atendimento atualizado:', formData);
-    showSuccess('Atendimento atualizado com sucesso!', () => {
-      router.push('/cadastros/atendimentos');
-    });
+
+    try {
+      const tipoAtendimentoAtual = formData.tipoAtendimento ||
+        mapTipoEspecificoParaAtendimento(formData.tipoEspecifico);
+
+      const response = await fetch(`/api/cadastros/atendimentos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipoAtendimento: tipoAtendimentoAtual,
+          descricao: formData.descricao,
+          resultado: formData.observacoes,
+          status: formData.statusAtendimento,
+          dataAtendimento: formData.dataAtendimento,
+          dataConclusao: formData.dataConclusao,
+          historicoNovos
+        })
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null);
+        throw new Error(errorPayload?.error || 'Erro ao salvar atendimento');
+      }
+
+      setHistoricoNovos([]);
+      showSuccess('Atendimento atualizado com sucesso!', () => {
+        router.push('/cadastros/atendimentos');
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar atendimento:', error);
+      showError(error.message || 'Erro ao salvar atendimento');
+    }
   };
 
   if (!usuario || carregando) {
     return <div className="flex items-center justify-center h-screen">Carregando...</div>;
   }
 
-  const statusAtual = statusOptions[formData.statusAtendimento];
+  const statusAtual = statusOptions[formData.statusAtendimento] || statusOptions.AGENDADO;
 
   return (
-    <div className="min-h-screen bg-orange-50 flex">
-      <Modal
-        isOpen={modalState.isOpen}
-        onClose={closeModal}
-        onConfirm={modalState.onConfirm}
-        title={modalState.title}
-        message={modalState.message}
-        type={modalState.type}
-        confirmText={modalState.confirmText}
-        cancelText={modalState.cancelText}
-        showCancel={modalState.showCancel}
-      />
-
-      {sidebarAberto && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarAberto(false)}
+    <Layout titulo="Editar Atendimento">
+      <div className="p-4 lg:p-6">
+        <Modal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          onConfirm={modalState.onConfirm}
+          title={modalState.title}
+          message={modalState.message}
+          type={modalState.type}
+          confirmText={modalState.confirmText}
+          cancelText={modalState.cancelText}
+          showCancel={modalState.showCancel}
         />
-      )}
 
-      <aside className={`w-64 bg-[#0A4C53] text-white fixed left-0 top-0 min-h-screen z-50 shadow-lg transform transition-transform duration-300 ease-in-out ${
-        sidebarAberto ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0 lg:static lg:z-auto flex flex-col`}>
-        <div className="p-6 flex-1 flex flex-col min-h-screen">
-          <div className="flex justify-end mb-4 lg:hidden">
-            <button 
-              onClick={() => setSidebarAberto(false)}
-              className="mt-2.5 text-white hover:text-teal-200"
-            >
-              <FontAwesomeIcon icon={faTimes} className="text-xl" />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-center mb-2">
-            <div className="bg-white w-12 h-12 rounded-full flex items-center justify-center text-2xl">🏛️</div>
-            <h1 className="text-2xl font-bold ml-3">MandatoPro</h1>
-          </div>
-          <p className="text-center text-teal-100 text-sm mb-6">SISTEMA DE GESTÃO POLÍTICA</p>
-          
-          <nav className="space-y-1 flex-1">
-            {modulos.map((modulo) => (
-              <div key={modulo.nome}>
-                <button
-                  onClick={() => {
-                    setModuloAtivo(modulo.nome);
-                    if (modulo.submenu.length > 0) {
-                      setMenusAbertos(prev => ({
-                        ...prev,
-                        [modulo.nome]: !prev[modulo.nome]
-                      }));
-                    } else {
-                      if (modulo.nome === 'Dashboard') {
-                        router.push('/dashboard');
-                      }
-                    }
-                  }}
-                  className={`w-full text-left px-4 py-3 flex items-center justify-between transition-colors ${
-                    moduloAtivo === modulo.nome || moduloAtivo.startsWith(modulo.nome)
-                      ? 'bg-white text-[#0A4C53] font-bold shadow-md'
-                      : 'hover:bg-[#032E35]'
-                  } rounded-lg`}
-                >
-                  <span className="flex items-center gap-3">
-                    <FontAwesomeIcon icon={modulo.icone} />
-                    {modulo.nome}
-                  </span>
-                  {modulo.submenu.length > 0 && (
-                    <FontAwesomeIcon 
-                      icon={menusAbertos[modulo.nome] ? faChevronUp : faChevronDown}
-                      className="text-sm"
-                    />
-                  )}
-                </button>
-                {modulo.submenu.length > 0 && menusAbertos[modulo.nome] && (
-                  <div className="ml-4 mt-1 space-y-1">
-                    {modulo.submenu.map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => {
-                          const rota = item.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                          router.push(`/cadastros/${rota}`);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-[#032E35] rounded transition-colors"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </nav>
-
-          <div className="mt-auto border-t border-teal-700 pt-4">
-            <div className="flex items-center gap-3 px-4 py-2 hover:bg-[#032E35] rounded cursor-pointer transition-colors">
-              <FontAwesomeIcon icon={faSignOutAlt} />
-              <span>Sair</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <main className="flex-1 lg:ml-0">
-        <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setSidebarAberto(!sidebarAberto)}
-              className="lg:hidden text-[#0A4C53] hover:text-teal-600"
-            >
-              <FontAwesomeIcon icon={faBars} className="text-2xl" />
-            </button>
-            <h2 className="text-2xl font-bold text-[#0A4C53]">Editar Atendimento</h2>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="relative">
-              <FontAwesomeIcon icon={faBell} className="text-xl text-gray-600 hover:text-[#0A4C53]" />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-teal-600 rounded-full flex items-center justify-center text-white font-bold">
-                {usuario.nome.charAt(0)}
-              </div>
-              <span className="hidden md:block font-semibold text-gray-700">{usuario.nome}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 lg:p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Informação de ID e Status Atual */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -395,6 +300,9 @@ export default function EditarAtendimento() {
                   </p>
                   <p className="text-sm text-blue-700 mt-1">
                     <strong>Eleitor:</strong> {formData.eleitorNome}
+                  </p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    <strong>Campanha:</strong> {formData.campanhaNome || 'Avulso'}
                   </p>
                 </div>
                 <div className={`p-4 bg-${statusAtual.color}-50 rounded-lg border-l-4 border-${statusAtual.color}-500`}>
@@ -473,6 +381,44 @@ export default function EditarAtendimento() {
               </div>
             </div>
 
+            {/* Tipo de Atendimento */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">TIPO DE SERVIÇO</h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Selecione o tipo de serviço prestado
+                </label>
+                <select
+                  name="tipoAtendimento"
+                  value={formData.tipoAtendimento}
+                  onChange={(e) => {
+                    const novoTipoAtendimento = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      tipoAtendimento: novoTipoAtendimento,
+                      tipoEspecifico: mapTipoAtendimentoParaEspecifico(novoTipoAtendimento)
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="ATENDIMENTO_MEDICO">Atendimento Médico</option>
+                  <option value="ATENDIMENTO_ODONTOLOGICO">Atendimento Odontológico</option>
+                  <option value="CADASTRO_BENEFICIOS">Cadastro de Benefícios</option>
+                  <option value="CURSOS_PROFISSIONALIZANTES">Cursos Profissionalizantes</option>
+                  <option value="DISTRIBUICAO_ALIMENTOS">Distribuição de Alimentos</option>
+                  <option value="EMISSAO_DOCUMENTOS">Emissão de Documentos</option>
+                  <option value="ENCAMINHAMENTO_SOCIAL">Encaminhamento Social</option>
+                  <option value="OFICINAS_CAPACITACAO">Oficinas de Capacitação</option>
+                  <option value="OFTALMOLOGISTA">Oftalmologista</option>
+                  <option value="ORIENTACAO_SAUDE">Orientação de Saúde</option>
+                  <option value="ORIENTACAO_JURIDICA">Orientação Jurídica</option>
+                  <option value="OUTROS">Outros</option>
+                  <option value="HOSPITALAR">Procedimento Hospitalar</option>
+                </select>
+              </div>
+            </div>
+
             {/* Descrição e Observações */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-bold text-gray-800 mb-4">DETALHES DO ATENDIMENTO</h3>
@@ -509,7 +455,7 @@ export default function EditarAtendimento() {
             </div>
 
             {/* Dados Específicos do Serviço Prestado */}
-            {formData.tipoEspecifico === 'OFTAMOLOGISTA' && (
+            {formData.tipoEspecifico === 'OFTALMOLOGISTA' && (
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                   <FontAwesomeIcon icon={faEye} className="text-blue-600" />
@@ -1196,7 +1142,6 @@ export default function EditarAtendimento() {
             </div>
           </form>
         </div>
-      </main>
-    </div>
+    </Layout>
   );
 }

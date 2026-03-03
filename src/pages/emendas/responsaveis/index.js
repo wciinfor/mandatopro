@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -8,52 +8,42 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFResponsaveis, gerarExcelResponsaveis } from '@/utils/relatorios';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function GerenciarResponsaveis() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [responsaveis, setResponsaveis] = useState([
-    {
-      id: 1,
-      codigo: 1,
-      nome: 'Dr. João Silva',
-      cargo: 'Secretário de Saúde',
-      orgao: 'SECRETARIA MUNICIPAL DE SAÚDE',
-      cpf: '123.456.789-00',
-      telefone: '(91) 99999-8888',
-      email: 'joao.silva@prefeitura.gov.br',
-      whatsapp: '(91) 99999-8888',
-      observacoes: 'Responsável principal pelas emendas de saúde',
-      status: 'ATIVO'
-    },
-    {
-      id: 2,
-      codigo: 2,
-      nome: 'Profª Maria Santos',
-      cargo: 'Secretária de Educação',
-      orgao: 'SECRETARIA ESTADUAL DE EDUCAÇÃO',
-      cpf: '987.654.321-00',
-      telefone: '(91) 98888-7777',
-      email: 'maria.santos@seduc.pa.gov.br',
-      whatsapp: '(91) 98888-7777',
-      observacoes: 'Coordena projetos educacionais',
-      status: 'ATIVO'
-    },
-    {
-      id: 3,
-      codigo: 3,
-      nome: 'Eng. Carlos Oliveira',
-      cargo: 'Diretor de Infraestrutura',
-      orgao: 'SECRETARIA MUNICIPAL DE OBRAS',
-      cpf: '456.789.123-00',
-      telefone: '(91) 97777-6666',
-      email: 'carlos.oliveira@obras.gov.br',
-      whatsapp: '(91) 97777-6666',
-      observacoes: 'Responsável por emendas de infraestrutura',
-      status: 'ATIVO'
+  const [responsaveis, setResponsaveis] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    carregarResponsaveis();
+  }, []);
+
+  const carregarResponsaveis = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+        .from('responsaveis_emendas')
+        .select('*')
+        .order('nome', { ascending: true });
+
+      if (error) throw error;
+
+      setResponsaveis(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar responsáveis:', error);
+      showError('Erro ao carregar responsáveis');
+    } finally {
+      setCarregando(false);
     }
-  ]);
+  };
 
   const [filtro, setFiltro] = useState('');
   const [orgaoFiltro, setOrgaoFiltro] = useState('TODOS');
@@ -61,9 +51,9 @@ export default function GerenciarResponsaveis() {
 
   const responsaveisFiltrados = responsaveis.filter(resp => {
     const matchFiltro = filtro === '' || 
-      resp.nome.toLowerCase().includes(filtro.toLowerCase()) ||
-      resp.cargo.toLowerCase().includes(filtro.toLowerCase()) ||
-      resp.email.toLowerCase().includes(filtro.toLowerCase());
+      (resp.nome && resp.nome.toLowerCase().includes(filtro.toLowerCase())) ||
+      (resp.cargo && resp.cargo.toLowerCase().includes(filtro.toLowerCase())) ||
+      (resp.email && resp.email.toLowerCase().includes(filtro.toLowerCase()));
     const matchOrgao = orgaoFiltro === 'TODOS' || resp.orgao === orgaoFiltro;
     const matchSituacao = resp.status === situacao;
     return matchFiltro && matchOrgao && matchSituacao;
@@ -78,9 +68,21 @@ export default function GerenciarResponsaveis() {
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir este responsável?', () => {
-      setResponsaveis(responsaveis.filter(r => r.id !== id));
-      showSuccess('Responsável excluído com sucesso!');
+    showConfirm('Tem certeza que deseja excluir este responsável?', async () => {
+      try {
+        const { error } = await supabase
+          .from('responsaveis_emendas')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setResponsaveis(responsaveis.filter(r => r.id !== id));
+        showSuccess('Responsável excluído com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir responsável:', error);
+        showError('Erro ao excluir responsável: ' + error.message);
+      }
     });
   };
 
@@ -97,6 +99,18 @@ export default function GerenciarResponsaveis() {
       showError('Erro ao gerar relatório: ' + error.message);
     }
   };
+
+  if (carregando) {
+    return (
+      <Layout titulo="Gerenciar Responsáveis">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-700">Carregando responsáveis...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout titulo="Gerenciar Responsáveis">
@@ -193,89 +207,105 @@ export default function GerenciarResponsaveis() {
 
         {/* Tabela */}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Código
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nome
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cargo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Órgão
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contato
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {responsaveisFiltrados.map((resp) => (
-                <tr key={resp.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {resp.codigo}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <FontAwesomeIcon icon={faUserTie} className="text-teal-600 mr-2" />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{resp.nome}</div>
-                        <div className="text-sm text-gray-500">{resp.cpf}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {resp.cargo}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {resp.orgao}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <FontAwesomeIcon icon={faPhone} className="text-gray-400" />
-                        {resp.telefone}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FontAwesomeIcon icon={faEnvelope} className="text-gray-400" />
-                        {resp.email}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditar(resp.id)}
-                        className="text-blue-600 hover:text-blue-900 transition-colors"
-                        title="Editar"
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button
-                        onClick={() => handleExcluir(resp.id)}
-                        className="text-red-600 hover:text-red-900 transition-colors"
-                        title="Excluir"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {responsaveisFiltrados.length === 0 && (
+          {responsaveisFiltrados.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               Nenhum responsável encontrado com os filtros aplicados.
             </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Código
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nome
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cargo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Órgão
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contato
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ações
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {responsaveisFiltrados.map((resp) => (
+                  <tr key={resp.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {resp.id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <FontAwesomeIcon icon={faUserTie} className="text-teal-600 mr-2" />
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{resp.nome}</div>
+                          <div className="text-sm text-gray-500">{resp.cpf || '-'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {resp.cargo}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {resp.orgao}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex flex-col gap-1">
+                        {resp.telefone && (
+                          <div className="flex items-center gap-2">
+                            <FontAwesomeIcon icon={faPhone} className="text-gray-400" />
+                            {resp.telefone}
+                          </div>
+                        )}
+                        {resp.email && (
+                          <div className="flex items-center gap-2">
+                            <FontAwesomeIcon icon={faEnvelope} className="text-gray-400" />
+                            {resp.email}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        resp.status === 'ATIVO' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {resp.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditar(resp.id)}
+                          className="text-blue-600 hover:text-blue-900 transition-colors"
+                          title="Editar"
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button
+                          onClick={() => handleExcluir(resp.id)}
+                          className="text-red-600 hover:text-red-900 transition-colors"
+                          title="Excluir"
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 

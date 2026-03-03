@@ -47,6 +47,53 @@ export default async function handler(req, res) {
         });
       }
 
+      if (campanhas && campanhas.length > 0) {
+        const campanhaIds = campanhas.map(c => c.id);
+
+        const { data: atendimentos, error: erroAtendimentos } = await supabase
+          .from('atendimentos')
+          .select('id, campanha_id')
+          .in('campanha_id', campanhaIds);
+
+        const atendimentoIds = (atendimentos || []).map(a => a.id);
+
+        let servicosAtendimentos = [];
+        if (!erroAtendimentos && atendimentoIds.length > 0) {
+          const { data: servicosData } = await supabase
+            .from('atendimentos_servicos')
+            .select('atendimento_id, categoria_servico_id')
+            .in('atendimento_id', atendimentoIds);
+          servicosAtendimentos = servicosData || [];
+        }
+
+        const atendimentoPorId = (atendimentos || []).reduce((acc, at) => {
+          acc[at.id] = at.campanha_id;
+          return acc;
+        }, {});
+
+        const usoPorCampanhaServico = {};
+        servicosAtendimentos.forEach((item) => {
+          const campanhaId = atendimentoPorId[item.atendimento_id];
+          if (!campanhaId) return;
+          const key = `${campanhaId}:${item.categoria_servico_id}`;
+          usoPorCampanhaServico[key] = (usoPorCampanhaServico[key] || 0) + 1;
+        });
+
+        campanhas.forEach((campanha) => {
+          if (!Array.isArray(campanha.campanhas_servicos)) return;
+          campanha.campanhas_servicos = campanha.campanhas_servicos.map((cs) => {
+            const total = cs.quantidade || 0;
+            const usados = usoPorCampanhaServico[`${campanha.id}:${cs.categoria_servico_id}`] || 0;
+            const disponiveis = Math.max(total - usados, 0);
+            return {
+              ...cs,
+              quantidade_usada: usados,
+              quantidade_disponivel: disponiveis
+            };
+          });
+        });
+      }
+
       return res.status(200).json({
         data: campanhas,
         total: count,
@@ -89,10 +136,51 @@ export default async function handler(req, res) {
         });
       }
 
+      const campanhaCriada = campanha?.[0];
+
+      if (campanhaCriada?.id) {
+        const agendaPayload = {
+          titulo: campanhaCriada.nome || payload.nome,
+          descricao: campanhaCriada.descricao || payload.descricao,
+          data: campanhaCriada.data_campanha || payload.data_campanha,
+          hora_inicio: campanhaCriada.hora_inicio || payload.hora_inicio,
+          hora_fim: campanhaCriada.hora_fim || payload.hora_fim,
+          horaInicio: campanhaCriada.hora_inicio || payload.hora_inicio,
+          horaFim: campanhaCriada.hora_fim || payload.hora_fim,
+          local: campanhaCriada.local || payload.local,
+          endereco: null,
+          tipo: 'EVENTO',
+          categoria: 'Campanha',
+          status: 'AGENDADO',
+          participantes: 0,
+          confirmados: 0,
+          observacoes: campanhaCriada.observacoes || payload.observacoes,
+          permitirConfirmacao: true,
+          criado_por_id: null
+        };
+
+        const { error: erroAgenda } = await supabase
+          .from('agenda_eventos')
+          .insert([agendaPayload]);
+
+        if (erroAgenda) {
+          console.error('Erro ao criar agenda da campanha:', erroAgenda);
+          await supabase
+            .from('campanhas')
+            .delete()
+            .eq('id', campanhaCriada.id);
+
+          return res.status(400).json({
+            message: 'Erro ao criar agenda da campanha',
+            error: erroAgenda.message
+          });
+        }
+      }
+
       // Inserir lideranças associadas se fornecidas
-      if (body.liderancos && Array.isArray(body.liderancos) && body.liderancos.length > 0 && campanha[0]?.id) {
+      if (body.liderancos && Array.isArray(body.liderancos) && body.liderancos.length > 0 && campanhaCriada?.id) {
         const liderancasPayload = body.liderancos.map(lid => ({
-          campanha_id: campanha[0].id,
+          campanha_id: campanhaCriada.id,
           lideranca_id: parseInt(lid.id) || lid.id, // Garantir que é número
           papel: lid.papel || 'APOIO'
         }));
@@ -107,9 +195,9 @@ export default async function handler(req, res) {
       }
 
       // Inserir serviços associados se fornecidos
-      if (body.servicos && Array.isArray(body.servicos) && body.servicos.length > 0 && campanha[0]?.id) {
+      if (body.servicos && Array.isArray(body.servicos) && body.servicos.length > 0 && campanhaCriada?.id) {
         const servicosPayload = body.servicos.map(serv => ({
-          campanha_id: campanha[0].id,
+          campanha_id: campanhaCriada.id,
           categoria_servico_id: serv.id,
           quantidade: serv.quantidade || 0
         }));
@@ -127,11 +215,11 @@ export default async function handler(req, res) {
       const { data: campanhaCompleta } = await supabase
         .from('campanhas')
         .select('*, campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))')
-        .eq('id', campanha[0].id)
+        .eq('id', campanhaCriada.id)
         .single();
 
       return res.status(201).json({
-        data: campanhaCompleta || campanha[0],
+        data: campanhaCompleta || campanhaCriada,
         message: 'Campanha criada com sucesso'
       });
     }

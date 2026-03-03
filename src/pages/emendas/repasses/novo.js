@@ -5,10 +5,17 @@ import { faMoneyBillWave, faSave, faArrowLeft } from '@fortawesome/free-solid-sv
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function NovoRepasse() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError } = useModal();
+  const [salvando, setSalvando] = useState(false);
 
   const [formData, setFormData] = useState({
     codigo: `REP-2024-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
@@ -29,7 +36,7 @@ export default function NovoRepasse() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.emenda || !formData.valor || !formData.dataPrevista) {
@@ -37,9 +44,39 @@ export default function NovoRepasse() {
       return;
     }
 
-    showSuccess('Repasse cadastrado com sucesso!', () => {
-      router.push('/emendas/repasses');
-    });
+    setSalvando(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('repasses')
+        .insert([
+          {
+            codigo: formData.codigo,
+            emenda: formData.emenda,
+            parcela: parseInt(formData.parcela) || 1,
+            totalParcelas: parseInt(formData.totalParcelas) || 1,
+            valor: parseFloat(formData.valor) || null,
+            dataPrevista: formData.dataPrevista || null,
+            dataEfetivada: formData.dataEfetivada || null,
+            orgao: formData.orgao || null,
+            responsavel: formData.responsavel || null,
+            status: formData.status,
+            observacoes: formData.observacoes || null
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      showSuccess('Repasse cadastrado com sucesso!', () => {
+        router.push('/emendas/repasses');
+      });
+    } catch (error) {
+      console.error('Erro ao cadastrar repasse:', error);
+      showError('Erro ao cadastrar repasse: ' + error.message);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
@@ -245,15 +282,17 @@ export default function NovoRepasse() {
           <div className="flex gap-4 mt-6">
             <button
               type="submit"
-              className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+              disabled={salvando}
             >
               <FontAwesomeIcon icon={faSave} />
-              <span>Salvar</span>
+              <span>{salvando ? 'Salvando...' : 'Salvar'}</span>
             </button>
             <button
               type="button"
               onClick={() => router.push('/emendas/repasses')}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors"
+              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+              disabled={salvando}
             >
               <FontAwesomeIcon icon={faArrowLeft} />
               <span>Voltar para Lista</span>

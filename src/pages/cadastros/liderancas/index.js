@@ -24,12 +24,12 @@ export default function GerenciarLiderancas() {
 
   const liderancasFiltradas = liderancas.filter(lid => {
     const nome = (lid.nome || lid.nomeSocial || '').toLowerCase();
-    const cpf = lid.cpf || '';
+    const rg = lid.rg || '';
     const telefone = lid.telefone || '';
     const areaAtuacao = (lid.areaAtuacao || '').toLowerCase();
     const matchFiltro = filtro === '' || 
       nome.includes(filtro.toLowerCase()) ||
-      cpf.includes(filtro) ||
+      rg.includes(filtro) ||
       telefone.includes(filtro) ||
       areaAtuacao.includes(filtro.toLowerCase());
     const matchSituacao = situacao === 'ATIVO' ? lid.status === 'ATIVO' : lid.status !== 'ATIVO';
@@ -86,7 +86,7 @@ export default function GerenciarLiderancas() {
     const tableData = liderancasFiltradas.map(lid => [
       lid.id,
       lid.nome || lid.nomeSocial,
-      lid.cpf,
+      lid.rg,
       lid.telefone,
       lid.influencia || '-',
       lid.areaAtuacao || '-',
@@ -94,7 +94,7 @@ export default function GerenciarLiderancas() {
     ]);
     
     pdfGen.doc.autoTable({
-      head: [['Código', 'Nome', 'CPF', 'Telefone', 'Influência', 'Área de Atuação', 'Status']],
+      head: [['Código', 'Nome', 'RG', 'Telefone', 'Influência', 'Área de Atuação', 'Status']],
       body: tableData,
       startY: 50,
       styles: { fontSize: 8, cellPadding: 2 },
@@ -117,7 +117,7 @@ export default function GerenciarLiderancas() {
     yPos += 10;
     pdfGen.doc.text(`Nome: ${lideranca.nome || lideranca.nomeSocial}`, 20, yPos);
     yPos += 10;
-    pdfGen.doc.text(`CPF: ${lideranca.cpf}`, 20, yPos);
+    pdfGen.doc.text(`RG: ${lideranca.rg}`, 20, yPos);
     yPos += 10;
     pdfGen.doc.text(`Telefone: ${lideranca.telefone || '-'}`, 20, yPos);
     yPos += 10;
@@ -171,7 +171,7 @@ export default function GerenciarLiderancas() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                BUSCAR POR NOME, CPF, TELEFONE...
+                BUSCAR POR NOME, RG, TELEFONE...
               </label>
               <input
                 type="text"
@@ -237,7 +237,7 @@ export default function GerenciarLiderancas() {
                 <tr className="bg-gray-100 border-b-2 border-gray-300">
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Código</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nome</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">CPF</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">RG</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Telefone</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Influência</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Área de Atuação</th>
@@ -253,7 +253,7 @@ export default function GerenciarLiderancas() {
                   <tr key={lideranca.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition`}>
                     <td className="px-4 py-3 text-sm">{lideranca.id}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{lideranca.nome || lideranca.nomeSocial}</td>
-                    <td className="px-4 py-3 text-sm">{lideranca.cpf}</td>
+                    <td className="px-4 py-3 text-sm">{lideranca.rg}</td>
                     <td className="px-4 py-3 text-sm">{lideranca.telefone}</td>
                     <td className="px-4 py-3 text-sm">{lideranca.influencia || '-'}</td>
                     <td className="px-4 py-3 text-sm">{lideranca.areaAtuacao || '-'}</td>

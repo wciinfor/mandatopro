@@ -7,18 +7,162 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRegistrarAcesso } from '@/hooks/useRegistrarAcesso';
-import { getDashboardStats } from '../data/mockData';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [usuario, setUsuario] = useState(null);
-  const stats = getDashboardStats();
+  const [stats, setStats] = useState({
+    totalEleitores: 0,
+    totalLiderancas: 0,
+    campanhasAtivas: 0,
+    totalAtendimentos: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [charts, setCharts] = useState({
+    eleitoresSeries: [],
+    campanhasSeries: []
+  });
+  const [chartsLoading, setChartsLoading] = useState(true);
   
   // Carrega usuário do localStorage
   useEffect(() => {
     const usuarioData = JSON.parse(localStorage.getItem('usuario') || '{}');
     setUsuario(usuarioData);
   }, []);
+
+  useEffect(() => {
+    const carregarStats = async () => {
+      try {
+        setStatsLoading(true);
+        const response = await fetch('/api/dashboard/stats');
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        const data = await response.json();
+        setStats({
+          totalEleitores: data.totalEleitores || 0,
+          totalLiderancas: data.totalLiderancas || 0,
+          campanhasAtivas: data.campanhasAtivas || 0,
+          totalAtendimentos: data.totalAtendimentos || 0
+        });
+      } catch (error) {
+        console.error('Erro ao carregar estatisticas do dashboard:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    carregarStats();
+  }, []);
+
+  useEffect(() => {
+    const carregarGraficos = async () => {
+      try {
+        setChartsLoading(true);
+        const response = await fetch('/api/dashboard/charts?days=15');
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        const data = await response.json();
+        setCharts({
+          eleitoresSeries: Array.isArray(data.eleitoresSeries) ? data.eleitoresSeries : [],
+          campanhasSeries: Array.isArray(data.campanhasSeries) ? data.campanhasSeries : []
+        });
+      } catch (error) {
+        console.error('Erro ao carregar graficos do dashboard:', error);
+      } finally {
+        setChartsLoading(false);
+      }
+    };
+
+    carregarGraficos();
+  }, []);
+
+  const BarChart = ({
+    series,
+    fill,
+    width = 520,
+    height = 120,
+    paddingX = 6,
+    paddingTop = 6,
+    paddingBottom = 18,
+    barGap = 4,
+    minBarWidth = 4,
+    labelInterval = 1
+  }) => {
+    const values = series.map((item) => item.value || 0);
+    const max = Math.max(...values, 1);
+    const chartWidth = width - paddingX * 2;
+    const chartHeight = height - paddingTop - paddingBottom;
+    const barWidth = values.length > 0
+      ? Math.max((chartWidth - barGap * (values.length - 1)) / values.length, minBarWidth)
+      : 0;
+
+    if (values.length === 0) {
+      return (
+        <div className="h-[120px] flex items-center justify-center text-sm text-gray-400">
+          Sem dados
+        </div>
+      );
+    }
+
+    return (
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-[120px]"
+        role="img"
+        aria-label="Grafico"
+      >
+        {values.map((value, index) => {
+          const barHeight = (value / max) * chartHeight;
+          const x = paddingX + index * (barWidth + barGap);
+          const y = height - paddingBottom - barHeight;
+          const isLast = index === values.length - 1;
+          return (
+            <g key={`bar-${index}`}>
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={Math.max(barHeight, 2)}
+                rx={2}
+                fill={isLast ? fill : `${fill}B3`}
+              />
+              <text
+                x={x + barWidth / 2}
+                y={Math.max(y - 6, 10)}
+                textAnchor="middle"
+                fontSize="12"
+                fontWeight="700"
+                fill="#0f172a"
+              >
+                {value}
+              </text>
+            </g>
+          );
+        })}
+        {series.map((item, index) => {
+          if (index % labelInterval !== 0) return null;
+          const raw = String(item.label || '');
+          const parts = raw.split('-');
+          const label = parts.length === 3 ? parts[2] : raw;
+          const x = paddingX + index * (barWidth + barGap) + barWidth / 2;
+          return (
+            <text
+              key={`label-${index}`}
+              x={x}
+              y={height - 4}
+              textAnchor="middle"
+              fontSize="9"
+              fill="#94a3b8"
+            >
+              {label}
+            </text>
+          );
+        })}
+      </svg>
+    );
+  };
   
   // Registra acesso ao dashboard
   useRegistrarAcesso(usuario, 'DASHBOARD', 'Dashboard');
@@ -63,22 +207,100 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border-b-4 border-teal-400">
           <FontAwesomeIcon icon={faUsers} className="text-2xl lg:text-3xl text-teal-700 mb-2" />
           <div className="text-gray-700 text-sm lg:text-base">Eleitores Cadastrados</div>
-          <div className="text-3xl lg:text-4xl font-bold text-teal-800 mt-2">{stats.totalEleitores}</div>
+          <div className="text-3xl lg:text-4xl font-bold text-teal-800 mt-2">
+            {statsLoading ? (
+              <span className="inline-block h-8 w-16 lg:h-10 lg:w-20 bg-teal-100 rounded animate-pulse" />
+            ) : (
+              stats.totalEleitores
+            )}
+          </div>
         </div>
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border-b-4 border-yellow-400">
           <FontAwesomeIcon icon={faUsers} className="text-2xl lg:text-3xl text-yellow-700 mb-2" />
           <div className="text-gray-700 text-sm lg:text-base">Lideranças Cadastradas</div>
-          <div className="text-3xl lg:text-4xl font-bold text-yellow-800 mt-2">{stats.totalLiderancas}</div>
+          <div className="text-3xl lg:text-4xl font-bold text-yellow-800 mt-2">
+            {statsLoading ? (
+              <span className="inline-block h-8 w-16 lg:h-10 lg:w-20 bg-yellow-100 rounded animate-pulse" />
+            ) : (
+              stats.totalLiderancas
+            )}
+          </div>
         </div>
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border-b-4 border-green-400">
-          <FontAwesomeIcon icon={faUniversity} className="text-2xl lg:text-3xl text-green-700 mb-2" />
-          <div className="text-gray-700 text-sm lg:text-base">Emendas Ativas</div>
-          <div className="text-3xl lg:text-4xl font-bold text-green-800 mt-2">{stats.emendasAtivas}</div>
+          <FontAwesomeIcon icon={faBullhorn} className="text-2xl lg:text-3xl text-green-700 mb-2" />
+          <div className="text-gray-700 text-sm lg:text-base">Campanhas Ativas</div>
+          <div className="text-3xl lg:text-4xl font-bold text-green-800 mt-2">
+            {statsLoading ? (
+              <span className="inline-block h-8 w-16 lg:h-10 lg:w-20 bg-green-100 rounded animate-pulse" />
+            ) : (
+              stats.campanhasAtivas
+            )}
+          </div>
         </div>
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border-b-4 border-red-400">
           <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl lg:text-3xl text-red-700 mb-2" />
-          <div className="text-gray-700 text-sm lg:text-base">Solicitações Recebidas</div>
-          <div className="text-3xl lg:text-4xl font-bold text-red-800 mt-2">{stats.totalAtendimentos}</div>
+          <div className="text-gray-700 text-sm lg:text-base">Atendimentos Registrados</div>
+          <div className="text-3xl lg:text-4xl font-bold text-red-800 mt-2">
+            {statsLoading ? (
+              <span className="inline-block h-8 w-16 lg:h-10 lg:w-20 bg-red-100 rounded animate-pulse" />
+            ) : (
+              stats.totalAtendimentos
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Graficos */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6 mb-6 lg:mb-8">
+        <div className="bg-white rounded-2xl shadow-lg p-5 lg:p-6 border border-teal-100">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Eleitores cadastrados por dia</h3>
+              <p className="text-xs text-gray-500">Ultimos 15 dias</p>
+            </div>
+            <span className="text-sm font-semibold text-teal-700">
+              Total: {charts.eleitoresSeries.reduce((acc, item) => acc + (item.value || 0), 0)}
+            </span>
+          </div>
+          {chartsLoading ? (
+            <div className="h-[120px] rounded-lg bg-teal-50 animate-pulse" />
+          ) : (
+            <>
+              <BarChart
+                series={charts.eleitoresSeries}
+                fill="#14b8a6"
+                width={700}
+                barGap={8}
+                minBarWidth={2}
+                labelInterval={1}
+              />
+            </>
+          )}
+        </div>
+        <div className="bg-white rounded-2xl shadow-lg p-5 lg:p-6 border border-amber-100">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Campanhas abertas no mes</h3>
+              <p className="text-xs text-gray-500">Status: Planejamento e Execucao</p>
+            </div>
+            <span className="text-sm font-semibold text-amber-700">
+              Total: {charts.campanhasSeries.reduce((acc, item) => acc + (item.value || 0), 0)}
+            </span>
+          </div>
+          {chartsLoading ? (
+            <div className="h-[120px] rounded-lg bg-amber-50 animate-pulse" />
+          ) : (
+            <>
+              <BarChart
+                series={charts.campanhasSeries}
+                fill="#f59e0b"
+                width={700}
+                barGap={4}
+                minBarWidth={3}
+                labelInterval={1}
+              />
+            </>
+          )}
         </div>
       </div>
 

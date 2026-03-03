@@ -211,7 +211,7 @@ export default function NovaCampanha() {
     if (!servicosSelecionados.some(s => s.id === servico.id)) {
       setServicosSelecionados([
         ...servicosSelecionados,
-        { id: servico.id, nome: servico.nome, quantidade: 0 }
+        { id: servico.id, nome: servico.nome, quantidade: 1 }
       ]);
     }
   };
@@ -222,7 +222,7 @@ export default function NovaCampanha() {
 
   const atualizarQuantidadeServico = (id, quantidade) => {
     setServicosSelecionados(servicosSelecionados.map(s =>
-      s.id === id ? { ...s, quantidade: parseInt(quantidade) || 0 } : s
+      s.id === id ? { ...s, quantidade: parseInt(quantidade, 10) || 0 } : s
     ));
   };
 
@@ -250,6 +250,11 @@ export default function NovaCampanha() {
 
     if (!formData.local.trim()) {
       showWarning('Local da campanha é obrigatório');
+      return;
+    }
+
+    if (servicosSelecionados.some(s => !s.quantidade || s.quantidade < 1)) {
+      showWarning('Informe a quantidade de todos os serviços');
       return;
     }
 
@@ -380,7 +385,7 @@ export default function NovaCampanha() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     <FontAwesomeIcon icon={faMapMarkerAlt} className="mr-2" />
-                    Local <span className="text-red-500">*</span>
+                    Localidade atendida <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -631,7 +636,8 @@ export default function NovaCampanha() {
                           <td className="px-4 py-3">
                             <input
                               type="number"
-                              min="0"
+                              min="1"
+                              required
                               value={serv.quantidade}
                               onChange={(e) => atualizarQuantidadeServico(serv.id, e.target.value)}
                               className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:ring-2 focus:ring-teal-500"

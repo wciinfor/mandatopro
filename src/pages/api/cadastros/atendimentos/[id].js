@@ -34,51 +34,133 @@ export default async function handler(req, res) {
           id,
           protocolo,
           data_atendimento,
+          data_conclusao,
           tipo_atendimento,
           assunto,
           descricao,
           resultado,
           status,
           eleitor_id,
+          campanha_id,
           eleitores!atendimentos_eleitor_id_fkey (
             id,
             nome,
             cpf
+          ),
+          campanhas:campanhas!atendimentos_campanha_id_fkey (
+            id,
+            nome
           )
         `)
         .eq('id', id)
-        .single();
+        .limit(1);
 
       if (error) throw error;
 
-      return res.status(200).json(data);
+      const atendimento = Array.isArray(data) ? data[0] : null;
+      if (!atendimento) {
+        return res.status(404).json({ error: 'Atendimento não encontrado' });
+      }
+
+      // Buscar serviços separadamente para evitar falha de join
+      const { data: servicos, error: erroServicos } = await supabase
+        .from('atendimentos_servicos')
+        .select(`
+          atendimento_id,
+          categorias_servicos (
+            id,
+            nome
+          )
+        `)
+        .eq('atendimento_id', atendimento.id);
+
+      if (!erroServicos && servicos) {
+        atendimento.atendimentos_servicos = servicos
+          .map(s => s.categorias_servicos)
+          .filter(Boolean);
+      } else {
+        atendimento.atendimentos_servicos = [];
+      }
+
+      const { data: historico, error: erroHistorico } = await supabase
+        .from('atendimentos_historico')
+        .select('id, status, observacao, usuario_nome, created_at')
+        .eq('atendimento_id', atendimento.id)
+        .order('created_at', { ascending: true });
+
+      if (!erroHistorico && historico) {
+        atendimento.historico = historico;
+      } else {
+        atendimento.historico = [];
+      }
+
+      return res.status(200).json(atendimento);
     } catch (error) {
       console.error('Erro ao buscar atendimento:', error);
-      return res.status(404).json({ error: 'Atendimento não encontrado' });
+      return res.status(400).json({
+        error: error.message || 'Erro ao buscar atendimento',
+        details: error.details || null,
+        hint: error.hint || null
+      });
     }
   }
 
   // PUT - Atualizar atendimento
   if (req.method === 'PUT') {
     try {
-      const { tipoAtendimento, assunto, descricao, resultado, status } = req.body;
+      const {
+        tipoAtendimento,
+        assunto,
+        descricao,
+        resultado,
+        status,
+        dataAtendimento,
+        dataConclusao,
+        historicoNovos
+      } = req.body;
 
       const statusNormalizado = normalizeStatus(status);
 
+      const payload = {
+        tipo_atendimento: tipoAtendimento,
+        assunto,
+        descricao,
+        resultado,
+        status: statusNormalizado,
+        updated_at: new Date().toISOString()
+      };
+
+      if (dataAtendimento) {
+        payload.data_atendimento = new Date(dataAtendimento).toISOString();
+      }
+
+      if (dataConclusao) {
+        payload.data_conclusao = new Date(dataConclusao).toISOString();
+      }
+
       const { data, error } = await supabase
         .from('atendimentos')
-        .update({
-          tipo_atendimento: tipoAtendimento,
-          assunto,
-          descricao,
-          resultado,
-          status: statusNormalizado,
-          updated_at: new Date().toISOString()
-        })
+        .update(payload)
         .eq('id', id)
         .select();
 
       if (error) throw error;
+
+      if (Array.isArray(historicoNovos) && historicoNovos.length > 0) {
+        const historicoPayload = historicoNovos.map((item) => ({
+          atendimento_id: id,
+          status: normalizeStatus(item.status),
+          observacao: item.observacao || null,
+          usuario_nome: item.usuario || null,
+          created_at: item.dataIso || new Date().toISOString()
+        }));
+
+        const { error: erroHistorico } = await supabase
+          .from('atendimentos_historico')
+          .insert(historicoPayload);
+
+        if (erroHistorico) throw erroHistorico;
+      }
 
       return res.status(200).json(data[0]);
     } catch (error) {

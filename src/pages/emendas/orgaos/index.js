@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -8,55 +8,51 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFOrgaos, gerarExcelOrgaos } from '@/utils/relatorios';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function GerenciarOrgaos() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
-  
-  const [orgaos, setOrgaos] = useState([
-    {
-      id: 1,
-      codigo: 1,
-      nome: 'SECRETARIA MUNICIPAL DE SAÚDE',
-      tipo: 'MUNICIPAL',
-      cnpj: '12.345.678/0001-90',
-      endereco: 'Av. Principal, 1000',
-      municipio: 'Belém',
-      uf: 'PA',
-      telefone: '(91) 3333-4444',
-      email: 'saude@prefeitura.gov.br',
-      responsavel: 'Dr. João Silva',
-      contato: '(91) 99999-8888',
-      observacoes: 'Órgão principal para emendas de saúde',
-      status: 'ATIVO'
-    },
-    {
-      id: 2,
-      codigo: 2,
-      nome: 'SECRETARIA ESTADUAL DE EDUCAÇÃO',
-      tipo: 'ESTADUAL',
-      cnpj: '98.765.432/0001-10',
-      endereco: 'Rua das Flores, 500',
-      municipio: 'Belém',
-      uf: 'PA',
-      telefone: '(91) 3322-1100',
-      email: 'educacao@seduc.pa.gov.br',
-      responsavel: 'Profª Maria Santos',
-      contato: '(91) 98888-7777',
-      observacoes: 'Emendas para educação estadual',
-      status: 'ATIVO'
-    }
-  ]);
 
+  const [orgaos, setOrgaos] = useState([]);
+  const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('TODOS');
   const [situacao, setSituacao] = useState('ATIVO');
 
+  useEffect(() => {
+    carregarOrgaos();
+  }, []);
+
+  const carregarOrgaos = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+        .from('orgaos')
+        .select('*')
+        .order('nome', { ascending: true });
+
+      if (error) throw error;
+
+      setOrgaos(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar órgãos:', error);
+      showError('Erro ao carregar órgãos');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const orgaosFiltrados = orgaos.filter(org => {
     const matchFiltro = filtro === '' || 
       org.nome.toLowerCase().includes(filtro.toLowerCase()) ||
-      org.cnpj.includes(filtro) ||
-      org.municipio.toLowerCase().includes(filtro.toLowerCase());
+      (org.cnpj && org.cnpj.includes(filtro)) ||
+      (org.municipio && org.municipio.toLowerCase().includes(filtro.toLowerCase()));
     const matchTipo = tipoFiltro === 'TODOS' || org.tipo === tipoFiltro;
     const matchSituacao = org.status === situacao;
     return matchFiltro && matchTipo && matchSituacao;
@@ -71,9 +67,21 @@ export default function GerenciarOrgaos() {
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir este órgão?', () => {
-      setOrgaos(orgaos.filter(o => o.id !== id));
-      showSuccess('Órgão excluído com sucesso!');
+    showConfirm('Tem certeza que deseja excluir este órgão?', async () => {
+      try {
+        const { error } = await supabase
+          .from('orgaos')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setOrgaos(orgaos.filter(o => o.id !== id));
+        showSuccess('Órgão excluído com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir órgão:', error);
+        showError('Erro ao excluir órgão: ' + error.message);
+      }
     });
   };
 
@@ -90,6 +98,18 @@ export default function GerenciarOrgaos() {
       showError('Erro ao gerar relatório: ' + error.message);
     }
   };
+
+  if (carregando) {
+    return (
+      <Layout titulo="Gerenciar Órgãos">
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-700">Carregando órgãos...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout titulo="Gerenciar Órgãos">
@@ -184,74 +204,80 @@ export default function GerenciarOrgaos() {
 
           {/* Tabela */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-blue-100 border-b-2 border-blue-300">
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Cód</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nome do Órgão</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Tipo</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">CNPJ</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Município/UF</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Responsável</th>
-                    <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Status</th>
-                    <th className="px-4 py-3 text-center text-sm font-bold text-gray-700">Controles</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orgaosFiltrados.map((orgao, idx) => (
-                    <tr key={orgao.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-3 text-sm">{orgao.codigo}</td>
-                      <td className="px-4 py-3 text-sm font-medium">
-                        <div className="flex items-center gap-2">
-                          <FontAwesomeIcon icon={faBuilding} className="text-blue-600" />
-                          {orgao.nome}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          orgao.tipo === 'FEDERAL' ? 'bg-purple-100 text-purple-800' :
-                          orgao.tipo === 'ESTADUAL' ? 'bg-blue-100 text-blue-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {orgao.tipo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{orgao.cnpj}</td>
-                      <td className="px-4 py-3 text-sm">{orgao.municipio}/{orgao.uf}</td>
-                      <td className="px-4 py-3 text-sm">{orgao.responsavel}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          orgao.status === 'ATIVO' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {orgao.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => handleEditar(orgao.id)}
-                            className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                            title="Editar"
-                          >
-                            <FontAwesomeIcon icon={faEdit} />
-                          </button>
-                          <button
-                            onClick={() => handleExcluir(orgao.id)}
-                            className="p-2 bg-red-600 text-white rounded hover:bg-red-700"
-                            title="Excluir"
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
-                          </button>
-                        </div>
-                      </td>
+            {orgaosFiltrados.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-gray-500 text-lg">Nenhum órgão encontrado</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-blue-100 border-b-2 border-blue-300">
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Cód</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nome do Órgão</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Tipo</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">CNPJ</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Município/UF</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Responsável</th>
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Status</th>
+                      <th className="px-4 py-3 text-center text-sm font-bold text-gray-700">Controles</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {orgaosFiltrados.map((orgao, idx) => (
+                      <tr key={orgao.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-3 text-sm">{orgao.codigo}</td>
+                        <td className="px-4 py-3 text-sm font-medium">
+                          <div className="flex items-center gap-2">
+                            <FontAwesomeIcon icon={faBuilding} className="text-blue-600" />
+                            {orgao.nome}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                            orgao.tipo === 'FEDERAL' ? 'bg-purple-100 text-purple-800' :
+                            orgao.tipo === 'ESTADUAL' ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {orgao.tipo}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">{orgao.cnpj}</td>
+                        <td className="px-4 py-3 text-sm">{orgao.municipio}/{orgao.uf}</td>
+                        <td className="px-4 py-3 text-sm">{orgao.responsavel}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                            orgao.status === 'ATIVO' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {orgao.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => handleEditar(orgao.id)}
+                              className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                              title="Editar"
+                            >
+                              <FontAwesomeIcon icon={faEdit} />
+                            </button>
+                            <button
+                              onClick={() => handleExcluir(orgao.id)}
+                              className="p-2 bg-red-600 text-white rounded hover:bg-red-700"
+                              title="Excluir"
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
     </Layout>
   );

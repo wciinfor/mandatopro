@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileInvoiceDollar, faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import {
+  faSave, faArrowLeft, faFileInvoiceDollar, faEdit, faSpinner
+} from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
@@ -12,9 +14,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export default function NovaEmenda() {
+export default function EditarEmenda() {
   const router = useRouter();
-  const { modalState, closeModal, showSuccess, showError } = useModal();
+  const { id } = router.query;
+  const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+
+  const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -32,57 +37,112 @@ export default function NovaEmenda() {
     observacoes: ''
   });
 
-  const handleChange = (e) => {
+  useEffect(() => {
+    if (id) {
+      carregarEmenda();
+    }
+  }, [id]);
+
+  const carregarEmenda = async () => {
+    setCarregando(true);
+    try {
+      let { data, error } = await supabase
+        .from('emendas')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFormData({
+          numero: data.numero || '',
+          tipo: data.tipo || 'INDIVIDUAL',
+          autor: data.autor || '',
+          orgao: data.orgao || '',
+          responsavel: data.responsavel || '',
+          finalidade: data.finalidade || '',
+          valorEmpenhado: data.valorEmpenhado || '',
+          valorExecutado: data.valorExecutado || '0',
+          dataEmpenho: data.dataEmpenho || '',
+          dataVencimento: data.dataVencimento || '',
+          status: data.status || 'PENDENTE',
+          observacoes: data.observacoes || ''
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar emenda:', error);
+      showError('Erro ao carregar dados da emenda');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.numero || !formData.autor || !formData.orgao || !formData.finalidade || !formData.valorEmpenhado) {
-      showError('Preencha todos os campos obrigatórios!');
+
+    // Validações
+    if (!formData.numero || !formData.tipo || !formData.autor || !formData.orgao || !formData.finalidade || !formData.valorEmpenhado) {
+      showWarning('Preencha todos os campos obrigatórios!');
       return;
     }
 
     setSalvando(true);
 
     try {
-      const { data, error } = await supabase
+      let { error } = await supabase
         .from('emendas')
-        .insert([
-          {
-            numero: formData.numero,
-            tipo: formData.tipo,
-            autor: formData.autor,
-            orgao: formData.orgao,
-            responsavel: formData.responsavel || null,
-            finalidade: formData.finalidade,
-            valorEmpenhado: parseFloat(formData.valorEmpenhado) || null,
-            valorExecutado: parseFloat(formData.valorExecutado) || 0,
-            dataEmpenho: formData.dataEmpenho || null,
-            dataVencimento: formData.dataVencimento || null,
-            status: formData.status,
-            observacoes: formData.observacoes || null
-          }
-        ])
-        .select();
+        .update({
+          numero: formData.numero,
+          tipo: formData.tipo,
+          autor: formData.autor,
+          orgao: formData.orgao,
+          responsavel: formData.responsavel || null,
+          finalidade: formData.finalidade,
+          valorEmpenhado: parseFloat(formData.valorEmpenhado) || null,
+          valorExecutado: parseFloat(formData.valorExecutado) || 0,
+          dataEmpenho: formData.dataEmpenho || null,
+          dataVencimento: formData.dataVencimento || null,
+          status: formData.status,
+          observacoes: formData.observacoes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
 
       if (error) throw error;
 
-      showSuccess('Emenda cadastrada com sucesso!', () => {
+      showSuccess('Emenda atualizada com sucesso!');
+      setTimeout(() => {
         router.push('/emendas/emendas');
-      });
+      }, 2000);
     } catch (error) {
-      console.error('Erro ao cadastrar emenda:', error);
-      showError('Erro ao cadastrar emenda: ' + error.message);
+      console.error('Erro ao atualizar emenda:', error);
+      showError('Erro ao atualizar emenda. Tente novamente.');
     } finally {
       setSalvando(false);
     }
   };
 
+  if (carregando) {
+    return (
+      <Layout titulo="Editar Emenda">
+        <div className="flex items-center justify-center h-screen">
+          <FontAwesomeIcon icon={faSpinner} className="text-4xl animate-spin text-teal-600" />
+        </div>
+      </Layout>
+    );
+  }
+
   return (
-    <Layout titulo="Nova Emenda">
+    <Layout titulo="Editar Emenda">
       <Modal
         isOpen={modalState.isOpen}
         onClose={closeModal}
@@ -92,16 +152,17 @@ export default function NovaEmenda() {
         type={modalState.type}
         confirmText={modalState.confirmText}
         cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
       />
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center gap-3 mb-6">
-          <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-teal-600 text-2xl" />
-          <h2 className="text-2xl font-bold text-gray-800">Cadastrar Nova Emenda</h2>
+          <FontAwesomeIcon icon={faEdit} className="text-teal-600 text-2xl" />
+          <h2 className="text-2xl font-bold text-gray-800">Editar Emenda</h2>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Número */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -111,7 +172,7 @@ export default function NovaEmenda() {
                 type="text"
                 name="numero"
                 value={formData.numero}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="Ex: 001/2024"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
@@ -126,7 +187,7 @@ export default function NovaEmenda() {
               <select
                 name="tipo"
                 value={formData.tipo}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
               >
@@ -145,7 +206,7 @@ export default function NovaEmenda() {
                 type="text"
                 name="autor"
                 value={formData.autor}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="Ex: Deputado José Santos"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
@@ -157,18 +218,15 @@ export default function NovaEmenda() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Órgão Beneficiário <span className="text-red-500">*</span>
               </label>
-              <select
+              <input
+                type="text"
                 name="orgao"
                 value={formData.orgao}
-                onChange={handleChange}
+                onChange={handleInputChange}
+                placeholder="Nome do órgão"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
-              >
-                <option value="">Selecione...</option>
-                <option value="SECRETARIA MUNICIPAL DE SAÚDE">Secretaria Municipal de Saúde</option>
-                <option value="SECRETARIA ESTADUAL DE EDUCAÇÃO">Secretaria Estadual de Educação</option>
-                <option value="SECRETARIA MUNICIPAL DE OBRAS">Secretaria Municipal de Obras</option>
-              </select>
+              />
             </div>
 
             {/* Responsável */}
@@ -176,17 +234,14 @@ export default function NovaEmenda() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Responsável
               </label>
-              <select
+              <input
+                type="text"
                 name="responsavel"
                 value={formData.responsavel}
-                onChange={handleChange}
+                onChange={handleInputChange}
+                placeholder="Nome do responsável"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              >
-                <option value="">Selecione...</option>
-                <option value="Dr. João Silva">Dr. João Silva</option>
-                <option value="Profª Maria Santos">Profª Maria Santos</option>
-                <option value="Eng. Carlos Oliveira">Eng. Carlos Oliveira</option>
-              </select>
+              />
             </div>
 
             {/* Finalidade */}
@@ -197,7 +252,7 @@ export default function NovaEmenda() {
               <textarea
                 name="finalidade"
                 value={formData.finalidade}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 rows="2"
                 placeholder="Descreva a finalidade da emenda..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -214,7 +269,7 @@ export default function NovaEmenda() {
                 type="number"
                 name="valorEmpenhado"
                 value={formData.valorEmpenhado}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 step="0.01"
                 min="0"
                 placeholder="0.00"
@@ -232,7 +287,7 @@ export default function NovaEmenda() {
                 type="number"
                 name="valorExecutado"
                 value={formData.valorExecutado}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 step="0.01"
                 min="0"
                 placeholder="0.00"
@@ -249,7 +304,7 @@ export default function NovaEmenda() {
                 type="date"
                 name="dataEmpenho"
                 value={formData.dataEmpenho}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
@@ -263,7 +318,7 @@ export default function NovaEmenda() {
                 type="date"
                 name="dataVencimento"
                 value={formData.dataVencimento}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
@@ -271,13 +326,14 @@ export default function NovaEmenda() {
             {/* Status */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
+                Status <span className="text-red-500">*</span>
               </label>
               <select
                 name="status"
                 value={formData.status}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                required
               >
                 <option value="PENDENTE">Pendente</option>
                 <option value="EM_EXECUCAO">Em Execução</option>
@@ -294,7 +350,7 @@ export default function NovaEmenda() {
               <textarea
                 name="observacoes"
                 value={formData.observacoes}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 rows="3"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -302,15 +358,7 @@ export default function NovaEmenda() {
           </div>
 
           {/* Botões */}
-          <div className="flex gap-4 mt-6">
-            <button
-              type="submit"
-              className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-              disabled={salvando}
-            >
-              <FontAwesomeIcon icon={faSave} />
-              <span>{salvando ? 'Salvando...' : 'Salvar'}</span>
-            </button>
+          <div className="flex gap-4 justify-end pt-6 border-t">
             <button
               type="button"
               onClick={() => router.push('/emendas/emendas')}
@@ -318,7 +366,16 @@ export default function NovaEmenda() {
               disabled={salvando}
             >
               <FontAwesomeIcon icon={faArrowLeft} />
-              <span>Voltar para Lista</span>
+              Voltar para Lista
+            </button>
+
+            <button
+              type="submit"
+              className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+              disabled={salvando}
+            >
+              <FontAwesomeIcon icon={faSave} />
+              {salvando ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </form>

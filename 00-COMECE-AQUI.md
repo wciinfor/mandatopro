@@ -14,6 +14,29 @@
 
 ---
 
+## 🗓️ Conferencia Diaria (28/02/2026)
+
+Resumo rapido das ultimas entregas:
+
+- Atendimentos: filtros por campanha, periodo e lideranca; listagem mostra campanha; PDF com cabecalho filtrado e metricas quando campanha/lideranca especifica.
+- Campanhas: contagem de servicos usados/disponiveis calculada; ajuste no modal de detalhes.
+- Dashboard: cards com dados reais via API; novos graficos (eleitores por dia e campanhas do mes) em barras.
+- Infra: API de estatisticas do dashboard e endpoint de graficos; ajustes em scripts de migracao e backfill.
+
+Arquivos e endpoints tocados hoje:
+
+- API novas: /api/dashboard/stats, /api/dashboard/charts
+- Scripts: scripts/execute-migration-204.js (fallback via DATABASE_URL)
+- Paginas: src/pages/dashboard.js, src/pages/cadastros/atendimentos/index.js
+- APIs ajustadas: src/pages/api/cadastros/atendimentos/index.js, src/pages/api/cadastros/atendimentos/[id].js
+- Docs movidos para raiz: 00-COMECE-AQUI.md, STATUS-FINAL.md
+
+Proximos passos sugeridos:
+- Validar graficos com dados reais do mes atual.
+- Revisar alinhamento de labels do grafico conforme necessario.
+
+---
+
 ## 🗂️ Estrutura Criada
 
 ### 📌 Arquivos Raiz (Novos)

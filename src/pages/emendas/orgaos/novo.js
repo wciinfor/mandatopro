@@ -7,6 +7,12 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const estadosBrasileiros = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 
@@ -16,6 +22,7 @@ const estadosBrasileiros = [
 export default function NovoOrgao() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError } = useModal();
+  const [salvando, setSalvando] = useState(false);
 
   const [formData, setFormData] = useState({
     codigo: Math.floor(Math.random() * 1000) + 1,
@@ -30,7 +37,8 @@ export default function NovoOrgao() {
     responsavel: '',
     contato: '',
     observacoes: '',
-    status: 'ATIVO'
+    status: 'ATIVO',
+    sigla: ''
   });
 
   const handleInputChange = (e) => {
@@ -41,7 +49,7 @@ export default function NovoOrgao() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validações
@@ -50,12 +58,42 @@ export default function NovoOrgao() {
       return;
     }
 
-    // Aqui seria a integração com o banco de dados
-    console.log('Dados do órgão:', formData);
-    
-    showSuccess('Órgão cadastrado com sucesso!', () => {
-      router.push('/emendas/orgaos');
-    });
+    setSalvando(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('orgaos')
+        .insert([
+          {
+            codigo: formData.codigo ? parseInt(formData.codigo) : null,
+            nome: formData.nome,
+            tipo: formData.tipo,
+            cnpj: formData.cnpj,
+            endereco: formData.endereco || null,
+            municipio: formData.municipio,
+            uf: formData.uf,
+            telefone: formData.telefone || null,
+            email: formData.email || null,
+            responsavel: formData.responsavel || null,
+            contato: formData.contato || null,
+            observacoes: formData.observacoes || null,
+            status: formData.status,
+            sigla: formData.sigla || null
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      showSuccess('Órgão cadastrado com sucesso!', () => {
+        router.push('/emendas/orgaos');
+      });
+    } catch (error) {
+      console.error('Erro ao cadastrar órgão:', error);
+      showError('Erro ao cadastrar órgão: ' + error.message);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
@@ -104,7 +142,22 @@ export default function NovoOrgao() {
                   />
                 </div>
 
-                <div className="md:col-span-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sigla
+                  </label>
+                  <input
+                    type="text"
+                    name="sigla"
+                    value={formData.sigla}
+                    onChange={handleInputChange}
+                    maxLength="20"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ex: SMS"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nome do Órgão / Entidade <span className="text-red-500">*</span>
                   </label>
@@ -294,7 +347,8 @@ export default function NovoOrgao() {
                 <button
                   type="button"
                   onClick={() => router.push('/emendas/orgaos')}
-                  className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2"
+                  className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+                  disabled={salvando}
                 >
                   <FontAwesomeIcon icon={faArrowLeft} />
                   Voltar para Lista
@@ -302,10 +356,11 @@ export default function NovoOrgao() {
 
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors flex items-center gap-2"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+                  disabled={salvando}
                 >
                   <FontAwesomeIcon icon={faSave} />
-                  Cadastrar Órgão
+                  {salvando ? 'Cadastrando...' : 'Cadastrar Órgão'}
                 </button>
               </div>
             </div>

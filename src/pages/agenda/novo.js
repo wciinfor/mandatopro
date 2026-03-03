@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -9,11 +9,22 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function NovoEvento() {
   const router = useRouter();
+  const { id } = router.query;
   const { user } = useAuth();
   const [modalSucesso, setModalSucesso] = useState(false);
+  const [modalErro, setModalErro] = useState(false);
+  const [mensagemErro, setMensagemErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [carregando, setCarregando] = useState(!!id);
 
   const [formData, setFormData] = useState({
     titulo: '',
@@ -50,7 +61,46 @@ export default function NovoEvento() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (id) {
+      carregarEvento();
+    }
+  }, [id]);
+
+  const carregarEvento = async () => {
+    setCarregando(true);
+    try {
+      const { data, error } = await supabase
+        .from('agenda_eventos')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      setFormData({
+        titulo: data.titulo || '',
+        descricao: data.descricao || '',
+        data: data.data || '',
+        horaInicio: data.horaInicio || data.hora_inicio || '',
+        horaFim: data.horaFim || data.hora_fim || '',
+        local: data.local || '',
+        endereco: data.endereco || '',
+        tipo: data.tipo || (user?.nivel === 'ADMINISTRADOR' ? 'PARLAMENTAR' : 'LOCAL'),
+        categoria: data.categoria || 'Reunião',
+        observacoes: data.observacoes || '',
+        permitirConfirmacao: data.permitirConfirmacao ?? true
+      });
+    } catch (error) {
+      console.error('Erro ao carregar evento:', error);
+      setMensagemErro('Erro ao carregar evento: ' + error.message);
+      setModalErro(true);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validações
@@ -59,8 +109,52 @@ export default function NovoEvento() {
       return;
     }
 
-    console.log('Salvando evento:', formData);
-    setModalSucesso(true);
+    setSalvando(true);
+
+    try {
+      const payload = {
+        titulo: formData.titulo,
+        descricao: formData.descricao || null,
+        data: formData.data,
+        hora_inicio: formData.horaInicio || null,
+        hora_fim: formData.horaFim || null,
+        horaInicio: formData.horaInicio || null,
+        horaFim: formData.horaFim || null,
+        local: formData.local,
+        endereco: formData.endereco || null,
+        tipo: formData.tipo || 'PARLAMENTAR',
+        categoria: formData.categoria || 'Reunião',
+        observacoes: formData.observacoes || null,
+        permitirConfirmacao: formData.permitirConfirmacao,
+        status: 'AGENDADO',
+        participantes: 0,
+        confirmados: 0,
+        criado_por_id: user?.id || null
+      };
+
+      if (id) {
+        const { error } = await supabase
+          .from('agenda_eventos')
+          .update(payload)
+          .eq('id', id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('agenda_eventos')
+          .insert([payload]);
+
+        if (error) throw error;
+      }
+
+      setModalSucesso(true);
+    } catch (error) {
+      console.error('Erro ao salvar evento:', error);
+      setMensagemErro('Erro ao salvar evento: ' + error.message);
+      setModalErro(true);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleSucessoClose = () => {
@@ -68,9 +162,24 @@ export default function NovoEvento() {
     router.push('/agenda');
   };
 
+  if (carregando) {
+    return (
+      <ProtectedRoute module={MODULES.AGENDA}>
+        <Layout titulo="Carregando...">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600 mx-auto mb-3"></div>
+              <p className="text-gray-600">Carregando evento...</p>
+            </div>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute module={MODULES.AGENDA}>
-      <Layout titulo="Novo Evento">
+      <Layout titulo={id ? 'Editar Evento' : 'Novo Evento'}>
         {/* Botão Voltar */}
         <button
           onClick={() => router.back()}
@@ -112,6 +221,7 @@ export default function NovoEvento() {
                       >
                         <option value="PARLAMENTAR">📋 Agenda Parlamentar (visível para todos)</option>
                         <option value="LOCAL">📍 Agenda Local (visível apenas para sua equipe)</option>
+                        <option value="EVENTO">🎯 Evento (campanha e eventos especiais)</option>
                       </select>
                       <p className="text-xs text-gray-500 mt-1">
                         {formData.tipo === 'PARLAMENTAR' 
@@ -322,10 +432,11 @@ export default function NovoEvento() {
               <div className="bg-white rounded-lg shadow-sm p-6 space-y-3">
                 <button
                   type="submit"
-                  className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors"
+                  className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  disabled={salvando}
                 >
                   <FontAwesomeIcon icon={faSave} />
-                  Salvar Evento
+                  {salvando ? 'Salvando...' : 'Salvar Evento'}
                 </button>
                 <button
                   type="button"
@@ -344,10 +455,21 @@ export default function NovoEvento() {
         <Modal
           isOpen={modalSucesso}
           onClose={handleSucessoClose}
-          title="Evento Criado!"
-          message="O evento foi criado com sucesso e já está disponível na agenda."
+          title={id ? 'Evento Atualizado!' : 'Evento Criado!'}
+          message={id
+            ? 'O evento foi atualizado com sucesso e já está disponível na agenda.'
+            : 'O evento foi criado com sucesso e já está disponível na agenda.'}
           type="success"
           confirmText="Ir para Agenda"
+        />
+
+        <Modal
+          isOpen={modalErro}
+          onClose={() => setModalErro(false)}
+          title="Erro"
+          message={mensagemErro}
+          type="error"
+          confirmText="Fechar"
         />
       </Layout>
     </ProtectedRoute>

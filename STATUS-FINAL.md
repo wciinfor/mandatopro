@@ -4,6 +4,24 @@
 
 **MandatoPro** está **100% PRONTO** para deploy em produção no Vercel! ✅
 
+---
+
+## 🗓️ Atualizacoes Recentes (28/02/2026)
+
+- Atendimentos: filtros por campanha/periodo/lideranca e PDF com cabecalho filtrado e metricas por campanha.
+- Campanhas: contagem de servicos usados/disponiveis calculada no backend e exibida na interface.
+- Dashboard: dados reais via API e novos graficos de eleitores por dia e campanhas do mes (barras).
+- Infra: endpoints de estatisticas e graficos adicionados.
+
+Arquivos impactados:
+- src/pages/dashboard.js
+- src/pages/cadastros/atendimentos/index.js
+- src/pages/api/cadastros/atendimentos/index.js
+- src/pages/api/cadastros/atendimentos/[id].js
+- src/pages/api/dashboard/stats.js
+- src/pages/api/dashboard/charts.js
+- scripts/execute-migration-204.js
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
