@@ -17,6 +17,7 @@ export default function NovaCampanha() {
     nome: '',
     descricao: '',
     local: '',
+    municipio: '',
     dataCampanha: '',
     horaInicio: '',
     horaFim: '',
@@ -69,6 +70,7 @@ export default function NovaCampanha() {
         nome: data.nome || '',
         descricao: data.descricao || '',
         local: data.local || '',
+        municipio: data.municipio || '',
         dataCampanha: data.data_campanha || '',
         horaInicio: data.hora_inicio || '',
         horaFim: data.hora_fim || '',
@@ -253,6 +255,11 @@ export default function NovaCampanha() {
       return;
     }
 
+    if (!formData.municipio.trim()) {
+      showWarning('Municipio da campanha é obrigatório');
+      return;
+    }
+
     if (servicosSelecionados.some(s => !s.quantidade || s.quantidade < 1)) {
       showWarning('Informe a quantidade de todos os serviços');
       return;
@@ -395,6 +402,24 @@ export default function NovaCampanha() {
                     placeholder="Ex: Praça Central, Bairro Centro"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
+                </div>
+
+                {/* Municipio */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Municipio <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="municipio"
+                    value={formData.municipio}
+                    onChange={handleInputChange}
+                    placeholder="Ex: Abaetetuba"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Usado para identificar liderancas da area.
+                  </p>
                 </div>
 
 

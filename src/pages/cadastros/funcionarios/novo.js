@@ -7,13 +7,8 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { createClient } from '@supabase/supabase-js';
+import supabase from '@/lib/supabaseClient';
 import { applyMask, parseCurrencyBRL } from '@/utils/inputMasks';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
 
 export default function NovoFuncionario() {
   const router = useRouter();

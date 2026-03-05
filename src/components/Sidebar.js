@@ -98,7 +98,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     {
       nome: 'Configurações',
       icone: faCog,
-      submenu: ['Dados do Sistema'],
+      submenu: ['Dados do Sistema', 'IA'],
       rota: '/configuracoes/sistema'
     },
   ];
@@ -147,7 +147,8 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     'Logs do Sistema': '/auditoria/logs',
     
     // Configurações
-    'Dados do Sistema': '/configuracoes/sistema#dados'
+    'Dados do Sistema': '/configuracoes/sistema#dados',
+    'IA': '/configuracoes/sistema#ia'
   };
 
   const handleLogout = async () => {

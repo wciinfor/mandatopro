@@ -5,12 +5,7 @@ import { faFileInvoiceDollar, faSave, faArrowLeft } from '@fortawesome/free-soli
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import supabase from '@/lib/supabaseClient';
 
 export default function NovaEmenda() {
   const router = useRouter();

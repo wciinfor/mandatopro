@@ -35,3 +35,16 @@ body {
 .animate-modal-in {
   animation: modal-in 0.3s ease-out;
 }
+
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 2.6s ease-in-out infinite;
+}

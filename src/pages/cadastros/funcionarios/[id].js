@@ -9,13 +9,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { createClient } from '@supabase/supabase-js';
+import supabase from '@/lib/supabaseClient';
 import { applyMask, formatCurrencyBRL, parseCurrencyBRL } from '@/utils/inputMasks';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
 
 const modulos = [
   { nome: 'Dashboard', icone: faChartBar, submenu: [] },

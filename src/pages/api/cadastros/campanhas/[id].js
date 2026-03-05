@@ -70,6 +70,7 @@ export default async function handler(req, res) {
         nome: normalizar(body.nome),
         descricao: normalizar(body.descricao),
         local: normalizar(body.local),
+        municipio: normalizar(body.municipio),
         data_campanha: normalizar(body.dataCampanha || body.data_campanha),
         hora_inicio: normalizar(body.horaInicio || body.hora_inicio),
         hora_fim: normalizar(body.horaFim || body.hora_fim),

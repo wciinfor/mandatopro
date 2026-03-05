@@ -111,13 +111,11 @@ export default async function handler(req, res) {
         nome: normalizar(body.nome),
         descricao: normalizar(body.descricao),
         local: normalizar(body.local),
+        municipio: normalizar(body.municipio),
         data_campanha: normalizar(body.dataCampanha || body.data_campanha),
         hora_inicio: normalizar(body.horaInicio || body.hora_inicio),
         hora_fim: normalizar(body.horaFim || body.hora_fim),
-        latitude: body.latitude ?? null,
-        longitude: body.longitude ?? null,
         status: normalizar(body.status) || 'PLANEJAMENTO',
-        criado_por: normalizar(body.criadoPor),
         observacoes: normalizar(body.observacoes)
       };
 
@@ -148,6 +146,7 @@ export default async function handler(req, res) {
           horaInicio: campanhaCriada.hora_inicio || payload.hora_inicio,
           horaFim: campanhaCriada.hora_fim || payload.hora_fim,
           local: campanhaCriada.local || payload.local,
+          municipio: campanhaCriada.municipio || payload.municipio || campanhaCriada.local || payload.local,
           endereco: null,
           tipo: 'EVENTO',
           categoria: 'Campanha',

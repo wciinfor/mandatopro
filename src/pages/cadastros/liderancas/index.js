@@ -17,6 +17,7 @@ export default function GerenciarLiderancas() {
   
   const [liderancas, setLiderancas] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState('');
   const [filtro, setFiltro] = useState('');
   const [situacao, setSituacao] = useState('ATIVO');
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -47,11 +48,17 @@ export default function GerenciarLiderancas() {
 
   const carregarLiderancas = async () => {
     setCarregando(true);
+    setErroCarregamento('');
     try {
       const dados = await obterLiderancas();
       setLiderancas(dados || []);
     } catch (error) {
-      showError('Erro ao carregar liderancas. Tente novamente.');
+      const mensagem = error?.message || 'Erro ao carregar liderancas. Tente novamente.';
+      setErroCarregamento(mensagem);
+      showError(mensagem);
+      if (mensagem.toLowerCase().includes('sessao expirada')) {
+        router.push('/login');
+      }
     } finally {
       setCarregando(false);
     }
@@ -226,6 +233,9 @@ export default function GerenciarLiderancas() {
           </div>
 
           <div className="overflow-x-auto">
+            {erroCarregamento && !carregando && (
+              <div className="py-4 text-center text-red-600">{erroCarregamento}</div>
+            )}
             {carregando && (
               <div className="py-6 text-center text-gray-500">Carregando liderancas...</div>
             )}

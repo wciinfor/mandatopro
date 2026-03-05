@@ -1,5 +1,14 @@
 import supabase from '@/lib/supabaseClient';
 
+const getMissingColumn = (message) => {
+  const text = String(message || '');
+  let match = text.match(/Could not find the '(.+?)' column/i);
+  if (match) return match[1];
+  match = text.match(/column "(.+?)" does not exist/i);
+  if (match) return match[1];
+  return '';
+};
+
 /**
  * Cria uma nova liderança no banco de dados
  * @param {Object} dados - Dados da liderança
@@ -7,28 +16,54 @@ import supabase from '@/lib/supabaseClient';
  */
 export async function criarLideranca(dados) {
   try {
-    const { data, error } = await supabase
+    const endereco = dados.endereco || null;
+    const estado = dados.estado || null;
+    const telefone = dados.telefone || dados.celular || null;
+    const payload = {
+      nome: dados.nome,
+      cpf: dados.cpf,
+      email: dados.email,
+      telefone,
+      endereco,
+      estado,
+      municipio: dados.municipio || null,
+      bairro: dados.bairro || null,
+      influencia: dados.influencia || 'MÉDIA',
+      area_atuacao: dados.areaAtuacao || dados.area_atuacao || null,
+      areaAtuacao: dados.areaAtuacao || dados.area_atuacao || null,
+      status: dados.status || 'ATIVO',
+      observacoes: dados.observacoes || null,
+      rg: dados.rg || null,
+      dataNascimento: dados.dataNascimento || null,
+      sexo: dados.sexo || null,
+      nomePai: dados.nomePai || null,
+      nomeMae: dados.nomeMae || null,
+      naturalidade: dados.naturalidade || null,
+      estadoCivil: dados.estadoCivil || null,
+      profissao: dados.profissao || null,
+      foto: dados.foto || null
+    };
+
+    const insertWithPayload = async (payloadAtual) => supabase
       .from('liderancas')
-      .insert([{
-        nome: dados.nome,
-        cpf: dados.cpf,
-        email: dados.email,
-        telefone: dados.telefone,
-        foto: dados.foto || null,
-        rg: dados.rg || null,
-        dataNascimento: dados.dataNascimento || null,
-        sexo: dados.sexo || null,
-        nomePai: dados.nomePai || null,
-        nomeMae: dados.nomeMae || null,
-        naturalidade: dados.naturalidade || null,
-        estadoCivil: dados.estadoCivil || null,
-        profissao: dados.profissao || null,
-        influencia: dados.influencia,
-        areaAtuacao: dados.areaAtuacao || null,
-        observacoes: dados.observacoes || null,
-        status: dados.status
-      }])
+      .insert([payloadAtual])
       .select();
+
+    let payloadAtual = { ...payload };
+    let result = await insertWithPayload(payloadAtual);
+
+    for (let attempt = 0; attempt < 6 && result.error; attempt += 1) {
+      const missingColumn = getMissingColumn(result.error.message);
+      if (!missingColumn || !(missingColumn in payloadAtual)) {
+        break;
+      }
+      const nextPayload = { ...payloadAtual };
+      delete nextPayload[missingColumn];
+      payloadAtual = nextPayload;
+      result = await insertWithPayload(payloadAtual);
+    }
+
+    const { data, error } = result;
 
     if (error) {
       console.error('Erro ao criar liderança:', error);
@@ -91,6 +126,14 @@ export async function criarLiderancaComGeolocalizacao(dados) {
  */
 export async function obterLiderancas(filtros = {}) {
   try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      throw new Error(`Erro ao verificar sessao: ${sessionError.message}`);
+    }
+    if (!sessionData?.session) {
+      throw new Error('Sessao expirada. Faca login novamente.');
+    }
+
     let query = supabase.from('liderancas').select('*');
 
     if (filtros.status) {
@@ -100,7 +143,12 @@ export async function obterLiderancas(filtros = {}) {
       query = query.ilike('nome', `%${filtros.busca}%`);
     }
 
-    const { data, error } = await query;
+    const timeoutMs = 10000;
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Tempo limite ao consultar liderancas.')), timeoutMs);
+    });
+
+    const { data, error } = await Promise.race([query, timeoutPromise]);
 
     if (error) {
       throw new Error(`Erro ao obter lideranças: ${error.message}`);
@@ -145,12 +193,35 @@ export async function obterLiderancaPorId(id) {
  */
 export async function atualizarLideranca(id, dados) {
   try {
-    const dadosAtualizacao = {
+    if (!id) {
+      throw new Error('ID da liderança não informado.');
+    }
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      throw new Error(`Erro ao verificar sessao: ${sessionError.message}`);
+    }
+    if (!sessionData?.session) {
+      throw new Error('Sessao expirada. Faca login novamente.');
+    }
+
+    const endereco = dados.endereco || null;
+    const estado = dados.estado || null;
+    const telefone = dados.telefone || dados.celular || null;
+    const payload = {
       nome: dados.nome,
       cpf: dados.cpf,
       email: dados.email,
-      telefone: dados.telefone,
-      foto: dados.foto || null,
+      telefone,
+      endereco,
+      estado,
+      municipio: dados.municipio || null,
+      bairro: dados.bairro || null,
+      influencia: dados.influencia || 'MÉDIA',
+      area_atuacao: dados.areaAtuacao || dados.area_atuacao || null,
+      areaAtuacao: dados.areaAtuacao || dados.area_atuacao || null,
+      status: dados.status || 'ATIVO',
+      observacoes: dados.observacoes || null,
       rg: dados.rg || null,
       dataNascimento: dados.dataNascimento || null,
       sexo: dados.sexo || null,
@@ -159,18 +230,40 @@ export async function atualizarLideranca(id, dados) {
       naturalidade: dados.naturalidade || null,
       estadoCivil: dados.estadoCivil || null,
       profissao: dados.profissao || null,
-      influencia: dados.influencia,
-      areaAtuacao: dados.areaAtuacao || null,
-      observacoes: dados.observacoes || null,
-      status: dados.status,
+      foto: dados.foto || null,
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
-      .from('liderancas')
-      .update(dadosAtualizacao)
-      .eq('id', id)
-      .select();
+    const updateWithPayload = async (payloadAtual) => {
+      const timeoutMs = 10000;
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Tempo limite ao atualizar lideranca.')), timeoutMs);
+      });
+
+      const requestPromise = supabase
+        .from('liderancas')
+        .update(payloadAtual)
+        .eq('id', id)
+        .select();
+
+      return Promise.race([requestPromise, timeoutPromise]);
+    };
+
+    let payloadAtual = { ...payload };
+    let result = await updateWithPayload(payloadAtual);
+
+    for (let attempt = 0; attempt < 6 && result.error; attempt += 1) {
+      const missingColumn = getMissingColumn(result.error.message);
+      if (!missingColumn || !(missingColumn in payloadAtual)) {
+        break;
+      }
+      const nextPayload = { ...payloadAtual };
+      delete nextPayload[missingColumn];
+      payloadAtual = nextPayload;
+      result = await updateWithPayload(payloadAtual);
+    }
+
+    const { data, error } = result;
 
     if (error) {
       throw new Error(`Erro ao atualizar liderança: ${error.message}`);

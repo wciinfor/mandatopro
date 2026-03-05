@@ -9,6 +9,12 @@ export function createClient() {
     return null;
   }
 
+  const globalSupabase = globalThis.__mandatoProSupabase;
+  if (globalSupabase) {
+    supabase = globalSupabase;
+    return supabase;
+  }
+
   if (supabase) {
     return supabase;
   }
@@ -22,6 +28,7 @@ export function createClient() {
   }
 
   supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  globalThis.__mandatoProSupabase = supabase;
 
   return supabase;
 }

@@ -36,10 +36,14 @@ export default function NovaLideranca() {
     naturalidade: '',
     estadoCivil: '',
     profissao: '',
+    endereco: '',
+    estado: '',
     
     // Dados de liderança
     influencia: 'MÉDIA',
     areaAtuacao: '',
+    municipio: '',
+    bairro: '',
     observacoes: '',
     status: 'ATIVO'
   });
@@ -107,7 +111,11 @@ export default function NovaLideranca() {
       nomeMae: eleitor.nomeMae,
       naturalidade: eleitor.naturalidade,
       estadoCivil: eleitor.estadoCivil,
-      profissao: eleitor.profissao
+      profissao: eleitor.profissao,
+      endereco: eleitor.endereco || '',
+      estado: eleitor.estado || '',
+      municipio: eleitor.municipio || eleitor.cidade || '',
+      bairro: eleitor.bairro || ''
     }));
     setBusca('');
     setResultados([]);
@@ -130,8 +138,12 @@ export default function NovaLideranca() {
       naturalidade: '',
       estadoCivil: '',
       profissao: '',
+      endereco: '',
+      estado: '',
       influencia: 'MÉDIA',
       areaAtuacao: '',
+      municipio: '',
+      bairro: '',
       observacoes: '',
       status: 'ATIVO'
     });
@@ -448,6 +460,33 @@ export default function NovaLideranca() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ENDEREÇO
+                  </label>
+                  <input
+                    type="text"
+                    name="endereco"
+                    value={formData.endereco}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ESTADO (UF)
+                  </label>
+                  <input
+                    type="text"
+                    name="estado"
+                    value={formData.estado}
+                    onChange={handleInputChange}
+                    maxLength="2"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
               </div>
             </div>
 
@@ -534,6 +573,33 @@ export default function NovaLideranca() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    MUNICIPIO
+                  </label>
+                  <input
+                    type="text"
+                    name="municipio"
+                    value={formData.municipio}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    BAIRRO
+                  </label>
+                  <input
+                    type="text"
+                    name="bairro"
+                    value={formData.bairro}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+
               </div>
 
               {/* OBSERVAÇÕES */}

@@ -1,6 +1,7 @@
 // API para gerenciar configurações do sistema
 import fs from 'fs';
 import path from 'path';
+import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
 
 const CONFIG_FILE = path.join(process.cwd(), 'public', 'sistema-config.json');
 
@@ -48,10 +49,21 @@ export default function handler(req, res) {
       // Recuperar configurações
       const config = fs.readFileSync(CONFIG_FILE, 'utf-8');
       const data = JSON.parse(config);
+      const privado = lerConfiguracoes();
       
       res.status(200).json({
         success: true,
-        data
+        data: {
+          ...data,
+          openai: {
+            enabled: privado.openai?.enabled ?? false,
+            provider: privado.openai?.provider || 'openai',
+            model: privado.openai?.model || 'gpt-4o-mini',
+            groqModel: privado.openai?.groqModel || 'llama-3.1-8b-instant',
+            hasKey: Boolean(privado.openai?.apiKey),
+            hasGroqKey: Boolean(privado.openai?.groqApiKey)
+          }
+        }
       });
     } 
     else if (req.method === 'POST') {
@@ -83,6 +95,39 @@ export default function handler(req, res) {
           ...dados,
           updatedAt: new Date().toISOString()
         };
+      }
+      else if (tipo === 'openai') {
+        const configPrivado = lerConfiguracoes();
+        const provider = dados.provider || configPrivado.openai?.provider || 'openai';
+        const apiKey = dados.apiKey ?? configPrivado.openai?.apiKey ?? '';
+        const model = dados.model || configPrivado.openai?.model || 'gpt-4o-mini';
+        const groqApiKey = dados.groqApiKey ?? configPrivado.openai?.groqApiKey ?? '';
+        const groqModel = dados.groqModel || configPrivado.openai?.groqModel || 'llama-3.1-8b-instant';
+        const enabled = dados.enabled ?? configPrivado.openai?.enabled ?? false;
+
+        configPrivado.openai = {
+          ...configPrivado.openai,
+          provider,
+          apiKey,
+          model,
+          groqApiKey,
+          groqModel,
+          enabled,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (!salvarConfiguracoes(configPrivado)) {
+          return res.status(500).json({
+            success: false,
+            message: 'Erro ao salvar configuracao OpenAI'
+          });
+        }
+      }
+      else {
+        return res.status(400).json({
+          success: false,
+          message: 'Tipo de configuracao invalido'
+        });
       }
 
       fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
+import AIChatWidget from './AIChatWidget';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars, faBell, faUserTie } from '@fortawesome/free-solid-svg-icons';
 
@@ -125,6 +126,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
         <div className="p-4 lg:p-6">
           {children}
         </div>
+        <AIChatWidget />
       </main>
     </div>
   );

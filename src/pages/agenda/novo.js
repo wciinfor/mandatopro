@@ -9,12 +9,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import supabase from '@/lib/supabaseClient';
 
 export default function NovoEvento() {
   const router = useRouter();
@@ -25,6 +20,12 @@ export default function NovoEvento() {
   const [mensagemErro, setMensagemErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(!!id);
+  const [campanhas, setCampanhas] = useState([]);
+  const [campanhaSelecionada, setCampanhaSelecionada] = useState('');
+  const [carregandoCampanhas, setCarregandoCampanhas] = useState(false);
+  const [eventoOrigemCampanha, setEventoOrigemCampanha] = useState(false);
+  const [verificandoCampanha, setVerificandoCampanha] = useState(false);
+  const [eventoExistenteId, setEventoExistenteId] = useState(null);
 
   const [formData, setFormData] = useState({
     titulo: '',
@@ -33,6 +34,7 @@ export default function NovoEvento() {
     horaInicio: '',
     horaFim: '',
     local: '',
+    municipio: '',
     endereco: '',
     tipo: user?.nivel === 'ADMINISTRADOR' ? 'PARLAMENTAR' : 'LOCAL',
     categoria: 'Reunião',
@@ -67,6 +69,12 @@ export default function NovoEvento() {
     }
   }, [id]);
 
+  useEffect(() => {
+    if (!id) {
+      carregarCampanhas();
+    }
+  }, [id]);
+
   const carregarEvento = async () => {
     setCarregando(true);
     try {
@@ -85,18 +93,92 @@ export default function NovoEvento() {
         horaInicio: data.horaInicio || data.hora_inicio || '',
         horaFim: data.horaFim || data.hora_fim || '',
         local: data.local || '',
+        municipio: data.municipio || '',
         endereco: data.endereco || '',
         tipo: data.tipo || (user?.nivel === 'ADMINISTRADOR' ? 'PARLAMENTAR' : 'LOCAL'),
         categoria: data.categoria || 'Reunião',
         observacoes: data.observacoes || '',
         permitirConfirmacao: data.permitirConfirmacao ?? true
       });
+      setEventoOrigemCampanha((data.tipo || '').toUpperCase() === 'EVENTO');
     } catch (error) {
       console.error('Erro ao carregar evento:', error);
       setMensagemErro('Erro ao carregar evento: ' + error.message);
       setModalErro(true);
     } finally {
       setCarregando(false);
+    }
+  };
+
+  const carregarCampanhas = async () => {
+    setCarregandoCampanhas(true);
+    try {
+      const { data, error } = await supabase
+        .from('campanhas')
+        .select('id, nome, descricao, local, municipio, data_campanha, hora_inicio, hora_fim, observacoes')
+        .order('data_campanha', { ascending: false });
+
+      if (error) throw error;
+
+      setCampanhas(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar campanhas:', error);
+      setMensagemErro('Erro ao carregar campanhas: ' + error.message);
+      setModalErro(true);
+    } finally {
+      setCarregandoCampanhas(false);
+    }
+  };
+
+  const handleImportarCampanha = async () => {
+    if (!campanhaSelecionada) return;
+    const campanha = campanhas.find(item => item.id === campanhaSelecionada);
+    if (!campanha) return;
+
+    setVerificandoCampanha(true);
+    try {
+      const usuarioId = user?.id || null;
+      if (usuarioId) {
+        const { data: existentes, error } = await supabase
+          .from('agenda_eventos')
+          .select('id')
+          .eq('tipo', 'EVENTO')
+          .eq('categoria', 'Campanha')
+          .eq('titulo', campanha.nome)
+          .eq('data', campanha.data_campanha)
+          .eq('criado_por_id', usuarioId)
+          .limit(1);
+
+        if (error) throw error;
+
+        if (existentes && existentes.length > 0) {
+          setEventoExistenteId(existentes[0].id);
+          setMensagemErro('Voce ja possui uma agenda pessoal para esta campanha. Vamos abrir o evento existente para edicao.');
+          setModalErro(true);
+          return;
+        }
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        titulo: campanha.nome || prev.titulo,
+        descricao: campanha.descricao || prev.descricao,
+        data: campanha.data_campanha || prev.data,
+        horaInicio: campanha.hora_inicio || prev.horaInicio,
+        horaFim: campanha.hora_fim || prev.horaFim,
+        local: campanha.local || prev.local,
+        municipio: campanha.municipio || campanha.local || prev.municipio,
+        observacoes: campanha.observacoes || prev.observacoes,
+        tipo: 'EVENTO',
+        categoria: 'Campanha'
+      }));
+      setEventoOrigemCampanha(true);
+    } catch (error) {
+      console.error('Erro ao verificar campanha:', error);
+      setMensagemErro('Erro ao importar campanha: ' + error.message);
+      setModalErro(true);
+    } finally {
+      setVerificandoCampanha(false);
     }
   };
 
@@ -121,6 +203,7 @@ export default function NovoEvento() {
         horaInicio: formData.horaInicio || null,
         horaFim: formData.horaFim || null,
         local: formData.local,
+        municipio: formData.municipio || null,
         endereco: formData.endereco || null,
         tipo: formData.tipo || 'PARLAMENTAR',
         categoria: formData.categoria || 'Reunião',
@@ -160,6 +243,14 @@ export default function NovoEvento() {
   const handleSucessoClose = () => {
     setModalSucesso(false);
     router.push('/agenda');
+  };
+
+  const handleModalErroClose = () => {
+    setModalErro(false);
+    if (eventoExistenteId) {
+      router.push(`/agenda/novo?id=${eventoExistenteId}`);
+      setEventoExistenteId(null);
+    }
   };
 
   if (carregando) {
@@ -212,29 +303,93 @@ export default function NovoEvento() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         TIPO DE EVENTO <span className="text-red-500">*</span>
                       </label>
-                      <select
-                        name="tipo"
-                        value={formData.tipo}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                      >
-                        <option value="PARLAMENTAR">📋 Agenda Parlamentar (visível para todos)</option>
-                        <option value="LOCAL">📍 Agenda Local (visível apenas para sua equipe)</option>
-                        <option value="EVENTO">🎯 Evento (campanha e eventos especiais)</option>
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {formData.tipo === 'PARLAMENTAR' 
-                          ? 'Este evento será visível para todos os usuários do sistema'
-                          : 'Este evento será visível apenas para você e seus operadores'}
+                      {eventoOrigemCampanha ? (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          <p className="text-sm text-amber-900 font-semibold">🎯 Evento de Campanha</p>
+                          <p className="text-xs text-amber-800 mt-1">
+                            Este tipo e definido automaticamente pelo modulo de campanhas.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <select
+                            name="tipo"
+                            value={formData.tipo}
+                            onChange={handleChange}
+                            required
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                          >
+                            <option value="PARLAMENTAR">📋 Agenda Parlamentar (visível para todos)</option>
+                            <option value="LOCAL">📍 Agenda Local (visível apenas para sua equipe)</option>
+                          </select>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formData.tipo === 'PARLAMENTAR'
+                              ? 'Este evento será visível para todos os usuários do sistema'
+                              : 'Este evento será visível apenas para você e seus operadores'}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {user?.nivel === 'LIDERANCA' && !eventoOrigemCampanha && (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <p className="text-sm text-purple-800">
+                        <strong>📍 Agenda Local:</strong> Este evento será visível apenas para você e seus operadores.
                       </p>
                     </div>
                   )}
 
-                  {user?.nivel === 'LIDERANCA' && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-sm text-purple-800">
-                        <strong>📍 Agenda Local:</strong> Este evento será visível apenas para você e seus operadores.
+                  {eventoOrigemCampanha && user?.nivel !== 'ADMINISTRADOR' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-sm text-amber-900 font-semibold">🎯 Evento de Campanha</p>
+                      <p className="text-xs text-amber-800 mt-1">
+                        Este tipo e definido automaticamente pelo modulo de campanhas.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Importar Campanha */}
+                  {!id && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        IMPORTAR CAMPANHA
+                      </label>
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <select
+                          value={campanhaSelecionada}
+                          onChange={(e) => setCampanhaSelecionada(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                          disabled={carregandoCampanhas || verificandoCampanha}
+                        >
+                          <option value="">Selecione uma campanha...</option>
+                          {campanhas.map((campanha) => (
+                            <option key={campanha.id} value={campanha.id}>
+                              {campanha.nome} - {campanha.data_campanha}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleImportarCampanha}
+                          disabled={!campanhaSelecionada || carregandoCampanhas || verificandoCampanha}
+                          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold disabled:opacity-50"
+                        >
+                          {carregandoCampanhas || verificandoCampanha ? 'Verificando...' : 'Importar'}
+                        </button>
+                      </div>
+                      {campanhaSelecionada && (
+                        <a
+                          href={`/cadastros/campanhas/${campanhaSelecionada}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block text-xs text-teal-700 hover:text-teal-800 underline mt-2"
+                        >
+                          Abrir campanha em nova aba
+                        </a>
+                      )}
+                      <p className="text-xs text-gray-600 mt-2">
+                        A importacao preenche os dados da campanha e define o tipo como EVENTO.
                       </p>
                     </div>
                   )}
@@ -361,6 +516,24 @@ export default function NovoEvento() {
                     />
                   </div>
 
+                  {/* Municipio */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      MUNICIPIO
+                    </label>
+                    <input
+                      type="text"
+                      name="municipio"
+                      value={formData.municipio}
+                      onChange={handleChange}
+                      placeholder="Ex: Abaetetuba"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Usado para acompanhar presenca das liderancas da area.
+                    </p>
+                  </div>
+
                   {/* Endereço Completo */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -465,7 +638,7 @@ export default function NovoEvento() {
 
         <Modal
           isOpen={modalErro}
-          onClose={() => setModalErro(false)}
+          onClose={handleModalErroClose}
           title="Erro"
           message={mensagemErro}
           type="error"

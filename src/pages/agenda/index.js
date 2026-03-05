@@ -9,12 +9,7 @@ import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
 import PDFGenerator from '@/utils/pdfGenerator';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import supabase from '@/lib/supabaseClient';
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -58,6 +53,11 @@ export default function Agenda() {
     }
   };
 
+  const isEventoCampanha = (evento) => {
+    return (evento.tipo || '').toUpperCase() === 'EVENTO'
+      && (evento.categoria || '').toLowerCase() === 'campanha';
+  };
+
   // Filtrar eventos baseado em permissões
   const eventosFiltrados = eventos.filter(evento => {
     // Filtro de permissão
@@ -71,7 +71,9 @@ export default function Agenda() {
     }
 
     // Filtros de busca
-    if (filtroTipo !== 'TODOS' && evento.tipo !== filtroTipo) return false;
+    if (filtroTipo === 'CAMPANHAS' && !isEventoCampanha(evento)) return false;
+    if (filtroTipo === 'EVENTOS' && !((evento.tipo || '').toUpperCase() === 'EVENTO' && !isEventoCampanha(evento))) return false;
+    if (filtroTipo !== 'TODOS' && filtroTipo !== 'CAMPANHAS' && filtroTipo !== 'EVENTOS' && evento.tipo !== filtroTipo) return false;
     
     const eventoData = new Date(evento.data + 'T00:00:00');
     if (eventoData.getMonth() + 1 !== filtroMes || eventoData.getFullYear() !== filtroAno) return false;
@@ -140,8 +142,9 @@ export default function Agenda() {
       pdfGenerator.doc.setTextColor(100, 100, 100);
       
       const tipoTexto = filtroTipo === 'TODOS' ? 'Todos os Eventos' : 
-               filtroTipo === 'PARLAMENTAR' ? 'Agenda Parlamentar' :
-               filtroTipo === 'LOCAL' ? 'Agenda Local' : 'Eventos';
+           filtroTipo === 'PARLAMENTAR' ? 'Agenda Parlamentar' :
+           filtroTipo === 'LOCAL' ? 'Agenda Local' :
+           filtroTipo === 'CAMPANHAS' ? 'Campanhas' : 'Eventos';
       pdfGenerator.doc.text(`Tipo: ${tipoTexto}`, pdfGenerator.margin, yPos);
       yPos += 6;
       pdfGenerator.doc.text(`Total de Eventos: ${eventosFiltrados.length}`, pdfGenerator.margin, yPos);
@@ -312,7 +315,8 @@ export default function Agenda() {
                 <option value="TODOS">Todos os Eventos</option>
                 <option value="PARLAMENTAR">Agenda Parlamentar</option>
                 <option value="LOCAL">Agenda Local</option>
-                <option value="EVENTO">Eventos</option>
+                <option value="CAMPANHAS">Campanhas</option>
+                <option value="EVENTOS">Eventos</option>
               </select>
             </div>
 
@@ -399,31 +403,49 @@ export default function Agenda() {
                                   ? '#3b82f6'
                                   : evento.tipo === 'LOCAL'
                                     ? '#a855f7'
-                                    : '#14b8a6'
+                                    : isEventoCampanha(evento)
+                                      ? '#059669'
+                                      : '#14b8a6'
                               }}
                             >
                               <div className="p-4">
                                 {/* Header com Título e Badge */}
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                   <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                        evento.tipo === 'PARLAMENTAR' 
-                                          ? 'bg-blue-100 text-blue-700' 
-                                          : evento.tipo === 'LOCAL'
-                                            ? 'bg-purple-100 text-purple-700'
-                                            : 'bg-teal-100 text-teal-700'
-                                      }`}>
-                                        {evento.tipo === 'PARLAMENTAR'
-                                          ? '📍 PARLAMENTAR'
-                                          : evento.tipo === 'LOCAL'
-                                            ? '📌 LOCAL'
-                                            : '🎯 EVENTO'}
-                                      </span>
-                                      <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">
-                                        {evento.categoria}
-                                      </span>
-                                    </div>
+                                    {(() => {
+                                      const isCampanha = isEventoCampanha(evento);
+                                      const tipoBadgeClass = evento.tipo === 'PARLAMENTAR'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : evento.tipo === 'LOCAL'
+                                          ? 'bg-purple-100 text-purple-700'
+                                          : isCampanha
+                                            ? 'bg-emerald-100 text-emerald-700'
+                                            : 'bg-teal-100 text-teal-700';
+                                      const tipoBadgeText = evento.tipo === 'PARLAMENTAR'
+                                        ? '📍 PARLAMENTAR'
+                                        : evento.tipo === 'LOCAL'
+                                          ? '📌 LOCAL'
+                                          : isCampanha
+                                            ? '🏛️ CAMPANHA'
+                                            : '🎯 EVENTO';
+                                      const categoriaClass = isCampanha
+                                        ? 'bg-emerald-50 text-emerald-700'
+                                        : 'bg-gray-100 text-gray-700';
+                                      const categoriaText = isCampanha
+                                        ? 'Campanha'
+                                        : (evento.categoria || 'Evento');
+
+                                      return (
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${tipoBadgeClass}`}>
+                                            {tipoBadgeText}
+                                          </span>
+                                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${categoriaClass}`}>
+                                            {categoriaText}
+                                          </span>
+                                        </div>
+                                      );
+                                    })()}
                                     <h3 className="text-lg font-bold text-gray-800 group-hover:text-teal-600 transition-colors">
                                       {evento.titulo}
                                     </h3>
@@ -482,7 +504,7 @@ export default function Agenda() {
                                     <div className="flex-1">
                                       <div className="text-xs text-gray-500 font-medium">CONFIRMADOS</div>
                                       <div className="text-sm font-bold text-gray-800">
-                                        {evento.confirmados}/{evento.participantes} pessoas
+                                        {evento.confirmados}/{evento.participantes} lideranças
                                       </div>
                                     </div>
                                     <button

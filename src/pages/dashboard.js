@@ -23,6 +23,8 @@ export default function Dashboard() {
     campanhasSeries: []
   });
   const [chartsLoading, setChartsLoading] = useState(true);
+  const [agendaEventos, setAgendaEventos] = useState([]);
+  const [agendaLoading, setAgendaLoading] = useState(true);
   
   // Carrega usuário do localStorage
   useEffect(() => {
@@ -77,6 +79,67 @@ export default function Dashboard() {
 
     carregarGraficos();
   }, []);
+
+  useEffect(() => {
+    let ativo = true;
+    const carregarAgenda = async () => {
+      try {
+        setAgendaLoading(true);
+        if (!user?.id || !user?.nivel) {
+          if (ativo) {
+            setAgendaEventos([]);
+          }
+          return;
+        }
+
+        const params = new URLSearchParams({
+          userId: String(user.id),
+          nivel: String(user.nivel),
+          limit: '10'
+        });
+
+        const response = await fetch(`/api/dashboard/agenda?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error(`Erro ao carregar agenda: ${response.status}`);
+        }
+
+        const { data } = await response.json();
+
+        const normalizados = (data || []).map((evento) => ({
+          ...evento,
+          horaInicio: evento.horaInicio || evento.hora_inicio || '',
+          horaFim: evento.horaFim || evento.hora_fim || '',
+          confirmados: evento.confirmados ?? 0,
+          participantes: evento.participantes ?? 0,
+          criado_por_id: evento.criado_por_id ?? null
+        }));
+
+        if (ativo) {
+          setAgendaEventos(normalizados);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar eventos da agenda:', error);
+        if (ativo) {
+          setAgendaEventos([]);
+        }
+      } finally {
+        if (ativo) {
+          setAgendaLoading(false);
+        }
+      }
+    };
+
+    if (user) {
+      carregarAgenda();
+    } else {
+      setAgendaEventos([]);
+      setAgendaLoading(false);
+    }
+
+    return () => {
+      ativo = false;
+    };
+  }, [user?.id, user?.nivel]);
 
   const BarChart = ({
     series,
@@ -184,21 +247,13 @@ export default function Dashboard() {
   
   const mostrarSolicitacoes = user?.nivel !== 'OPERADOR';
   
-  // Mock de próximos eventos da agenda
-  const proximosEventos = [
-    { id: 1, titulo: 'Reunião com Líderes', data: '2025-11-25', horaInicio: '14:00', local: 'Salão Paroquial', tipo: 'PARLAMENTAR' },
-    { id: 2, titulo: 'Inauguração Praça', data: '2025-11-28', horaInicio: '10:00', local: 'Praça da Juventude', tipo: 'PARLAMENTAR' },
-    { id: 3, titulo: 'Atendimento à População', data: '2025-11-26', horaInicio: '09:00', local: 'Associação de Moradores', tipo: 'LOCAL' },
-  ];
-  
   // Filtrar eventos baseado no perfil
-  const eventosFiltrados = user?.nivel === 'ADMINISTRADOR' 
-    ? proximosEventos 
-    : user?.nivel === 'LIDERANCA'
-    ? proximosEventos
-    : user?.nivel === 'OPERADOR'
-    ? proximosEventos
-    : [];
+  const eventosFiltrados = agendaEventos.filter((evento) => {
+    if (!user) return false;
+    if (user?.nivel === 'ADMINISTRADOR') return true;
+    if (evento.tipo === 'LOCAL' && evento.criado_por_id !== user?.id) return false;
+    return true;
+  });
 
   return (
     <Layout titulo="Bem-vindo ao Dashboard!">
@@ -327,7 +382,24 @@ export default function Dashboard() {
           </div>
           
           <div className="space-y-3">
-            {eventosFiltrados.slice(0, 3).map((evento) => {
+            {agendaLoading && (
+              <div className="space-y-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={`agenda-skeleton-${item}`} className="bg-white rounded-xl shadow-md p-3 border-l-4 border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <div className="w-14 h-16 bg-gray-100 rounded-lg animate-pulse" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 bg-gray-100 rounded w-24 animate-pulse" />
+                        <div className="h-4 bg-gray-100 rounded w-48 animate-pulse" />
+                        <div className="h-3 bg-gray-100 rounded w-32 animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!agendaLoading && eventosFiltrados.slice(0, 3).map((evento) => {
               const dataEvento = new Date(evento.data + 'T00:00:00');
               const hoje = new Date();
               hoje.setHours(0, 0, 0, 0);
@@ -358,7 +430,11 @@ export default function Dashboard() {
                   key={evento.id} 
                   className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer group border-l-4"
                   style={{
-                    borderLeftColor: evento.tipo === 'PARLAMENTAR' ? '#3b82f6' : '#a855f7'
+                    borderLeftColor: evento.tipo === 'PARLAMENTAR'
+                      ? '#3b82f6'
+                      : evento.tipo === 'LOCAL'
+                        ? '#a855f7'
+                        : '#14b8a6'
                   }}
                   onClick={() => window.location.href = `/agenda/${evento.id}`}
                 >
@@ -385,9 +461,15 @@ export default function Dashboard() {
                             <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${
                               evento.tipo === 'PARLAMENTAR' 
                                 ? 'bg-blue-100 text-blue-700' 
-                                : 'bg-purple-100 text-purple-700'
+                                : evento.tipo === 'LOCAL'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-teal-100 text-teal-700'
                             }`}>
-                              {evento.tipo === 'PARLAMENTAR' ? '📍 Parlamentar' : '📌 Local'}
+                              {evento.tipo === 'PARLAMENTAR'
+                                ? '📍 Parlamentar'
+                                : evento.tipo === 'LOCAL'
+                                  ? '📌 Local'
+                                  : '🎯 Evento'}
                             </span>
                           </div>
                         </div>
@@ -417,7 +499,7 @@ export default function Dashboard() {
               );
             })}
             
-            {eventosFiltrados.length === 0 && (
+            {!agendaLoading && eventosFiltrados.length === 0 && (
               <div className="text-center py-8 text-gray-400">
                 <FontAwesomeIcon icon={faCalendarAlt} className="text-4xl mb-3 opacity-50" />
                 <p className="text-sm font-medium">Nenhum evento agendado</p>
