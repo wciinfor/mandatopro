@@ -81,7 +81,8 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     {
       nome: 'Solicitações',
       icone: faExclamationTriangle,
-      submenu: ['Novos Pedidos', 'Pedidos Atendidos', 'Pedidos Recusados', 'Relatórios']
+      submenu: [],
+      rota: '/solicitacoes'
     },
     {
       nome: 'Usuários',
@@ -123,7 +124,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     'Despesas': '/financeiro/despesas',
     'Caixa / Saldo': '/financeiro/caixa',
     'Doadores / Parceiros': '/financeiro/doadores',
-    'Relatórios': '/financeiro/relatorios',
+    'Financeiro - Relatórios': '/financeiro/relatorios',
     
     // Agenda
     'Compromissos': '/agenda/compromissos',
@@ -134,11 +135,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     // (Documentos agora é um único link direto, sem subitens)
     
     
-    // Solicitações
-    'Novos Pedidos': '/solicitacoes',
-    'Pedidos Atendidos': '/solicitacoes/atendidos',
-    'Pedidos Recusados': '/solicitacoes/recusados',
-    'Relatórios': '/solicitacoes/relatorios',
+    // Solicitações — sem submenu, rota direta
     
     // Usuários
     'Gerenciar Usuários': '/usuarios',
@@ -188,7 +185,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     setModuloAtivo(`${modulo.nome} - ${subitem}`);
     setSidebarAberto(false);
     
-    const rota = routeMap[subitem];
+    const rota = routeMap[`${modulo.nome} - ${subitem}`] || routeMap[subitem];
     
     if (rota) {
       router.push(rota).catch(err => console.error('Erro ao navegar:', err));

@@ -14,6 +14,31 @@
 
 ---
 
+## 🗓️ Conferencia Diaria (04/03/2026)
+
+Resumo rapido das ultimas entregas:
+
+- IA: widget Maia com imagem em public/img/ag_ia.png, reset, auto-scroll, pulso e borda; providers OpenAI/Groq com seletor; endpoints /api/ai/chat e /api/ai/validate.
+- Config IA: configuracoes.private.json removido do git e exemplo criado; configurar chaves no Vercel via env vars.
+- Liderancas: cadastro/edicao alinhados ao schema; municipio/bairro incluidos; edicao puxa dados do eleitor por CPF quando estiverem vazios.
+- Migracoes: 214_add_municipio_to_agenda_eventos.sql, 215_add_municipio_to_campanhas.sql, 216_add_municipio_bairro_to_liderancas.sql.
+- Supabase: validacao de sessao em servicos de liderancas; timeout nas consultas para evitar travas.
+
+Arquivos e endpoints tocados hoje:
+
+- UI IA: src/components/AIChatWidget.js, src/styles/globals.css
+- APIs IA: src/pages/api/ai/chat.js, src/pages/api/ai/validate.js
+- Config IA: src/lib/configuracoes.js, src/pages/configuracoes/sistema.js, configuracoes.private.example.json
+- Liderancas: src/pages/cadastros/liderancas/novo.js, src/pages/cadastros/liderancas/[id].js, src/pages/cadastros/liderancas/index.js, src/services/liderancaService.js
+- Migracoes: supabase/migrations/214_add_municipio_to_agenda_eventos.sql, 215_add_municipio_to_campanhas.sql, 216_add_municipio_bairro_to_liderancas.sql
+
+Proximos passos sugeridos:
+- Aplicar migrations 214-216 no Supabase.
+- Configurar OPENAI/GROQ no Vercel e testar IA.
+- Validar edicao de lideranca com dados do eleitor.
+
+---
+
 ## 🗓️ Conferencia Diaria (28/02/2026)
 
 Resumo rapido das ultimas entregas:

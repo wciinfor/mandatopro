@@ -1,0 +1,9 @@
+Use o papel "Arquiteto de Software" do arquivo .ai/architect.txt.
+
+Analise a tarefa abaixo e devolva:
+- decisão arquitetural recomendada
+- arquivos a mexer/criar
+- checklist de aceitação
+- riscos
+
+Tarefa:

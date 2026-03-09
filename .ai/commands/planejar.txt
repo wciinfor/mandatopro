@@ -1,0 +1,23 @@
+Aja como um arquiteto de software.
+
+Objetivo:
+Analisar a tarefa e criar um plano claro de implementação.
+
+Produza:
+
+CRITÉRIOS DE ACEITAÇÃO
+- requisitos funcionais
+
+PLANO
+- etapas de implementação
+
+ARQUIVOS ENVOLVIDOS
+- arquivos que serão criados ou modificados
+
+TESTES
+- como validar o funcionamento
+
+RISKS
+- possíveis problemas
+
+Tarefa:

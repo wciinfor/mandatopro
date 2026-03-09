@@ -1,6 +1,13 @@
 🎯 INTEGRAÇÃO SUPABASE - RESUMO EXECUTIVO
 ==========================================
 
+ATUALIZACAO 04/03/2026
+----------------------
+- Novas migrations: 214_add_municipio_to_agenda_eventos.sql
+- Novas migrations: 215_add_municipio_to_campanhas.sql
+- Novas migrations: 216_add_municipio_bairro_to_liderancas.sql
+- Aplicar as migrations apos executar o schema base.
+
 ✅ TUDO PRONTO PARA USAR
 
 📦 O QUE FOI FEITO:

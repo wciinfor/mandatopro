@@ -59,6 +59,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const loadUser = async () => {
+    let loadingResolved = false;
     try {
       const supabase = createClient();
       
@@ -77,6 +78,8 @@ export function AuthProvider({ children }) {
       if (userData) {
         const user = JSON.parse(userData);
         setUser(user);
+        setLoading(false);
+        loadingResolved = true;
       }
 
       // Verificar sessão do Supabase
@@ -91,7 +94,9 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Erro ao carregar usuário:', error);
     } finally {
-      setLoading(false);
+      if (!loadingResolved) {
+        setLoading(false);
+      }
     }
   };
 

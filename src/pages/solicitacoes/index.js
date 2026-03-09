@@ -1,466 +1,1648 @@
-import { useState } from 'react';
-import { useRouter } from 'next/router';
+import { useState, useEffect, useCallback } from 'react';
+
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
+
 import {
-  faExclamationTriangle, faSearch, faPlus, faEdit, faEye, faTrash, faCheckCircle,
-  faClock, faBan, faFileAlt, faUser, faMapMarkerAlt, faCalendarAlt, faFilter
+
+
+  faExclamationTriangle, faSearch, faPlus, faCheckCircle, faBan, faFileAlt,
+
+
+  faUser, faMapMarkerAlt, faCalendarAlt, faTimes, faSpinner, faPaperPlane,
+
+
+  faChevronLeft, faChevronRight, faInbox, faFilter
+
+
 } from '@fortawesome/free-solid-svg-icons';
+
+
 import Layout from '@/components/Layout';
+
+
 import ProtectedRoute from '@/components/ProtectedRoute';
+
+
 import Modal from '@/components/Modal';
+
+
 import useModal from '@/hooks/useModal';
+
+
 import { MODULES } from '@/utils/permissions';
 
-export default function Solicitacoes() {
-  const router = useRouter();
-  const { modalState, closeModal, showSuccess, showConfirm } = useModal();
 
-  // Mock de solicitações (viria do banco de dados)
-  const [solicitacoes] = useState([
-    {
-      id: 1,
-      protocolo: 'SOL-2024-001',
-      titulo: 'Reforma de escola municipal',
-      solicitante: 'Maria Silva Santos',
-      tipoSolicitante: 'Liderança',
-      categoria: 'Educação',
-      prioridade: 'ALTA',
-      status: 'NOVO',
-      municipio: 'Belém',
-      bairro: 'Pedreira',
-      dataAbertura: '2024-11-15',
-      descricao: 'Solicitação de reforma completa da Escola Municipal João Paulo II, incluindo pintura, troca de telhas e reforma dos banheiros.',
-      observacoes: null,
-      atendente: null
-    },
-    {
-      id: 2,
-      protocolo: 'SOL-2024-002',
-      titulo: 'Iluminação pública na Rua das Flores',
-      solicitante: 'João Costa Oliveira',
-      tipoSolicitante: 'Morador',
-      categoria: 'Infraestrutura',
-      prioridade: 'MÉDIA',
-      status: 'EM_ANDAMENTO',
-      municipio: 'Ananindeua',
-      bairro: 'Cidade Nova',
-      dataAbertura: '2024-11-10',
-      descricao: 'Instalação de postes de iluminação na Rua das Flores, trecho entre Av. Principal e Rua 2.',
-      observacoes: 'Em análise pela Secretaria de Infraestrutura',
-      atendente: 'Pedro Alves'
-    },
-    {
-      id: 3,
-      protocolo: 'SOL-2024-003',
-      titulo: 'Consulta médica especializada',
-      solicitante: 'Ana Paula Santos',
-      tipoSolicitante: 'Eleitor',
-      categoria: 'Saúde',
-      prioridade: 'URGENTE',
-      status: 'NOVO',
-      municipio: 'Belém',
-      bairro: 'Marco',
-      dataAbertura: '2024-11-18',
-      descricao: 'Solicitação de encaminhamento para consulta com cardiologista.',
-      observacoes: null,
-      atendente: null
-    },
-    {
-      id: 4,
-      protocolo: 'SOL-2024-004',
-      titulo: 'Construção de quadra esportiva',
-      solicitante: 'Carlos Oliveira',
-      tipoSolicitante: 'Liderança',
-      categoria: 'Esporte e Lazer',
-      prioridade: 'BAIXA',
-      status: 'ATENDIDO',
-      municipio: 'Marituba',
-      bairro: 'Centro',
-      dataAbertura: '2024-10-20',
-      descricao: 'Construção de quadra poliesportiva no bairro Centro.',
-      observacoes: 'Emenda aprovada e em execução',
-      atendente: 'Julia Fernandes'
-    },
-    {
-      id: 5,
-      protocolo: 'SOL-2024-005',
-      titulo: 'Coleta de lixo irregular',
-      solicitante: 'Francisca Lima',
-      tipoSolicitante: 'Morador',
-      categoria: 'Meio Ambiente',
-      prioridade: 'MÉDIA',
-      status: 'RECUSADO',
-      municipio: 'Belém',
-      bairro: 'Guamá',
-      dataAbertura: '2024-11-05',
-      descricao: 'Reclamação sobre coleta de lixo irregular na rua.',
-      observacoes: 'Competência municipal - encaminhado para prefeitura',
-      atendente: 'Pedro Alves'
-    }
-  ]);
 
-  const [busca, setBusca] = useState('');
-  const [statusFiltro, setStatusFiltro] = useState('');
-  const [prioridadeFiltro, setPrioridadeFiltro] = useState('');
-  const [categoriaFiltro, setCategoriaFiltro] = useState('');
 
-  const solicitacoesFiltradas = solicitacoes.filter(sol => {
-    const matchBusca = sol.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-                       sol.solicitante.toLowerCase().includes(busca.toLowerCase()) ||
-                       sol.protocolo.toLowerCase().includes(busca.toLowerCase());
-    const matchStatus = statusFiltro === '' || sol.status === statusFiltro;
-    const matchPrioridade = prioridadeFiltro === '' || sol.prioridade === prioridadeFiltro;
-    const matchCategoria = categoriaFiltro === '' || sol.categoria === categoriaFiltro;
-    
-    return matchBusca && matchStatus && matchPrioridade && matchCategoria;
-  });
 
-  // Estatísticas
-  const stats = {
-    total: solicitacoes.length,
-    novas: solicitacoes.filter(s => s.status === 'NOVO').length,
-    emAndamento: solicitacoes.filter(s => s.status === 'EM_ANDAMENTO').length,
-    atendidas: solicitacoes.filter(s => s.status === 'ATENDIDO').length,
-    recusadas: solicitacoes.filter(s => s.status === 'RECUSADO').length
-  };
+// â”€â”€ Configurações de Status e Prioridade â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  const handleNovaSolicitacao = () => {
-    router.push('/solicitacoes/novo');
-  };
 
-  const handleVisualizarSolicitacao = (id) => {
-    router.push(`/solicitacoes/${id}`);
-  };
+const STATUS_CONFIG = {
 
-  const handleExcluirSolicitacao = (solicitacao) => {
-    showConfirm(
-      'Excluir Solicitação',
-      `Deseja realmente excluir a solicitação "${solicitacao.titulo}"?`,
-      () => {
-        // Aqui você implementaria a exclusão no banco de dados
-        showSuccess('Solicitação excluída com sucesso!');
-      }
-    );
-  };
 
-  const getStatusBadge = (status) => {
-    const badges = {
-      'NOVO': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Novo' },
-      'EM_ANDAMENTO': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Em Andamento' },
-      'ATENDIDO': { bg: 'bg-green-100', text: 'text-green-800', label: 'Atendido' },
-      'RECUSADO': { bg: 'bg-red-100', text: 'text-red-800', label: 'Recusado' }
-    };
-    const badge = badges[status] || badges['NOVO'];
-    return (
-      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${badge.bg} ${badge.text}`}>
-        {badge.label}
-      </span>
-    );
-  };
+  NOVO:     { label: 'Novo',     bg: 'bg-blue-100',   text: 'text-blue-800',   border: 'border-blue-500'   },
 
-  const getPrioridadeBadge = (prioridade) => {
-    const badges = {
-      'URGENTE': { bg: 'bg-red-500', text: 'text-white', label: 'Urgente' },
-      'ALTA': { bg: 'bg-orange-500', text: 'text-white', label: 'Alta' },
-      'MÉDIA': { bg: 'bg-yellow-500', text: 'text-white', label: 'Média' },
-      'BAIXA': { bg: 'bg-green-500', text: 'text-white', label: 'Baixa' }
-    };
-    const badge = badges[prioridade] || badges['MÉDIA'];
-    return (
-      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${badge.bg} ${badge.text}`}>
-        {badge.label}
-      </span>
-    );
-  };
+
+  RECEBIDO: { label: 'Recebido', bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-500' },
+
+
+  ATENDIDO: { label: 'Atendido', bg: 'bg-green-100',  text: 'text-green-800',  border: 'border-green-500'  },
+
+
+  RECUSADO: { label: 'Recusado', bg: 'bg-red-100',    text: 'text-red-800',    border: 'border-red-500'    },
+
+
+};
+
+
+
+
+
+const PRIORIDADE_CONFIG = {
+
+
+  URGENTE:  { label: 'Urgente', bg: 'bg-red-500',    text: 'text-white' },
+
+
+  ALTA:     { label: 'Alta',    bg: 'bg-orange-500', text: 'text-white' },
+
+
+  'MÉDIA':    { label: 'Média',   bg: 'bg-yellow-500', text: 'text-white' },
+
+
+  BAIXA:    { label: 'Baixa',   bg: 'bg-green-500',  text: 'text-white' },
+
+
+};
+
+
+
+
+
+const CATEGORIAS = [
+
+
+  'Educação', 'Saúde', 'Infraestrutura', 'Meio Ambiente',
+
+
+  'Esporte e Lazer', 'Assistência Social', 'Outros',
+
+
+];
+
+
+
+
+
+const ITENS_POR_PAGINA = 15;
+
+
+
+
+
+// â”€â”€ Helpers de Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+
+function StatusBadge({ status }) {
+
+
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.NOVO;
+
 
   return (
+
+
+    <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded-full ${cfg.bg} ${cfg.text}`}>
+
+
+      {cfg.label}
+
+
+    </span>
+
+
+  );
+
+
+}
+
+
+
+
+
+function PrioridadeBadge({ prioridade }) {
+
+
+  const cfg = PRIORIDADE_CONFIG[prioridade] || PRIORIDADE_CONFIG['MÉDIA'];
+
+
+  return (
+
+
+    <span className={`px-2 py-1 inline-flex text-xs font-semibold rounded-full ${cfg.bg} ${cfg.text}`}>
+
+
+      {cfg.label}
+
+
+    </span>
+
+
+  );
+
+
+}
+
+
+
+
+
+// â”€â”€ Componente principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+
+export default function Solicitacoes() {
+
+
+  const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
+
+
+
+
+
+  // â”€â”€ Estado principal â”€â”€
+
+
+  const [solicitacoes, setSolicitacoes] = useState([]);
+
+
+  const [totais, setTotais] = useState({ total: 0, NOVO: 0, RECEBIDO: 0, ATENDIDO: 0, RECUSADO: 0 });
+
+
+  const [loading, setLoading] = useState(true);
+
+
+  const [totalRegistros, setTotalRegistros] = useState(0);
+
+
+  const [pagina, setPagina] = useState(1);
+
+
+
+
+
+  // â”€â”€ Filtros â”€â”€
+
+
+  const [busca, setBusca] = useState('');
+
+
+  const [statusFiltro, setStatusFiltro] = useState('');
+
+
+  const [prioridadeFiltro, setPrioridadeFiltro] = useState('');
+
+
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
+
+
+
+
+
+  // â”€â”€ Modal Nova Solicitação â”€â”€
+
+
+  const [showNova, setShowNova] = useState(false);
+
+
+  const [salvando, setSalvando] = useState(false);
+
+
+  const [formNova, setFormNova] = useState({
+
+
+    titulo: '', descricao: '', solicitante: '', tipo_solicitante: 'LIDERANCA',
+
+
+    categoria: '', prioridade: 'MÉDIA', municipio: '', bairro: '',
+
+
+  });
+
+
+
+
+
+  // â”€â”€ Modal Gerenciar â”€â”€
+
+
+  const [solAtiva, setSolAtiva] = useState(null);
+
+
+  const [obsGerenciar, setObsGerenciar] = useState('');
+
+
+  const [atualizando, setAtualizando] = useState(false);
+
+
+
+
+
+  // â”€â”€ Carregar dados â”€â”€
+
+
+  const getUsuario = () => {
+
+
+    if (typeof window === 'undefined') return null;
+
+
+    try { return JSON.parse(localStorage.getItem('usuario') || 'null'); } catch { return null; }
+
+
+  };
+
+  const podeCriar = ['ADMINISTRADOR', 'LIDERANCA'].includes(getUsuario()?.nivel);
+
+
+
+
+
+  const carregarSolicitacoes = useCallback(async () => {
+
+
+    try {
+
+
+      setLoading(true);
+
+
+      const params = new URLSearchParams({
+
+
+        limit: String(ITENS_POR_PAGINA),
+
+
+        offset: String((pagina - 1) * ITENS_POR_PAGINA),
+
+
+      });
+
+
+      if (busca) params.set('search', busca);
+
+
+      if (statusFiltro) params.set('status', statusFiltro);
+
+
+      if (prioridadeFiltro) params.set('prioridade', prioridadeFiltro);
+
+
+      if (categoriaFiltro) params.set('categoria', categoriaFiltro);
+
+
+
+
+
+      const res = await fetch(`/api/solicitacoes?${params}`, {
+
+
+        headers: { usuario: JSON.stringify(getUsuario()) },
+
+
+      });
+
+
+      const json = await res.json();
+
+
+      if (!res.ok) throw new Error(json.message);
+
+
+      setSolicitacoes(json.data || []);
+
+
+      setTotalRegistros(json.total || 0);
+
+
+      setTotais(json.totais || { total: 0, NOVO: 0, RECEBIDO: 0, ATENDIDO: 0, RECUSADO: 0 });
+
+
+    } catch (err) {
+
+
+      showError('Erro ao carregar solicitações: ' + err.message);
+
+
+    } finally {
+
+
+      setLoading(false);
+
+
+    }
+
+
+  }, [pagina, busca, statusFiltro, prioridadeFiltro, categoriaFiltro]);
+
+
+
+
+
+  useEffect(() => { carregarSolicitacoes(); }, [carregarSolicitacoes]);
+
+
+
+
+
+  // Reseta paginação ao mudar filtros
+
+
+  useEffect(() => { setPagina(1); }, [busca, statusFiltro, prioridadeFiltro, categoriaFiltro]);
+
+
+
+
+
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / ITENS_POR_PAGINA));
+
+
+
+
+
+  // â”€â”€ Criar solicitação â”€â”€
+
+
+  const handleCriar = async () => {
+
+
+    if (!formNova.titulo || !formNova.solicitante) {
+
+
+      showError('Título e Solicitante são obrigatórios.');
+
+
+      return;
+
+
+    }
+
+
+    try {
+
+
+      setSalvando(true);
+
+
+      const res = await fetch('/api/solicitacoes', {
+
+
+        method: 'POST',
+
+
+        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(getUsuario()) },
+
+
+        body: JSON.stringify(formNova),
+
+
+      });
+
+
+      const json = await res.json();
+
+
+      if (!res.ok) throw new Error(json.message);
+
+
+      showSuccess('Solicitação criada com sucesso!');
+
+
+      setShowNova(false);
+
+
+      setFormNova({ titulo: '', descricao: '', solicitante: '', tipo_solicitante: 'LIDERANCA', categoria: '', prioridade: 'MÉDIA', municipio: '', bairro: '' });
+
+
+      carregarSolicitacoes();
+
+
+    } catch (err) {
+
+
+      showError('Erro ao criar: ' + err.message);
+
+
+    } finally {
+
+
+      setSalvando(false);
+
+
+    }
+
+
+  };
+
+
+
+
+
+  // â”€â”€ Alterar status â”€â”€
+
+
+  const alterarStatus = async (id, novoStatus) => {
+
+
+    try {
+
+
+      setAtualizando(true);
+
+
+      const res = await fetch(`/api/solicitacoes/${id}`, {
+
+
+        method: 'PUT',
+
+
+        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(getUsuario()) },
+
+
+        body: JSON.stringify({ status: novoStatus, observacoes: obsGerenciar || undefined }),
+
+
+      });
+
+
+      const json = await res.json();
+
+
+      if (!res.ok) throw new Error(json.message);
+
+
+      showSuccess(`Status atualizado para "${STATUS_CONFIG[novoStatus]?.label}"!`);
+
+
+      setSolAtiva(null);
+
+
+      setObsGerenciar('');
+
+
+      carregarSolicitacoes();
+
+
+    } catch (err) {
+
+
+      showError('Erro ao atualizar: ' + err.message);
+
+
+    } finally {
+
+
+      setAtualizando(false);
+
+
+    }
+
+
+  };
+
+
+
+
+
+  const abrirGerenciar = (sol) => { setSolAtiva(sol); setObsGerenciar(sol.observacoes || ''); };
+
+
+
+
+
+  return (
+
+
     <ProtectedRoute module={MODULES.SOLICITACOES}>
+
+
       <Layout titulo="Solicitações">
+
+
+        {/* Modal feedback */}
+
+
         <Modal
+
+
           isOpen={modalState.isOpen}
+
+
           onClose={closeModal}
+
+
           onConfirm={modalState.onConfirm}
+
+
           title={modalState.title}
+
+
           message={modalState.message}
+
+
           type={modalState.type}
+
+
           confirmText={modalState.confirmText}
+
+
           cancelText={modalState.cancelText}
+
+
           showCancel={modalState.showCancel}
+
+
         />
 
-        {/* Cards de Estatísticas */}
+
+
+
+
+        {/* â”€â”€ Cards de totais â”€â”€ */}
+
+
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 border-gray-400"
-            onClick={() => setStatusFiltro('')}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                <FontAwesomeIcon icon={faFileAlt} className="text-gray-600 text-xl" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
-                <div className="text-sm text-gray-600">Total</div>
-              </div>
-            </div>
-          </div>
 
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 border-blue-400"
-            onClick={() => setStatusFiltro(statusFiltro === 'NOVO' ? '' : 'NOVO')}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FontAwesomeIcon icon={faExclamationTriangle} className="text-blue-600 text-xl" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-800">{stats.novas}</div>
-                <div className="text-sm text-gray-600">Novas</div>
-              </div>
-            </div>
-          </div>
 
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 border-yellow-400"
-            onClick={() => setStatusFiltro(statusFiltro === 'EM_ANDAMENTO' ? '' : 'EM_ANDAMENTO')}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <FontAwesomeIcon icon={faClock} className="text-yellow-600 text-xl" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-800">{stats.emAndamento}</div>
-                <div className="text-sm text-gray-600">Em Andamento</div>
-              </div>
-            </div>
-          </div>
+          {[
 
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 border-green-400"
-            onClick={() => setStatusFiltro(statusFiltro === 'ATENDIDO' ? '' : 'ATENDIDO')}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <FontAwesomeIcon icon={faCheckCircle} className="text-green-600 text-xl" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-800">{stats.atendidas}</div>
-                <div className="text-sm text-gray-600">Atendidas</div>
-              </div>
-            </div>
-          </div>
 
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 border-red-400"
-            onClick={() => setStatusFiltro(statusFiltro === 'RECUSADO' ? '' : 'RECUSADO')}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <FontAwesomeIcon icon={faBan} className="text-red-600 text-xl" />
+            { key: '', label: 'Total',    val: totais.total,    cor: 'border-gray-400',   bg: 'bg-gray-100',    icon: faFileAlt,            icor: 'text-gray-600'   },
+
+
+            { key: 'NOVO',     label: 'Novos',    val: totais.NOVO,     cor: 'border-blue-400',   bg: 'bg-blue-100',    icon: faInbox,              icor: 'text-blue-600'   },
+
+
+            { key: 'RECEBIDO', label: 'Recebidos',val: totais.RECEBIDO, cor: 'border-yellow-400', bg: 'bg-yellow-100',  icon: faCalendarAlt,        icor: 'text-yellow-600' },
+
+
+            { key: 'ATENDIDO', label: 'Atendidos',val: totais.ATENDIDO, cor: 'border-green-400',  bg: 'bg-green-100',   icon: faCheckCircle,        icor: 'text-green-600'  },
+
+
+            { key: 'RECUSADO', label: 'Recusados',val: totais.RECUSADO, cor: 'border-red-400',    bg: 'bg-red-100',     icon: faBan,                icor: 'text-red-600'    },
+
+
+          ].map(({ key, label, val, cor, bg, icon, icor }) => (
+
+
+            <div
+
+
+              key={key}
+
+
+              onClick={() => setStatusFiltro(prev => prev === key ? '' : key)}
+
+
+              className={`bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow border-l-4 ${cor} ${statusFiltro === key && key !== '' ? 'ring-2 ring-offset-1 ring-teal-400' : ''}`}
+
+
+            >
+
+
+              <div className="flex items-center gap-3">
+
+
+                <div className={`w-12 h-12 ${bg} rounded-lg flex items-center justify-center`}>
+
+
+                  <FontAwesomeIcon icon={icon} className={`${icor} text-xl`} />
+
+
+                </div>
+
+
+                <div>
+
+
+                  <div className="text-2xl font-bold text-gray-800">{val}</div>
+
+
+                  <div className="text-sm text-gray-600">{label}</div>
+
+
+                </div>
+
+
               </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-800">{stats.recusadas}</div>
-                <div className="text-sm text-gray-600">Recusadas</div>
-              </div>
+
+
             </div>
-          </div>
+
+
+          ))}
+
+
         </div>
 
-        {/* Filtros e Busca */}
+
+
+
+
+        {/* â”€â”€ Filtros e ação â”€â”€ */}
+
+
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <FontAwesomeIcon 
-                  icon={faSearch} 
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="text"
-                  placeholder="Buscar por título, solicitante ou protocolo..."
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
+
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+
+
+            <div className="lg:col-span-2 relative">
+
+
+              <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+
+
+              <input
+
+
+                type="text"
+
+
+                placeholder="Buscar por título, solicitante ou protocolo..."
+
+
+                value={busca}
+
+
+                onChange={e => setBusca(e.target.value)}
+
+
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+
+
+              />
+
+
             </div>
 
-            <select
-              value={categoriaFiltro}
-              onChange={(e) => setCategoriaFiltro(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">Todas as Categorias</option>
-              <option value="Educação">Educação</option>
-              <option value="Saúde">Saúde</option>
-              <option value="Infraestrutura">Infraestrutura</option>
-              <option value="Meio Ambiente">Meio Ambiente</option>
-              <option value="Esporte e Lazer">Esporte e Lazer</option>
-              <option value="Assistência Social">Assistência Social</option>
-              <option value="Outros">Outros</option>
+
+            <select value={categoriaFiltro} onChange={e => setCategoriaFiltro(e.target.value)}
+
+
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+
+
+              <option value="">Todas Categorias</option>
+
+
+              {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+
+
             </select>
 
-            <select
-              value={prioridadeFiltro}
-              onChange={(e) => setPrioridadeFiltro(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">Todas as Prioridades</option>
+
+            <select value={prioridadeFiltro} onChange={e => setPrioridadeFiltro(e.target.value)}
+
+
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+
+
+              <option value="">Todas Prioridades</option>
+
+
               <option value="URGENTE">Urgente</option>
+
+
               <option value="ALTA">Alta</option>
+
+
               <option value="MÉDIA">Média</option>
+
+
               <option value="BAIXA">Baixa</option>
+
+
             </select>
 
-            <button
-              onClick={handleNovaSolicitacao}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 font-semibold"
-            >
-              <FontAwesomeIcon icon={faPlus} />
-              Nova Solicitação
+
+            {podeCriar && (
+            <button onClick={() => setShowNova(true)}
+
+
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 font-semibold">
+
+
+              <FontAwesomeIcon icon={faPlus} /> Nova Solicitação
+
+
             </button>
+            )}
+
+
           </div>
+
+
+
+
 
           {(statusFiltro || prioridadeFiltro || categoriaFiltro) && (
-            <div className="mt-3 flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-gray-600">Filtros ativos:</span>
-              {statusFiltro && (
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                  Status: {statusFiltro.replace('_', ' ')}
-                </span>
-              )}
-              {prioridadeFiltro && (
-                <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold">
-                  Prioridade: {prioridadeFiltro}
-                </span>
-              )}
-              {categoriaFiltro && (
-                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
-                  Categoria: {categoriaFiltro}
-                </span>
-              )}
-              <button
-                onClick={() => {
-                  setStatusFiltro('');
-                  setPrioridadeFiltro('');
-                  setCategoriaFiltro('');
-                }}
-                className="text-sm text-red-600 hover:text-red-700 font-semibold"
-              >
-                Limpar filtros
+
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+
+
+              <span className="text-sm text-gray-500">Filtros ativos:</span>
+
+
+              {statusFiltro && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">{STATUS_CONFIG[statusFiltro]?.label}</span>}
+
+
+              {prioridadeFiltro && <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">{prioridadeFiltro}</span>}
+
+
+              {categoriaFiltro && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">{categoriaFiltro}</span>}
+
+
+              <button onClick={() => { setStatusFiltro(''); setPrioridadeFiltro(''); setCategoriaFiltro(''); }}
+
+
+                className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1">
+
+
+                <FontAwesomeIcon icon={faTimes} /> Limpar
+
+
               </button>
+
+
             </div>
+
+
           )}
+
+
         </div>
 
-        {/* Lista de Solicitações */}
+
+
+
+
+        {/* â”€â”€ Tabela â”€â”€ */}
+
+
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Protocolo / Título
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Solicitante
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Categoria
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Local
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Prioridade
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Data
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {solicitacoesFiltradas.length === 0 ? (
+
+
+          {loading ? (
+
+
+            <div className="flex items-center justify-center py-20">
+
+
+              <FontAwesomeIcon icon={faSpinner} className="text-teal-600 text-3xl animate-spin" />
+
+
+            </div>
+
+
+          ) : (
+
+
+            <div className="overflow-x-auto">
+
+
+              <table className="w-full">
+
+
+                <thead className="bg-gray-50 border-b">
+
+
                   <tr>
-                    <td colSpan="8" className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <FontAwesomeIcon icon={faExclamationTriangle} className="text-5xl text-gray-300" />
-                        <p className="text-gray-500 text-lg">Nenhuma solicitação encontrada</p>
-                        <p className="text-gray-400 text-sm">Tente ajustar os filtros ou criar uma nova solicitação</p>
-                      </div>
-                    </td>
+
+
+                    {['Protocolo / Título', 'Solicitante', 'Categoria', 'Local', 'Prioridade', 'Status', 'Data', 'Ações'].map(h => (
+
+
+                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+
+
+                    ))}
+
+
                   </tr>
-                ) : (
-                  solicitacoesFiltradas.map((solicitacao) => (
-                    <tr key={solicitacao.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{solicitacao.protocolo}</div>
-                        <div className="text-sm text-gray-500">{solicitacao.titulo}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{solicitacao.solicitante}</div>
-                        <div className="text-xs text-gray-500">{solicitacao.tipoSolicitante}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{solicitacao.categoria}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{solicitacao.municipio}</div>
-                        <div className="text-xs text-gray-500">{solicitacao.bairro}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getPrioridadeBadge(solicitacao.prioridade)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(solicitacao.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(solicitacao.dataAbertura).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleVisualizarSolicitacao(solicitacao.id)}
-                            className="text-teal-600 hover:text-teal-900"
-                            title="Visualizar"
-                          >
-                            <FontAwesomeIcon icon={faEye} />
-                          </button>
-                          <button
-                            onClick={() => router.push(`/solicitacoes/${solicitacao.id}`)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Editar"
-                          >
-                            <FontAwesomeIcon icon={faEdit} />
-                          </button>
-                          <button
-                            onClick={() => handleExcluirSolicitacao(solicitacao)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Excluir"
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
-                          </button>
+
+
+                </thead>
+
+
+                <tbody className="divide-y divide-gray-200">
+
+
+                  {solicitacoes.length === 0 ? (
+
+
+                    <tr>
+
+
+                      <td colSpan={8} className="px-6 py-16 text-center">
+
+
+                        <div className="flex flex-col items-center gap-3 text-gray-400">
+
+
+                          <FontAwesomeIcon icon={faExclamationTriangle} className="text-5xl" />
+
+
+                          <p className="text-lg">Nenhuma solicitação encontrada</p>
+
+
                         </div>
+
+
                       </td>
+
+
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+
+
+                  ) : solicitacoes.map(sol => (
+
+
+                    <tr key={sol.id} className="hover:bg-gray-50">
+
+
+                      <td className="px-4 py-3">
+
+
+                        <div className="text-sm font-semibold text-gray-800">{sol.protocolo}</div>
+
+
+                        <div className="text-xs text-gray-500 max-w-xs truncate">{sol.titulo}</div>
+
+
+                      </td>
+
+
+                      <td className="px-4 py-3">
+
+
+                        <div className="text-sm text-gray-800 flex items-center gap-1">
+
+
+                          <FontAwesomeIcon icon={faUser} className="text-gray-400 text-xs" />
+
+
+                          {sol.solicitante}
+
+
+                        </div>
+
+
+                        <div className="text-xs text-gray-500">{sol.tipo_solicitante}</div>
+
+
+                      </td>
+
+
+                      <td className="px-4 py-3 text-sm text-gray-700">{sol.categoria || '—'}</td>
+
+
+                      <td className="px-4 py-3">
+
+
+                        <div className="text-sm text-gray-800 flex items-center gap-1">
+
+
+                          <FontAwesomeIcon icon={faMapMarkerAlt} className="text-gray-400 text-xs" />
+
+
+                          {sol.municipio || '—'}
+
+
+                        </div>
+
+
+                        <div className="text-xs text-gray-500">{sol.bairro}</div>
+
+
+                      </td>
+
+
+                      <td className="px-4 py-3 whitespace-nowrap">
+
+
+                        <PrioridadeBadge prioridade={sol.prioridade} />
+
+
+                      </td>
+
+
+                      <td className="px-4 py-3 whitespace-nowrap">
+
+
+                        <StatusBadge status={sol.status} />
+
+
+                      </td>
+
+
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
+
+
+                        <FontAwesomeIcon icon={faCalendarAlt} className="mr-1 text-gray-400" />
+
+
+                        {sol.data_abertura ? new Date(sol.data_abertura).toLocaleDateString('pt-BR') : '—'}
+
+
+                      </td>
+
+
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+
+
+                        <button
+
+
+                          onClick={() => abrirGerenciar(sol)}
+
+
+                          className="px-3 py-1 bg-teal-600 text-white text-xs rounded hover:bg-teal-700 font-semibold"
+
+
+                        >
+
+
+                          Gerenciar
+
+
+                        </button>
+
+
+                      </td>
+
+
+                    </tr>
+
+
+                  ))}
+
+
+                </tbody>
+
+
+              </table>
+
+
+            </div>
+
+
+          )}
+
+
+
+
+
+          {/* Paginação */}
+
+
+          {!loading && totalPaginas > 1 && (
+
+
+            <div className="px-6 py-4 border-t flex items-center justify-between text-sm text-gray-600">
+
+
+              <span>Página {pagina} de {totalPaginas} — {totalRegistros} registros</span>
+
+
+              <div className="flex gap-2">
+
+
+                <button disabled={pagina === 1} onClick={() => setPagina(p => p - 1)}
+
+
+                  className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-40">
+
+
+                  <FontAwesomeIcon icon={faChevronLeft} />
+
+
+                </button>
+
+
+                <button disabled={pagina === totalPaginas} onClick={() => setPagina(p => p + 1)}
+
+
+                  className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-40">
+
+
+                  <FontAwesomeIcon icon={faChevronRight} />
+
+
+                </button>
+
+
+              </div>
+
+
+            </div>
+
+
+          )}
+
+
         </div>
 
-        {/* Rodapé com contagem */}
-        <div className="mt-4 text-sm text-gray-600 text-center">
-          Mostrando {solicitacoesFiltradas.length} de {solicitacoes.length} solicitações
-        </div>
+
+
+
+
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+
+            MODAL — NOVA SOLICITAÇÃO
+
+
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+
+
+        {showNova && (
+
+
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+
+
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+
+
+              <div className="flex items-center justify-between px-6 py-4 border-b">
+
+
+                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+
+
+                  <FontAwesomeIcon icon={faPaperPlane} className="text-teal-600" />
+
+
+                  Nova Solicitação
+
+
+                </h2>
+
+
+                <button onClick={() => setShowNova(false)} className="text-gray-400 hover:text-gray-600">
+
+
+                  <FontAwesomeIcon icon={faTimes} />
+
+
+                </button>
+
+
+              </div>
+
+
+
+
+
+              <div className="p-6 space-y-4">
+
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+                  <div className="md:col-span-2">
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+
+
+                    <input type="text" value={formNova.titulo}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, titulo: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+
+
+                      placeholder="Descreva brevemente a demanda" />
+
+
+                  </div>
+
+
+
+
+
+                  <div>
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Solicitante *</label>
+
+
+                    <input type="text" value={formNova.solicitante}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, solicitante: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+
+
+                      placeholder="Nome do líder / morador" />
+
+
+                  </div>
+
+
+
+
+
+                  <div>
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Solicitante</label>
+
+
+                    <select value={formNova.tipo_solicitante}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, tipo_solicitante: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+
+
+                      <option value="LIDERANCA">Liderança Regional</option>
+
+
+                      <option value="MORADOR">Morador</option>
+
+
+                      <option value="FUNCIONARIO">Funcionário</option>
+
+
+                    </select>
+
+
+                  </div>
+
+
+
+
+
+                  <div>
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+
+
+                    <select value={formNova.categoria}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, categoria: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+
+
+                      <option value="">Selecione...</option>
+
+
+                      {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+
+
+                    </select>
+
+
+                  </div>
+
+
+
+
+
+                  <div>
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+
+
+                    <select value={formNova.prioridade}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, prioridade: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+
+
+                      <option value="URGENTE">Urgente</option>
+
+
+                      <option value="ALTA">Alta</option>
+
+
+                      <option value="MÉDIA">Média</option>
+
+
+                      <option value="BAIXA">Baixa</option>
+
+
+                    </select>
+
+
+                  </div>
+
+
+
+
+
+                  <div>
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Município</label>
+
+
+                    <input type="text" value={formNova.municipio}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, municipio: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+
+
+                  </div>
+
+
+
+
+
+                  <div>
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bairro</label>
+
+
+                    <input type="text" value={formNova.bairro}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, bairro: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+
+
+                  </div>
+
+
+
+
+
+                  <div className="md:col-span-2">
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição detalhada</label>
+
+
+                    <textarea rows={4} value={formNova.descricao}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, descricao: e.target.value }))}
+
+
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 resize-none"
+
+
+                      placeholder="Detalhe a demanda do líder regional..." />
+
+
+                  </div>
+
+
+                </div>
+
+
+              </div>
+
+
+
+
+
+              <div className="px-6 py-4 border-t flex justify-end gap-3">
+
+
+                <button onClick={() => setShowNova(false)}
+
+
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+
+
+                  Cancelar
+
+
+                </button>
+
+
+                <button onClick={handleCriar} disabled={salvando}
+
+
+                  className="px-5 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold flex items-center gap-2 disabled:opacity-60">
+
+
+                  {salvando ? <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> : <FontAwesomeIcon icon={faPaperPlane} />}
+
+
+                  Registrar
+
+
+                </button>
+
+
+              </div>
+
+
+            </div>
+
+
+          </div>
+
+
+        )}
+
+
+
+
+
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+
+            MODAL — GERENCIAR SOLICITAÇÃO
+
+
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+
+
+        {solAtiva && (
+
+
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+
+
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+
+
+              <div className="flex items-center justify-between px-6 py-4 border-b">
+
+
+                <h2 className="text-lg font-bold text-gray-800">Gerenciar Solicitação</h2>
+
+
+                <button onClick={() => setSolAtiva(null)} className="text-gray-400 hover:text-gray-600">
+
+
+                  <FontAwesomeIcon icon={faTimes} />
+
+
+                </button>
+
+
+              </div>
+
+
+
+
+
+              <div className="p-6 space-y-4">
+
+
+                {/* Detalhes resumidos */}
+
+
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+
+
+                  <div className="flex items-start gap-2">
+
+
+                    <span className="font-semibold text-gray-600 w-24 shrink-0">Protocolo:</span>
+
+
+                    <span className="text-gray-800 font-mono">{solAtiva.protocolo}</span>
+
+
+                  </div>
+
+
+                  <div className="flex items-start gap-2">
+
+
+                    <span className="font-semibold text-gray-600 w-24 shrink-0">Título:</span>
+
+
+                    <span className="text-gray-800">{solAtiva.titulo}</span>
+
+
+                  </div>
+
+
+                  <div className="flex items-start gap-2">
+
+
+                    <span className="font-semibold text-gray-600 w-24 shrink-0">Solicitante:</span>
+
+
+                    <span className="text-gray-800">{solAtiva.solicitante}</span>
+
+
+                  </div>
+
+
+                  <div className="flex items-center gap-3 pt-1">
+
+
+                    <PrioridadeBadge prioridade={solAtiva.prioridade} />
+
+
+                    <StatusBadge status={solAtiva.status} />
+
+
+                  </div>
+
+
+                  {solAtiva.descricao && (
+
+
+                    <p className="text-gray-600 text-xs mt-2 border-t pt-2">{solAtiva.descricao}</p>
+
+
+                  )}
+
+
+                </div>
+
+
+
+
+
+                {/* Observações */}
+
+
+                <div>
+
+
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações / Resposta</label>
+
+
+                  <textarea rows={3} value={obsGerenciar} onChange={e => setObsGerenciar(e.target.value)}
+
+
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 resize-none text-sm"
+
+
+                    placeholder="Adicione um comentário sobre o atendimento..." />
+
+
+                </div>
+
+
+
+
+
+                {/* Botões de ação por status */}
+
+
+                <div className="space-y-2">
+
+
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Alterar status para:</p>
+
+
+                  <div className="grid grid-cols-2 gap-2">
+
+
+                    {solAtiva.status !== 'RECEBIDO' && (
+
+
+                      <button onClick={() => alterarStatus(solAtiva.id, 'RECEBIDO')} disabled={atualizando}
+
+
+                        className="px-4 py-2 bg-yellow-500 text-white text-sm rounded-lg hover:bg-yellow-600 font-semibold disabled:opacity-60">
+
+
+                        Marcar como Recebido
+
+
+                      </button>
+
+
+                    )}
+
+
+                    {solAtiva.status !== 'ATENDIDO' && (
+
+
+                      <button onClick={() => alterarStatus(solAtiva.id, 'ATENDIDO')} disabled={atualizando}
+
+
+                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+
+
+                        <FontAwesomeIcon icon={faCheckCircle} /> Atendido
+
+
+                      </button>
+
+
+                    )}
+
+
+                    {solAtiva.status !== 'RECUSADO' && (
+
+
+                      <button onClick={() => alterarStatus(solAtiva.id, 'RECUSADO')} disabled={atualizando}
+
+
+                        className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+
+
+                        <FontAwesomeIcon icon={faBan} /> Recusar
+
+
+                      </button>
+
+
+                    )}
+
+
+                    {solAtiva.status !== 'NOVO' && (
+
+
+                      <button onClick={() => alterarStatus(solAtiva.id, 'NOVO')} disabled={atualizando}
+
+
+                        className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-100 font-semibold disabled:opacity-60">
+
+
+                        Reabrir (Novo)
+
+
+                      </button>
+
+
+                    )}
+
+
+                  </div>
+
+
+                  {atualizando && (
+
+
+                    <div className="text-center text-teal-600 text-sm flex items-center justify-center gap-2">
+
+
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin" /> Salvando...
+
+
+                    </div>
+
+
+                  )}
+
+
+                </div>
+
+
+              </div>
+
+
+            </div>
+
+
+          </div>
+
+
+        )}
+
+
       </Layout>
+
+
     </ProtectedRoute>
+
+
   );
+
+
 }
+
+
+
+
+

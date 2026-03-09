@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -12,47 +12,11 @@ export default function Lancamentos() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
-  const [lancamentos, setLancamentos] = useState([
-    {
-      id: 1,
-      codigo: 'LAN-2024-001',
-      data: '2024-11-15',
-      tipo: 'DOACAO',
-      categoria: 'Doação Campanha',
-      doador: 'João Silva Santos',
-      valor: 5000.00,
-      formaPagamento: 'PIX',
-      descricao: 'Doação para campanha eleitoral 2024',
-      comprovante: 'COMP-001.pdf',
-      status: 'CONFIRMADO'
-    },
-    {
-      id: 2,
-      codigo: 'LAN-2024-002',
-      data: '2024-11-18',
-      tipo: 'EMENDA',
-      categoria: 'Emenda Parlamentar',
-      doador: 'Governo Federal',
-      valor: 150000.00,
-      formaPagamento: 'TRANSFERENCIA',
-      descricao: 'Repasse da Emenda 2024-001 - 1ª Parcela',
-      comprovante: 'COMP-002.pdf',
-      status: 'CONFIRMADO'
-    },
-    {
-      id: 3,
-      codigo: 'LAN-2024-003',
-      data: '2024-11-20',
-      tipo: 'DOACAO',
-      categoria: 'Doação Campanha',
-      doador: 'Maria Costa Oliveira',
-      valor: 3000.00,
-      formaPagamento: 'DINHEIRO',
-      descricao: 'Contribuição para campanha',
-      comprovante: null,
-      status: 'PENDENTE'
-    }
-  ]);
+  const [lancamentos, setLancamentos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 10;
 
   const [filtro, setFiltro] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('TODOS');
@@ -60,21 +24,57 @@ export default function Lancamentos() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
 
-  const lancamentosFiltrados = lancamentos.filter(lanc => {
-    const matchFiltro = filtro === '' || 
-      lanc.codigo.toLowerCase().includes(filtro.toLowerCase()) ||
-      lanc.doador.toLowerCase().includes(filtro.toLowerCase()) ||
-      lanc.descricao.toLowerCase().includes(filtro.toLowerCase());
-    const matchTipo = tipoFiltro === 'TODOS' || lanc.tipo === tipoFiltro;
-    const matchStatus = statusFiltro === 'TODOS' || lanc.status === statusFiltro;
-    const matchDataInicio = !dataInicio || lanc.data >= dataInicio;
-    const matchDataFim = !dataFim || lanc.data <= dataFim;
-    return matchFiltro && matchTipo && matchStatus && matchDataInicio && matchDataFim;
-  });
+  useEffect(() => {
+    carregarLancamentos();
+  }, [filtro, tipoFiltro, statusFiltro, dataInicio, dataFim, paginaAtual]);
 
-  const totalLancamentos = lancamentosFiltrados.reduce((acc, l) => acc + l.valor, 0);
-  const totalConfirmado = lancamentosFiltrados.filter(l => l.status === 'CONFIRMADO').reduce((acc, l) => acc + l.valor, 0);
-  const totalPendente = lancamentosFiltrados.filter(l => l.status === 'PENDENTE').reduce((acc, l) => acc + l.valor, 0);
+  const carregarLancamentos = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set('limit', String(itensPorPagina));
+      params.set('offset', String((paginaAtual - 1) * itensPorPagina));
+      if (filtro) params.set('search', filtro);
+      if (tipoFiltro && tipoFiltro !== 'TODOS') params.set('tipo', tipoFiltro);
+      if (statusFiltro && statusFiltro !== 'TODOS') params.set('status', statusFiltro);
+      if (dataInicio) params.set('data_from', dataInicio);
+      if (dataFim) params.set('data_to', dataFim);
+
+      const usuario = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+
+      const response = await fetch(`/api/financeiro/lancamentos?${params.toString()}`, {
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao carregar lancamentos');
+      }
+
+      setLancamentos(data.data || []);
+      setTotalRegistros(data.total || 0);
+    } catch (error) {
+      showError('Erro ao carregar lancamentos: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const lancamentosFiltrados = lancamentos;
+
+  const totalLancamentos = lancamentosFiltrados.reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  const totalConfirmado = lancamentosFiltrados.filter(l => l.status === 'CONFIRMADO').reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  const totalPendente = lancamentosFiltrados.filter(l => l.status === 'PENDENTE').reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / itensPorPagina));
+
+  const irParaPagina = (pagina) => {
+    if (pagina < 1 || pagina > totalPaginas) return;
+    setPaginaAtual(pagina);
+  };
 
   const formatarValor = (valor) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
@@ -95,9 +95,30 @@ export default function Lancamentos() {
 
   const handleExcluir = (id) => {
     showConfirm('Tem certeza que deseja excluir este lançamento?', () => {
-      setLancamentos(lancamentos.filter(l => l.id !== id));
-      showSuccess('Lançamento excluído com sucesso!');
+      excluirLancamento(id);
     });
+  };
+
+  const excluirLancamento = async (id) => {
+    try {
+      const usuario = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+      const response = await fetch(`/api/financeiro/lancamentos/${id}`, {
+        method: 'DELETE',
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao excluir lancamento');
+      }
+      showSuccess('Lancamento excluido com sucesso!');
+      carregarLancamentos();
+    } catch (error) {
+      showError('Erro ao excluir lancamento: ' + error.message);
+    }
   };
 
   const handleGerarRelatorio = (formato) => {
@@ -242,86 +263,112 @@ export default function Lancamentos() {
 
       {/* Tabela */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doador/Origem</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {lancamentosFiltrados.map((lanc) => (
-                <tr key={lanc.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {lanc.codigo}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-gray-400" />
-                    {formatarData(lanc.data)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      lanc.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-800' :
-                      lanc.tipo === 'EMENDA' ? 'bg-purple-100 text-purple-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {lanc.tipo}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    <FontAwesomeIcon icon={faUser} className="mr-2 text-gray-400" />
-                    {lanc.doador}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {lanc.categoria}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
-                    {formatarValor(lanc.valor)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      lanc.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' :
-                      lanc.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {lanc.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => handleEditar(lanc.id)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                      title="Editar"
-                    >
-                      <FontAwesomeIcon icon={faEdit} />
-                    </button>
-                    <button
-                      onClick={() => handleExcluir(lanc.id)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Excluir"
-                    >
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                  </td>
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Carregando lancamentos...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doador/Origem</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {lancamentosFiltrados.map((lanc) => (
+                  <tr key={lanc.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {lanc.codigo}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-gray-400" />
+                      {formatarData(lanc.data_lancamento)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        lanc.tipo === 'DOACAO' ? 'bg-blue-100 text-blue-800' :
+                        lanc.tipo === 'EMENDA' ? 'bg-purple-100 text-purple-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {lanc.tipo}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <FontAwesomeIcon icon={faUser} className="mr-2 text-gray-400" />
+                      {lanc.parceiro_nome || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {lanc.categoria}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                      {formatarValor(lanc.valor)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        lanc.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' :
+                        lanc.status === 'PENDENTE' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {lanc.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleEditar(lanc.id)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                        title="Editar"
+                      >
+                        <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                      <button
+                        onClick={() => handleExcluir(lanc.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Excluir"
+                      >
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {lancamentosFiltrados.length === 0 && (
+        {!loading && lancamentosFiltrados.length === 0 && (
           <div className="text-center py-8 text-gray-500">
-            Nenhum lançamento encontrado
+            Nenhum lancamento encontrado
           </div>
         )}
       </div>
+
+      {!loading && totalPaginas > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => irParaPagina(paginaAtual - 1)}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50"
+            disabled={paginaAtual <= 1}
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-gray-600">
+            Pagina {paginaAtual} de {totalPaginas}
+          </span>
+          <button
+            onClick={() => irParaPagina(paginaAtual + 1)}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50"
+            disabled={paginaAtual >= totalPaginas}
+          >
+            Proxima
+          </button>
+        </div>
+      )}
     </Layout>
   );
 }

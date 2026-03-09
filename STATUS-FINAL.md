@@ -6,21 +6,24 @@
 
 ---
 
-## 🗓️ Atualizacoes Recentes (28/02/2026)
+## 🗓️ Atualizacoes Recentes (04/03/2026)
 
-- Atendimentos: filtros por campanha/periodo/lideranca e PDF com cabecalho filtrado e metricas por campanha.
-- Campanhas: contagem de servicos usados/disponiveis calculada no backend e exibida na interface.
-- Dashboard: dados reais via API e novos graficos de eleitores por dia e campanhas do mes (barras).
-- Infra: endpoints de estatisticas e graficos adicionados.
+- IA: widget Maia com imagem, reset, auto-scroll e pulso; suporte a OpenAI e Groq com seletor de provedor.
+- Config IA: arquivo privado removido do git e template criado; usar env vars no Vercel.
+- Liderancas: formularios alinhados ao schema; municipio/bairro adicionados; edicao preenche dados pessoais via eleitor.
+- Migracoes: novas colunas em agenda_eventos, campanhas e liderancas.
 
 Arquivos impactados:
-- src/pages/dashboard.js
-- src/pages/cadastros/atendimentos/index.js
-- src/pages/api/cadastros/atendimentos/index.js
-- src/pages/api/cadastros/atendimentos/[id].js
-- src/pages/api/dashboard/stats.js
-- src/pages/api/dashboard/charts.js
-- scripts/execute-migration-204.js
+- src/components/AIChatWidget.js
+- src/pages/api/ai/chat.js
+- src/pages/api/ai/validate.js
+- src/pages/configuracoes/sistema.js
+- src/pages/cadastros/liderancas/novo.js
+- src/pages/cadastros/liderancas/[id].js
+- src/services/liderancaService.js
+- supabase/migrations/214_add_municipio_to_agenda_eventos.sql
+- supabase/migrations/215_add_municipio_to_campanhas.sql
+- supabase/migrations/216_add_municipio_bairro_to_liderancas.sql
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

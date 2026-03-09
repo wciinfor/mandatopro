@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faWallet, faArrowUp, faArrowDown, faChartLine, faFilePdf, faFileExcel
@@ -8,32 +8,111 @@ import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 
 export default function CaixaSaldo() {
-  const { modalState, closeModal, showSuccess } = useModal();
+  const { modalState, closeModal, showSuccess, showError } = useModal();
   
   const [periodo, setPeriodo] = useState('MES_ATUAL');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [resumo, setResumo] = useState({
+    total_receitas: 0,
+    total_despesas: 0,
+    saldo_liquido: 0,
+    total_pendente: 0
+  });
+  const [movimentacoes, setMovimentacoes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 10;
+  const [totalRegistros, setTotalRegistros] = useState(0);
 
-  // Dados de exemplo
-  const saldoAtual = 72500.00;
-  const totalReceitas = 158000.00;
-  const totalDespesas = 93800.00;
-  const saldoPendente = 8500.00;
+  useEffect(() => {
+    carregarCaixa();
+  }, [periodo, dataInicio, dataFim, paginaAtual]);
 
-  const movimentacoes = [
-    { id: 1, data: '2024-11-20', tipo: 'ENTRADA', descricao: 'Doação - Maria Costa', valor: 3000.00, saldo: 72500.00 },
-    { id: 2, data: '2024-11-18', tipo: 'SAIDA', descricao: 'Pagamento Buffet & Eventos', valor: -1800.00, saldo: 69500.00 },
-    { id: 3, data: '2024-11-18', tipo: 'ENTRADA', descricao: 'Repasse Emenda 2024-001', valor: 150000.00, saldo: 71300.00 },
-    { id: 4, data: '2024-11-15', tipo: 'ENTRADA', descricao: 'Doação - João Silva', valor: 5000.00, saldo: -78700.00 },
-    { id: 5, data: '2024-11-10', tipo: 'SAIDA', descricao: 'Gráfica Digital Ltda', valor: -2500.00, saldo: -83700.00 }
-  ];
+  const formatarDataISO = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const obterRangePeriodo = () => {
+    const hoje = new Date();
+    if (periodo === 'PERSONALIZADO') {
+      return {
+        data_from: dataInicio || '',
+        data_to: dataFim || ''
+      };
+    }
+    if (periodo === 'MES_ATUAL') {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(fim) };
+    }
+    if (periodo === 'MES_ANTERIOR') {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(fim) };
+    }
+    if (periodo === 'TRIMESTRE') {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(hoje) };
+    }
+    if (periodo === 'ANO') {
+      const inicio = new Date(hoje.getFullYear(), 0, 1);
+      const fim = new Date(hoje.getFullYear(), 11, 31);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(fim) };
+    }
+    return { data_from: '', data_to: '' };
+  };
+
+  const carregarCaixa = async () => {
+    try {
+      setLoading(true);
+      const { data_from, data_to } = obterRangePeriodo();
+      const params = new URLSearchParams();
+      params.set('limit', String(itensPorPagina));
+      params.set('offset', String((paginaAtual - 1) * itensPorPagina));
+      if (data_from) params.set('data_from', data_from);
+      if (data_to) params.set('data_to', data_to);
+
+      const usuario = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+
+      const response = await fetch(`/api/financeiro/caixa?${params.toString()}`, {
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao carregar caixa');
+      }
+      setResumo(data.resumo || { total_receitas: 0, total_despesas: 0, saldo_liquido: 0, total_pendente: 0 });
+      setMovimentacoes(data.movimentos || []);
+      setTotalRegistros(data.total || 0);
+    } catch (error) {
+      showError('Erro ao carregar caixa: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / itensPorPagina));
+
+  const irParaPagina = (pagina) => {
+    if (pagina < 1 || pagina > totalPaginas) return;
+    setPaginaAtual(pagina);
+  };
 
   const formatarValor = (valor) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
   };
 
   const formatarData = (data) => {
-    return new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
+    if (!data) return '-';
+    return new Date(String(data).slice(0, 10) + 'T00:00:00').toLocaleDateString('pt-BR');
   };
 
   const handleGerarRelatorio = (formato) => {
@@ -60,7 +139,7 @@ export default function CaixaSaldo() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Saldo Atual</p>
-              <p className="text-2xl font-bold text-teal-600">{formatarValor(saldoAtual)}</p>
+              <p className="text-2xl font-bold text-teal-600">{formatarValor(resumo.saldo_liquido)}</p>
             </div>
             <FontAwesomeIcon icon={faWallet} className="text-4xl text-teal-500" />
           </div>
@@ -70,7 +149,7 @@ export default function CaixaSaldo() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Receitas</p>
-              <p className="text-2xl font-bold text-green-600">{formatarValor(totalReceitas)}</p>
+              <p className="text-2xl font-bold text-green-600">{formatarValor(resumo.total_receitas)}</p>
             </div>
             <FontAwesomeIcon icon={faArrowUp} className="text-4xl text-green-500" />
           </div>
@@ -80,7 +159,7 @@ export default function CaixaSaldo() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Despesas</p>
-              <p className="text-2xl font-bold text-red-600">{formatarValor(totalDespesas)}</p>
+              <p className="text-2xl font-bold text-red-600">{formatarValor(resumo.total_despesas)}</p>
             </div>
             <FontAwesomeIcon icon={faArrowDown} className="text-4xl text-red-500" />
           </div>
@@ -90,7 +169,7 @@ export default function CaixaSaldo() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Saldo Líquido</p>
-              <p className="text-2xl font-bold text-blue-600">{formatarValor(totalReceitas - totalDespesas)}</p>
+              <p className="text-2xl font-bold text-blue-600">{formatarValor(resumo.saldo_liquido)}</p>
             </div>
             <FontAwesomeIcon icon={faChartLine} className="text-4xl text-blue-500" />
           </div>
@@ -161,56 +240,86 @@ export default function CaixaSaldo() {
       {/* Extrato de Movimentações */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800">Extrato de Movimentações</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Extrato de Movimentacoes</h3>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {movimentacoes.map((mov) => (
-                <tr key={mov.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {formatarData(mov.data)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {mov.tipo === 'ENTRADA' ? (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
-                        <FontAwesomeIcon icon={faArrowUp} className="mr-1" />
-                        ENTRADA
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
-                        <FontAwesomeIcon icon={faArrowDown} className="mr-1" />
-                        SAÍDA
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {mov.descricao}
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${
-                    mov.tipo === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {formatarValor(mov.valor)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">
-                    {formatarValor(mov.saldo)}
-                  </td>
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Carregando movimentacoes...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descricao</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {movimentacoes.map((mov) => (
+                  <tr key={`${mov.origem}-${mov.id}`} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {formatarData(mov.data_movimento)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {mov.direcao === 'ENTRADA' ? (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
+                          <FontAwesomeIcon icon={faArrowUp} className="mr-1" />
+                          ENTRADA
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
+                          <FontAwesomeIcon icon={faArrowDown} className="mr-1" />
+                          SAIDA
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {mov.descricao || mov.parceiro_nome || '-'}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-semibold ${
+                      mov.direcao === 'ENTRADA' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {formatarValor(mov.valor)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">
+                      {formatarValor(mov.saldo_atual)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && movimentacoes.length === 0 && (
+          <div className="text-center py-8 text-gray-500">Nenhuma movimentacao encontrada</div>
+        )}
       </div>
+
+      {!loading && totalPaginas > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => irParaPagina(paginaAtual - 1)}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50"
+            disabled={paginaAtual <= 1}
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-gray-600">
+            Pagina {paginaAtual} de {totalPaginas}
+          </span>
+          <button
+            onClick={() => irParaPagina(paginaAtual + 1)}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50"
+            disabled={paginaAtual >= totalPaginas}
+          >
+            Proxima
+          </button>
+        </div>
+      )}
     </Layout>
   );
 }

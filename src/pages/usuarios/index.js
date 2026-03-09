@@ -1,81 +1,82 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsers, faPlus, faEdit, faTrash, faSearch, faUserShield, faKey, faCrown, faUserTie, faUser, faLock, faUnlock
 } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { ROLES, ROLE_DESCRIPTIONS, getRoleColor } from '@/utils/permissions';
+import { MODULES, ROLES, ROLE_DESCRIPTIONS, getRoleColor } from '@/utils/permissions';
 
 export default function Usuarios() {
   const router = useRouter();
-  const { modalState, closeModal, showConfirm, showSuccess } = useModal();
+  const { modalState, closeModal, showConfirm, showSuccess, showError } = useModal();
+
+  // Estado
+  const [usuarios, setUsuarios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 10;
 
   // Filtros
   const [busca, setBusca] = useState('');
   const [filtroNivel, setFiltroNivel] = useState('TODOS');
   const [filtroStatus, setFiltroStatus] = useState('ATIVO');
 
-  // Dados mock de usuários
-  const [usuarios, setUsuarios] = useState([
-    {
-      id: 1,
-      nome: 'Admin Sistema',
-      email: 'admin@mandatopro.com',
-      nivel: ROLES.ADMINISTRADOR,
-      status: 'ATIVO',
-      liderancaVinculada: null,
-      dataCadastro: '2024-01-15',
-      ultimoAcesso: '2024-01-20 14:30'
-    },
-    {
-      id: 2,
-      nome: 'João Silva Santos',
-      email: 'joao.silva@mandatopro.com',
-      nivel: ROLES.LIDERANCA,
-      status: 'ATIVO',
-      liderancaVinculada: null,
-      dataCadastro: '2024-02-10',
-      ultimoAcesso: '2024-01-20 10:15'
-    },
-    {
-      id: 3,
-      nome: 'Maria Costa Oliveira',
-      email: 'maria.costa@mandatopro.com',
-      nivel: ROLES.OPERADOR,
-      status: 'ATIVO',
-      liderancaVinculada: 2, // Vinculado ao João Silva
-      dataCadastro: '2024-03-05',
-      ultimoAcesso: '2024-01-20 09:45'
-    },
-    {
-      id: 4,
-      nome: 'Carlos Mendes',
-      email: 'carlos.mendes@mandatopro.com',
-      nivel: ROLES.OPERADOR,
-      status: 'INATIVO',
-      liderancaVinculada: 2,
-      dataCadastro: '2024-02-20',
-      ultimoAcesso: '2024-01-15 16:20'
-    }
-  ]);
+  const carregarUsuarios = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set('limit', String(itensPorPagina));
+      params.set('offset', String((paginaAtual - 1) * itensPorPagina));
+      if (busca) params.set('search', busca);
+      if (filtroNivel && filtroNivel !== 'TODOS') params.set('nivel', filtroNivel);
+      if (filtroStatus && filtroStatus !== 'TODOS') params.set('status', filtroStatus);
 
-  const usuariosFiltrados = usuarios.filter(usuario => {
-    const matchBusca = busca === '' || 
-      usuario.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      usuario.email.toLowerCase().includes(busca.toLowerCase());
-    const matchNivel = filtroNivel === 'TODOS' || usuario.nivel === filtroNivel;
-    const matchStatus = usuario.status === filtroStatus;
-    return matchBusca && matchNivel && matchStatus;
-  });
+      const usuario = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+
+      const response = await fetch(`/api/usuarios?${params.toString()}`, {
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao carregar usuarios');
+      }
+
+      setUsuarios(data.data || []);
+      setTotalRegistros(data.total || 0);
+    } catch (error) {
+      showError('Erro ao carregar usuarios: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarUsuarios();
+  }, [busca, filtroNivel, filtroStatus, paginaAtual]);
+
+  const usuariosFiltrados = usuarios;
 
   const totalUsuarios = usuarios.length;
   const totalAdmins = usuarios.filter(u => u.nivel === ROLES.ADMINISTRADOR).length;
   const totalLiderancas = usuarios.filter(u => u.nivel === ROLES.LIDERANCA).length;
   const totalOperadores = usuarios.filter(u => u.nivel === ROLES.OPERADOR).length;
   const totalAtivos = usuarios.filter(u => u.status === 'ATIVO').length;
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / itensPorPagina));
+
+  const irParaPagina = (pagina) => {
+    if (pagina < 1 || pagina > totalPaginas) return;
+    setPaginaAtual(pagina);
+  };
 
   const handleNovo = () => {
     router.push('/usuarios/novo');
@@ -87,63 +88,117 @@ export default function Usuarios() {
 
   const handleExcluir = (usuario) => {
     showConfirm(
-      'Confirmar Exclusão',
-      `Tem certeza que deseja excluir o usuário "${usuario.nome}"? Esta ação não poderá ser desfeita.`,
+      'Confirmar Exclusao',
+      `Tem certeza que deseja desativar o usuario "${usuario.nome}"?`,
       () => {
-        setUsuarios(usuarios.filter(u => u.id !== usuario.id));
-        showSuccess('Usuário excluído com sucesso!');
+        excluirUsuario(usuario.id);
       }
     );
+  };
+
+  const excluirUsuario = async (id) => {
+    try {
+      const usuarioLocal = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+      const response = await fetch(`/api/usuarios/${id}`, {
+        method: 'DELETE',
+        headers: {
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao desativar usuario');
+      }
+      showSuccess('Usuario desativado com sucesso!');
+      carregarUsuarios();
+    } catch (error) {
+      showError('Erro ao desativar usuario: ' + error.message);
+    }
   };
 
   const handleAlterarStatus = (usuario) => {
     const novoStatus = usuario.status === 'ATIVO' ? 'INATIVO' : 'ATIVO';
     const acao = novoStatus === 'ATIVO' ? 'ativar' : 'desativar';
-    
+
     showConfirm(
       `Confirmar ${acao.charAt(0).toUpperCase() + acao.slice(1)}`,
-      `Tem certeza que deseja ${acao} o usuário "${usuario.nome}"?`,
+      `Tem certeza que deseja ${acao} o usuario "${usuario.nome}"?`,
       () => {
-        setUsuarios(usuarios.map(u => 
-          u.id === usuario.id ? { ...u, status: novoStatus } : u
-        ));
-        showSuccess(`Usuário ${novoStatus === 'ATIVO' ? 'ativado' : 'desativado'} com sucesso!`);
+        atualizarStatusUsuario(usuario.id, novoStatus);
       }
     );
+  };
+
+  const atualizarStatusUsuario = async (id, status) => {
+    try {
+      const usuarioLocal = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+      const response = await fetch(`/api/usuarios/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        },
+        body: JSON.stringify({ status })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao atualizar status');
+      }
+      showSuccess('Status atualizado com sucesso!');
+      carregarUsuarios();
+    } catch (error) {
+      showError('Erro ao atualizar status: ' + error.message);
+    }
   };
 
   const handleResetarSenha = (usuario) => {
     showConfirm(
       'Resetar Senha',
-      `Deseja resetar a senha do usuário "${usuario.nome}"? Uma nova senha temporária será gerada e enviada por email.`,
+      `Deseja gerar um link de recuperacao para "${usuario.nome}"?`,
       () => {
-        // Gerar senha temporária (6 caracteres aleatórios)
-        const senhaTemporaria = Math.random().toString(36).slice(-8).toUpperCase();
-        
-        // Aqui você integraria com sua API/Supabase para:
-        // 1. Atualizar a senha no banco de dados
-        // 2. Enviar email com a nova senha
-        
-        console.log(`Senha temporária gerada para ${usuario.email}: ${senhaTemporaria}`);
-        
-        // Atualizar o usuário localmente (simulação)
-        setUsuarios(usuarios.map(u => 
-          u.id === usuario.id 
-            ? { ...u, senhaTemporaria: senhaTemporaria, deveAlterarSenha: true }
-            : u
-        ));
-        
-        showSuccess(
-          `Senha resetada com sucesso!\n\nSenha temporária: ${senhaTemporaria}\n\nO usuário deverá alterar a senha no próximo acesso.\n\n(Em produção, esta senha seria enviada por email)`
-        );
+        resetarSenhaUsuario(usuario.id);
       }
     );
   };
 
+  const resetarSenhaUsuario = async (id) => {
+    try {
+      const usuarioLocal = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+      const response = await fetch(`/api/usuarios/${id}/reset-senha`, {
+        method: 'POST',
+        headers: {
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao gerar link');
+      }
+      const linkInfo = data.actionLink ? `\n\nLink: ${data.actionLink}` : '';
+      showSuccess(`Link de recuperacao gerado.${linkInfo}`);
+    } catch (error) {
+      showError('Erro ao resetar senha: ' + error.message);
+    }
+  };
+
   const getLiderancaNome = (liderancaId) => {
     if (!liderancaId) return '-';
-    const lideranca = usuarios.find(u => u.id === liderancaId);
-    return lideranca ? lideranca.nome : 'Não encontrado';
+    return `#${liderancaId}`;
+  };
+
+  const formatarDataHora = (dataHora) => {
+    if (!dataHora) return '-';
+    try {
+      return new Date(dataHora).toLocaleString('pt-BR');
+    } catch (error) {
+      return '-';
+    }
   };
 
   const getRoleIcon = (nivel) => {
@@ -160,7 +215,8 @@ export default function Usuarios() {
   };
 
   return (
-    <Layout titulo="Gerenciamento de Usuários">
+    <ProtectedRoute module={MODULES.USUARIOS}>
+      <Layout titulo="Gerenciamento de Usuários">
       <Modal
         isOpen={modalState.isOpen}
         onClose={closeModal}
@@ -283,119 +339,145 @@ export default function Usuarios() {
 
       {/* Tabela de Usuários */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Usuário
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nível de Acesso
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Liderança Vinculada
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Último Acesso
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {usuariosFiltrados.map((usuario) => (
-                <tr key={usuario.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-teal-100 rounded-full flex items-center justify-center">
-                        <FontAwesomeIcon icon={getRoleIcon(usuario.nivel)} className="text-teal-600" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{usuario.nome}</div>
-                        <div className="text-sm text-gray-500">ID: {usuario.id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{usuario.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(usuario.nivel)}`}>
-                      {usuario.nivel}
-                    </span>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {ROLE_DESCRIPTIONS[usuario.nivel]}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {getLiderancaNome(usuario.liderancaVinculada)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      usuario.status === 'ATIVO' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {usuario.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {usuario.ultimoAcesso}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => handleEditar(usuario.id)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Editar"
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button
-                        onClick={() => handleResetarSenha(usuario)}
-                        className="text-yellow-600 hover:text-yellow-900"
-                        title="Resetar Senha"
-                      >
-                        <FontAwesomeIcon icon={faKey} />
-                      </button>
-                      <button
-                        onClick={() => handleAlterarStatus(usuario)}
-                        className={usuario.status === 'ATIVO' ? 'text-orange-600 hover:text-orange-900' : 'text-green-600 hover:text-green-900'}
-                        title={usuario.status === 'ATIVO' ? 'Desativar' : 'Ativar'}
-                      >
-                        <FontAwesomeIcon icon={usuario.status === 'ATIVO' ? faLock : faUnlock} />
-                      </button>
-                      <button
-                        onClick={() => handleExcluir(usuario)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Excluir"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="text-center py-12 text-gray-500">Carregando usuarios...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Usuario
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nivel de Acesso
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lideranca Vinculada
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ultimo Acesso
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acoes
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {usuariosFiltrados.map((usuario) => (
+                  <tr key={usuario.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-teal-100 rounded-full flex items-center justify-center">
+                          <FontAwesomeIcon icon={getRoleIcon(usuario.nivel)} className="text-teal-600" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{usuario.nome}</div>
+                          <div className="text-sm text-gray-500">ID: {usuario.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{usuario.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(usuario.nivel)}`}>
+                        {usuario.nivel}
+                      </span>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {ROLE_DESCRIPTIONS[usuario.nivel]}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {getLiderancaNome(usuario.lideranca_id)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        usuario.status === 'ATIVO' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {usuario.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatarDataHora(usuario.ultimo_acesso)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleEditar(usuario.id)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Editar"
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button
+                          onClick={() => handleResetarSenha(usuario)}
+                          className="text-yellow-600 hover:text-yellow-900"
+                          title="Resetar Senha"
+                        >
+                          <FontAwesomeIcon icon={faKey} />
+                        </button>
+                        <button
+                          onClick={() => handleAlterarStatus(usuario)}
+                          className={usuario.status === 'ATIVO' ? 'text-orange-600 hover:text-orange-900' : 'text-green-600 hover:text-green-900'}
+                          title={usuario.status === 'ATIVO' ? 'Desativar' : 'Ativar'}
+                        >
+                          <FontAwesomeIcon icon={usuario.status === 'ATIVO' ? faLock : faUnlock} />
+                        </button>
+                        <button
+                          onClick={() => handleExcluir(usuario)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Excluir"
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {usuariosFiltrados.length === 0 && (
+        {!loading && usuariosFiltrados.length === 0 && (
           <div className="text-center py-12">
             <FontAwesomeIcon icon={faUsers} className="text-6xl text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum usuário encontrado</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum usuario encontrado</h3>
             <p className="text-gray-500">Tente ajustar os filtros de busca</p>
           </div>
         )}
       </div>
+
+      {!loading && totalPaginas > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => irParaPagina(paginaAtual - 1)}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50"
+            disabled={paginaAtual <= 1}
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-gray-600">
+            Pagina {paginaAtual} de {totalPaginas}
+          </span>
+          <button
+            onClick={() => irParaPagina(paginaAtual + 1)}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50"
+            disabled={paginaAtual >= totalPaginas}
+          >
+            Proxima
+          </button>
+        </div>
+      )}
 
       {/* Informações sobre Níveis de Acesso */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
@@ -426,6 +508,7 @@ export default function Usuarios() {
           </div>
         </div>
       </div>
-    </Layout>
+      </Layout>
+    </ProtectedRoute>
   );
 }

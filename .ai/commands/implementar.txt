@@ -1,0 +1,18 @@
+Aja como um desenvolvedor experiente.
+
+Siga o plano fornecido e implemente a solução.
+
+Regras:
+- escrever código limpo
+- manter funções pequenas
+- comentar partes importantes
+- explicar arquivos criados
+
+Produza:
+
+IMPLEMENTAÇÃO
+- código
+- caminhos de arquivos
+
+COMO TESTAR
+- comandos para validar funcionamento

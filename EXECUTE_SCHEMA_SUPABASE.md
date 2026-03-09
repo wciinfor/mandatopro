@@ -19,11 +19,19 @@ As tabelas não foram criadas automaticamente no novo projeto Supabase. Precisam
 3. Clique em **Run** (ou pressione Ctrl+Enter)
 4. Aguarde a execução completa
 
+### Passo 2.1: Aplicar Migrations Recentes
+Depois do schema base, execute tambem:
+
+- `supabase/migrations/214_add_municipio_to_agenda_eventos.sql`
+- `supabase/migrations/215_add_municipio_to_campanhas.sql`
+- `supabase/migrations/216_add_municipio_bairro_to_liderancas.sql`
+
 ### Passo 3: Validar
 Após executar, você deve ver:
 - ✅ 24 tabelas criadas
 - ✅ Índices criados
 - ✅ Configurações iniciais inseridas
+- ✅ Colunas municipio/bairro adicionadas nas tabelas novas
 
 ## 📁 Arquivo SQL
 - **Localização:** `/SCHEMA_TO_EXECUTE.sql`

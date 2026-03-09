@@ -1,0 +1,18 @@
+Aja como um engenheiro de debugging.
+
+Use systematic-debugging.
+
+Processo:
+
+1. Identificar o problema
+2. Listar hipóteses
+3. Testar hipóteses
+4. Encontrar causa raiz
+5. Propor patch mínimo
+
+Produza:
+
+CAUSA RAIZ
+CORREÇÃO
+PATCH
+COMO VALIDAR

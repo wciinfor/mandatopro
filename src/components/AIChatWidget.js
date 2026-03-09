@@ -8,7 +8,7 @@ export default function AIChatWidget() {
   const initialMessages = [
     {
       role: 'assistant',
-      content: 'Oi! Sou a Maia, a IA do MandatoPro. Posso consultar campanhas, agenda, liderancas, eleitores, atendimentos e solicitacoes. O que voce precisa?'
+      content: 'Oi! Sou a Maia, atendente virtual. Posso consultar campanhas, agenda, liderancas, eleitores, atendimentos e solicitacoes. O que voce precisa?'
     }
   ];
   const [open, setOpen] = useState(false);
@@ -134,7 +134,7 @@ export default function AIChatWidget() {
         <div className="w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-teal-100 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white">
             <div className="flex items-center gap-2">
-              <img src="/img/ag_ia.png" alt="Maia" className="w-4 h-4" />
+              <img src="/img/ag_ia.png" alt="Maia" className="w-6 h-6" />
               <span className="font-semibold">Maia</span>
             </div>
             <div className="flex items-center gap-2">

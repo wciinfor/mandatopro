@@ -1,20 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChartPie, faChartBar, faFileAlt, faFilePdf, faFileExcel, faCalendarAlt, faDownload
+  faChartPie, faChartBar, faFileAlt, faFilePdf, faFileExcel, faCalendarAlt, faDownload,
+  faArrowUp, faArrowDown, faBalanceScale, faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 
 export default function RelatoriosFinanceiros() {
-  const { modalState, closeModal, showSuccess } = useModal();
+  const { modalState, closeModal, showSuccess, showError } = useModal();
   
   const [tipoRelatorio, setTipoRelatorio] = useState('COMPLETO');
   const [periodo, setPeriodo] = useState('MES_ATUAL');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [agrupamento, setAgrupamento] = useState('CATEGORIA');
+  const [preview, setPreview] = useState(null);
+  const [resumo, setResumo] = useState(null);
+  const [loadingResumo, setLoadingResumo] = useState(true);
+
+  useEffect(() => {
+    carregarResumoMesAtual();
+  }, []);
+
+  const carregarResumoMesAtual = async () => {
+    try {
+      setLoadingResumo(true);
+      const hoje = new Date();
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      const fmt = (d) => d.toISOString().slice(0, 10);
+
+      const usuario = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+
+      const params = new URLSearchParams({
+        tipo: 'totais_periodo',
+        data_from: fmt(inicio),
+        data_to: fmt(fim)
+      });
+
+      const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`, {
+        headers: { usuario: usuario ? JSON.stringify(usuario) : '' }
+      });
+      const data = await response.json();
+      if (response.ok) setResumo(data.data);
+    } catch {
+      // silencioso — cards mostram zero se falhar
+    } finally {
+      setLoadingResumo(false);
+    }
+  };
 
   const relatoriosDisponiveis = [
     {
@@ -83,12 +121,74 @@ export default function RelatoriosFinanceiros() {
     }
   ];
 
-  const handleGerarRelatorio = (tipo, formato) => {
-    showSuccess(`Gerando relatório ${tipo} em formato ${formato}...`);
+  const formatarDataISO = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  const handleVisualizarPrevia = (tipo) => {
-    showSuccess(`Abrindo prévia do relatório ${tipo}...`);
+  const obterRangePeriodo = () => {
+    const hoje = new Date();
+    if (periodo === 'PERSONALIZADO') {
+      return { data_from: dataInicio || '', data_to: dataFim || '' };
+    }
+    if (periodo === 'MES_ATUAL') {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(fim) };
+    }
+    if (periodo === 'MES_ANTERIOR') {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      const fim = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(fim) };
+    }
+    if (periodo === 'TRIMESTRE') {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(hoje) };
+    }
+    if (periodo === 'SEMESTRE') {
+      const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(hoje) };
+    }
+    if (periodo === 'ANO') {
+      const inicio = new Date(hoje.getFullYear(), 0, 1);
+      const fim = new Date(hoje.getFullYear(), 11, 31);
+      return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(fim) };
+    }
+    return { data_from: '', data_to: '' };
+  };
+
+  const handleGerarRelatorio = (tipo, formato) => {
+    showSuccess(`Gerando relatorio ${tipo} em formato ${formato}...`);
+  };
+
+  const handleVisualizarPrevia = async (tipo) => {
+    try {
+      const { data_from, data_to } = obterRangePeriodo();
+      const params = new URLSearchParams();
+      if (tipo === 'FLUXO_CAIXA') params.set('tipo', 'fluxo_caixa');
+      else if (tipo === 'DESPESAS_CATEGORIA' || tipo === 'RECEITAS_CATEGORIA') params.set('tipo', 'por_categoria');
+      else params.set('tipo', 'totais_periodo');
+      if (data_from) params.set('data_from', data_from);
+      if (data_to) params.set('data_to', data_to);
+
+      const usuario = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+
+      const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`, {
+        headers: { usuario: usuario ? JSON.stringify(usuario) : '' }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao gerar previa');
+      }
+
+      setPreview({ tipo, data: data.data });
+    } catch (error) {
+      showError('Erro ao carregar previa: ' + error.message);
+    }
   };
 
   const corClasses = {
@@ -126,6 +226,65 @@ export default function RelatoriosFinanceiros() {
         cancelText={modalState.cancelText}
         showCancel={modalState.showCancel}
       />
+
+      {/* Resumo do Mês Atual */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border-l-4 border-emerald-500 p-5 flex items-center gap-4">
+          <div className="bg-emerald-100 rounded-full p-3">
+            <FontAwesomeIcon icon={faArrowUp} className="text-emerald-600 text-xl" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Receitas (Mês Atual)</p>
+            {loadingResumo ? (
+              <FontAwesomeIcon icon={faSpinner} className="text-gray-400 animate-spin mt-1" />
+            ) : (
+              <p className="text-xl font-bold text-emerald-600">
+                {(resumo?.total_receitas || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border-l-4 border-rose-500 p-5 flex items-center gap-4">
+          <div className="bg-rose-100 rounded-full p-3">
+            <FontAwesomeIcon icon={faArrowDown} className="text-rose-600 text-xl" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Despesas (Mês Atual)</p>
+            {loadingResumo ? (
+              <FontAwesomeIcon icon={faSpinner} className="text-gray-400 animate-spin mt-1" />
+            ) : (
+              <p className="text-xl font-bold text-rose-600">
+                {(resumo?.total_despesas || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className={`bg-white rounded-lg shadow-sm border-l-4 p-5 flex items-center gap-4 ${
+          !loadingResumo && (resumo?.saldo_liquido || 0) < 0 ? 'border-rose-500' : 'border-teal-500'
+        }`}>
+          <div className={`rounded-full p-3 ${
+            !loadingResumo && (resumo?.saldo_liquido || 0) < 0 ? 'bg-rose-100' : 'bg-teal-100'
+          }`}>
+            <FontAwesomeIcon icon={faBalanceScale} className={`text-xl ${
+              !loadingResumo && (resumo?.saldo_liquido || 0) < 0 ? 'text-rose-600' : 'text-teal-600'
+            }`} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Saldo Líquido (Mês Atual)</p>
+            {loadingResumo ? (
+              <FontAwesomeIcon icon={faSpinner} className="text-gray-400 animate-spin mt-1" />
+            ) : (
+              <p className={`text-xl font-bold ${
+                (resumo?.saldo_liquido || 0) < 0 ? 'text-rose-600' : 'text-teal-600'
+              }`}>
+                {(resumo?.saldo_liquido || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Filtros Globais */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -241,6 +400,79 @@ export default function RelatoriosFinanceiros() {
           </div>
         ))}
       </div>
+
+      {preview && (
+        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Previa do Relatorio</h3>
+          {Array.isArray(preview.data) ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {preview.tipo === 'FLUXO_CAIXA' ? (
+                      <>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Entradas</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Saidas</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Categoria</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Entradas</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Saidas</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {preview.data.map((item, index) => (
+                    <tr key={`prev-${index}`}>
+                      {preview.tipo === 'FLUXO_CAIXA' ? (
+                        <>
+                          <td className="px-4 py-2 text-sm text-gray-700">{item.data}</td>
+                          <td className="px-4 py-2 text-sm text-right text-green-700">{item.entradas?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                          <td className="px-4 py-2 text-sm text-right text-red-700">{item.saidas?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                          <td className="px-4 py-2 text-sm text-right text-gray-800">{item.saldo?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-2 text-sm text-gray-700">{item.categoria}</td>
+                          <td className="px-4 py-2 text-sm text-right text-green-700">{item.entradas?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                          <td className="px-4 py-2 text-sm text-right text-red-700">{item.saidas?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                          <td className="px-4 py-2 text-sm text-right text-gray-800">{item.saldo?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-xs text-gray-500">Total Receitas</p>
+                <p className="text-lg font-semibold text-green-700">
+                  {(preview.data?.total_receitas || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-xs text-gray-500">Total Despesas</p>
+                <p className="text-lg font-semibold text-red-700">
+                  {(preview.data?.total_despesas || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-xs text-gray-500">Saldo Liquido</p>
+                <p className="text-lg font-semibold text-gray-800">
+                  {(preview.data?.saldo_liquido || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Informações Adicionais */}
       <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mt-6 rounded-lg">

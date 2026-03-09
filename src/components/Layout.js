@@ -62,10 +62,16 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
       setModuloAtivo('Emendas - Emendas');
     } else if (path.startsWith('/emendas/repasses')) {
       setModuloAtivo('Emendas - Repasses');
+    } else if (path.startsWith('/financeiro/lancamentos')) {
+      setModuloAtivo('Financeiro - Lancamentos');
     } else if (path.startsWith('/financeiro/receitas')) {
       setModuloAtivo('Financeiro - Receitas');
     } else if (path.startsWith('/financeiro/despesas')) {
       setModuloAtivo('Financeiro - Despesas');
+    } else if (path.startsWith('/financeiro/caixa')) {
+      setModuloAtivo('Financeiro - Caixa / Saldo');
+    } else if (path.startsWith('/financeiro/doadores')) {
+      setModuloAtivo('Financeiro - Doadores / Parceiros');
     } else if (path.startsWith('/financeiro/relatorios')) {
       setModuloAtivo('Financeiro - Relatórios Financeiros');
     } else if (path.startsWith('/comunicacao')) {

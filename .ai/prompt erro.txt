@@ -1,0 +1,8 @@
+Enter Fix Loop:
+- Use systematic-debugging.
+- Provide 3 hypotheses and a quick test for each.
+- Apply the smallest patch.
+- Re-run the failing command.
+- Stop when green and summarize root cause.
+Here is the failure output:
+<cole o log>
