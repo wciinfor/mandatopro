@@ -11,7 +11,9 @@ import { ROLES, ROLE_DESCRIPTIONS, getRoleColor } from '@/utils/permissions';
 
 export default function NovoUsuario() {
   const router = useRouter();
-  const { modalState, closeModal, showSuccess } = useModal();
+  const { modalState, closeModal, showSuccess, showError } = useModal();
+
+  const [salvando, setSalvando] = useState(false);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -79,21 +81,49 @@ export default function NovoUsuario() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    // Aqui você faria a integração com a API
-    console.log('Dados do novo usuário:', formData);
-    
-    showSuccess('Usuário cadastrado com sucesso!');
-    
-    setTimeout(() => {
-      router.push('/usuarios');
-    }, 1500);
+    try {
+      setSalvando(true);
+      const usuarioLocal = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
+
+      const response = await fetch('/api/usuarios', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        },
+        body: JSON.stringify({
+          nome: formData.nome,
+          email: formData.email,
+          senha: formData.senha,
+          nivel: formData.nivel,
+          status: formData.status,
+          lideranca_id: formData.liderancaVinculada || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao criar usuário');
+      }
+
+      showSuccess('Usuário cadastrado com sucesso!');
+      setTimeout(() => {
+        router.push('/usuarios');
+      }, 1500);
+    } catch (error) {
+      showError('Erro ao criar usuário: ' + error.message);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleCancel = () => {
@@ -341,10 +371,11 @@ export default function NovoUsuario() {
           </button>
           <button
             type="submit"
-            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
+            disabled={salvando}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-60"
           >
             <FontAwesomeIcon icon={faSave} />
-            Salvar Usuário
+            {salvando ? 'Salvando...' : 'Salvar Usuário'}
           </button>
         </div>
       </form>
