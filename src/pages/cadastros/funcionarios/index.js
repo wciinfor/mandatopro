@@ -6,6 +6,8 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 import {
   faList, faPlus, faFilter, faPrint, faEdit, faTrash, faChevronLeft, faChevronRight, 
   faAngleDoubleLeft, faAngleDoubleRight, faIdCard
@@ -197,6 +199,7 @@ export default function GerenciarFuncionarios() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FUNCIONARIOS}>
     <Layout titulo="Gerenciar Funcionários">
       <div className="max-w-7xl mx-auto">
         {/* Modal */}
@@ -406,5 +409,6 @@ export default function GerenciarFuncionarios() {
         </div>
       </div>
     </Layout>
+    </ProtectedRoute>
   );
 }

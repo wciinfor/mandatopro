@@ -56,12 +56,38 @@ export default function useModal() {
     });
   };
 
-  const showWarning = (message, onConfirm = null) => {
+  const showWarning = (messageOrTitle, messageOrCallback = null, onConfirm = null) => {
+    // Se receber 3 parâmetros: title, message, callback
+    // Se receber 2 parâmetros: message, callback (compatibilidade)
+    // Se receber 1 parâmetro: message
+    let title = 'MandatoPro';
+    let message = '';
+    let callback = null;
+
+    if (typeof messageOrCallback === 'function') {
+      // Formato: showWarning(message, callback)
+      message = messageOrTitle;
+      callback = messageOrCallback;
+    } else if (typeof messageOrCallback === 'string' && onConfirm) {
+      // Formato: showWarning(title, message, callback)
+      title = messageOrTitle;
+      message = messageOrCallback;
+      callback = onConfirm;
+    } else if (typeof messageOrCallback === 'string' && !onConfirm) {
+      // Formato: showWarning(title, message)
+      title = messageOrTitle;
+      message = messageOrCallback;
+    } else {
+      // Formato: showWarning(message)
+      message = messageOrTitle;
+    }
+
     showModal({ 
+      title,
       message, 
       type: 'warning', 
       confirmText: 'Entendi',
-      onConfirm 
+      onConfirm: callback 
     });
   };
 

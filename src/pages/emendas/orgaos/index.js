@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -9,6 +9,8 @@ import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFOrgaos, gerarExcelOrgaos } from '@/utils/relatorios';
 import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function GerenciarOrgaos() {
   const router = useRouter();
@@ -107,6 +109,7 @@ export default function GerenciarOrgaos() {
   }
 
   return (
+    <ProtectedRoute module={MODULES.EMENDAS}>
     <Layout titulo="Gerenciar Órgãos">
       <Modal
         isOpen={modalState.isOpen}
@@ -275,5 +278,7 @@ export default function GerenciarOrgaos() {
             )}
           </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

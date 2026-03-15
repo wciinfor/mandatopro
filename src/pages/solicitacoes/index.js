@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -99,6 +99,37 @@ const CATEGORIAS = [
 
 const ITENS_POR_PAGINA = 15;
 
+function normalizarTextoBusca(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function criarFormNovaInicial(usuario, liderancaLogada = false) {
+  const nivel = String(usuario?.nivel || '').toUpperCase();
+  const ehLideranca = liderancaLogada || nivel === 'LIDERANCA';
+  const nomeUsuario = String(usuario?.nome || '');
+  const emailUsuario = String(usuario?.email || '');
+  const telefoneUsuario = String(usuario?.telefone || '');
+
+  return {
+    titulo: '',
+    descricao: '',
+    solicitante: nomeUsuario,
+    tipo_solicitante: ehLideranca ? 'LIDERANCA' : 'ADMINISTRADOR',
+    categoria: '',
+    prioridade: 'MÉDIA',
+    municipio: '',
+    bairro: '',
+    telefone: telefoneUsuario,
+    email: emailUsuario,
+    solicitante_origem: ehLideranca ? 'LIDERANCA_LOGADA' : 'ADMIN_LOGADO',
+    lideranca_id: ''
+  };
+}
+
 
 
 
@@ -168,6 +199,22 @@ export default function Solicitacoes() {
 
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
 
+  const getUsuario = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return JSON.parse(localStorage.getItem('usuario') || 'null');
+    } catch {
+      return null;
+    }
+  };
+
+  const usuarioLogado = getUsuario();
+  const nivelUsuario = String(usuarioLogado?.nivel || '').toUpperCase();
+  const isAdmin = nivelUsuario === 'ADMINISTRADOR';
+  const isLideranca = nivelUsuario === 'LIDERANCA';
+  const podeCriar = isAdmin || isLideranca;
+  const podeGerenciar = isAdmin;
+
 
 
 
@@ -220,16 +267,19 @@ export default function Solicitacoes() {
   const [salvando, setSalvando] = useState(false);
 
 
-  const [formNova, setFormNova] = useState({
+  const [formNova, setFormNova] = useState(() => criarFormNovaInicial(usuarioLogado, isLideranca));
 
 
-    titulo: '', descricao: '', solicitante: '', tipo_solicitante: 'LIDERANCA',
+  const [liderancasAtivas, setLiderancasAtivas] = useState([]);
 
 
-    categoria: '', prioridade: 'MÉDIA', municipio: '', bairro: '',
+  const [carregandoLiderancas, setCarregandoLiderancas] = useState(false);
 
 
-  });
+  const [buscaLideranca, setBuscaLideranca] = useState('');
+
+
+  const [mostrarSugestoesLideranca, setMostrarSugestoesLideranca] = useState(false);
 
 
 
@@ -246,25 +296,61 @@ export default function Solicitacoes() {
 
   const [atualizando, setAtualizando] = useState(false);
 
+  // Evita loop quando funcoes do modal mudam de referencia a cada render.
+  const showErrorRef = useRef(showError);
+
+  useEffect(() => {
+    showErrorRef.current = showError;
+  }, [showError]);
+
+  useEffect(() => {
+    if (!showNova || !isAdmin) {
+      return;
+    }
+
+    let ativo = true;
+
+    const carregarLiderancasAtivas = async () => {
+      try {
+        setCarregandoLiderancas(true);
+        const res = await fetch('/api/usuarios/liderancas-opcoes', {
+          headers: {
+            usuario: JSON.stringify(getUsuario())
+          }
+        });
+
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.message || 'Falha ao carregar liderancas');
+        }
+
+        if (ativo) {
+          setLiderancasAtivas(Array.isArray(json.data) ? json.data : []);
+        }
+      } catch (err) {
+        if (ativo) {
+          setLiderancasAtivas([]);
+          showErrorRef.current('Erro ao carregar liderancas para solicitante: ' + err.message);
+        }
+      } finally {
+        if (ativo) {
+          setCarregandoLiderancas(false);
+        }
+      }
+    };
+
+    carregarLiderancasAtivas();
+
+    return () => {
+      ativo = false;
+    };
+  }, [showNova, isAdmin]);
+
 
 
 
 
   // â”€â”€ Carregar dados â”€â”€
-
-
-  const getUsuario = () => {
-
-
-    if (typeof window === 'undefined') return null;
-
-
-    try { return JSON.parse(localStorage.getItem('usuario') || 'null'); } catch { return null; }
-
-
-  };
-
-  const podeCriar = ['ADMINISTRADOR', 'LIDERANCA'].includes(getUsuario()?.nivel);
 
 
 
@@ -333,7 +419,7 @@ export default function Solicitacoes() {
     } catch (err) {
 
 
-      showError('Erro ao carregar solicitações: ' + err.message);
+      showErrorRef.current('Erro ao carregar solicitações: ' + err.message);
 
 
     } finally {
@@ -368,6 +454,90 @@ export default function Solicitacoes() {
 
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / ITENS_POR_PAGINA));
 
+  const termoBuscaLideranca = normalizarTextoBusca(buscaLideranca);
+  const sugestoesLideranca = liderancasAtivas
+    .filter((item) => {
+      if (!termoBuscaLideranca) return true;
+      const nome = normalizarTextoBusca(item?.nome);
+      const email = normalizarTextoBusca(item?.email);
+      const municipio = normalizarTextoBusca(item?.municipio);
+      return nome.includes(termoBuscaLideranca)
+        || email.includes(termoBuscaLideranca)
+        || municipio.includes(termoBuscaLideranca);
+    })
+    .slice(0, 8);
+
+  const selecionarOrigemSolicitanteAdmin = (origem) => {
+    if (origem === 'ADMIN_LOGADO') {
+      selecionarSolicitanteAdmin('ADMIN_LOGADO');
+      setBuscaLideranca('');
+      setMostrarSugestoesLideranca(false);
+      return;
+    }
+
+    setFormNova((prev) => ({
+      ...prev,
+      solicitante: '',
+      tipo_solicitante: 'LIDERANCA',
+      email: '',
+      telefone: '',
+      solicitante_origem: 'LIDERANCA',
+      lideranca_id: ''
+    }));
+    setBuscaLideranca('');
+    setMostrarSugestoesLideranca(true);
+  };
+
+  const selecionarSolicitanteAdmin = (valorSelecionado) => {
+    const usuarioAtual = getUsuario();
+
+    if (valorSelecionado === 'ADMIN_LOGADO') {
+      setFormNova((prev) => ({
+        ...prev,
+        solicitante: String(usuarioAtual?.nome || ''),
+        tipo_solicitante: 'ADMINISTRADOR',
+        email: String(usuarioAtual?.email || ''),
+        telefone: String(usuarioAtual?.telefone || ''),
+        solicitante_origem: 'ADMIN_LOGADO',
+        lideranca_id: ''
+      }));
+      setBuscaLideranca('');
+      setMostrarSugestoesLideranca(false);
+      return;
+    }
+
+    const liderancaId = Number(valorSelecionado);
+    const liderancaSelecionada = liderancasAtivas.find((item) => Number(item.id) === liderancaId);
+    if (!liderancaSelecionada) {
+      return;
+    }
+
+    setFormNova((prev) => ({
+      ...prev,
+      solicitante: String(liderancaSelecionada.nome || ''),
+      tipo_solicitante: 'LIDERANCA',
+      email: String(liderancaSelecionada.email || ''),
+      telefone: String(liderancaSelecionada.telefone || ''),
+      municipio: String(liderancaSelecionada.municipio || prev.municipio || ''),
+      bairro: String(liderancaSelecionada.bairro || prev.bairro || ''),
+      solicitante_origem: 'LIDERANCA',
+      lideranca_id: liderancaId
+    }));
+    setBuscaLideranca(String(liderancaSelecionada.nome || ''));
+    setMostrarSugestoesLideranca(false);
+  };
+
+  const abrirNovaSolicitacao = () => {
+    const usuarioAtual = getUsuario();
+    setFormNova(criarFormNovaInicial(usuarioAtual, isLideranca));
+    setBuscaLideranca('');
+    setMostrarSugestoesLideranca(false);
+    if (isAdmin) {
+      setLiderancasAtivas([]);
+    }
+    setShowNova(true);
+  };
+
 
 
 
@@ -377,8 +547,46 @@ export default function Solicitacoes() {
 
   const handleCriar = async () => {
 
+    const usuarioAtual = getUsuario();
+    const nivelAtual = String(usuarioAtual?.nivel || '').toUpperCase();
+    let payload = {
+      ...formNova,
+      solicitante: formNova.solicitante,
+      tipo_solicitante: formNova.tipo_solicitante,
+      email: formNova.email,
+      telefone: formNova.telefone || usuarioAtual?.telefone || ''
+    };
 
-    if (!formNova.titulo || !formNova.solicitante) {
+    if (nivelAtual === 'LIDERANCA') {
+      payload = {
+        ...payload,
+        solicitante: usuarioAtual?.nome || formNova.solicitante,
+        tipo_solicitante: 'LIDERANCA',
+        email: usuarioAtual?.email || formNova.email,
+        telefone: formNova.telefone || usuarioAtual?.telefone || '',
+        lideranca_id: null
+      };
+    }
+
+    if (nivelAtual === 'ADMINISTRADOR') {
+      const origemLideranca = formNova.solicitante_origem === 'LIDERANCA';
+      if (origemLideranca && !formNova.lideranca_id) {
+        showError('Selecione uma lideranca cadastrada para continuar.');
+        return;
+      }
+
+      payload = {
+        ...payload,
+        solicitante: origemLideranca ? formNova.solicitante : String(usuarioAtual?.nome || formNova.solicitante),
+        tipo_solicitante: origemLideranca ? 'LIDERANCA' : 'ADMINISTRADOR',
+        email: origemLideranca ? formNova.email : String(usuarioAtual?.email || formNova.email || ''),
+        telefone: origemLideranca ? formNova.telefone : String(formNova.telefone || usuarioAtual?.telefone || ''),
+        lideranca_id: origemLideranca ? Number(formNova.lideranca_id) : null
+      };
+    }
+
+
+    if (!payload.titulo || !payload.solicitante) {
 
 
       showError('Título e Solicitante são obrigatórios.');
@@ -405,7 +613,7 @@ export default function Solicitacoes() {
         headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(getUsuario()) },
 
 
-        body: JSON.stringify(formNova),
+        body: JSON.stringify(payload),
 
 
       });
@@ -423,7 +631,7 @@ export default function Solicitacoes() {
       setShowNova(false);
 
 
-      setFormNova({ titulo: '', descricao: '', solicitante: '', tipo_solicitante: 'LIDERANCA', categoria: '', prioridade: 'MÉDIA', municipio: '', bairro: '' });
+      setFormNova(criarFormNovaInicial(usuarioAtual, nivelAtual === 'LIDERANCA'));
 
 
       carregarSolicitacoes();
@@ -730,7 +938,7 @@ export default function Solicitacoes() {
 
 
             {podeCriar && (
-            <button onClick={() => setShowNova(true)}
+            <button onClick={abrirNovaSolicitacao}
 
 
               className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 font-semibold">
@@ -965,6 +1173,9 @@ export default function Solicitacoes() {
                       <td className="px-4 py-3 whitespace-nowrap text-right">
 
 
+                        {podeGerenciar ? (
+
+
                         <button
 
 
@@ -981,6 +1192,15 @@ export default function Solicitacoes() {
 
 
                         </button>
+
+
+                        ) : (
+
+
+                        <span className="text-xs text-gray-400">Aguardando central</span>
+
+
+                        )}
 
 
                       </td>
@@ -1111,6 +1331,26 @@ export default function Solicitacoes() {
 
               <div className="p-6 space-y-4">
 
+                {isLideranca && (
+
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+
+                    Dados do solicitante preenchidos automaticamente com o usuário de liderança logado.
+
+                  </div>
+
+                )}
+
+                {isAdmin && (
+
+                  <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-700">
+
+                    Selecione o solicitante entre o administrador logado e uma liderança ativa cadastrada.
+
+                  </div>
+
+                )}
+
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -1144,17 +1384,24 @@ export default function Solicitacoes() {
 
                     <label className="block text-sm font-medium text-gray-700 mb-1">Solicitante *</label>
 
-
-                    <input type="text" value={formNova.solicitante}
-
-
-                      onChange={e => setFormNova(p => ({ ...p, solicitante: e.target.value }))}
-
-
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-
-
-                      placeholder="Nome do líder / morador" />
+                    {isAdmin ? (
+                      <div>
+                        <select
+                          value={formNova.solicitante_origem === 'LIDERANCA' ? 'LIDERANCA' : 'ADMIN_LOGADO'}
+                          onChange={(e) => selecionarOrigemSolicitanteAdmin(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="ADMIN_LOGADO">Administrador</option>
+                          <option value="LIDERANCA">Lideranca cadastrada</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <input type="text" value={formNova.solicitante}
+                        onChange={e => setFormNova(p => ({ ...p, solicitante: e.target.value }))}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                        placeholder="Solicitante" />
+                    )}
 
 
                   </div>
@@ -1163,31 +1410,120 @@ export default function Solicitacoes() {
 
 
 
+                  {isAdmin && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Liderança</label>
+
+                      {formNova.solicitante_origem === 'LIDERANCA' ? (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={buscaLideranca}
+                            onChange={(e) => {
+                              const valor = e.target.value;
+                              setBuscaLideranca(valor);
+                              setMostrarSugestoesLideranca(true);
+                              setFormNova((prev) => ({
+                                ...prev,
+                                solicitante: valor,
+                                tipo_solicitante: 'LIDERANCA',
+                                email: '',
+                                telefone: '',
+                                solicitante_origem: 'LIDERANCA',
+                                lideranca_id: ''
+                              }));
+                            }}
+                            onFocus={() => setMostrarSugestoesLideranca(true)}
+                            onBlur={() => setTimeout(() => setMostrarSugestoesLideranca(false), 120)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                            placeholder="Digite para buscar lideranca por nome, email ou municipio"
+                          />
+
+                          {mostrarSugestoesLideranca && (
+                            <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+                              {carregandoLiderancas && (
+                                <div className="px-3 py-2 text-xs text-gray-500">Carregando liderancas ativas...</div>
+                              )}
+
+                              {!carregandoLiderancas && sugestoesLideranca.map((lideranca) => (
+                                <button
+                                  key={lideranca.id}
+                                  type="button"
+                                  onMouseDown={() => selecionarSolicitanteAdmin(String(lideranca.id))}
+                                  className="w-full text-left px-3 py-2 hover:bg-teal-50 border-b border-gray-100 last:border-b-0"
+                                >
+                                  <div className="text-sm font-semibold text-gray-800">{lideranca.nome}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {lideranca.email || 'Sem email'}
+                                    {lideranca.municipio ? ` • ${lideranca.municipio}` : ''}
+                                  </div>
+                                </button>
+                              ))}
+
+                              {!carregandoLiderancas && sugestoesLideranca.length === 0 && (
+                                <div className="px-3 py-2 text-xs text-gray-500">Nenhuma lideranca encontrada para esta busca.</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={usuarioLogado?.nome || ''}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                          placeholder="Administrador"
+                        />
+                      )}
+                    </div>
+                  )}
+
+
+
                   <div>
 
 
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Solicitante</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">E-mail de retorno</label>
 
 
-                    <select value={formNova.tipo_solicitante}
+                    <input type="email" value={formNova.email || ''}
 
 
-                      onChange={e => setFormNova(p => ({ ...p, tipo_solicitante: e.target.value }))}
+                      onChange={e => setFormNova(p => ({ ...p, email: e.target.value }))}
 
 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500">
+                      readOnly
 
 
-                      <option value="LIDERANCA">Liderança Regional</option>
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
 
 
-                      <option value="MORADOR">Morador</option>
+                      placeholder="exemplo@dominio.com" />
 
 
-                      <option value="FUNCIONARIO">Funcionário</option>
+                  </div>
 
 
-                    </select>
+
+                  <div>
+
+
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+
+
+                    <input type="text" value={formNova.telefone || ''}
+
+
+                      onChange={e => setFormNova(p => ({ ...p, telefone: e.target.value }))}
+
+
+                      readOnly={isLideranca || (isAdmin && formNova.solicitante_origem === 'LIDERANCA')}
+
+
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 ${isLideranca || (isAdmin && formNova.solicitante_origem === 'LIDERANCA') ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
+
+
+                      placeholder="(91) 99999-9999" />
 
 
                   </div>
@@ -1319,7 +1655,7 @@ export default function Solicitacoes() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 resize-none"
 
 
-                      placeholder="Detalhe a demanda do líder regional..." />
+                      placeholder={isLideranca ? 'Detalhe sua demanda para a central do parlamentar...' : 'Detalhe a demanda...' } />
 
 
                   </div>

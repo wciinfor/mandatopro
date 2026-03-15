@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -9,6 +9,8 @@ import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFEmendas, gerarExcelEmendas } from '@/utils/relatorios';
 import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function GerenciarEmendas() {
   const router = useRouter();
@@ -138,6 +140,7 @@ export default function GerenciarEmendas() {
   }
 
   return (
+    <ProtectedRoute module={MODULES.EMENDAS}>
     <Layout titulo="Gerenciar Emendas">
       <Modal
         isOpen={modalState.isOpen}
@@ -354,5 +357,7 @@ export default function GerenciarEmendas() {
         </div>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

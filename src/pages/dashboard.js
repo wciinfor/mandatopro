@@ -13,9 +13,15 @@ export default function Dashboard() {
   const [usuario, setUsuario] = useState(null);
   const [stats, setStats] = useState({
     totalEleitores: 0,
+    eleitoresAtivos: 0,
+    eleitoresInativos: 0,
     totalLiderancas: 0,
     campanhasAtivas: 0,
-    totalAtendimentos: 0
+    totalAtendimentos: 0,
+    aniversariantesHoje: 0,
+    aniversariantesSemana: 0,
+    aniversariantesMes: 0,
+    proximosAniversariantes: []
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [charts, setCharts] = useState({
@@ -25,11 +31,34 @@ export default function Dashboard() {
   const [chartsLoading, setChartsLoading] = useState(true);
   const [agendaEventos, setAgendaEventos] = useState([]);
   const [agendaLoading, setAgendaLoading] = useState(true);
+  const [heatmapPreview, setHeatmapPreview] = useState({
+    loading: true,
+    error: '',
+    ranking: [],
+    totalConsiderados: 0
+  });
+  const [solicitacoes, setSolicitacoes] = useState([]);
+  const [solicitacoesLoading, setSolicitacoesLoading] = useState(false);
+  const [topLideres, setTopLideres] = useState([]);
+  const [topLideresLoading, setTopLideresLoading] = useState(true);
   
-  // Carrega usuário do localStorage
+  // Carrega usuário do localStorage e busca nome atualizado do Supabase
   useEffect(() => {
     const usuarioData = JSON.parse(localStorage.getItem('usuario') || '{}');
     setUsuario(usuarioData);
+
+    if (usuarioData?.id || usuarioData?.email) {
+      fetch('/api/usuarios/me', {
+        headers: { usuario: JSON.stringify(usuarioData) }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(body => {
+          if (body?.data?.nome) {
+            setUsuario(prev => ({ ...prev, nome: body.data.nome }));
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -43,9 +72,17 @@ export default function Dashboard() {
         const data = await response.json();
         setStats({
           totalEleitores: data.totalEleitores || 0,
+          eleitoresAtivos: data.eleitoresAtivos || 0,
+          eleitoresInativos: data.eleitoresInativos || 0,
           totalLiderancas: data.totalLiderancas || 0,
           campanhasAtivas: data.campanhasAtivas || 0,
-          totalAtendimentos: data.totalAtendimentos || 0
+          totalAtendimentos: data.totalAtendimentos || 0,
+          aniversariantesHoje: data.aniversariantesHoje || 0,
+          aniversariantesSemana: data.aniversariantesSemana || 0,
+          aniversariantesMes: data.aniversariantesMes || 0,
+          proximosAniversariantes: Array.isArray(data.proximosAniversariantes)
+            ? data.proximosAniversariantes
+            : []
         });
       } catch (error) {
         console.error('Erro ao carregar estatisticas do dashboard:', error);
@@ -141,6 +178,84 @@ export default function Dashboard() {
     };
   }, [user?.id, user?.nivel]);
 
+  useEffect(() => {
+    let ativo = true;
+
+    const carregarPreviewMapaCalor = async () => {
+      try {
+        setHeatmapPreview((prev) => ({
+          ...prev,
+          loading: true,
+          error: ''
+        }));
+
+        const response = await fetch('/api/geolocalizacao/eleitores-mapa-calor?rankingLimit=5');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.detalhes || data?.error || `Erro HTTP: ${response.status}`);
+        }
+
+        if (!ativo) {
+          return;
+        }
+
+        setHeatmapPreview({
+          loading: false,
+          error: '',
+          ranking: Array.isArray(data?.lista?.ranking) ? data.lista.ranking.slice(0, 5) : [],
+          totalConsiderados: Number(data?.resumo?.totalEleitoresConsiderados || 0)
+        });
+      } catch (error) {
+        console.error('Erro ao carregar preview do mapa de calor:', error);
+        if (!ativo) {
+          return;
+        }
+
+        setHeatmapPreview({
+          loading: false,
+          error: error.message || 'Falha ao carregar preview',
+          ranking: [],
+          totalConsiderados: 0
+        });
+      }
+    };
+
+    carregarPreviewMapaCalor();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+    const carregarTopLideres = async () => {
+      try {
+        setTopLideresLoading(true);
+        const response = await fetch('/api/dashboard/top-lideres');
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        const data = await response.json();
+        if (ativo) {
+          setTopLideres(Array.isArray(data.data) ? data.data : []);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar top líderes:', error);
+        if (ativo) {
+          setTopLideres([]);
+        }
+      } finally {
+        if (ativo) {
+          setTopLideresLoading(false);
+        }
+      }
+    };
+    carregarTopLideres();
+    return () => { ativo = false; };
+  }, []);
+
   const BarChart = ({
     series,
     fill,
@@ -229,22 +344,33 @@ export default function Dashboard() {
   
   // Registra acesso ao dashboard
   useRegistrarAcesso(usuario, 'DASHBOARD', 'Dashboard');
-  
-  // Mock de últimas solicitações
-  const solicitacoes = [
-    { id: 1, protocolo: 'SOL-2025-001', titulo: 'Reparo de via pública', solicitante: 'João Silva', status: 'NOVA', prioridade: 'ALTA', data: '2025-11-20', liderancaId: 1 },
-    { id: 2, protocolo: 'SOL-2025-002', titulo: 'Iluminação pública', solicitante: 'Maria Santos', status: 'EM_ANDAMENTO', prioridade: 'MÉDIA', data: '2025-11-19', liderancaId: 1 },
-    { id: 3, protocolo: 'SOL-2025-003', titulo: 'Coleta de lixo', solicitante: 'Pedro Costa', status: 'ATENDIDA', prioridade: 'BAIXA', data: '2025-11-18', liderancaId: 2 },
-    { id: 4, protocolo: 'SOL-2025-004', titulo: 'Poda de árvores', solicitante: 'Ana Oliveira', status: 'NOVA', prioridade: 'URGENTE', data: '2025-11-21', liderancaId: 2 },
-  ];
-  
+
+  // Carregar últimas solicitações do Supabase
+  useEffect(() => {
+    if (!user || user?.nivel === 'OPERADOR') return;
+    let ativo = true;
+    const carregarSolicitacoes = async () => {
+      try {
+        setSolicitacoesLoading(true);
+        const response = await fetch('/api/solicitacoes?limit=4&offset=0', {
+          headers: { usuario: JSON.stringify(user) }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (ativo) setSolicitacoes(Array.isArray(data.data) ? data.data : []);
+      } catch (error) {
+        console.error('Erro ao carregar solicitações:', error);
+      } finally {
+        if (ativo) setSolicitacoesLoading(false);
+      }
+    };
+    carregarSolicitacoes();
+    return () => { ativo = false; };
+  }, [user?.id, user?.nivel]);
+
   // Filtrar solicitações baseado no perfil
-  const solicitacoesFiltradas = user?.nivel === 'ADMINISTRADOR' 
-    ? solicitacoes 
-    : user?.nivel === 'LIDERANCA'
-    ? solicitacoes.filter(s => s.liderancaId === user?.liderancaId)
-    : [];
-  
+  const solicitacoesFiltradas = solicitacoes;
+
   const mostrarSolicitacoes = user?.nivel !== 'OPERADOR';
   
   // Filtrar eventos baseado no perfil
@@ -256,7 +382,7 @@ export default function Dashboard() {
   });
 
   return (
-    <Layout titulo="Bem-vindo ao Dashboard!">
+    <Layout titulo={`Bem-vindo, ${usuario?.nome || ''}!`}>
       {/* Grid Principal */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border-b-4 border-teal-400">
@@ -576,6 +702,7 @@ export default function Dashboard() {
           </div>
           <div className="space-y-3">
             {stats.proximosAniversariantes?.slice(0, 5).map((pessoa) => {
+              const hierarquia = String(pessoa.hierarquia || pessoa.tipo || 'ELEITOR').toUpperCase();
               const hoje = new Date();
               const aniversario = new Date(hoje.getFullYear(), pessoa.mes - 1, pessoa.dia);
               if (aniversario < hoje) {
@@ -601,9 +728,18 @@ export default function Dashboard() {
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-gray-800 text-sm truncate">{pessoa.nome}</div>
-                      <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-xs flex-wrap">
                         <span className="text-gray-600">
                           {pessoa.dia}/{pessoa.mes}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+                          hierarquia === 'LIDERANCA'
+                            ? 'bg-purple-100 text-purple-700'
+                            : hierarquia === 'FUNCIONARIO'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {hierarquia === 'LIDERANCA' ? 'Liderança' : hierarquia === 'FUNCIONARIO' ? 'Funcionário' : 'Eleitor'}
                         </span>
                         {isHoje && (
                           <span className="bg-pink-500 text-white px-1.5 py-0.5 rounded-full font-semibold text-xs">
@@ -643,25 +779,126 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Eleitores */}
+        {/* Top 10 Líderes */}
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-teal-100">
-          <h3 className="text-base lg:text-lg font-bold text-teal-700 mb-4 flex items-center gap-2">
-            <FontAwesomeIcon icon={faUsers} /> Eleitores
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
-              <span className="text-xs lg:text-sm font-semibold text-gray-700">Total Cadastrados</span>
-              <span className="text-lg lg:text-xl font-bold text-teal-600">{stats.totalEleitores}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
-              <span className="text-xs lg:text-sm font-semibold text-gray-700">Total Ativos</span>
-              <span className="text-lg lg:text-xl font-bold text-green-600">{stats.eleitoresAtivos}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-teal-50 rounded-lg">
-              <span className="text-xs lg:text-sm font-semibold text-gray-700">Total Inativos</span>
-              <span className="text-lg lg:text-xl font-bold text-red-600">{stats.eleitoresInativos}</span>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base lg:text-lg font-bold text-teal-700 flex items-center gap-2">
+              <FontAwesomeIcon icon={faTrophy} /> Top 10 Líderes
+            </h3>
+            <button 
+              onClick={() => window.location.href = '/cadastros/liderancas'}
+              className="text-xs text-teal-600 hover:text-teal-700 font-semibold"
+            >
+              Abrir tela completa →
+            </button>
           </div>
+          <div className="space-y-2">
+            {topLideresLoading && (
+              <div className="space-y-2">
+                {[1, 2, 3].map((item) => (
+                  <div key={`top-lideres-skeleton-${item}`} className="bg-teal-50 rounded-lg p-3 animate-pulse">
+                    <div className="h-4 bg-teal-100 rounded w-24 mb-2" />
+                    <div className="h-3 bg-teal-100 rounded" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!topLideresLoading && topLideres.length === 0 && (
+              <div className="text-center py-4 text-gray-500 text-sm">
+                <FontAwesomeIcon icon={faTrophy} className="text-2xl mb-2 text-gray-300" />
+                <p>Nenhum líder cadastrado</p>
+              </div>
+            )}
+
+            {!topLideresLoading && topLideres.length > 0 && topLideres.slice(0, 5).map((lider, index) => (
+              <div 
+                key={lider.id} 
+                className="p-3 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors cursor-pointer"
+                onClick={() => window.location.href = `/cadastros/liderancas/${lider.id}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center min-w-max w-8 h-8 rounded-full bg-teal-600 text-white font-bold text-sm">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-800 text-sm truncate">{lider.nome}</div>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <span className="text-xs text-gray-600">
+                        📊 <span className="font-semibold">{lider.projecaoVotos || 0}</span> votos
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        📋 <span className="font-semibold">{lider.cadastros || 0}</span> cadastros
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        📈 <span className="font-semibold text-teal-700">{lider.percentual || 0}%</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mapa de Calor de Eleitores */}
+        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-teal-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base lg:text-lg font-bold text-teal-700 flex items-center gap-2">
+              <FontAwesomeIcon icon={faMapMarkerAlt} /> Mapa de Calor (PA)
+            </h3>
+            <button
+              onClick={() => window.location.href = '/geolocalizacao/mapa-calor'}
+              className="text-xs text-teal-600 hover:text-teal-700 font-semibold"
+            >
+              Abrir tela completa →
+            </button>
+          </div>
+
+          <div className="mb-3 p-3 bg-teal-50 rounded-lg flex items-center justify-between">
+            <span className="text-xs lg:text-sm font-semibold text-gray-700">Eleitores considerados</span>
+            <span className="text-lg lg:text-xl font-bold text-teal-700">
+              {heatmapPreview.loading ? (
+                <span className="inline-block h-6 w-14 bg-teal-100 rounded animate-pulse" />
+              ) : (
+                heatmapPreview.totalConsiderados
+              )}
+            </span>
+          </div>
+
+          {heatmapPreview.loading && (
+            <div className="space-y-2">
+              {[1, 2, 3].map((item) => (
+                <div key={`heatmap-preview-skeleton-${item}`} className="h-10 bg-slate-100 rounded animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {!heatmapPreview.loading && heatmapPreview.error && (
+            <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+              {heatmapPreview.error}
+            </div>
+          )}
+
+          {!heatmapPreview.loading && !heatmapPreview.error && heatmapPreview.ranking.length > 0 && (
+            <div className="space-y-2">
+              {heatmapPreview.ranking.map((item) => (
+                <div key={`${item.codigoIbge || item.municipioNormalizado}-${item.posicao}`} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                  <div className="min-w-0 pr-2">
+                    <div className="text-xs text-slate-500">#{item.posicao}</div>
+                    <div className="font-semibold text-slate-800 truncate">{item.municipio}</div>
+                  </div>
+                  <span className="text-sm font-bold text-teal-700">{item.quantidade}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!heatmapPreview.loading && !heatmapPreview.error && heatmapPreview.ranking.length === 0 && (
+            <div className="text-sm text-gray-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+              Sem dados para ranking no momento.
+            </div>
+          )}
         </div>
 
         {/* Métricas do Mandato */}

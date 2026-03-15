@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -8,12 +8,17 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { ROLES, ROLE_DESCRIPTIONS, getRoleColor } from '@/utils/permissions';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function NovoUsuario() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError } = useModal();
 
   const [salvando, setSalvando] = useState(false);
+  const [carregandoLiderancas, setCarregandoLiderancas] = useState(false);
+  const [liderancas, setLiderancas] = useState([]);
+  const [usuarioLogado, setUsuarioLogado] = useState(null);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -27,12 +32,53 @@ export default function NovoUsuario() {
 
   const [errors, setErrors] = useState({});
 
-  // Mock de lideranças disponíveis
-  const liderancas = [
-    { id: 2, nome: 'João Silva Santos' },
-    { id: 5, nome: 'Ana Paula Costa' },
-    { id: 8, nome: 'Roberto Almeida' }
-  ];
+  const obterUsuarioHeader = () => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    return JSON.parse(localStorage.getItem('usuario') || 'null');
+  };
+
+  const carregarLiderancas = async () => {
+    try {
+      setCarregandoLiderancas(true);
+      const usuarioLocal = obterUsuarioHeader();
+
+      const response = await fetch('/api/usuarios/liderancas-opcoes', {
+        headers: {
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || 'Erro ao carregar liderancas');
+      }
+
+      setLiderancas(Array.isArray(data?.data) ? data.data : []);
+    } catch (error) {
+      showError('Erro ao carregar liderancas: ' + error.message);
+    } finally {
+      setCarregandoLiderancas(false);
+    }
+  };
+
+  useEffect(() => {
+    const user = obterUsuarioHeader();
+    setUsuarioLogado(user);
+    carregarLiderancas();
+  }, []);
+
+  // Auto-vincula a liderança quando logado como LIDERANÇA
+  useEffect(() => {
+    if (usuarioLogado?.nivel === ROLES.LIDERANCA && liderancas.length > 0) {
+      const myEntry = liderancas.find(l => String(l.id) === String(usuarioLogado.id));
+      if (myEntry) {
+        setFormData(prev => ({ ...prev, liderancaVinculada: String(myEntry.id) }));
+      }
+    }
+  }, [liderancas, usuarioLogado]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -90,9 +136,7 @@ export default function NovoUsuario() {
 
     try {
       setSalvando(true);
-      const usuarioLocal = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('usuario') || 'null')
-        : null;
+      const usuarioLocal = obterUsuarioHeader();
 
       const response = await fetch('/api/usuarios', {
         method: 'POST',
@@ -144,6 +188,7 @@ export default function NovoUsuario() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.USUARIOS}>
     <Layout titulo="Novo Usuário">
       <Modal
         isOpen={modalState.isOpen}
@@ -290,8 +335,23 @@ export default function NovoUsuario() {
           </div>
 
           <div className="space-y-4">
+            {/* Aviso para LIDERANÇA: só pode criar OPERADOR */}
+            {usuarioLogado?.nivel === ROLES.LIDERANCA && (
+              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-3">
+                <FontAwesomeIcon icon={faUserShield} className="text-purple-600 mt-1" />
+                <div>
+                  <h4 className="font-semibold text-purple-900 mb-1">Criar Operador da sua equipe</h4>
+                  <p className="text-sm text-purple-800">
+                    Como Liderança, você pode criar apenas usuários do tipo <strong>Operador</strong> vinculados à sua liderança.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Radio buttons para níveis */}
-            {Object.values(ROLES).map((role) => (
+            {Object.values(ROLES)
+              .filter(role => usuarioLogado?.nivel !== ROLES.LIDERANCA || role === ROLES.OPERADOR)
+              .map((role) => (
               <label
                 key={role}
                 className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
@@ -337,21 +397,30 @@ export default function NovoUsuario() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 LIDERANÇA RESPONSÁVEL *
               </label>
-              <select
-                name="liderancaVinculada"
-                value={formData.liderancaVinculada}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                  errors.liderancaVinculada ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Selecione uma liderança</option>
-                {liderancas.map((lideranca) => (
-                  <option key={lideranca.id} value={lideranca.id}>
+
+              {usuarioLogado?.nivel === ROLES.LIDERANCA ? (
+                // LIDERANÇA: mostra sua própria liderança como somente-leitura
+                <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                  {liderancas.find(l => String(l.id) === String(formData.liderancaVinculada))?.nome || 'Carregando...'}
+                  {carregandoLiderancas && <span className="text-xs text-gray-400 ml-2">Carregando...</span>}
+                </div>
+              ) : (
+                <select
+                  name="liderancaVinculada"
+                  value={formData.liderancaVinculada}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                    errors.liderancaVinculada ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Selecione uma liderança</option>
+                  {liderancas.map((lideranca) => (
+                    <option key={lideranca.id} value={lideranca.id}>
                     {lideranca.nome}
                   </option>
                 ))}
               </select>
+              )}
               {errors.liderancaVinculada && (
                 <p className="mt-1 text-sm text-red-600">{errors.liderancaVinculada}</p>
               )}
@@ -380,5 +449,7 @@ export default function NovoUsuario() {
         </div>
       </form>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

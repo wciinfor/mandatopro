@@ -41,7 +41,8 @@ export async function criarLideranca(dados) {
       naturalidade: dados.naturalidade || null,
       estadoCivil: dados.estadoCivil || null,
       profissao: dados.profissao || null,
-      foto: dados.foto || null
+      foto: dados.foto || null,
+      projecao_votos: dados.projecaoVotos || dados.projecao_votos || 0
     };
 
     const insertWithPayload = async (payloadAtual) => supabase
@@ -231,6 +232,7 @@ export async function atualizarLideranca(id, dados) {
       estadoCivil: dados.estadoCivil || null,
       profissao: dados.profissao || null,
       foto: dados.foto || null,
+      projecao_votos: dados.projecaoVotos || dados.projecao_votos || 0,
       updated_at: new Date().toISOString()
     };
 

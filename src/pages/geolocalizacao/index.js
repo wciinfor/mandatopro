@@ -353,6 +353,21 @@ export default function Geolocalizacao() {
         showCancel={modalState.showCancel}
       />
 
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-teal-100 no-print">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base md:text-lg font-bold text-teal-700">Mapa de Calor por Municipio (PA)</h3>
+            <p className="text-sm text-gray-600">Visualize intensidade de eleitores por municipio com tooltip, legenda e ranking.</p>
+          </div>
+          <button
+            onClick={() => window.location.href = '/geolocalizacao/mapa-calor'}
+            className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold"
+          >
+            Abrir mapa de calor
+          </button>
+        </div>
+      </div>
+
       {/* Cards Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 no-print">
         <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">

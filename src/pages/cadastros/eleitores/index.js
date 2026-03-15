@@ -7,7 +7,7 @@ import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import {
   faList, faPlus, faFilter, faPrint, faEdit, faTrash, faChevronLeft, faChevronRight, 
-  faAngleDoubleLeft, faAngleDoubleRight
+  faAngleDoubleLeft, faAngleDoubleRight, faFileDownload
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function GerenciarEleitores() {
@@ -15,8 +15,11 @@ export default function GerenciarEleitores() {
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
   
   const [eleitores, setEleitores] = useState([]);
+  const [liderancas, setLiderancas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('');
+  const [filtroLideranca, setFiltroLideranca] = useState('');
+  const [filtroCidade, setFiltroCidade] = useState('');
   const [situacao, setSituacao] = useState('ATIVO');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
@@ -26,10 +29,17 @@ export default function GerenciarEleitores() {
     carregarEleitores();
   }, [situacao]);
 
+  useEffect(() => {
+    fetch('/api/usuarios/liderancas-opcoes', { headers: { usuario: JSON.stringify({nivel:'ADMINISTRADOR'}) } })
+      .then(r => r.json())
+      .then(json => setLiderancas(Array.isArray(json.data) ? json.data : []))
+      .catch(() => setLiderancas([]));
+  }, []);
+
   const carregarEleitores = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/cadastros/eleitores?status=${situacao}`);
+      const response = await fetch(`/api/cadastros/eleitores?status=${situacao}&limit=5000`);
       
       if (!response.ok) {
         throw new Error('Erro ao carregar eleitores');
@@ -44,12 +54,18 @@ export default function GerenciarEleitores() {
     }
   };
 
+  const cidades = [...new Set(eleitores.map(el => el.cidade || el.municipio).filter(Boolean))].sort();
+
   const eleitoresFiltrados = eleitores.filter(el => {
-    const matchFiltro = filtro === '' || 
+    const matchFiltro = filtro === '' ||
       el.nome.toLowerCase().includes(filtro.toLowerCase()) ||
       (el.rg && el.rg.includes(filtro)) ||
       (el.tituloEleitoral && el.tituloEleitoral.includes(filtro));
-    return matchFiltro;
+    const matchLideranca = filtroLideranca === '' ||
+      String(el.lideranca_id || '') === filtroLideranca;
+    const matchCidade = filtroCidade === '' ||
+      (el.cidade || el.municipio || '') === filtroCidade;
+    return matchFiltro && matchLideranca && matchCidade;
   });
 
   const totalPaginas = Math.ceil(eleitoresFiltrados.length / itensPorPagina);
@@ -82,6 +98,26 @@ export default function GerenciarEleitores() {
         showError('Erro ao excluir: ' + error.message);
       }
     });
+  };
+
+  const handleExportarCSV = () => {
+    const cabecalho = ['Nome', 'Telefone'];
+    const escapar = (v) => {
+      const s = String(v ?? '');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const linhas = eleitoresFiltrados.map(el => [
+      el.nome,
+      el.telefone || ''
+    ].map(escapar).join(','));
+    const conteudo = [cabecalho.join(','), ...linhas].join('\n');
+    const blob = new Blob(['\uFEFF' + conteudo], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `eleitores-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleImprimirListagem = () => {
@@ -174,15 +210,16 @@ export default function GerenciarEleitores() {
             <FontAwesomeIcon icon={faFilter} className="text-teal-600 text-lg" />
             <h2 className="text-lg font-bold text-gray-700">Filtros de Busca</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
+          {/* Linha 1: Busca + Situação */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 BUSCAR POR NOME, RG, TÍTULO...
               </label>
               <input
                 type="text"
                 value={filtro}
-                onChange={(e) => setFiltro(e.target.value)}
+                onChange={(e) => { setFiltro(e.target.value); setPaginaAtual(1); }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="Digite sua busca..."
               />
@@ -193,19 +230,54 @@ export default function GerenciarEleitores() {
               </label>
               <select
                 value={situacao}
-                onChange={(e) => setSituacao(e.target.value)}
+                onChange={(e) => { setSituacao(e.target.value); setPaginaAtual(1); }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="ATIVO">ATIVO</option>
                 <option value="INATIVO">INATIVO</option>
               </select>
             </div>
-            <button
-              onClick={() => setFiltro('')}
-              className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium"
-            >
-              LIMPAR FILTROS
-            </button>
+          </div>
+          {/* Linha 2: Liderança + Cidade + Limpar */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                LIDERANÇA
+              </label>
+              <select
+                value={filtroLideranca}
+                onChange={(e) => { setFiltroLideranca(e.target.value); setPaginaAtual(1); }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              >
+                <option value="">Todas</option>
+                {liderancas.map(l => (
+                  <option key={l.id} value={String(l.id)}>{l.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                CIDADE
+              </label>
+              <select
+                value={filtroCidade}
+                onChange={(e) => { setFiltroCidade(e.target.value); setPaginaAtual(1); }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              >
+                <option value="">Todas</option>
+                {cidades.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <button
+                onClick={() => { setFiltro(''); setFiltroLideranca(''); setFiltroCidade(''); setPaginaAtual(1); }}
+                className="w-full px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium"
+              >
+                LIMPAR FILTROS
+              </button>
+            </div>
           </div>
         </div>
 
@@ -227,6 +299,14 @@ export default function GerenciarEleitores() {
               >
                 <FontAwesomeIcon icon={faPrint} />
                 IMPRIMIR
+              </button>
+              <button
+                onClick={handleExportarCSV}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+                title="Exportar listagem filtrada para CSV"
+              >
+                <FontAwesomeIcon icon={faFileDownload} />
+                Exportar CSV
               </button>
             </div>
           </div>

@@ -54,7 +54,8 @@ export default function EditarLideranca() {
     bairro: '',
     endereco: '',
     estado: '',
-    observacoes: ''
+    observacoes: '',
+    projecaoVotos: 0
   });
 
   useEffect(() => {
@@ -88,7 +89,8 @@ export default function EditarLideranca() {
           estado: dados?.estado || '',
           observacoes: dados?.observacoes || '',
           tipo: dados?.tipo || 'LOCAL',
-          foto: dados?.foto || null
+          foto: dados?.foto || null,
+          projecaoVotos: dados?.projecao_votos || dados?.projecaoVotos || 0
         };
 
         const cpfBase = (dados?.cpf || '').replace(/\D/g, '');
@@ -472,31 +474,33 @@ export default function EditarLideranca() {
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ENDEREÇO
-                  </label>
-                  <input
-                    type="text"
-                    name="endereco"
-                    value={formData.endereco}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:col-span-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ENDEREÇO
+                    </label>
+                    <input
+                      type="text"
+                      name="endereco"
+                      value={formData.endereco}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ESTADO (UF)
-                  </label>
-                  <input
-                    type="text"
-                    name="estado"
-                    value={formData.estado}
-                    onChange={handleInputChange}
-                    maxLength="2"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ESTADO (UF)
+                    </label>
+                    <input
+                      type="text"
+                      name="estado"
+                      value={formData.estado}
+                      onChange={handleInputChange}
+                      maxLength="2"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent uppercase"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -603,6 +607,26 @@ export default function EditarLideranca() {
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
+                </div>
+
+                {/* PROJEÇÃO DE VOTOS */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    PROJEÇÃO DE VOTOS
+                  </label>
+                  <input
+                    type="number"
+                    name="projecaoVotos"
+                    value={formData.projecaoVotos}
+                    onChange={handleInputChange}
+                    min="0"
+                    step="1"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    placeholder="Ex: 150, 500, 1000..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Quantidade de votos que se projeta que esta liderança trará ao candidato
+                  </p>
                 </div>
               </div>
 

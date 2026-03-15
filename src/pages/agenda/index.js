@@ -9,7 +9,6 @@ import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
 import PDFGenerator from '@/utils/pdfGenerator';
-import supabase from '@/lib/supabaseClient';
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -38,14 +37,10 @@ export default function Agenda() {
   const carregarEventos = async () => {
     setCarregando(true);
     try {
-      const { data, error } = await supabase
-        .from('agenda_eventos')
-        .select('*')
-        .order('data', { ascending: true });
-
-      if (error) throw error;
-
-      setEventos((data || []).map(normalizarEvento));
+      const res = await fetch('/api/agenda');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao carregar eventos');
+      setEventos((json.data || []).map(normalizarEvento));
     } catch (error) {
       console.error('Erro ao carregar eventos:', error);
     } finally {
@@ -107,12 +102,9 @@ export default function Agenda() {
     }
 
     try {
-      const { error } = await supabase
-        .from('agenda_eventos')
-        .delete()
-        .eq('id', eventoParaExcluir.id);
-
-      if (error) throw error;
+      const res = await fetch(`/api/agenda?id=${eventoParaExcluir.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao excluir evento');
 
       setEventos(eventos.filter(evento => evento.id !== eventoParaExcluir.id));
       setModalExcluir(false);

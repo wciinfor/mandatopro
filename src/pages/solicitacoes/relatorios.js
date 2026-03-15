@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faFileAlt, faChartBar, faDownload, faFilter, faCalendarAlt, faCheckCircle
@@ -14,36 +14,67 @@ export default function RelatoriosSolicitacoes() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [usuario, setUsuario] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  // Mock de estatísticas
-  const stats = {
-    total: 45,
-    novas: 12,
-    emAndamento: 18,
-    atendidas: 10,
-    recusadas: 5,
-    porCategoria: {
-      'Educação': 15,
-      'Saúde': 12,
-      'Infraestrutura': 8,
-      'Meio Ambiente': 5,
-      'Esporte e Lazer': 3,
-      'Outros': 2
-    },
-    porPrioridade: {
-      'URGENTE': 8,
-      'ALTA': 12,
-      'MÉDIA': 18,
-      'BAIXA': 7
-    },
-    porMunicipio: {
-      'Belém': 25,
-      'Ananindeua': 10,
-      'Marituba': 5,
-      'Outros': 5
-    },
-    tempoMedioAtendimento: '7 dias'
-  };
+  const [stats, setStats] = useState({
+    total: 0,
+    novas: 0,
+    emAndamento: 0,
+    atendidas: 0,
+    recusadas: 0,
+    porCategoria: {},
+    porPrioridade: {},
+    porMunicipio: {},
+    tempoMedioAtendimento: 'N/D'
+  });
+
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('usuario') || '{}');
+    setUsuario(u);
+  }, []);
+
+  useEffect(() => {
+    if (!usuario?.id) return;
+    const fetchStats = async () => {
+      try {
+        setLoadingStats(true);
+        const response = await fetch('/api/solicitacoes?limit=500', {
+          headers: { usuario: JSON.stringify(usuario) }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar');
+        const result = await response.json();
+        const dados = result.data || [];
+        const totais = result.totais || {};
+
+        const porCategoria = {};
+        const porPrioridade = {};
+        const porMunicipio = {};
+        dados.forEach(s => {
+          if (s.categoria) porCategoria[s.categoria] = (porCategoria[s.categoria] || 0) + 1;
+          if (s.prioridade) porPrioridade[s.prioridade] = (porPrioridade[s.prioridade] || 0) + 1;
+          if (s.municipio) porMunicipio[s.municipio] = (porMunicipio[s.municipio] || 0) + 1;
+        });
+
+        setStats({
+          total: totais.total || 0,
+          novas: totais.NOVO || 0,
+          emAndamento: totais.RECEBIDO || 0,
+          atendidas: totais.ATENDIDO || 0,
+          recusadas: totais.RECUSADO || 0,
+          porCategoria,
+          porPrioridade,
+          porMunicipio,
+          tempoMedioAtendimento: 'N/D'
+        });
+      } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    fetchStats();
+  }, [usuario?.id]);
 
   const handleGerarRelatorio = () => {
     try {

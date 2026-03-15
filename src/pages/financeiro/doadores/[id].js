@@ -5,6 +5,9 @@ import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { applyMask, onlyDigits } from '@/utils/inputMasks';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function EditarDoador() {
   const router = useRouter();
@@ -48,10 +51,10 @@ export default function EditarDoador() {
         codigo: item.codigo || '',
         nome: item.nome || '',
         tipo: item.tipo || 'PESSOA_FISICA',
-        cpf: item.cpf || '',
+        cpf: applyMask('cpf', item.cpf || ''),
         cnpj: item.cnpj || '',
         email: item.email || '',
-        telefone: item.telefone || '',
+        telefone: applyMask('telefone', item.telefone || ''),
         endereco: item.endereco || '',
         status: item.status || 'ATIVO',
         observacoes: item.observacoes || ''
@@ -65,7 +68,8 @@ export default function EditarDoador() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const maskedValue = applyMask(name, value);
+    setFormData((prev) => ({ ...prev, [name]: maskedValue }));
   };
 
   const handleSubmit = async (e) => {
@@ -86,7 +90,11 @@ export default function EditarDoador() {
           'Content-Type': 'application/json',
           usuario: usuario ? JSON.stringify(usuario) : ''
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          cpf: onlyDigits(formData.cpf),
+          telefone: onlyDigits(formData.telefone)
+        })
       });
 
       const data = await response.json();
@@ -104,6 +112,7 @@ export default function EditarDoador() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FINANCEIRO}>
     <Layout titulo="Editar Doador">
       <Modal
         isOpen={modalState.isOpen}
@@ -262,5 +271,6 @@ export default function EditarDoador() {
         )}
       </div>
     </Layout>
+    </ProtectedRoute>
   );
 }

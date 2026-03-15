@@ -3,7 +3,6 @@ import {
   gerarTraceId,
   obterUsuarioHeader,
   exigirAdmin,
-  normalizarValor,
   parsePaginacao,
   registrarAuditoria,
   buildAuditoriaPayload
@@ -13,6 +12,11 @@ export const runtime = 'nodejs';
 
 const NIVEIS = ['ADMINISTRADOR', 'LIDERANCA', 'OPERADOR'];
 const STATUS = ['ATIVO', 'INATIVO', 'BLOQUEADO'];
+
+function isTruthy(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
 
 export default async function handler(req, res) {
   const traceId = gerarTraceId();
@@ -26,13 +30,17 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { search, nivel, status, include_inativos } = req.query;
       const { limit, offset } = parsePaginacao(req.query, 20, 100);
+      const statusNormalizado = String(status || '').toUpperCase();
+      const incluirInativos = isTruthy(include_inativos)
+        || statusNormalizado === 'INATIVO'
+        || statusNormalizado === 'BLOQUEADO';
 
       let query = supabase
         .from('usuarios')
         .select('*', { count: 'exact' })
         .order('nome', { ascending: true });
 
-      if (!include_inativos) {
+      if (!incluirInativos) {
         query = query.eq('ativo', true);
       }
       if (nivel) query = query.eq('nivel', String(nivel).toUpperCase());

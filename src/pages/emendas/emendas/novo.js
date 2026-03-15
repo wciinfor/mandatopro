@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileInvoiceDollar, faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -6,6 +6,8 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function NovaEmenda() {
   const router = useRouter();
@@ -77,6 +79,7 @@ export default function NovaEmenda() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.EMENDAS}>
     <Layout titulo="Nova Emenda">
       <Modal
         isOpen={modalState.isOpen}
@@ -319,5 +322,7 @@ export default function NovaEmenda() {
         </form>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

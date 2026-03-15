@@ -5,6 +5,8 @@ import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function EditarLancamento() {
   const router = useRouter();
@@ -107,6 +109,7 @@ export default function EditarLancamento() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FINANCEIRO}>
     <Layout titulo="Editar Lancamento">
       <Modal
         isOpen={modalState.isOpen}
@@ -258,5 +261,6 @@ export default function EditarLancamento() {
         )}
       </div>
     </Layout>
+    </ProtectedRoute>
   );
 }

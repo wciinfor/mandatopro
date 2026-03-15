@@ -1,10 +1,13 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { applyMask, onlyDigits } from '@/utils/inputMasks';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function NovoDoador() {
   const router = useRouter();
@@ -26,7 +29,8 @@ export default function NovoDoador() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const maskedValue = applyMask(name, value);
+    setFormData((prev) => ({ ...prev, [name]: maskedValue }));
   };
 
   const handleSubmit = async (e) => {
@@ -48,7 +52,11 @@ export default function NovoDoador() {
           'Content-Type': 'application/json',
           usuario: usuario ? JSON.stringify(usuario) : ''
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          cpf: onlyDigits(formData.cpf),
+          telefone: onlyDigits(formData.telefone)
+        })
       });
 
       const data = await response.json();
@@ -66,6 +74,7 @@ export default function NovoDoador() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FINANCEIRO}>
     <Layout titulo="Novo Doador">
       <Modal
         isOpen={modalState.isOpen}
@@ -220,5 +229,7 @@ export default function NovoDoador() {
         </form>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

@@ -73,9 +73,18 @@ export default async function handler(req, res) {
         }
       }
 
-      if (body.email && anterior.auth_user_id) {
+      if (body.email) {
         const email = String(body.email).trim().toLowerCase();
-        const { error: emailError } = await supabase.auth.admin.updateUserById(anterior.auth_user_id, {
+        const authUserId = anterior.auth_user_id;
+
+        if (!authUserId) {
+          return res.status(409).json({
+            message: 'Usuario sem vinculo auth_user_id. Verifique a migracao 219 e o backfill.',
+            traceId
+          });
+        }
+
+        const { error: emailError } = await supabase.auth.admin.updateUserById(authUserId, {
           email
         });
         if (emailError) {
@@ -83,12 +92,21 @@ export default async function handler(req, res) {
         }
       }
 
-      if (body.senha && anterior.auth_user_id) {
+      if (body.senha) {
         const senha = String(body.senha).trim();
         if (senha.length < 6) {
           return res.status(400).json({ message: 'Senha deve ter no minimo 6 caracteres', traceId });
         }
-        const { error: senhaError } = await supabase.auth.admin.updateUserById(anterior.auth_user_id, {
+        const authUserId = anterior.auth_user_id;
+
+        if (!authUserId) {
+          return res.status(409).json({
+            message: 'Usuario sem vinculo auth_user_id. Verifique a migracao 219 e o backfill.',
+            traceId
+          });
+        }
+
+        const { error: senhaError } = await supabase.auth.admin.updateUserById(authUserId, {
           password: senha
         });
         if (senhaError) {
@@ -96,12 +114,16 @@ export default async function handler(req, res) {
         }
       }
 
+      const liderancaIdInformada = Object.prototype.hasOwnProperty.call(body, 'lideranca_id');
+
       const payload = {
         nome: normalizarValor(body.nome),
         email: body.email ? String(body.email).trim().toLowerCase() : undefined,
         nivel: nivel || undefined,
         status: status || undefined,
-        lideranca_id: body.lideranca_id ? Number(body.lideranca_id) : null,
+        lideranca_id: liderancaIdInformada
+          ? (body.lideranca_id ? Number(body.lideranca_id) : null)
+          : undefined,
         ativo: status ? status === 'ATIVO' : undefined,
         updated_at: new Date().toISOString()
       };

@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faBirthdayCake, faSearch, faFilter, faCog, faEnvelope,
-  faCalendarDay, faCalendarWeek, faCalendarAlt, faClock, faCheckCircle
+  faBirthdayCake, faSearch, faCog,
+  faCalendarDay, faCalendarWeek, faCalendarAlt, faClock, faFileDownload, faFilter
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { getDashboardStats } from '@/data/mockData';
 import { useNotifications } from '@/contexts/NotificationContext';
 
 export default function Aniversariantes() {
@@ -18,11 +17,75 @@ export default function Aniversariantes() {
   const { addNotification } = useNotifications();
   
   const [busca, setBusca] = useState('');
-  const [mesSelecionado, setMesSelecionado] = useState('');
+  const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth() + 1);
   const [filtro, setFiltro] = useState('todos'); // todos, hoje, semana, mes
-  
-  const stats = getDashboardStats();
-  const aniversariantes = stats.proximosAniversariantes || [];
+  const [carregando, setCarregando] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState('');
+  const [stats, setStats] = useState({
+    aniversariantesHoje: 0,
+    aniversariantesSemana: 0,
+    aniversariantesMes: 0,
+    totalAniversariantes: 0
+  });
+  const [aniversariantes, setAniversariantes] = useState([]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    const carregarAniversariantes = async () => {
+      try {
+        setCarregando(true);
+        setErroCarregamento('');
+
+        const resposta = await fetch('/api/aniversariantes?limit=3000&deduplicar=1');
+        const payload = await resposta.json();
+
+        if (!resposta.ok || !payload?.success) {
+          throw new Error(payload?.detalhes || payload?.error || `Erro HTTP: ${resposta.status}`);
+        }
+
+        if (!ativo) {
+          return;
+        }
+
+        const lista = Array.isArray(payload?.aniversariantes) ? payload.aniversariantes : [];
+        const resumo = payload?.resumo || {};
+
+        setAniversariantes(lista);
+        setStats({
+          aniversariantesHoje: Number(resumo.aniversariantesHoje || 0),
+          aniversariantesSemana: Number(resumo.aniversariantesSemana || 0),
+          aniversariantesMes: Number(resumo.aniversariantesMes || 0),
+          totalAniversariantes: Number(resumo.totalAniversariantes || lista.length)
+        });
+      } catch (error) {
+        console.error('Erro ao carregar aniversariantes:', error);
+
+        if (!ativo) {
+          return;
+        }
+
+        setAniversariantes([]);
+        setStats({
+          aniversariantesHoje: 0,
+          aniversariantesSemana: 0,
+          aniversariantesMes: 0,
+          totalAniversariantes: 0
+        });
+        setErroCarregamento(error.message || 'Falha ao carregar aniversariantes');
+      } finally {
+        if (ativo) {
+          setCarregando(false);
+        }
+      }
+    };
+
+    carregarAniversariantes();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const meses = [
     { valor: '', nome: 'Todos os Meses' },
@@ -74,6 +137,24 @@ export default function Aniversariantes() {
 
   const handleConfiguracoes = () => {
     router.push('/aniversariantes/configuracoes');
+  };
+
+  const handleExportarCSV = () => {
+    const bom = '\uFEFF';
+    const cabecalho = 'Nome,Telefone';
+    const linhas = aniversariantesFiltrados.map(p => {
+      const nome = `"${(p.nome || '').replace(/"/g, '""')}"`;
+      const telefone = `"${(p.telefone || '').replace(/"/g, '""')}"`;
+      return `${nome},${telefone}`;
+    });
+    const csv = bom + [cabecalho, ...linhas].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'aniversariantes.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -149,7 +230,7 @@ export default function Aniversariantes() {
               <FontAwesomeIcon icon={faBirthdayCake} className="text-teal-600 text-xl" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-800">{aniversariantes.length}</div>
+              <div className="text-2xl font-bold text-gray-800">{stats.totalAniversariantes || aniversariantes.length}</div>
               <div className="text-sm text-gray-600">Total</div>
             </div>
           </div>
@@ -158,6 +239,10 @@ export default function Aniversariantes() {
 
       {/* Filtros e Busca */}
       <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <FontAwesomeIcon icon={faFilter} className="text-teal-600 text-lg" />
+          <h2 className="text-lg font-bold text-gray-700">Filtros de Busca</h2>
+        </div>
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
@@ -186,6 +271,14 @@ export default function Aniversariantes() {
               ))}
             </select>
           </div>
+
+          <button
+            onClick={handleExportarCSV}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+          >
+            <FontAwesomeIcon icon={faFileDownload} />
+            Exportar CSV
+          </button>
 
           <button
             onClick={handleConfiguracoes}
@@ -230,10 +323,10 @@ export default function Aniversariantes() {
                   Idade
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
+                  Cargo / Hierarquia
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Status Cadastro
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
@@ -241,7 +334,20 @@ export default function Aniversariantes() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {aniversariantesFiltrados.length === 0 ? (
+              {carregando ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                    Carregando aniversariantes...
+                  </td>
+                </tr>
+              ) : erroCarregamento ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center">
+                    <div className="text-red-600 font-semibold mb-2">Nao foi possivel carregar os aniversariantes</div>
+                    <div className="text-sm text-gray-500">{erroCarregamento}</div>
+                  </td>
+                </tr>
+              ) : aniversariantesFiltrados.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -257,6 +363,8 @@ export default function Aniversariantes() {
                 aniversariantesFiltrados.map((pessoa) => {
                   const isHoje = pessoa.diasAte === 0;
                   const isAmanha = pessoa.diasAte === 1;
+                  const tipoHierarquia = String(pessoa.hierarquia || pessoa.tipo || 'ELEITOR').toUpperCase();
+                  const statusCadastro = String(pessoa.statusCadastro || pessoa.status || 'ATIVO').toUpperCase();
                   
                   return (
                     <tr 
@@ -303,27 +411,25 @@ export default function Aniversariantes() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          pessoa.tipo === 'eleitor' ? 'bg-blue-100 text-blue-800' :
-                          pessoa.tipo === 'lideranca' ? 'bg-purple-100 text-purple-800' :
+                          tipoHierarquia === 'ELEITOR' ? 'bg-blue-100 text-blue-800' :
+                          tipoHierarquia === 'LIDERANCA' ? 'bg-purple-100 text-purple-800' :
                           'bg-green-100 text-green-800'
                         }`}>
-                          {pessoa.tipo === 'eleitor' ? 'Eleitor' :
-                           pessoa.tipo === 'lideranca' ? 'Liderança' :
+                          {tipoHierarquia === 'ELEITOR' ? 'Eleitor' :
+                           tipoHierarquia === 'LIDERANCA' ? 'Liderança' :
                            'Funcionário'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {isHoje ? (
-                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-pink-100 text-pink-800">
-                            <FontAwesomeIcon icon={faBirthdayCake} className="mr-1" />
-                            Aniversário
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                            <FontAwesomeIcon icon={faClock} className="mr-1" />
-                            Aguardando
-                          </span>
-                        )}
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          statusCadastro === 'ATIVO'
+                            ? 'bg-green-100 text-green-800'
+                            : statusCadastro === 'INATIVO'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {statusCadastro}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">

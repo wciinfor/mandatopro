@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -7,6 +7,8 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function Doadores() {
   const router = useRouter();
@@ -124,6 +126,7 @@ export default function Doadores() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FINANCEIRO}>
     <Layout titulo="Doadores / Parceiros">
       <Modal
         isOpen={modalState.isOpen}
@@ -334,5 +337,7 @@ export default function Doadores() {
         </div>
       )}
     </Layout>
+
+    </ProtectedRoute>
   );
 }

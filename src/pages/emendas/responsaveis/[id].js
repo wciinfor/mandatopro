@@ -8,6 +8,7 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import supabase from '@/lib/supabaseClient';
+import { applyMask, onlyDigits } from '@/utils/inputMasks';
 
 export default function EditarResponsavel() {
   const router = useRouter();
@@ -51,10 +52,10 @@ export default function EditarResponsavel() {
           nome: data.nome || '',
           cargo: data.cargo || '',
           orgao: data.orgao || '',
-          cpf: data.cpf || '',
-          telefone: data.telefone || '',
+          cpf: applyMask('cpf', data.cpf || ''),
+          telefone: applyMask('telefone', data.telefone || ''),
           email: data.email || '',
-          whatsapp: data.whatsapp || '',
+          whatsapp: applyMask('whatsapp', data.whatsapp || ''),
           observacoes: data.observacoes || '',
           status: data.status || 'ATIVO'
         });
@@ -69,9 +70,10 @@ export default function EditarResponsavel() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const maskedValue = applyMask(name, value);
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: maskedValue
     }));
   };
 
@@ -93,10 +95,10 @@ export default function EditarResponsavel() {
           nome: formData.nome,
           cargo: formData.cargo,
           orgao: formData.orgao,
-          cpf: formData.cpf || null,
-          telefone: formData.telefone || null,
+          cpf: onlyDigits(formData.cpf) || null,
+          telefone: onlyDigits(formData.telefone) || null,
           email: formData.email || null,
-          whatsapp: formData.whatsapp || null,
+          whatsapp: onlyDigits(formData.whatsapp) || null,
           observacoes: formData.observacoes || null,
           status: formData.status,
           updated_at: new Date().toISOString()

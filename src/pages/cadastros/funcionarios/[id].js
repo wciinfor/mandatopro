@@ -11,6 +11,8 @@ import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import supabase from '@/lib/supabaseClient';
 import { applyMask, formatCurrencyBRL, parseCurrencyBRL } from '@/utils/inputMasks';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 const modulos = [
   { nome: 'Dashboard', icone: faChartBar, submenu: [] },
@@ -181,6 +183,7 @@ export default function EditarFuncionario() {
   }
 
   return (
+    <ProtectedRoute module={MODULES.FUNCIONARIOS}>
     <div className="min-h-screen bg-teal-50 flex">
       <Modal
         isOpen={modalState.isOpen}
@@ -530,5 +533,6 @@ export default function EditarFuncionario() {
         </div>
       </main>
     </div>
+    </ProtectedRoute>
   );
 }

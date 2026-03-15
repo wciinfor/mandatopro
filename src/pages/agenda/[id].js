@@ -9,7 +9,6 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
-import supabase from '@/lib/supabaseClient';
 
 export default function DetalhesEvento() {
   const router = useRouter();
@@ -31,13 +30,11 @@ export default function DetalhesEvento() {
   const carregarEvento = async () => {
     setCarregando(true);
     try {
-      const { data, error } = await supabase
-        .from('agenda_eventos')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
+      const res = await fetch('/api/agenda');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao carregar evento');
+      const data = (json.data || []).find(e => String(e.id) === String(id));
+      if (!data) throw new Error('Evento não encontrado');
 
       setEvento({
         ...data,
@@ -60,13 +57,9 @@ export default function DetalhesEvento() {
 
   const confirmarExclusao = async () => {
     try {
-      const { error } = await supabase
-        .from('agenda_eventos')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      const res = await fetch(`/api/agenda?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao excluir evento');
       router.push('/agenda');
     } catch (error) {
       console.error('Erro ao excluir evento:', error);
@@ -83,12 +76,13 @@ export default function DetalhesEvento() {
     const novoConfirmados = (evento.confirmados || 0) + 1;
 
     try {
-      const { error } = await supabase
-        .from('agenda_eventos')
-        .update({ confirmados: novoConfirmados })
-        .eq('id', evento.id);
-
-      if (error) throw error;
+      const res = await fetch('/api/agenda', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: evento.id, confirmados: novoConfirmados })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao confirmar presença');
 
       setEvento({ ...evento, confirmados: novoConfirmados });
       setConfirmado(true);

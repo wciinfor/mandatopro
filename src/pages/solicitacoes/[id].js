@@ -14,78 +14,72 @@ import { MODULES } from '@/utils/permissions';
 export default function DetalhesSolicitacao() {
   const router = useRouter();
   const { id } = router.query;
-  const { modalState, closeModal, showSuccess, showConfirm } = useModal();
-
+  const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
+  const [usuario, setUsuario] = useState(null);
   const [modoEdicao, setModoEdicao] = useState(false);
   const [novoComentario, setNovoComentario] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Mock de solicitação (viria do banco de dados)
-  const [solicitacao, setSolicitacao] = useState({
-    id: 1,
-    protocolo: 'SOL-2024-001',
-    titulo: 'Reforma de escola municipal',
-    solicitante: 'Maria Silva Santos',
-    tipoSolicitante: 'Liderança',
-    telefone: '(91) 99999-8888',
-    email: 'maria@email.com',
-    categoria: 'Educação',
-    prioridade: 'ALTA',
-    status: 'NOVO',
-    municipio: 'Belém',
-    bairro: 'Pedreira',
-    endereco: 'Rua das Flores, 123',
-    dataAbertura: '2024-11-15T10:30:00',
-    dataUltimaAtualizacao: '2024-11-20T14:15:00',
-    descricao: 'Solicitação de reforma completa da Escola Municipal João Paulo II, incluindo pintura externa e interna, troca de telhas danificadas, reforma dos banheiros e adaptação para acessibilidade.',
-    observacoes: 'Escola atende cerca de 300 alunos do ensino fundamental.',
-    atendente: null,
-    historico: [
-      {
-        id: 1,
-        data: '2024-11-15 10:30',
-        usuario: 'Sistema',
-        acao: 'Solicitação criada',
-        descricao: 'Solicitação registrada no sistema'
-      },
-      {
-        id: 2,
-        data: '2024-11-16 09:15',
-        usuario: 'Pedro Alves',
-        acao: 'Comentário adicionado',
-        descricao: 'Entramos em contato com a Secretaria de Educação'
-      },
-      {
-        id: 3,
-        data: '2024-11-18 14:30',
-        usuario: 'Pedro Alves',
-        acao: 'Prioridade alterada',
-        descricao: 'Prioridade alterada de MÉDIA para ALTA'
-      }
-    ]
-  });
-
-  const [formData, setFormData] = useState({ ...solicitacao });
+  const [solicitacao, setSolicitacao] = useState(null);
+  const [formData, setFormData] = useState({});
 
   useEffect(() => {
-    if (id) {
-      // Aqui você buscaria os dados do banco de dados
-      setFormData({ ...solicitacao });
-    }
-  }, [id]);
+    const u = JSON.parse(localStorage.getItem('usuario') || '{}');
+    setUsuario(u);
+  }, []);
+
+  useEffect(() => {
+    if (!id || !usuario) return;
+    const fetchSolicitacao = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/solicitacoes/${id}`, {
+          headers: { usuario: JSON.stringify(usuario) }
+        });
+        if (!response.ok) throw new Error('Solicitação não encontrada');
+        const result = await response.json();
+        const s = result.data;
+        const mapped = {
+          ...s,
+          dataAbertura: s.data_abertura || s.dataAbertura,
+          tipoSolicitante: s.tipo_solicitante || s.tipoSolicitante,
+          historico: s.historico || [],
+        };
+        setSolicitacao(mapped);
+        setFormData({ ...mapped });
+      } catch (error) {
+        console.error('Erro ao carregar solicitação:', error);
+        showError('Não foi possível carregar a solicitação');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSolicitacao();
+  }, [id, usuario?.id]);
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSalvar = () => {
-    showConfirm('Salvar Alterações', 'Deseja salvar as alterações realizadas?', () => {
-      // Aqui você salvaria no banco de dados
-      setSolicitacao({ ...formData });
-      setModoEdicao(false);
-      showSuccess('Solicitação atualizada com sucesso!');
+    showConfirm('Salvar Alterações', 'Deseja salvar as alterações realizadas?', async () => {
+      try {
+        const response = await fetch(`/api/solicitacoes/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            usuario: JSON.stringify(usuario)
+          },
+          body: JSON.stringify({ observacoes: formData.observacoes, descricao: formData.descricao })
+        });
+        if (!response.ok) throw new Error('Erro ao salvar');
+        const result = await response.json();
+        setSolicitacao({ ...solicitacao, ...result.data });
+        setModoEdicao(false);
+        showSuccess('Solicitação atualizada com sucesso!');
+      } catch (error) {
+        showError('Erro ao salvar alterações');
+      }
     });
   };
 
@@ -94,47 +88,49 @@ export default function DetalhesSolicitacao() {
     setModoEdicao(false);
   };
 
-  const handleAdicionarComentario = () => {
+  const handleAdicionarComentario = async () => {
     if (!novoComentario.trim()) return;
-
-    const novoHistorico = {
-      id: solicitacao.historico.length + 1,
-      data: new Date().toLocaleString('pt-BR'),
-      usuario: 'Usuário do Sistema',
-      acao: 'Comentário adicionado',
-      descricao: novoComentario
-    };
-
-    setSolicitacao(prev => ({
-      ...prev,
-      historico: [...prev.historico, novoHistorico]
-    }));
-
-    setNovoComentario('');
-    showSuccess('Comentário adicionado!');
+    try {
+      const response = await fetch(`/api/solicitacoes/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          usuario: JSON.stringify(usuario)
+        },
+        body: JSON.stringify({ observacoes: `${solicitacao?.observacoes || ''}\n[${new Date().toLocaleString('pt-BR')}] ${novoComentario}`.trim() })
+      });
+      if (!response.ok) throw new Error('Erro ao salvar comentário');
+      const result = await response.json();
+      setSolicitacao(prev => ({ ...prev, observacoes: result.data?.observacoes }));
+      setNovoComentario('');
+      showSuccess('Comentário adicionado!');
+    } catch (error) {
+      showError('Erro ao adicionar comentário');
+    }
   };
 
   const handleAlterarStatus = (novoStatus) => {
     showConfirm(
       'Alterar Status',
       `Deseja alterar o status para ${getStatusLabel(novoStatus)}?`,
-      () => {
-        const novoHistorico = {
-          id: solicitacao.historico.length + 1,
-          data: new Date().toLocaleString('pt-BR'),
-          usuario: 'Usuário do Sistema',
-          acao: 'Status alterado',
-          descricao: `Status alterado de ${getStatusLabel(solicitacao.status)} para ${getStatusLabel(novoStatus)}`
-        };
-
-        setSolicitacao(prev => ({
-          ...prev,
-          status: novoStatus,
-          historico: [...prev.historico, novoHistorico]
-        }));
-
-        setFormData(prev => ({ ...prev, status: novoStatus }));
-        showSuccess('Status atualizado!');
+      async () => {
+        try {
+          const response = await fetch(`/api/solicitacoes/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              usuario: JSON.stringify(usuario)
+            },
+            body: JSON.stringify({ status: novoStatus })
+          });
+          if (!response.ok) throw new Error('Erro ao alterar status');
+          const result = await response.json();
+          setSolicitacao(prev => ({ ...prev, status: novoStatus, ...result.data }));
+          setFormData(prev => ({ ...prev, status: novoStatus }));
+          showSuccess('Status atualizado!');
+        } catch (error) {
+          showError('Erro ao alterar status');
+        }
       }
     );
   };
@@ -142,7 +138,7 @@ export default function DetalhesSolicitacao() {
   const getStatusLabel = (status) => {
     const labels = {
       'NOVO': 'Novo',
-      'EM_ANDAMENTO': 'Em Andamento',
+      'RECEBIDO': 'Recebido',
       'ATENDIDO': 'Atendido',
       'RECUSADO': 'Recusado'
     };
@@ -152,7 +148,7 @@ export default function DetalhesSolicitacao() {
   const getStatusBadge = (status) => {
     const badges = {
       'NOVO': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Novo' },
-      'EM_ANDAMENTO': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Em Andamento' },
+      'RECEBIDO': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Recebido' },
       'ATENDIDO': { bg: 'bg-green-100', text: 'text-green-800', label: 'Atendido' },
       'RECUSADO': { bg: 'bg-red-100', text: 'text-red-800', label: 'Recusado' }
     };
@@ -181,7 +177,7 @@ export default function DetalhesSolicitacao() {
 
   return (
     <ProtectedRoute module={MODULES.SOLICITACOES}>
-      <Layout titulo={`Solicitação ${solicitacao.protocolo}`}>
+      <Layout titulo={solicitacao ? `Solicitação ${solicitacao.protocolo}` : 'Carregando...'}>
         <Modal
           isOpen={modalState.isOpen}
           onClose={closeModal}
@@ -194,6 +190,19 @@ export default function DetalhesSolicitacao() {
           showCancel={modalState.showCancel}
         />
 
+        {loading && (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+        )}
+
+        {!loading && !solicitacao && (
+          <div className="text-center py-16 text-gray-500">
+            Solicitação não encontrada.
+          </div>
+        )}
+
+        {!loading && solicitacao && (
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Coluna Principal */}
@@ -233,12 +242,12 @@ export default function DetalhesSolicitacao() {
                   <h3 className="text-sm font-semibold text-gray-700">ALTERAR STATUS</h3>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleAlterarStatus('EM_ANDAMENTO')}
-                      disabled={solicitacao.status === 'EM_ANDAMENTO'}
+                      onClick={() => handleAlterarStatus('RECEBIDO')}
+                      disabled={solicitacao.status === 'RECEBIDO'}
                       className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                     >
                       <FontAwesomeIcon icon={faClock} className="mr-1" />
-                      Em Andamento
+                      Recebido
                     </button>
                     <button
                       onClick={() => handleAlterarStatus('ATENDIDO')}
@@ -452,6 +461,7 @@ export default function DetalhesSolicitacao() {
             </button>
           </div>
         </div>
+        )}
       </Layout>
     </ProtectedRoute>
   );

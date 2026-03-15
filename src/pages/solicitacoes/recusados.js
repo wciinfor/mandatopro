@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,22 +11,34 @@ import { MODULES } from '@/utils/permissions';
 export default function SolicitacoesRecusadas() {
   const router = useRouter();
   const [busca, setBusca] = useState('');
+  const [usuario, setUsuario] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [solicitacoes, setSolicitacoes] = useState([]);
 
-  // Mock de solicitações recusadas
-  const solicitacoes = [
-    {
-      id: 5,
-      protocolo: 'SOL-2024-005',
-      titulo: 'Coleta de lixo irregular',
-      solicitante: 'Francisca Lima',
-      categoria: 'Meio Ambiente',
-      municipio: 'Belém',
-      dataAbertura: '2024-11-05',
-      dataRecusa: '2024-11-12',
-      motivo: 'Competência municipal - encaminhado para prefeitura',
-      atendente: 'Pedro Alves'
-    }
-  ];
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('usuario') || '{}');
+    setUsuario(u);
+  }, []);
+
+  useEffect(() => {
+    if (!usuario?.id) return;
+    const fetchSolicitacoes = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/solicitacoes?status=RECUSADO&limit=100', {
+          headers: { usuario: JSON.stringify(usuario) }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar');
+        const result = await response.json();
+        setSolicitacoes(result.data || []);
+      } catch (error) {
+        console.error('Erro ao carregar solicitações recusadas:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSolicitacoes();
+  }, [usuario?.id]);
 
   const solicitacoesFiltradas = solicitacoes.filter(sol =>
     sol.titulo.toLowerCase().includes(busca.toLowerCase()) ||
@@ -45,7 +57,7 @@ export default function SolicitacoesRecusadas() {
             <div>
               <h2 className="text-2xl font-bold text-gray-800">Solicitações Recusadas</h2>
               <p className="text-sm text-gray-600">
-                {solicitacoes.length} {solicitacoes.length === 1 ? 'solicitação recusada' : 'solicitações recusadas'}
+                {solicitacoesFiltradas.length} {solicitacoesFiltradas.length === 1 ? 'solicitação recusada' : 'solicitações recusadas'}
               </p>
             </div>
           </div>
@@ -83,9 +95,9 @@ export default function SolicitacoesRecusadas() {
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{sol.protocolo}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{sol.titulo}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{sol.solicitante}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 max-w-xs">{sol.motivo}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600 max-w-xs">{sol.observacoes || '-'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(sol.dataRecusa).toLocaleDateString('pt-BR')}
+                    {sol.data_conclusao ? new Date(sol.data_conclusao).toLocaleDateString('pt-BR') : '-'}
                   </td>
                   <td className="px-6 py-4 text-right text-sm">
                     <button

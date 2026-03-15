@@ -1,10 +1,12 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function NovaDespesa() {
   const router = useRouter();
@@ -70,6 +72,7 @@ export default function NovaDespesa() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FINANCEIRO}>
     <Layout titulo="Nova Despesa">
       <Modal
         isOpen={modalState.isOpen}
@@ -239,5 +242,7 @@ export default function NovaDespesa() {
         </form>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

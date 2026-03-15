@@ -19,48 +19,33 @@ export default function Comunicacao() {
   const messagesEndRef = useRef(null);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' ou 'disparo'
 
-  const [usuarioAtual] = useState({
-    id: 1,
-    nome: 'Admin Sistema',
-    nivel: ROLES.ADMINISTRADOR
-  });
+  const [usuarioAtual, setUsuarioAtual] = useState(null);
 
   // ============ CHAT ============
   const [busca, setBusca] = useState('');
   const [mensagemTexto, setMensagemTexto] = useState('');
   const [conversaSelecionada, setConversaSelecionada] = useState(null);
 
-  // Mock de usuários
-  const [usuarios] = useState([
-    { id: 1, nome: 'Admin Sistema', nivel: ROLES.ADMINISTRADOR, online: true },
-    { id: 2, nome: 'João Silva Santos', nivel: ROLES.LIDERANCA, online: true },
-    { id: 3, nome: 'Maria Costa Oliveira', nivel: ROLES.OPERADOR, online: false },
-    { id: 4, nome: 'Carlos Mendes', nivel: ROLES.OPERADOR, online: true },
-    { id: 5, nome: 'Ana Paula Costa', nivel: ROLES.LIDERANCA, online: false },
-    { id: 6, nome: 'Roberto Almeida', nivel: ROLES.OPERADOR, online: true }
-  ]);
+  // Usuários do sistema
+  const [usuarios, setUsuarios] = useState([]);
 
-  // Mock de mensagens
-  const [mensagens, setMensagens] = useState([
-    {
-      id: 1,
-      remetenteId: 2,
-      destinatarioId: 1,
-      texto: 'Olá, Admin! Preciso de ajuda com um cadastro.',
-      dataHora: '2024-01-20 10:30',
-      lida: true,
-      tipo: 'individual'
-    },
-    {
-      id: 2,
-      remetenteId: 1,
-      destinatarioId: 2,
-      texto: 'Oi João! Claro, pode me explicar o problema?',
-      dataHora: '2024-01-20 10:32',
-      lida: true,
-      tipo: 'individual'
-    }
-  ]);
+  // Mock de mensagens (estado local enquanto não há polling em tempo real)
+  const [mensagens, setMensagens] = useState([]);
+
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('usuario') || '{}');
+    if (u?.id) setUsuarioAtual({ id: u.id, nome: u.nome, nivel: u.nivel });
+  }, []);
+
+  useEffect(() => {
+    if (!usuarioAtual?.id) return;
+    fetch('/api/usuarios?limit=100', {
+      headers: { usuario: JSON.stringify(usuarioAtual) }
+    })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(result => setUsuarios(result.data || []))
+      .catch(err => console.error('Erro ao carregar usuários:', err));
+  }, [usuarioAtual?.id]);
 
   // ============ DISPARO EM MASSA ============
   const [canalDisparo, setCanalDisparo] = useState('whatsapp'); // 'whatsapp', 'email', 'sms'

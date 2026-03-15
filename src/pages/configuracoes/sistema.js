@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { ROLES } from '@/utils/permissions';
 import { 
   FontAwesomeIcon 
 } from '@fortawesome/react-fontawesome';
@@ -418,6 +420,7 @@ export default function ConfiguracaoSistema() {
   };
 
   return (
+    <ProtectedRoute requiredRole={ROLES.ADMINISTRADOR}>
     <Layout titulo="Configurações do Sistema">
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
@@ -1020,5 +1023,7 @@ export default function ConfiguracaoSistema() {
         onClose={() => setErrorModal(false)}
       />
     </Layout>
+
+    </ProtectedRoute>
   );
 }

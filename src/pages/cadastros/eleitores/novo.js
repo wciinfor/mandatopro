@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -13,6 +13,7 @@ import { applyMask, onlyDigits } from '@/utils/inputMasks';
 export default function NovoEleitor() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+  const inputRGRef = useRef(null);
   const [formData, setFormData] = useState({
     // Dados Pessoais
     cpf: '',
@@ -61,6 +62,9 @@ export default function NovoEleitor() {
     statusCadastro: 'ATIVO'
   });
 
+  // Estados para controle de duplicidade
+  const [duplicidadeInfo, setDuplicidadeInfo] = useState(null);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     const maskedValue = applyMask(name, value);
@@ -68,6 +72,72 @@ export default function NovoEleitor() {
       ...prev,
       [name]: maskedValue
     }));
+  };
+
+  const verificarDuplicidade = async (campo, valor) => {
+    if (!valor || valor.length < 3) return;
+
+    try {
+      const digitos = onlyDigits(valor);
+      const response = await fetch(`/api/cadastros/eleitores?search=${encodeURIComponent(digitos)}`);
+      
+      if (response.ok) {
+        const dados = await response.json();
+        const eleitores = dados.data || [];
+        
+        // Verificar se há duplicidade no campo específico
+        const duplicado = eleitores.find(e => {
+          if (campo === 'cpf') {
+            const cpfExistente = (e.cpf || '').replace(/\D/g, '');
+            return cpfExistente === digitos;
+          } else if (campo === 'rg') {
+            const rgExistente = (e.rg || '').replace(/\D/g, '');
+            return rgExistente === digitos;
+          }
+          return false;
+        });
+
+        if (duplicado) {
+          const nomeCampo = campo.toUpperCase();
+          setDuplicidadeInfo({
+            campo: nomeCampo,
+            nome: duplicado.nome,
+            valor: valor
+          });
+          showWarning(
+            'Cadastro Duplicado',
+            `Já existe um cadastro com este ${nomeCampo}\n\nNome: ${duplicado.nome}`,
+            () => {
+              // Reset do campo de duplicidade
+              setFormData(prev => ({
+                ...prev,
+                [campo]: ''
+              }));
+              // Focar no input RG
+              if (inputRGRef.current) {
+                inputRGRef.current.focus();
+              }
+            }
+          );
+        } else {
+          setDuplicidadeInfo(null);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar duplicidade:', error);
+    }
+  };
+
+  const handleRGBlur = () => {
+    if (formData.rg.length >= 3) {
+      verificarDuplicidade('rg', formData.rg);
+    }
+  };
+
+  const handleCPFBlur = () => {
+    if (formData.cpf.length >= 3) {
+      verificarDuplicidade('cpf', formData.cpf);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -289,6 +359,22 @@ export default function NovoEleitor() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    RG
+                  </label>
+                  <input
+                    ref={inputRGRef}
+                    type="text"
+                    name="rg"
+                    value={formData.rg}
+                    onChange={handleInputChange}
+                    onBlur={handleRGBlur}
+                    placeholder="Somente Números"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     CPF
                   </label>
                   <input
@@ -296,12 +382,30 @@ export default function NovoEleitor() {
                     name="cpf"
                     value={formData.cpf}
                     onChange={handleInputChange}
+                    onBlur={handleCPFBlur}
                     placeholder="Somente Números"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
 
-                <div className="md:col-span-2">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faWhatsapp} className="text-green-500" />
+                    CELULAR / WHATSAPP
+                  </label>
+                  <input
+                    type="tel"
+                    name="celular"
+                    value={formData.celular}
+                    onChange={handleInputChange}
+                    placeholder="(00) 9 0000-0000"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     NOME COMPLETO <span className="text-red-500">*</span>
                   </label>
@@ -312,34 +416,6 @@ export default function NovoEleitor() {
                     onChange={handleInputChange}
                     placeholder="Nome completo do eleitor"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Nome Social
-                  </label>
-                  <input
-                    type="text"
-                    name="nomeSocial"
-                    value={formData.nomeSocial}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    RG
-                  </label>
-                  <input
-                    type="text"
-                    name="rg"
-                    value={formData.rg}
-                    onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
                 </div>
@@ -359,7 +435,20 @@ export default function NovoEleitor() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Nome Social
+                  </label>
+                  <input
+                    type="text"
+                    name="nomeSocial"
+                    value={formData.nomeSocial}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Sexo
@@ -374,7 +463,9 @@ export default function NovoEleitor() {
                     <option value="FEMININO">FEMININO</option>
                   </select>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Nome do Pai
@@ -388,7 +479,7 @@ export default function NovoEleitor() {
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Nome da Mãe
                   </label>
@@ -741,22 +832,7 @@ export default function NovoEleitor() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faWhatsapp} className="text-green-500" />
-                    CELULAR / WHATSAPP
-                  </label>
-                  <input
-                    type="tel"
-                    name="celular"
-                    value={formData.celular}
-                    onChange={handleInputChange}
-                    placeholder="(00) 00000-0000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     STATUS DO CADASTRO

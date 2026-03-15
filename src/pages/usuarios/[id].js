@@ -7,14 +7,18 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { ROLES, ROLE_DESCRIPTIONS, getRoleColor } from '@/utils/permissions';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { ROLES, ROLE_DESCRIPTIONS, getRoleColor, MODULES } from '@/utils/permissions';
 
 export default function EditarUsuario() {
   const router = useRouter();
   const { id } = router.query;
-  const { modalState, closeModal, showSuccess } = useModal();
+  const { modalState, closeModal, showSuccess, showError } = useModal();
 
   const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [carregandoLiderancas, setCarregandoLiderancas] = useState(false);
+  const [liderancas, setLiderancas] = useState([]);
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
@@ -29,66 +33,92 @@ export default function EditarUsuario() {
 
   const [errors, setErrors] = useState({});
 
-  // Mock de lideranças disponíveis
-  const liderancas = [
-    { id: 2, nome: 'João Silva Santos' },
-    { id: 5, nome: 'Ana Paula Costa' },
-    { id: 8, nome: 'Roberto Almeida' }
-  ];
+  const obterUsuarioHeader = () => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
 
-  // Mock de dados do usuário
-  const usuariosMock = {
-    1: {
-      id: 1,
-      nome: 'Admin Sistema',
-      email: 'admin@mandatopro.com',
-      nivel: ROLES.ADMINISTRADOR,
-      status: 'ATIVO',
-      liderancaVinculada: null
-    },
-    2: {
-      id: 2,
-      nome: 'João Silva Santos',
-      email: 'joao.silva@mandatopro.com',
-      nivel: ROLES.LIDERANCA,
-      status: 'ATIVO',
-      liderancaVinculada: null
-    },
-    3: {
-      id: 3,
-      nome: 'Maria Costa Oliveira',
-      email: 'maria.costa@mandatopro.com',
-      nivel: ROLES.OPERADOR,
-      status: 'ATIVO',
-      liderancaVinculada: 2
-    },
-    4: {
-      id: 4,
-      nome: 'Carlos Mendes',
-      email: 'carlos.mendes@mandatopro.com',
-      nivel: ROLES.OPERADOR,
-      status: 'INATIVO',
-      liderancaVinculada: 2
+    return JSON.parse(localStorage.getItem('usuario') || 'null');
+  };
+
+  const carregarUsuario = async () => {
+    const usuarioLocal = obterUsuarioHeader();
+    const response = await fetch(`/api/usuarios/${id}`, {
+      headers: {
+        usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+      }
+    });
+
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body?.message || 'Erro ao carregar usuario');
+    }
+
+    const usuario = body?.data;
+    if (!usuario) {
+      throw new Error('Usuario nao encontrado');
+    }
+
+    setFormData({
+      nome: usuario.nome || '',
+      email: usuario.email || '',
+      nivel: usuario.nivel || ROLES.OPERADOR,
+      liderancaVinculada: usuario.lideranca_id || '',
+      status: usuario.status || 'ATIVO'
+    });
+  };
+
+  const carregarLiderancas = async () => {
+    try {
+      setCarregandoLiderancas(true);
+      const usuarioLocal = obterUsuarioHeader();
+
+      const response = await fetch('/api/usuarios/liderancas-opcoes', {
+        headers: {
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        }
+      });
+
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body?.message || 'Erro ao carregar liderancas');
+      }
+
+      setLiderancas(Array.isArray(body?.data) ? body.data : []);
+    } catch (error) {
+      showError('Erro ao carregar liderancas: ' + error.message);
+    } finally {
+      setCarregandoLiderancas(false);
     }
   };
 
   useEffect(() => {
-    if (id) {
-      // Simular carregamento de dados
-      setTimeout(() => {
-        const usuario = usuariosMock[id];
-        if (usuario) {
-          setFormData({
-            nome: usuario.nome,
-            email: usuario.email,
-            nivel: usuario.nivel,
-            liderancaVinculada: usuario.liderancaVinculada || '',
-            status: usuario.status
-          });
+    if (!id) return;
+
+    let ativo = true;
+
+    const carregar = async () => {
+      try {
+        setLoading(true);
+        await Promise.all([carregarUsuario(), carregarLiderancas()]);
+      } catch (error) {
+        if (!ativo) {
+          return;
         }
-        setLoading(false);
-      }, 500);
-    }
+        showError('Erro ao carregar usuario: ' + error.message);
+        router.push('/usuarios');
+      } finally {
+        if (ativo) {
+          setLoading(false);
+        }
+      }
+    };
+
+    carregar();
+
+    return () => {
+      ativo = false;
+    };
   }, [id]);
 
   const handleChange = (e) => {
@@ -139,26 +169,51 @@ export default function EditarUsuario() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    // Aqui você faria a integração com a API
-    const dadosParaEnviar = {
-      ...formData,
-      ...(alterarSenha && { senha: novaSenha })
-    };
-    
-    console.log('Dados atualizados do usuário:', dadosParaEnviar);
-    
-    showSuccess('Usuário atualizado com sucesso!');
-    
-    setTimeout(() => {
-      router.push('/usuarios');
-    }, 1500);
+    try {
+      setSalvando(true);
+      const usuarioLocal = obterUsuarioHeader();
+
+      const payload = {
+        nome: formData.nome,
+        email: formData.email,
+        nivel: formData.nivel,
+        status: formData.status,
+        lideranca_id: formData.nivel === ROLES.OPERADOR
+          ? Number(formData.liderancaVinculada)
+          : null,
+        ...(alterarSenha ? { senha: novaSenha } : {})
+      };
+
+      const response = await fetch(`/api/usuarios/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body?.message || 'Erro ao atualizar usuario');
+      }
+
+      showSuccess('Usuário atualizado com sucesso!');
+      setTimeout(() => {
+        router.push('/usuarios');
+      }, 1200);
+    } catch (error) {
+      showError('Erro ao atualizar usuario: ' + error.message);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleCancel = () => {
@@ -192,6 +247,7 @@ export default function EditarUsuario() {
   }
 
   return (
+    <ProtectedRoute module={MODULES.USUARIOS}>
     <Layout titulo="Editar Usuário">
       <Modal
         isOpen={modalState.isOpen}
@@ -422,6 +478,9 @@ export default function EditarUsuario() {
                   </option>
                 ))}
               </select>
+              {carregandoLiderancas && (
+                <p className="mt-1 text-xs text-gray-500">Carregando liderancas...</p>
+              )}
               {errors.liderancaVinculada && (
                 <p className="mt-1 text-sm text-red-600">{errors.liderancaVinculada}</p>
               )}
@@ -441,13 +500,15 @@ export default function EditarUsuario() {
           </button>
           <button
             type="submit"
-            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
+            disabled={salvando}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-60"
           >
             <FontAwesomeIcon icon={faSave} />
-            Salvar Alterações
+            {salvando ? 'Salvando...' : 'Salvar Alterações'}
           </button>
         </div>
       </form>
     </Layout>
+    </ProtectedRoute>
   );
 }

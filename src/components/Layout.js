@@ -15,29 +15,35 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
 
   useEffect(() => {
     const usuarioStr = localStorage.getItem('usuario');
-    console.log('[Layout] Verificando autenticação - usuarioStr:', usuarioStr ? 'existe' : 'não existe');
-    console.log('[Layout] pathname:', router.pathname);
-    
+
     if (usuarioStr) {
       try {
         const userData = JSON.parse(usuarioStr);
-        console.log('[Layout] Usuário parseado com sucesso:', userData.email);
         setUsuario(userData);
+
+        // Buscar nome atualizado do Supabase
+        fetch('/api/usuarios/me', {
+          headers: { usuario: JSON.stringify(userData) }
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(body => {
+            if (body?.data) {
+              const atualizado = { ...userData, nome: body.data.nome };
+              setUsuario(atualizado);
+              localStorage.setItem('usuario', JSON.stringify(atualizado));
+            }
+          })
+          .catch(() => {}); // falha silenciosa, exibe o cache
       } catch (error) {
-        console.error('[Layout] Erro ao parsear usuário:', error);
         localStorage.removeItem('usuario');
         router.push('/login');
       }
     } else {
-      console.log('[Layout] Nenhum usuário no localStorage');
-      // Se não houver usuário e não está na página de login, redirecionar
       if (router.pathname !== '/login') {
-        console.log('[Layout] Redirecionando para login');
         router.push('/login');
       }
     }
-    
-    // Marcar como hidratado após verificar localStorage
+
     setHidratado(true);
   }, []); // Executar apenas uma vez na montagem
 
@@ -74,6 +80,8 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
       setModuloAtivo('Financeiro - Doadores / Parceiros');
     } else if (path.startsWith('/financeiro/relatorios')) {
       setModuloAtivo('Financeiro - Relatórios Financeiros');
+    } else if (path.startsWith('/geolocalizacao')) {
+      setModuloAtivo('Geolocalização');
     } else if (path.startsWith('/comunicacao')) {
       setModuloAtivo('Comunicação');
     } else if (path.startsWith('/configuracoes')) {
@@ -118,7 +126,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mr-4">
               <NotificationBell />
               <div className="flex items-center gap-2 bg-teal-100 px-3 py-2 rounded-lg">
                 <FontAwesomeIcon icon={faUserTie} className="text-sm text-teal-700" />

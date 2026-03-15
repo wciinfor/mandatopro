@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsers, faDownload, faEye, faTrash, faEdit, faArrowLeft, faPlus,
-  faFileWord, faFileExcel, faFile, faFilter, faCopy
+  faFileWord, faFileExcel, faFile, faFilter, faCopy,
+  faUpload, faCheckCircle, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
@@ -113,6 +114,65 @@ export default function ModelosGrupos() {
   }, [router]);
 
   useRegistrarAcesso(usuario, 'DOCUMENTOS', 'Modelos de Grupos');
+
+  // --- Upload modal state ---
+  const [showModalUpload, setShowModalUpload] = useState(false);
+  const [formUpload, setFormUpload] = useState({ nome: '', descricao: '', arquivo: null });
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef(null);
+
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+    });
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) setFormUpload((prev) => ({ ...prev, arquivo: file, nome: prev.nome || file.name.replace(/\.[^.]+$/, '') }));
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) setFormUpload((prev) => ({ ...prev, arquivo: file, nome: prev.nome || file.name.replace(/\.[^.]+$/, '') }));
+  };
+
+  const handleSubmitUpload = async (e) => {
+    e.preventDefault();
+    if (!formUpload.arquivo) { showError('Selecione um arquivo para upload'); return; }
+    if (!formUpload.nome.trim()) { showError('Informe o nome do documento'); return; }
+    setUploading(true);
+    try {
+      const base64 = await fileToBase64(formUpload.arquivo);
+      const response = await fetch('/api/documentos/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuario) },
+        body: JSON.stringify({
+          nome: formUpload.nome.trim(),
+          descricao: formUpload.descricao.trim(),
+          categoria: 'modelos',
+          arquivo_base64: base64,
+          arquivo_nome: formUpload.arquivo.name,
+          mime_type: formUpload.arquivo.type,
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message);
+      setDocumentos((prev) => [{ ...result.data, categoria: 'Geral', versao: '1.0', status: 'Ativo' }, ...prev]);
+      setShowModalUpload(false);
+      setFormUpload({ nome: '', descricao: '', arquivo: null });
+      showSuccess('Modelo enviado com sucesso!');
+    } catch (error) {
+      showError('Erro ao fazer upload: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const getCoreArquivo = (tipo) => {
     switch(tipo) {
@@ -269,7 +329,9 @@ export default function ModelosGrupos() {
           />
         </div>
         {usuario?.nivel === 'ADMINISTRADOR' && (
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold 
+          <button
+            onClick={() => setShowModalUpload(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold 
                            flex items-center gap-2 transition-colors">
             <FontAwesomeIcon icon={faPlus} />
             Novo Modelo
@@ -410,6 +472,108 @@ export default function ModelosGrupos() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal de Upload */}
+      {showModalUpload && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-800">Novo Modelo de Grupo</h3>
+              <button
+                onClick={() => { setShowModalUpload(false); setFormUpload({ nome: '', descricao: '', arquivo: null }); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <FontAwesomeIcon icon={faTimes} className="text-xl" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitUpload} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Nome do arquivo <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={formUpload.nome}
+                  onChange={(e) => setFormUpload((p) => ({ ...p, nome: e.target.value }))}
+                  placeholder="Ex: Modelo de Ata de Reunião"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Descrição</label>
+                <textarea
+                  value={formUpload.descricao}
+                  onChange={(e) => setFormUpload((p) => ({ ...p, descricao: e.target.value }))}
+                  placeholder="Descreva o conteúdo do modelo..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Arquivo <span className="text-red-500">*</span></label>
+                <div
+                  onClick={() => inputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                    dragOver ? 'border-blue-400 bg-blue-50' : formUpload.arquivo ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  {formUpload.arquivo ? (
+                    <div>
+                      <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-3xl mb-2" />
+                      <p className="text-green-700 font-semibold">{formUpload.arquivo.name}</p>
+                      <p className="text-gray-500 text-sm mt-1">
+                        {formUpload.arquivo.size >= 1024 * 1024
+                          ? `${(formUpload.arquivo.size / 1024 / 1024).toFixed(1)} MB`
+                          : `${Math.ceil(formUpload.arquivo.size / 1024)} KB`}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setFormUpload((p) => ({ ...p, arquivo: null })); }}
+                        className="mt-2 text-red-500 hover:text-red-700 text-sm underline"
+                      >
+                        Remover arquivo
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <FontAwesomeIcon icon={faUpload} className="text-gray-400 text-3xl mb-2" />
+                      <p className="text-gray-600 font-medium">Clique ou arraste o arquivo aqui</p>
+                      <p className="text-gray-400 text-sm mt-1">DOCX, XLSX, PDF e outros formatos</p>
+                    </div>
+                  )}
+                  <input ref={inputRef} type="file" hidden onChange={handleFileSelect} />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowModalUpload(false); setFormUpload({ nome: '', descricao: '', arquivo: null }); }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-semibold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  {uploading ? (
+                    <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Enviando...</>
+                  ) : (
+                    <><FontAwesomeIcon icon={faUpload} /> Fazer Upload</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </Layout>

@@ -35,6 +35,7 @@ export default function Usuarios() {
       if (busca) params.set('search', busca);
       if (filtroNivel && filtroNivel !== 'TODOS') params.set('nivel', filtroNivel);
       if (filtroStatus && filtroStatus !== 'TODOS') params.set('status', filtroStatus);
+      if (filtroStatus !== 'ATIVO') params.set('include_inativos', '1');
 
       const usuario = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('usuario') || 'null')

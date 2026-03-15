@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -9,6 +9,8 @@ import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFResponsaveis, gerarExcelResponsaveis } from '@/utils/relatorios';
 import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function GerenciarResponsaveis() {
   const router = useRouter();
@@ -108,6 +110,7 @@ export default function GerenciarResponsaveis() {
   }
 
   return (
+    <ProtectedRoute module={MODULES.EMENDAS}>
     <Layout titulo="Gerenciar Responsáveis">
       <Modal
         isOpen={modalState.isOpen}
@@ -310,5 +313,7 @@ export default function GerenciarResponsaveis() {
         </div>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

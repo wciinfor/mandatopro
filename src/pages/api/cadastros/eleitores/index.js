@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
     // GET - Listar eleitores
     if (req.method === 'GET') {
-      const { status, search, limit = 100, offset = 0 } = req.query;
+      const { status, search, limit = 100, offset = 0, excludeLiderancas = false } = req.query;
 
       let query = supabase
         .from('eleitores')
@@ -18,9 +18,14 @@ export default async function handler(req, res) {
         query = query.or(`status.eq.${status},statusCadastro.eq.${status}`);
       }
 
-      // Se há um termo de busca, procura por nome ou CPF
+      // Excluir eleitores que já são lideranças
+      if (excludeLiderancas === 'true' || excludeLiderancas === true) {
+        query = query.is('lideranca_id', null);
+      }
+
+      // Se há um termo de busca, procura por nome, CPF ou RG
       if (search && search.trim().length > 0) {
-        query = query.or(`nome.ilike.%${search}%,cpf.ilike.%${search}%`);
+        query = query.or(`nome.ilike.%${search}%,cpf.ilike.%${search}%,rg.ilike.%${search}%`);
       }
 
       const { data: eleitores, count, error } = await query

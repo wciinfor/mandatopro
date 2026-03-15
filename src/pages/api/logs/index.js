@@ -1,248 +1,171 @@
-import fs from 'fs';
-import path from 'path';
+﻿import { createServerClient } from '@/lib/supabase-server';
 
-const logsDir = path.join(process.cwd(), 'data', 'logs');
-const logsFile = path.join(logsDir, 'logs.json');
+export const runtime = 'nodejs';
 
-// Garante que o diretório de logs existe
-const garantirDiretorio = () => {
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
-  }
-};
+const obterIP = (req) =>
+  req.headers['x-forwarded-for']?.split(',')[0] ||
+  req.headers['x-real-ip'] ||
+  req.socket?.remoteAddress ||
+  'desconhecido';
 
-// Carrega todos os logs do arquivo
-const carregarLogs = () => {
-  garantirDiretorio();
-  
-  if (!fs.existsSync(logsFile)) {
-    return [];
-  }
-
+const validarAdmin = (req) => {
   try {
-    const conteudo = fs.readFileSync(logsFile, 'utf8');
-    return JSON.parse(conteudo);
-  } catch (error) {
-    console.error('Erro ao carregar logs:', error);
-    return [];
+    const raw = req.headers['usuario'];
+    if (!raw) return null;
+    const usuario = JSON.parse(raw);
+    return usuario?.nivel === 'ADMINISTRADOR' ? usuario : null;
+  } catch {
+    return null;
   }
 };
 
-// Salva logs no arquivo
-const salvarLogs = (logs) => {
-  garantirDiretorio();
+// Mapeia os campos do banco para o formato esperado pelo frontend
+const mapearLog = (log) => ({
+  id: String(log.id),
+  tipoEvento: log.acao,
+  modulo: log.modulo || '',
+  descricao: log.descricao || '',
+  status: log.status || 'SUCESSO',
+  enderecoIP: log.ip_address || '',
+  agenteBrowser: log.user_agent || '',
+  usuarioNome: log.usuarios?.nome || '',
+  usuarioEmail: log.usuarios?.email || '',
+  dados: log.dados_novos || {},
+  dadosAnteriores: log.dados_anteriores || {},
+  timestamp: log.data_acao,
+  dataLocal: log.data_acao
+    ? new Date(log.data_acao).toLocaleString('pt-BR')
+    : ''
+});
 
-  try {
-    fs.writeFileSync(logsFile, JSON.stringify(logs, null, 2), 'utf8');
-    return true;
-  } catch (error) {
-    console.error('Erro ao salvar logs:', error);
-    return false;
-  }
-};
+export default async function handler(req, res) {
+  const supabase = createServerClient();
 
-// Obtém o IP do cliente
-const obterIP = (req) => {
-  return req.headers['x-forwarded-for']?.split(',')[0] ||
-         req.headers['x-real-ip'] ||
-         req.socket.remoteAddress ||
-         'desconhecido';
-};
-
-export default function handler(req, res) {
-  // Para GET e DELETE, verifica se é admin
-  if (req.method === 'GET' || req.method === 'DELETE') {
-    try {
-      const usuarioHeader = req.headers['usuario'];
-      let usuario = {};
-      
-      if (usuarioHeader) {
-        usuario = JSON.parse(usuarioHeader);
-      }
-      
-      if (!usuario?.nivel || usuario.nivel !== 'ADMINISTRADOR') {
-        return res.status(403).json({ 
-          erro: 'Acesso negado. Apenas administradores podem acessar logs.' 
-        });
-      }
-    } catch (e) {
-      return res.status(403).json({ 
-        erro: 'Erro ao validar permissões' 
-      });
-    }
-  }
-
-  if (req.method === 'POST') {
-    // Registra novo log
-    try {
-      const logs = carregarLogs();
-      
-      const novoLog = {
-        id: Date.now().toString(),
-        ...req.body,
-        enderecoIP: obterIP(req),
-        dataRegistro: new Date().toISOString()
-      };
-
-      logs.push(novoLog);
-
-      // Mantém apenas os últimos 50.000 logs para não sobrecarregar
-      if (logs.length > 50000) {
-        logs.splice(0, logs.length - 50000);
-      }
-
-      salvarLogs(logs);
-
-      return res.status(201).json({ 
-        sucesso: true,
-        id: novoLog.id
-      });
-    } catch (error) {
-      console.error('Erro ao registrar log:', error);
-      return res.status(500).json({ 
-        erro: 'Erro ao registrar log',
-        detalhes: error.message 
-      });
-    }
-  }
-
+  // GET â€” listar logs (admin only)
   if (req.method === 'GET') {
-    // Retorna logs com filtros (admin only)
+    const admin = validarAdmin(req);
+    if (!admin) {
+      return res.status(403).json({ erro: 'Acesso negado. Apenas administradores podem acessar logs.' });
+    }
+
     try {
-      const logs = carregarLogs();
-      
-      // Se nenhum log, retorna array vazio
-      if (!Array.isArray(logs) || logs.length === 0) {
-        return res.status(200).json({
-          sucesso: true,
-          logs: [],
-          paginacao: {
-            pagina: 1,
-            limite: 50,
-            total: 0,
-            totalPaginas: 0
-          }
-        });
-      }
-      
-      let logsFiltrados = logs;
-
-      // Filtrar por tipo de evento
-      if (req.query.tipoEvento) {
-        logsFiltrados = logsFiltrados.filter(
-          log => log.tipoEvento === req.query.tipoEvento
-        );
-      }
-
-      // Filtrar por módulo
-      if (req.query.modulo) {
-        logsFiltrados = logsFiltrados.filter(
-          log => log.modulo === req.query.modulo
-        );
-      }
-
-      // Filtrar por usuário
-      if (req.query.usuarioId) {
-        logsFiltrados = logsFiltrados.filter(
-          log => log.usuarioId === req.query.usuarioId
-        );
-      }
-
-      // Filtrar por status
-      if (req.query.status) {
-        logsFiltrados = logsFiltrados.filter(
-          log => log.status === req.query.status
-        );
-      }
-
-      // Filtrar por data (dataInicio e dataFim em ISO format)
-      if (req.query.dataInicio || req.query.dataFim) {
-        const dataInicio = req.query.dataInicio ? new Date(req.query.dataInicio) : new Date(0);
-        const dataFim = req.query.dataFim ? new Date(req.query.dataFim) : new Date();
-
-        logsFiltrados = logsFiltrados.filter(log => {
-          const dataLog = new Date(log.timestamp);
-          return dataLog >= dataInicio && dataLog <= dataFim;
-        });
-      }
-
-      // Busca por texto (descrição)
-      if (req.query.busca) {
-        const busca = req.query.busca.toLowerCase();
-        logsFiltrados = logsFiltrados.filter(log => {
-          const descricao = (log.descricao || '').toLowerCase();
-          const nome = (log.usuarioNome || '').toLowerCase();
-          const email = (log.usuarioEmail || '').toLowerCase();
-          return descricao.includes(busca) || nome.includes(busca) || email.includes(busca);
-        });
-      }
-
-      // Ordenação (mais recentes primeiro)
-      logsFiltrados.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-      // Paginação
+      // PaginaÃ§Ã£o
       const pagina = parseInt(req.query.pagina) || 1;
       const limite = parseInt(req.query.limite) || 50;
-      const inicio = (pagina - 1) * limite;
-      const fim = inicio + limite;
+      const offset = (pagina - 1) * limite;
 
-      const total = logsFiltrados.length;
-      const logsPaginados = logsFiltrados.slice(inicio, fim);
+      let query = supabase
+        .from('logs_auditoria')
+        .select('*, usuarios:usuario_id(nome, email)', { count: 'exact' });
+
+      if (req.query.tipoEvento) query = query.eq('acao', req.query.tipoEvento);
+      if (req.query.modulo) query = query.eq('modulo', req.query.modulo);
+      if (req.query.status) query = query.eq('status', req.query.status);
+      if (req.query.dataInicio) query = query.gte('data_acao', req.query.dataInicio);
+      if (req.query.dataFim) query = query.lte('data_acao', req.query.dataFim + 'T23:59:59');
+      if (req.query.usuarioId) {
+        // Busca por nome ou email (frontend envia string de busca neste campo)
+        query = query.or(
+          `usuarios.nome.ilike.%${req.query.usuarioId}%,usuarios.email.ilike.%${req.query.usuarioId}%`
+        );
+      }
+      if (req.query.busca) {
+        query = query.or(
+          `descricao.ilike.%${req.query.busca}%`
+        );
+      }
+
+      const { data, error, count } = await query
+        .order('data_acao', { ascending: false })
+        .range(offset, offset + limite - 1);
+
+      if (error) throw error;
+
+      const totalPaginas = Math.ceil((count || 0) / limite);
 
       return res.status(200).json({
         sucesso: true,
-        logs: logsPaginados,
-        paginacao: {
-          pagina,
-          limite,
-          total,
-          totalPaginas: Math.ceil(total / limite)
-        }
+        logs: (data || []).map(mapearLog),
+        paginacao: { pagina, limite, total: count || 0, totalPaginas }
       });
     } catch (error) {
-      console.error('Erro ao recuperar logs:', error);
-      return res.status(500).json({
-        erro: 'Erro ao recuperar logs',
-        detalhes: error.message
-      });
+      return res.status(500).json({ erro: 'Erro ao recuperar logs', detalhes: error.message });
     }
   }
 
-  // Método DELETE para limpar logs antigos (apenas admin)
-  if (req.method === 'DELETE') {
+  // POST â€” registrar novo log
+  if (req.method === 'POST') {
     try {
-      const logs = carregarLogs();
-      
-      // Se diasRetencao informado, remove logs mais antigos
-      if (req.query.diasRetencao) {
-        const diasRetencao = parseInt(req.query.diasRetencao);
-        const dataLimite = new Date();
-        dataLimite.setDate(dataLimite.getDate() - diasRetencao);
+      const body = req.body || {};
+      const statusValido = ['SUCESSO', 'ERRO', 'AVISO'].includes(body.status)
+        ? body.status
+        : 'SUCESSO';
 
-        const logsAntigos = logs.filter(log => new Date(log.timestamp) < dataLimite);
-        const logsNovos = logs.filter(log => new Date(log.timestamp) >= dataLimite);
+      const payload = {
+        usuario_id: body.usuarioId ? parseInt(body.usuarioId, 10) : null,
+        acao: body.tipoEvento || body.acao || 'ACESSO',
+        modulo: body.modulo || null,
+        descricao: body.descricao || null,
+        ip_address: obterIP(req),
+        user_agent: body.agenteBrowser || req.headers['user-agent'] || null,
+        dados_novos: body.dados || null,
+        status: statusValido,
+        data_acao: new Date().toISOString()
+      };
 
-        salvarLogs(logsNovos);
+      const { data, error } = await supabase
+        .from('logs_auditoria')
+        .insert([payload])
+        .select('id')
+        .single();
 
-        return res.status(200).json({
-          sucesso: true,
-          removidos: logsAntigos.length,
-          restantes: logsNovos.length,
-          mensagem: `${logsAntigos.length} logs removidos (mais antigos que ${diasRetencao} dias)`
-        });
-      }
+      if (error) throw error;
 
-      return res.status(400).json({
-        erro: 'Parâmetro diasRetencao obrigatório'
-      });
+      return res.status(201).json({ sucesso: true, id: String(data?.id) });
     } catch (error) {
-      console.error('Erro ao deletar logs:', error);
-      return res.status(500).json({
-        erro: 'Erro ao deletar logs',
-        detalhes: error.message
-      });
+      console.error('Erro ao registrar log:', error);
+      return res.status(500).json({ erro: 'Erro ao registrar log', detalhes: error.message });
     }
   }
 
-  res.status(405).json({ erro: 'Método não permitido' });
+  // DELETE â€” limpar logs antigos (admin only)
+  if (req.method === 'DELETE') {
+    const admin = validarAdmin(req);
+    if (!admin) {
+      return res.status(403).json({ erro: 'Acesso negado.' });
+    }
+
+    const diasRetencao = parseInt(req.query.diasRetencao);
+    if (!diasRetencao || isNaN(diasRetencao)) {
+      return res.status(400).json({ erro: 'ParÃ¢metro diasRetencao obrigatÃ³rio' });
+    }
+
+    try {
+      const dataLimite = new Date();
+      dataLimite.setDate(dataLimite.getDate() - diasRetencao);
+
+      // Conta quantos serÃ£o removidos
+      const { count } = await supabase
+        .from('logs_auditoria')
+        .select('*', { count: 'exact', head: true })
+        .lt('data_acao', dataLimite.toISOString());
+
+      const { error } = await supabase
+        .from('logs_auditoria')
+        .delete()
+        .lt('data_acao', dataLimite.toISOString());
+
+      if (error) throw error;
+
+      return res.status(200).json({
+        sucesso: true,
+        removidos: count || 0,
+        mensagem: `${count || 0} logs removidos (mais antigos que ${diasRetencao} dias)`
+      });
+    } catch (error) {
+      return res.status(500).json({ erro: 'Erro ao deletar logs', detalhes: error.message });
+    }
+  }
+
+  return res.status(405).json({ erro: 'M\u00e9todo n\u00e3o permitido' });
 }

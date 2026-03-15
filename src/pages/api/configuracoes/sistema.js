@@ -1,110 +1,91 @@
-import fs from 'fs';
-import path from 'path';
+﻿// API alternativa de configuraÃ§Ãµes do sistema â€” armazenamento no Supabase
+import { createServerClient } from '@/lib/supabase-server';
 
-const CONFIG_FILE = path.join(process.cwd(), 'configuracoes.json');
+export const runtime = 'nodejs';
 
-// Garantir que o arquivo existe
-function garantirArquivoConfig() {
-  if (!fs.existsSync(CONFIG_FILE)) {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-      sistema: {},
-      whatsapp: {}
-    }, null, 2));
+const CHAVES_SISTEMA = [
+  'nome_orgao', 'sigla', 'cnpj', 'endereco', 'telefone',
+  'email_orgao', 'website', 'cargo', 'nome_parlamentar'
+];
+
+function rowsToSistema(rows) {
+  const map = {};
+  for (const row of (rows || [])) {
+    map[row.chave] = row.valor;
   }
+  return {
+    nomeParlamentar: map.nome_parlamentar || '',
+    nomeOrgao: map.nome_orgao || '',
+    sigla: map.sigla || '',
+    cnpj: map.cnpj || '',
+    endereco: map.endereco || '',
+    telefone: map.telefone || '',
+    email: map.email_orgao || '',
+    website: map.website || '',
+    cargo: map.cargo || ''
+  };
 }
 
-// Ler configurações
-function lerConfiguracoes() {
-  garantirArquivoConfig();
-  try {
-    const dados = fs.readFileSync(CONFIG_FILE, 'utf8');
-    return JSON.parse(dados);
-  } catch (error) {
-    return { sistema: {}, whatsapp: {} };
-  }
-}
+export default async function handler(req, res) {
+  const supabase = createServerClient();
 
-// Salvar configurações
-function salvarConfiguracoes(dados) {
-  garantirArquivoConfig();
-  try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(dados, null, 2));
-    return true;
-  } catch (error) {
-    console.error('Erro ao salvar configurações:', error);
-    return false;
-  }
-}
-
-export default function handler(req, res) {
-  // GET: Recuperar configurações
+  // GET: Recuperar configuraÃ§Ãµes
   if (req.method === 'GET') {
     try {
-      const config = lerConfiguracoes();
+      const { data: rows, error } = await supabase
+        .from('configuracoes_sistema')
+        .select('chave, valor')
+        .in('chave', CHAVES_SISTEMA);
+
+      if (error) throw error;
+
       return res.status(200).json({
         sucesso: true,
-        dados: config.sistema || {}
+        dados: rowsToSistema(rows)
       });
     } catch (error) {
-      console.error('Erro ao ler configurações:', error);
-      return res.status(500).json({
-        sucesso: false,
-        erro: 'Erro ao recuperar configurações'
-      });
+      console.error('Erro ao ler configuraÃ§Ãµes:', error);
+      return res.status(500).json({ sucesso: false, erro: 'Erro ao recuperar configuraÃ§Ãµes' });
     }
   }
 
-  // POST: Salvar configurações
+  // POST: Salvar configuraÃ§Ãµes
   if (req.method === 'POST') {
     try {
       const { dados } = req.body;
 
       if (!dados) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Dados do sistema são obrigatórios'
-        });
+        return res.status(400).json({ sucesso: false, erro: 'Dados do sistema sÃ£o obrigatÃ³rios' });
       }
 
-      // Validar campos obrigatórios
       if (!dados.nomeParlamentar || !dados.cnpj) {
-        return res.status(400).json({
-          sucesso: false,
-          erro: 'Nome do Parlamentar e CNPJ são obrigatórios'
-        });
+        return res.status(400).json({ sucesso: false, erro: 'Nome do Parlamentar e CNPJ sÃ£o obrigatÃ³rios' });
       }
 
-      // Ler configurações atuais
-      const config = lerConfiguracoes();
+      const upserts = [
+        { chave: 'nome_orgao', valor: dados.nomeOrgao ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'sigla', valor: dados.sigla ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'cnpj', valor: dados.cnpj ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'endereco', valor: dados.endereco ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'telefone', valor: dados.telefone ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'email_orgao', valor: dados.email ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'website', valor: dados.website ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'cargo', valor: dados.cargo ?? '', tipo: 'STRING', editavel: true },
+        { chave: 'nome_parlamentar', valor: dados.nomeParlamentar ?? '', tipo: 'STRING', editavel: true },
+      ];
 
-      // Atualizar dados do sistema
-      config.sistema = {
-        ...config.sistema,
-        ...dados,
-        dataAtualizacao: new Date().toISOString()
-      };
+      const { error } = await supabase
+        .from('configuracoes_sistema')
+        .upsert(upserts, { onConflict: 'chave' });
 
-      // Salvar
-      if (salvarConfiguracoes(config)) {
-        return res.status(200).json({
-          sucesso: true,
-          mensagem: 'Configurações salvas com sucesso',
-          dados: config.sistema
-        });
-      } else {
-        return res.status(500).json({
-          sucesso: false,
-          erro: 'Erro ao salvar configurações'
-        });
-      }
+      if (error) throw error;
+
+      return res.status(200).json({ sucesso: true, mensagem: 'ConfiguraÃ§Ãµes salvas com sucesso' });
     } catch (error) {
-      console.error('Erro ao salvar configurações:', error);
-      return res.status(500).json({
-        sucesso: false,
-        erro: 'Erro ao processar requisição'
-      });
+      console.error('Erro ao salvar configuraÃ§Ãµes:', error);
+      return res.status(500).json({ sucesso: false, erro: 'Erro ao salvar configuraÃ§Ãµes' });
     }
   }
 
-  res.status(405).json({ erro: 'Método não permitido' });
+  return res.status(405).json({ sucesso: false, erro: 'MÃ©todo nÃ£o permitido' });
 }

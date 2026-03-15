@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -12,7 +12,7 @@ import useModal from '@/hooks/useModal';
 
 export default function ConfiguracoesAniversariantes() {
   const router = useRouter();
-  const { modalState, closeModal, showSuccess } = useModal();
+  const { modalState, closeModal, showSuccess, showError } = useModal();
 
   const [config, setConfig] = useState({
     envioAutomaticoAtivo: true,
@@ -33,7 +33,53 @@ Um forte abraço,
     incluirEmoji: true
   });
 
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [erroCarregamento, setErroCarregamento] = useState('');
   const [visualizacao, setVisualizacao] = useState('');
+
+  useEffect(() => {
+    let ativo = true;
+
+    const carregarConfiguracoes = async () => {
+      try {
+        setCarregando(true);
+        setErroCarregamento('');
+
+        const resposta = await fetch('/api/aniversariantes/configuracoes');
+        const payload = await resposta.json();
+
+        if (!resposta.ok || !payload?.success) {
+          throw new Error(payload?.detalhes || payload?.error || `Erro HTTP: ${resposta.status}`);
+        }
+
+        if (!ativo) {
+          return;
+        }
+
+        const dados = payload?.data && typeof payload.data === 'object' ? payload.data : {};
+        setConfig((anterior) => ({
+          ...anterior,
+          ...dados
+        }));
+      } catch (error) {
+        console.error('Erro ao carregar configuracoes de aniversariantes:', error);
+        if (ativo) {
+          setErroCarregamento(error.message || 'erro desconhecido');
+        }
+      } finally {
+        if (ativo) {
+          setCarregando(false);
+        }
+      }
+    };
+
+    carregarConfiguracoes();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const handleChange = (field, value) => {
     setConfig(prev => ({
@@ -66,13 +112,33 @@ Um forte abraço,
     setVisualizacao(mensagem);
   };
 
-  const handleSalvar = () => {
-    // Aqui você salvaria no banco de dados
-    console.log('Configurações:', config);
-    showSuccess('Configurações salvas com sucesso!');
-    setTimeout(() => {
-      router.push('/aniversariantes');
-    }, 1500);
+  const handleSalvar = async () => {
+    try {
+      setSalvando(true);
+
+      const resposta = await fetch('/api/aniversariantes/configuracoes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ dados: config })
+      });
+
+      const payload = await resposta.json();
+      if (!resposta.ok || !payload?.success) {
+        throw new Error(payload?.detalhes || payload?.error || `Erro HTTP: ${resposta.status}`);
+      }
+
+      showSuccess('Configuracoes salvas com sucesso!');
+      setTimeout(() => {
+        router.push('/aniversariantes');
+      }, 1500);
+    } catch (error) {
+      console.error('Erro ao salvar configuracoes de aniversariantes:', error);
+      showError(`Nao foi possivel salvar: ${error.message || 'erro desconhecido'}`);
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const handleCancelar = () => {
@@ -98,6 +164,22 @@ Um forte abraço,
         cancelText={modalState.cancelText}
         showCancel={modalState.showCancel}
       />
+
+      {carregando && (
+        <div className="max-w-5xl mx-auto mb-4">
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-3">
+            Carregando configuracoes...
+          </div>
+        </div>
+      )}
+
+      {!carregando && erroCarregamento && (
+        <div className="max-w-5xl mx-auto mb-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3">
+            Nao foi possivel carregar configuracoes: {erroCarregamento}
+          </div>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto">
         {/* Envio Automático */}
@@ -287,6 +369,7 @@ Um forte abraço,
             <div>
               <button
                 onClick={handleVisualizarMensagem}
+                disabled={carregando}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
               >
                 <FontAwesomeIcon icon={faEye} />
@@ -309,6 +392,7 @@ Um forte abraço,
         <div className="flex justify-end gap-3">
           <button
             onClick={handleCancelar}
+            disabled={salvando}
             className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
           >
             <FontAwesomeIcon icon={faTimes} />
@@ -316,10 +400,11 @@ Um forte abraço,
           </button>
           <button
             onClick={handleSalvar}
-            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
+            disabled={carregando || salvando}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-teal-300 flex items-center gap-2"
           >
             <FontAwesomeIcon icon={faSave} />
-            Salvar Configurações
+            {salvando ? 'Salvando...' : 'Salvar Configuracoes'}
           </button>
         </div>
       </div>

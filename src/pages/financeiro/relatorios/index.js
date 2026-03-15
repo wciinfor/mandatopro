@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChartPie, faChartBar, faFileAlt, faFilePdf, faFileExcel, faCalendarAlt, faDownload,
@@ -7,6 +7,8 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function RelatoriosFinanceiros() {
   const { modalState, closeModal, showSuccess, showError } = useModal();
@@ -214,6 +216,7 @@ export default function RelatoriosFinanceiros() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FINANCEIRO}>
     <Layout titulo="Relatórios Financeiros">
       <Modal
         isOpen={modalState.isOpen}
@@ -490,5 +493,7 @@ export default function RelatoriosFinanceiros() {
         </div>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

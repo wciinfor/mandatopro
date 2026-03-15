@@ -9,7 +9,6 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
-import supabase from '@/lib/supabaseClient';
 
 export default function NovoEvento() {
   const router = useRouter();
@@ -78,13 +77,11 @@ export default function NovoEvento() {
   const carregarEvento = async () => {
     setCarregando(true);
     try {
-      const { data, error } = await supabase
-        .from('agenda_eventos')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
+      const res = await fetch('/api/agenda');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao carregar evento');
+      const data = (json.data || []).find(e => String(e.id) === String(id));
+      if (!data) throw new Error('Evento não encontrado');
 
       setFormData({
         titulo: data.titulo || '',
@@ -113,14 +110,10 @@ export default function NovoEvento() {
   const carregarCampanhas = async () => {
     setCarregandoCampanhas(true);
     try {
-      const { data, error } = await supabase
-        .from('campanhas')
-        .select('id, nome, descricao, local, municipio, data_campanha, hora_inicio, hora_fim, observacoes')
-        .order('data_campanha', { ascending: false });
-
-      if (error) throw error;
-
-      setCampanhas(data || []);
+      const res = await fetch('/api/campanhas');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao carregar campanhas');
+      setCampanhas(json.data || json.campanhas || []);
     } catch (error) {
       console.error('Erro ao carregar campanhas:', error);
       setMensagemErro('Erro ao carregar campanhas: ' + error.message);
@@ -139,19 +132,17 @@ export default function NovoEvento() {
     try {
       const usuarioId = user?.id || null;
       if (usuarioId) {
-        const { data: existentes, error } = await supabase
-          .from('agenda_eventos')
-          .select('id')
-          .eq('tipo', 'EVENTO')
-          .eq('categoria', 'Campanha')
-          .eq('titulo', campanha.nome)
-          .eq('data', campanha.data_campanha)
-          .eq('criado_por_id', usuarioId)
-          .limit(1);
+        const res = await fetch('/api/agenda');
+        const json = await res.json();
+        const existentes = (json.data || []).filter(e =>
+          e.tipo === 'EVENTO' &&
+          e.categoria === 'Campanha' &&
+          e.titulo === campanha.nome &&
+          e.data === campanha.data_campanha &&
+          String(e.criado_por_id) === String(usuarioId)
+        );
 
-        if (error) throw error;
-
-        if (existentes && existentes.length > 0) {
+        if (existentes.length > 0) {
           setEventoExistenteId(existentes[0].id);
           setMensagemErro('Voce ja possui uma agenda pessoal para esta campanha. Vamos abrir o evento existente para edicao.');
           setModalErro(true);
@@ -216,18 +207,21 @@ export default function NovoEvento() {
       };
 
       if (id) {
-        const { error } = await supabase
-          .from('agenda_eventos')
-          .update(payload)
-          .eq('id', id);
-
-        if (error) throw error;
+        const res = await fetch('/api/agenda', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, ...payload })
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Erro ao atualizar evento');
       } else {
-        const { error } = await supabase
-          .from('agenda_eventos')
-          .insert([payload]);
-
-        if (error) throw error;
+        const res = await fetch('/api/agenda', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Erro ao criar evento');
       }
 
       setModalSucesso(true);

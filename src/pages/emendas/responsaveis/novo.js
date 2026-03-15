@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserTie, faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -6,6 +6,9 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import supabase from '@/lib/supabaseClient';
+import { applyMask, onlyDigits } from '@/utils/inputMasks';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function NovoResponsavel() {
   const router = useRouter();
@@ -26,7 +29,8 @@ export default function NovoResponsavel() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const maskedValue = applyMask(name, value);
+    setFormData(prev => ({ ...prev, [name]: maskedValue }));
   };
 
   const handleSubmit = async (e) => {
@@ -47,10 +51,10 @@ export default function NovoResponsavel() {
             nome: formData.nome,
             cargo: formData.cargo,
             orgao: formData.orgao,
-            cpf: formData.cpf || null,
-            telefone: formData.telefone || null,
+            cpf: onlyDigits(formData.cpf) || null,
+            telefone: onlyDigits(formData.telefone) || null,
             email: formData.email || null,
-            whatsapp: formData.whatsapp || null,
+            whatsapp: onlyDigits(formData.whatsapp) || null,
             observacoes: formData.observacoes || null,
             status: formData.status
           }
@@ -71,6 +75,7 @@ export default function NovoResponsavel() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.EMENDAS}>
     <Layout titulo="Novo Responsável">
       <Modal
         isOpen={modalState.isOpen}
@@ -253,5 +258,7 @@ export default function NovoResponsavel() {
         </form>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

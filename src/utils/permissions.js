@@ -10,8 +10,8 @@ export const ROLES = {
 // Descrições dos níveis
 export const ROLE_DESCRIPTIONS = {
   ADMINISTRADOR: 'Acesso total à plataforma',
-  LIDERANCA: 'Acesso às equipes/áreas sob sua administração',
-  OPERADOR: 'Apenas cadastro e visualização dos próprios registros'
+  LIDERANCA: 'Acessa cadastros, agenda, comunicação, documentos, aniversariantes, solicitações e geolocalização da equipe. Pode criar Operadores vinculados à sua liderança',
+  OPERADOR: 'Acessa apenas Eleitores, Atendimentos e Geolocalização (somente registros da equipe)'
 };
 
 // Módulos do sistema
@@ -41,7 +41,7 @@ export const MODULE_PERMISSIONS = {
   },
   [MODULES.FUNCIONARIOS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
-    [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false },
+    [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
     [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.CADASTROS]: {
@@ -67,31 +67,31 @@ export const MODULE_PERMISSIONS = {
   [MODULES.COMUNICACAO]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true, sendMass: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false, sendMass: false },
-    [ROLES.OPERADOR]: { view: true, create: true, edit: false, delete: false, viewAll: false, sendMass: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false, sendMass: false }
   },
   [MODULES.AGENDA]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: true, create: true, edit: true, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.ANIVERSARIANTES]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: false, edit: false, delete: false, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.DOCUMENTOS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.SOLICITACOES]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: true, create: true, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.USUARIOS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
-    [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.LIDERANCA]: { view: true, create: true, edit: false, delete: false, viewAll: false },
     [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.JURIDICO]: {

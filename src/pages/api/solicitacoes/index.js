@@ -13,12 +13,33 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { gerarTraceId, obterUsuarioHeader } from '@/lib/financeiro-utils';
 
+function nivelUsuario(usuario) {
+  return String(usuario?.nivel || '').toUpperCase();
+}
+
+function podeAcessarSolicitacoes(usuario) {
+  const nivel = nivelUsuario(usuario);
+  return nivel === 'ADMINISTRADOR' || nivel === 'LIDERANCA';
+}
+
+function isLideranca(usuario) {
+  return nivelUsuario(usuario) === 'LIDERANCA';
+}
+
+function isAdmin(usuario) {
+  return nivelUsuario(usuario) === 'ADMINISTRADOR';
+}
+
 export default async function handler(req, res) {
   const traceId = gerarTraceId();
   const usuario = obterUsuarioHeader(req);
 
   if (!usuario) {
     return res.status(401).json({ message: 'Não autenticado', traceId });
+  }
+
+  if (!podeAcessarSolicitacoes(usuario)) {
+    return res.status(403).json({ message: 'Acesso restrito para liderança e administrador', traceId });
   }
 
   const supabase = createServerClient();
@@ -40,27 +61,45 @@ export default async function handler(req, res) {
       const lim = Math.min(parseInt(limit, 10) || 50, 200);
       const off = Math.max(parseInt(offset, 10) || 0, 0);
 
+      const aplicarEscopo = (query) => {
+        if (isLideranca(usuario)) {
+          const emailUsuario = String(usuario?.email || '').trim().toLowerCase();
+          return query.eq('email', emailUsuario || '__sem_email__');
+        }
+        return query;
+      };
+
+      const aplicarFiltros = (query) => {
+        let q = aplicarEscopo(query);
+
+        if (search) {
+          q = q.or(
+            `titulo.ilike.%${search}%,solicitante.ilike.%${search}%,protocolo.ilike.%${search}%`
+          );
+        }
+        if (status) q = q.eq('status', status);
+        if (prioridade) q = q.eq('prioridade', prioridade);
+        if (categoria) q = q.eq('categoria', categoria);
+
+        return q;
+      };
+
       // Query paginada com filtros
-      let query = supabase
+      let query = aplicarFiltros(supabase
         .from('solicitacoes')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .range(off, off + lim - 1);
+        .range(off, off + lim - 1));
 
-      if (search) {
-        query = query.or(
-          `titulo.ilike.%${search}%,solicitante.ilike.%${search}%,protocolo.ilike.%${search}%`
-        );
-      }
-      if (status) query = query.eq('status', status);
-      if (prioridade) query = query.eq('prioridade', prioridade);
-      if (categoria) query = query.eq('categoria', categoria);
+      const queryTotais = aplicarEscopo(
+        supabase.from('solicitacoes').select('status')
+      );
 
       // Totais por status (apenas coluna status, sem paginação)
       const [{ data, error, count }, { data: todosStatus, error: errStats }] =
         await Promise.all([
           query,
-          supabase.from('solicitacoes').select('status'),
+          queryTotais,
         ]);
 
       if (error) throw error;
@@ -89,7 +128,52 @@ export default async function handler(req, res) {
     try {
       const body = req.body || {};
 
-      if (!body.titulo || !body.solicitante) {
+      const lideranca = isLideranca(usuario);
+      const admin = isAdmin(usuario);
+      const nomeUsuario = String(usuario?.nome || '').trim();
+      const emailUsuario = String(usuario?.email || '').trim().toLowerCase();
+
+      let solicitante = '';
+      let tipoSolicitante = 'LIDERANCA';
+      let emailSolicitante = null;
+      let telefoneSolicitante = null;
+
+      if (lideranca) {
+        solicitante = nomeUsuario;
+        tipoSolicitante = 'LIDERANCA';
+        emailSolicitante = emailUsuario || null;
+        telefoneSolicitante = body.telefone || usuario?.telefone || null;
+      } else if (admin) {
+        const liderancaId = Number(body.lideranca_id || 0);
+
+        if (liderancaId > 0) {
+          const { data: liderancaSelecionada, error: erroLideranca } = await supabase
+            .from('liderancas')
+            .select('id, nome, email, telefone, status')
+            .eq('id', liderancaId)
+            .maybeSingle();
+
+          if (erroLideranca || !liderancaSelecionada) {
+            return res.status(422).json({ message: 'Lideranca selecionada nao foi encontrada', traceId });
+          }
+
+          if (String(liderancaSelecionada.status || '').toUpperCase() !== 'ATIVO') {
+            return res.status(422).json({ message: 'Lideranca selecionada precisa estar ativa', traceId });
+          }
+
+          solicitante = String(liderancaSelecionada.nome || '').trim();
+          tipoSolicitante = 'LIDERANCA';
+          emailSolicitante = String(liderancaSelecionada.email || '').trim().toLowerCase() || null;
+          telefoneSolicitante = String(liderancaSelecionada.telefone || '').trim() || null;
+        } else {
+          solicitante = nomeUsuario;
+          tipoSolicitante = 'ADMINISTRADOR';
+          emailSolicitante = emailUsuario || null;
+          telefoneSolicitante = body.telefone || usuario?.telefone || null;
+        }
+      }
+
+      if (!body.titulo || !solicitante) {
         return res.status(422).json({ message: 'Título e Solicitante são obrigatórios', traceId });
       }
 
@@ -102,13 +186,15 @@ export default async function handler(req, res) {
             protocolo,
             titulo: body.titulo,
             descricao: body.descricao || null,
-            solicitante: body.solicitante,
-            tipo_solicitante: body.tipo_solicitante || 'LIDERANCA',
+            solicitante,
+            tipo_solicitante: tipoSolicitante,
             categoria: body.categoria || null,
             prioridade: body.prioridade || 'MÉDIA',
             municipio: body.municipio || null,
             bairro: body.bairro || null,
             endereco: body.endereco || null,
+            telefone: telefoneSolicitante,
+            email: emailSolicitante,
             status: 'NOVO',
             data_abertura: new Date().toISOString().slice(0, 10),
           },

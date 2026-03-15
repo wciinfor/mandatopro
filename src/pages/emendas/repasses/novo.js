@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMoneyBillWave, faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -6,6 +6,8 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function NovoRepasse() {
   const router = useRouter();
@@ -75,6 +77,7 @@ export default function NovoRepasse() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.EMENDAS}>
     <Layout titulo="Novo Repasse">
       <Modal
         isOpen={modalState.isOpen}
@@ -296,5 +299,7 @@ export default function NovoRepasse() {
         </form>
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

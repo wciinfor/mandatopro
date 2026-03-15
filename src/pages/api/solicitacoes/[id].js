@@ -1,12 +1,33 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { gerarTraceId, obterUsuarioHeader } from '@/lib/financeiro-utils';
 
+function nivelUsuario(usuario) {
+  return String(usuario?.nivel || '').toUpperCase();
+}
+
+function podeAcessarSolicitacoes(usuario) {
+  const nivel = nivelUsuario(usuario);
+  return nivel === 'ADMINISTRADOR' || nivel === 'LIDERANCA';
+}
+
+function isAdmin(usuario) {
+  return nivelUsuario(usuario) === 'ADMINISTRADOR';
+}
+
+function isLideranca(usuario) {
+  return nivelUsuario(usuario) === 'LIDERANCA';
+}
+
 export default async function handler(req, res) {
   const traceId = gerarTraceId();
   const usuario = obterUsuarioHeader(req);
 
   if (!usuario) {
     return res.status(401).json({ message: 'Não autenticado', traceId });
+  }
+
+  if (!podeAcessarSolicitacoes(usuario)) {
+    return res.status(403).json({ message: 'Acesso restrito para liderança e administrador', traceId });
   }
 
   const supabase = createServerClient();
@@ -17,11 +38,17 @@ export default async function handler(req, res) {
   // ────────────────────────────────────────────────────────────
   if (req.method === 'GET') {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('solicitacoes')
         .select('*')
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (isLideranca(usuario)) {
+        const emailUsuario = String(usuario?.email || '').trim().toLowerCase();
+        query = query.eq('email', emailUsuario || '__sem_email__');
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return res.status(200).json({ data, traceId });
@@ -35,6 +62,10 @@ export default async function handler(req, res) {
   // ────────────────────────────────────────────────────────────
   if (req.method === 'PUT') {
     try {
+      if (!isAdmin(usuario)) {
+        return res.status(403).json({ message: 'Apenas administrador pode alterar status de solicitações', traceId });
+      }
+
       const body = req.body || {};
       const updates = { updated_at: new Date().toISOString() };
 

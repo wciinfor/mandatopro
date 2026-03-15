@@ -26,6 +26,18 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
   const router = useRouter();
   const [menusAbertos, setMenusAbertos] = useState({});
 
+  const lerUsuarioAtual = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return JSON.parse(localStorage.getItem('usuario') || 'null');
+    } catch {
+      return null;
+    }
+  };
+
+  const usuarioAtual = lerUsuarioAtual();
+  const nivelUsuario = String(usuarioAtual?.nivel || '').toUpperCase();
+
   const modulos = [
     {
       nome: 'Dashboard',
@@ -87,20 +99,20 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     {
       nome: 'Usuários',
       icone: faUsers,
-      submenu: ['Gerenciar Usuários'],
+      submenu: [],
       rota: '/usuarios'
     },
     {
       nome: 'Auditoria',
       icone: faShieldAlt,
-      submenu: ['Logs do Sistema'],
+      submenu: [],
       rota: '/auditoria/logs'
     },
     {
       nome: 'Configurações',
       icone: faCog,
-      submenu: ['Dados do Sistema', 'IA'],
-      rota: '/configuracoes/sistema'
+      submenu: [],
+      rota: '/configuracoes/sistema#dados'
     },
   ];
 
@@ -222,7 +234,26 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
 
           {/* Menu */}
           <nav className="p-4">
-            {modulos.map((modulo, idx) => (
+            {modulos
+              .filter((modulo) => {
+                if (nivelUsuario === 'OPERADOR') {
+                  // OPERADOR: apenas Dashboard, Cadastros e Geolocalização
+                  return ['Dashboard', 'Cadastros', 'Geolocalização'].includes(modulo.nome);
+                }
+                if (nivelUsuario === 'LIDERANCA') {
+                  // LIDERANÇA: sem Emendas, Financeiro, Auditoria e Configurações
+                  return !['Emendas', 'Financeiro', 'Auditoria', 'Configurações'].includes(modulo.nome);
+                }
+                return true; // ADMINISTRADOR: tudo visível
+              })
+              .map(modulo => {
+                // Filtra submenus do Cadastros para não-ADMIN
+                if (modulo.nome === 'Cadastros' && nivelUsuario !== 'ADMINISTRADOR') {
+                  return { ...modulo, submenu: modulo.submenu.filter(s => ['Eleitores', 'Atendimentos'].includes(s)) };
+                }
+                return modulo;
+              })
+              .map((modulo, idx) => (
               <div key={modulo.nome} className="mb-2">
                 <button
                   type="button"

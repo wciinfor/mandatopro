@@ -8,6 +8,8 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 import { applyMask, parseCurrencyBRL } from '@/utils/inputMasks';
 
 export default function NovoFuncionario() {
@@ -163,6 +165,7 @@ export default function NovoFuncionario() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FUNCIONARIOS}>
     <Layout titulo="Cadastro de Novo Funcionário">
       <div className="max-w-6xl mx-auto">
         {/* Busca de Eleitor */}
@@ -345,5 +348,6 @@ export default function NovoFuncionario() {
 
       <Modal isOpen={modalState.isOpen} onClose={closeModal} title={modalState.type === 'success' ? 'Sucesso' : 'Erro'} message={modalState.message} type={modalState.type} />
     </Layout>
+    </ProtectedRoute>
   );
 }

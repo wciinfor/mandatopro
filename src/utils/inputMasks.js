@@ -74,7 +74,7 @@ const applyMask = (name, value) => {
     case 'cpf':
       return maskCPF(value);
     case 'rg':
-      return maskRG(value);
+      return onlyDigits(value).slice(0, 9);
     case 'telefone':
     case 'celular':
     case 'whatsapp':

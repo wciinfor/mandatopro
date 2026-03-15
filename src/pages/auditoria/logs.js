@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -9,6 +9,8 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { ROLES } from '@/utils/permissions';
 
 const TIPOS_EVENTO = {
   LOGIN: { label: 'Login', cor: 'bg-green-100 text-green-800', icone: 'faCheckCircle' },
@@ -219,6 +221,7 @@ export default function Logs() {
   }
 
   return (
+    <ProtectedRoute requiredRole={ROLES.ADMINISTRADOR}>
     <Layout titulo="Auditoria - Logs do Sistema">
       <Modal
         isOpen={modalState.isOpen}
@@ -545,5 +548,7 @@ export default function Logs() {
         )}
       </div>
     </Layout>
+
+    </ProtectedRoute>
   );
 }

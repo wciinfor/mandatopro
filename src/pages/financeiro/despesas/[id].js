@@ -5,6 +5,8 @@ import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 
 export default function EditarDespesa() {
   const router = useRouter();
@@ -111,6 +113,7 @@ export default function EditarDespesa() {
   };
 
   return (
+    <ProtectedRoute module={MODULES.FINANCEIRO}>
     <Layout titulo="Editar Despesa">
       <Modal
         isOpen={modalState.isOpen}
@@ -284,5 +287,6 @@ export default function EditarDespesa() {
         )}
       </div>
     </Layout>
+    </ProtectedRoute>
   );
 }

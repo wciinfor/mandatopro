@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,21 +11,34 @@ import { MODULES } from '@/utils/permissions';
 export default function SolicitacoesAtendidas() {
   const router = useRouter();
   const [busca, setBusca] = useState('');
+  const [usuario, setUsuario] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [solicitacoes, setSolicitacoes] = useState([]);
 
-  // Mock de solicitações atendidas
-  const solicitacoes = [
-    {
-      id: 4,
-      protocolo: 'SOL-2024-004',
-      titulo: 'Construção de quadra esportiva',
-      solicitante: 'Carlos Oliveira',
-      categoria: 'Esporte e Lazer',
-      municipio: 'Marituba',
-      dataAbertura: '2024-10-20',
-      dataAtendimento: '2024-11-10',
-      atendente: 'Julia Fernandes'
-    }
-  ];
+  useEffect(() => {
+    const u = JSON.parse(localStorage.getItem('usuario') || '{}');
+    setUsuario(u);
+  }, []);
+
+  useEffect(() => {
+    if (!usuario?.id) return;
+    const fetchSolicitacoes = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/solicitacoes?status=ATENDIDO&limit=100', {
+          headers: { usuario: JSON.stringify(usuario) }
+        });
+        if (!response.ok) throw new Error('Erro ao carregar');
+        const result = await response.json();
+        setSolicitacoes(result.data || []);
+      } catch (error) {
+        console.error('Erro ao carregar solicitações atendidas:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSolicitacoes();
+  }, [usuario?.id]);
 
   const solicitacoesFiltradas = solicitacoes.filter(sol =>
     sol.titulo.toLowerCase().includes(busca.toLowerCase()) ||
@@ -44,7 +57,7 @@ export default function SolicitacoesAtendidas() {
             <div>
               <h2 className="text-2xl font-bold text-gray-800">Solicitações Atendidas</h2>
               <p className="text-sm text-gray-600">
-                {solicitacoes.length} {solicitacoes.length === 1 ? 'solicitação atendida' : 'solicitações atendidas'}
+                {solicitacoesFiltradas.length} {solicitacoesFiltradas.length === 1 ? 'solicitação atendida' : 'solicitações atendidas'}
               </p>
             </div>
           </div>
@@ -83,9 +96,9 @@ export default function SolicitacoesAtendidas() {
                   <td className="px-6 py-4 text-sm text-gray-900">{sol.titulo}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{sol.solicitante}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(sol.dataAtendimento).toLocaleDateString('pt-BR')}
+                    {sol.data_conclusao ? new Date(sol.data_conclusao).toLocaleDateString('pt-BR') : '-'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{sol.atendente}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{sol.atendente_id || '-'}</td>
                   <td className="px-6 py-4 text-right text-sm">
                     <button
                       onClick={() => router.push(`/solicitacoes/${sol.id}`)}
