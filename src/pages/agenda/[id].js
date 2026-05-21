@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendarAlt, faMapMarkerAlt, faClock, faUsers, faCheckCircle, faEdit, faTrash, faArrowLeft, faUserCheck, faComments, faSpinner
@@ -21,13 +22,7 @@ export default function DetalhesEvento() {
   const [carregando, setCarregando] = useState(true);
   const [participantes, setParticipantes] = useState([]);
 
-  useEffect(() => {
-    if (id) {
-      carregarEvento();
-    }
-  }, [id]);
-
-  const carregarEvento = async () => {
+  const carregarEvento = useCallback(async () => {
     setCarregando(true);
     try {
       const res = await fetch('/api/agenda');
@@ -49,7 +44,13 @@ export default function DetalhesEvento() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      carregarEvento();
+    }
+  }, [id, carregarEvento]);
 
   const handleExcluir = () => {
     setModalExcluir(true);
@@ -304,7 +305,14 @@ export default function DetalhesEvento() {
                     >
                       <div className="flex items-center gap-3">
                         {participante.foto ? (
-                          <img src={participante.foto} alt={participante.nome} className="w-10 h-10 rounded-full" />
+                          <Image
+                            src={participante.foto}
+                            alt={participante.nome}
+                            width={40}
+                            height={40}
+                            className="w-10 h-10 rounded-full"
+                            unoptimized
+                          />
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center">
                             <span className="text-white font-bold text-sm">

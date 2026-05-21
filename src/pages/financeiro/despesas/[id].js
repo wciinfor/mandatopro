@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -29,11 +29,7 @@ export default function EditarDespesa() {
   const [loading, setLoading] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
-  useEffect(() => {
-    if (id) carregarDespesa();
-  }, [id]);
-
-  const carregarDespesa = async () => {
+  const carregarDespesa = useCallback(async () => {
     try {
       setCarregando(true);
       const usuario = typeof window !== 'undefined'
@@ -67,7 +63,11 @@ export default function EditarDespesa() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [id, showError]);
+
+  useEffect(() => {
+    if (id) carregarDespesa();
+  }, [id, carregarDespesa]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

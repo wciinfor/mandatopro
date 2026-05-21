@@ -55,7 +55,7 @@ export default function DetalhesSolicitacao() {
       }
     };
     fetchSolicitacao();
-  }, [id, usuario?.id]);
+  }, [id, showError, usuario]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

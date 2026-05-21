@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -22,11 +22,7 @@ export default function GerenciarEmendas() {
   const [tipoFiltro, setTipoFiltro] = useState('TODOS');
   const [statusFiltro, setStatusFiltro] = useState('TODOS');
 
-  useEffect(() => {
-    carregarEmendas();
-  }, []);
-
-  const carregarEmendas = async () => {
+  const carregarEmendas = useCallback(async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -43,7 +39,11 @@ export default function GerenciarEmendas() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [showError]);
+
+  useEffect(() => {
+    carregarEmendas();
+  }, [carregarEmendas]);
 
   const emendasFiltradas = emendas.filter(emenda => {
     const matchFiltro = filtro === '' || 

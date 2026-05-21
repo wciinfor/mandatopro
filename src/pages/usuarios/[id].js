@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -10,10 +10,20 @@ import useModal from '@/hooks/useModal';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { ROLES, ROLE_DESCRIPTIONS, getRoleColor, MODULES } from '@/utils/permissions';
 
+function isAbortError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.name === 'AbortError' || message.includes('aborted');
+}
+
 export default function EditarUsuario() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError } = useModal();
+  const showErrorRef = useRef(showError);
+
+  useEffect(() => {
+    showErrorRef.current = showError;
+  }, [showError]);
 
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -41,9 +51,10 @@ export default function EditarUsuario() {
     return JSON.parse(localStorage.getItem('usuario') || 'null');
   };
 
-  const carregarUsuario = async () => {
+  const carregarUsuario = useCallback(async (signal) => {
     const usuarioLocal = obterUsuarioHeader();
     const response = await fetch(`/api/usuarios/${id}`, {
+      signal,
       headers: {
         usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
       }
@@ -66,14 +77,15 @@ export default function EditarUsuario() {
       liderancaVinculada: usuario.lideranca_id || '',
       status: usuario.status || 'ATIVO'
     });
-  };
+  }, [id]);
 
-  const carregarLiderancas = async () => {
+  const carregarLiderancas = useCallback(async (signal) => {
     try {
       setCarregandoLiderancas(true);
       const usuarioLocal = obterUsuarioHeader();
 
       const response = await fetch('/api/usuarios/liderancas-opcoes', {
+        signal,
         headers: {
           usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
         }
@@ -86,26 +98,34 @@ export default function EditarUsuario() {
 
       setLiderancas(Array.isArray(body?.data) ? body.data : []);
     } catch (error) {
-      showError('Erro ao carregar liderancas: ' + error.message);
+      if (!isAbortError(error)) {
+        showErrorRef.current('Erro ao carregar liderancas: ' + error.message);
+      }
     } finally {
-      setCarregandoLiderancas(false);
+      if (!signal?.aborted) {
+        setCarregandoLiderancas(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!id) return;
 
     let ativo = true;
+    const abortController = new AbortController();
 
     const carregar = async () => {
       try {
         setLoading(true);
-        await Promise.all([carregarUsuario(), carregarLiderancas()]);
+        await Promise.all([
+          carregarUsuario(abortController.signal),
+          carregarLiderancas(abortController.signal)
+        ]);
       } catch (error) {
-        if (!ativo) {
+        if (!ativo || isAbortError(error)) {
           return;
         }
-        showError('Erro ao carregar usuario: ' + error.message);
+        showErrorRef.current('Erro ao carregar usuario: ' + error.message);
         router.push('/usuarios');
       } finally {
         if (ativo) {
@@ -118,8 +138,9 @@ export default function EditarUsuario() {
 
     return () => {
       ativo = false;
+      abortController.abort();
     };
-  }, [id]);
+  }, [id, carregarLiderancas, carregarUsuario, router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

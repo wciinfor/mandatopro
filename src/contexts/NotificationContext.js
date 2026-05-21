@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell, faComment, faTimes } from '@fortawesome/free-solid-svg-icons';
 
@@ -8,11 +8,12 @@ const NotificationContext = createContext();
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const nextNotificationId = useRef(1);
 
   // Adicionar nova notificação
   const addNotification = (notification) => {
     const newNotification = {
-      id: Date.now(),
+      id: nextNotificationId.current++,
       ...notification,
       createdAt: new Date(),
       read: false

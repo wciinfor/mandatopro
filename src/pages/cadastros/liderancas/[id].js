@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSave,
@@ -10,7 +11,6 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { obterLiderancaPorId, atualizarLideranca } from '@/services/liderancaService';
 import { applyMask } from '@/utils/inputMasks';
 
 export default function EditarLideranca() {
@@ -66,7 +66,9 @@ export default function EditarLideranca() {
     const carregar = async () => {
       setCarregando(true);
       try {
-        const dados = await obterLiderancaPorId(id);
+        const resp = await fetch(`/api/cadastros/liderancas/${id}`);
+        if (!resp.ok) throw new Error('Liderança não encontrada');
+        const dados = await resp.json();
         const mapped = {
           nome: dados?.nome || '',
           cpf: applyMask('cpf', dados?.cpf || ''),
@@ -164,7 +166,7 @@ export default function EditarLideranca() {
     };
 
     carregar();
-  }, [id]);
+  }, [id]); // showError excluído: recria a cada render e causaria loop infinito
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -249,7 +251,7 @@ export default function EditarLideranca() {
     if (!fotoPreview) return null;
 
     return new Promise((resolve, reject) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         const frameSize = 160;
         const canvas = document.createElement('canvas');
@@ -299,7 +301,14 @@ export default function EditarLideranca() {
         foto: fotoProcessada || formData.foto || null
       };
 
-      await atualizarLideranca(id, payload);
+      const response = await fetch(`/api/cadastros/liderancas/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Erro ao atualizar liderança');
+
       showSuccess('Liderança atualizada com sucesso!', () => {
         router.push('/cadastros/liderancas');
       });
@@ -667,11 +676,14 @@ export default function EditarLideranca() {
                             onTouchMove={moverArrasto}
                             onTouchEnd={encerrarArrasto}
                           >
-                            <img
+                            <Image
                               src={fotoPreview}
                               alt="Preview"
+                              width={160}
+                              height={160}
                               className="w-full h-full object-cover"
                               style={{ transform: `translate(${fotoOffset.x}px, ${fotoOffset.y}px) scale(${fotoScale})`, transformOrigin: 'center' }}
+                              unoptimized
                             />
                           </div>
                           <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex gap-2">

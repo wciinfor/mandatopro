@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -39,13 +39,7 @@ export default function EditarOrgao() {
     sigla: ''
   });
 
-  useEffect(() => {
-    if (id) {
-      carregarOrgao();
-    }
-  }, [id]);
-
-  const carregarOrgao = async () => {
+  const carregarOrgao = useCallback(async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -80,7 +74,13 @@ export default function EditarOrgao() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [id, showError]);
+
+  useEffect(() => {
+    if (id) {
+      carregarOrgao();
+    }
+  }, [id, carregarOrgao]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

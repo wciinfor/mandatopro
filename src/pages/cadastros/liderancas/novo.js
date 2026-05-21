@@ -7,8 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { criarLiderancaComGeolocalizacao } from '@/services/liderancaService';
-import { applyMask } from '@/utils/inputMasks';
+import { applyMask, onlyDigits } from '@/utils/inputMasks';
 
 export default function NovaLideranca() {
   const router = useRouter();
@@ -182,23 +181,31 @@ export default function NovaLideranca() {
     try {
       const payload = {
         ...formData,
-        cpf: applyMask('cpf', formData.cpf).replace(/\D/g, ''),
-        rg: applyMask('rg', formData.rg).replace(/\D/g, ''),
-        telefone: applyMask('telefone', formData.telefone).replace(/\D/g, ''),
-        celular: applyMask('celular', formData.celular || '').replace(/\D/g, '')
+        cpf: onlyDigits(formData.cpf),
+        rg: onlyDigits(formData.rg),
+        telefone: onlyDigits(formData.telefone),
+        celular: onlyDigits(formData.celular || ''),
       };
 
-      // Salvar liderança
-      const resultado = await criarLiderancaComGeolocalizacao(payload);
-      
+      const response = await fetch('/api/cadastros/liderancas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao cadastrar liderança');
+      }
+
       showSuccess('Liderança cadastrada com sucesso!');
-      
       setTimeout(() => {
         router.push('/cadastros/liderancas');
       }, 2000);
     } catch (error) {
       console.error('Erro ao cadastrar liderança:', error);
-      showError('Erro ao cadastrar liderança. Tente novamente.');
+      showError('Erro ao cadastrar: ' + error.message);
     } finally {
       setCarregando(false);
     }

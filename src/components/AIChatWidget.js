@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faTimes, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -122,9 +123,11 @@ export default function AIChatWidget() {
           className="w-20 h-20 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.45)] flex items-center justify-center overflow-hidden"
           title="Maia"
         >
-          <img
+          <Image
             src="/img/ag_ia.png"
             alt="Maia"
+            width={80}
+            height={80}
             className="w-full h-full object-cover animate-pulse-scale rounded-full border-2 border-teal-500 box-border"
           />
         </button>
@@ -134,7 +137,7 @@ export default function AIChatWidget() {
         <div className="w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-teal-100 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white">
             <div className="flex items-center gap-2">
-              <img src="/img/ag_ia.png" alt="Maia" className="w-6 h-6" />
+              <Image src="/img/ag_ia.png" alt="Maia" width={24} height={24} className="w-6 h-6" />
               <span className="font-semibold">Maia</span>
             </div>
             <div className="flex items-center gap-2">

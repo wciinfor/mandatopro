@@ -246,7 +246,7 @@ export async function buscarEleitoresParaFuncionario(termo) {
   }
 }
 
-export default {
+const funcionarioService = {
   criarFuncionario,
   obterFuncionarios,
   obterFuncionarioPorId,
@@ -254,3 +254,5 @@ export default {
   deletarFuncionario,
   buscarEleitoresParaFuncionario
 };
+
+export default funcionarioService;

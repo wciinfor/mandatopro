@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -43,6 +43,11 @@ const MODULOS = [
 export default function Logs() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
+  const showErrorRef = useRef(showError);
+
+  useEffect(() => {
+    showErrorRef.current = showError;
+  }, [showError]);
 
   const [usuario, setUsuario] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -69,36 +74,15 @@ export default function Logs() {
     limite: 50
   });
 
-  // Verifica se é admin
-  useEffect(() => {
-    const usuarioStr = localStorage.getItem('usuario');
-    if (!usuarioStr) {
-      router.push('/login');
+  const carregarLogs = useCallback(async (filtrosAtualizados = null) => {
+    const usuarioParaEnviar = usuario || JSON.parse(localStorage.getItem('usuario') || '{}');
+    if (!usuarioParaEnviar?.id) {
+      setLoading(false);
       return;
     }
 
-    const usuarioData = JSON.parse(usuarioStr);
-    if (usuarioData.nivel !== 'ADMINISTRADOR') {
-      showError('Acesso negado. Apenas administradores podem acessar os logs.', () => {
-        router.push('/dashboard');
-      });
-      return;
-    }
-
-    setUsuario(usuarioData);
-    
-    // Carrega logs após configurar o usuário
-    setTimeout(() => {
-      carregarLogs();
-    }, 100);
-  }, [router]);
-
-  const carregarLogs = async (filtrosAtualizados = null) => {
     setLoading(true);
     try {
-      // Garante que tem usuário
-      const usuarioParaEnviar = usuario || JSON.parse(localStorage.getItem('usuario') || '{}');
-      
       const filtrosAplicar = filtrosAtualizados || filtros;
       const params = new URLSearchParams();
 
@@ -130,11 +114,35 @@ export default function Logs() {
       setPaginacao(data.paginacao || {});
     } catch (error) {
       console.error('Erro:', error);
-      showError('Erro ao carregar logs: ' + error.message);
+      showErrorRef.current('Erro ao carregar logs: ' + error.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filtros, usuario]);
+
+  // Verifica se é admin
+  useEffect(() => {
+    const usuarioStr = localStorage.getItem('usuario');
+    if (!usuarioStr) {
+      router.push('/login');
+      return;
+    }
+
+    const usuarioData = JSON.parse(usuarioStr);
+    if (usuarioData.nivel !== 'ADMINISTRADOR') {
+      showErrorRef.current('Acesso negado. Apenas administradores podem acessar os logs.', () => {
+        router.push('/dashboard');
+      });
+      return;
+    }
+
+    setUsuario(usuarioData);
+  }, [router]);
+
+  useEffect(() => {
+    if (!usuario?.id) return;
+    carregarLogs();
+  }, [usuario, carregarLogs]);
 
   const handleFiltroChange = (campo, valor) => {
     const novosFiltros = {

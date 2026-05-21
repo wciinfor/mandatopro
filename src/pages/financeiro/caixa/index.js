@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faWallet, faArrowUp, faArrowDown, faChartLine, faFilePdf, faFileExcel
@@ -27,18 +27,14 @@ export default function CaixaSaldo() {
   const itensPorPagina = 10;
   const [totalRegistros, setTotalRegistros] = useState(0);
 
-  useEffect(() => {
-    carregarCaixa();
-  }, [periodo, dataInicio, dataFim, paginaAtual]);
-
-  const formatarDataISO = (date) => {
+  const formatarDataISO = useCallback((date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  };
+  }, []);
 
-  const obterRangePeriodo = () => {
+  const obterRangePeriodo = useCallback(() => {
     const hoje = new Date();
     if (periodo === 'PERSONALIZADO') {
       return {
@@ -66,9 +62,9 @@ export default function CaixaSaldo() {
       return { data_from: formatarDataISO(inicio), data_to: formatarDataISO(fim) };
     }
     return { data_from: '', data_to: '' };
-  };
+  }, [dataFim, dataInicio, formatarDataISO, periodo]);
 
-  const carregarCaixa = async () => {
+  const carregarCaixa = useCallback(async () => {
     try {
       setLoading(true);
       const { data_from, data_to } = obterRangePeriodo();
@@ -99,7 +95,11 @@ export default function CaixaSaldo() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [itensPorPagina, obterRangePeriodo, paginaAtual, showError]);
+
+  useEffect(() => {
+    carregarCaixa();
+  }, [carregarCaixa]);
 
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / itensPorPagina));
 
