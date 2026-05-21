@@ -1,8 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import {
   gerarTraceId,
-  obterUsuarioHeader,
-  exigirAdmin,
   registrarAuditoria,
   buildAuditoriaPayload
 } from '@/lib/financeiro-utils';
@@ -14,14 +13,13 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   try {
-    const usuario = obterUsuarioHeader(req);
-    exigirAdmin(usuario);
-
     if (req.method !== 'POST') {
       return res.status(405).json({ message: 'Metodo nao permitido', traceId });
     }
 
     const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirAdministrador(usuario);
     const usuarioId = parseInt(id, 10);
 
     if (Number.isNaN(usuarioId)) {
