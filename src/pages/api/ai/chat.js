@@ -1889,11 +1889,6 @@ function detectSystemBriefing(message) {
   return /(briefing geral|resumo geral|panorama geral|situacao geral|situação geral|resumo do sistema|como estamos|painel geral|me atualize|o que temos hoje|status geral)/.test(normalized);
 }
 
-function detectDataHealthBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(saude dos dados|qualidade dos dados|dados incompletos|cadastros incompletos|sem telefone|sem contato|sem coordenada|base incompleta|pendencias de dados)/.test(normalized);
-}
-
 function applyLocationToPlan(plan, location) {
   if (!plan || plan.action === 'none' || !location) return plan;
   const table = plan.table;
@@ -1978,104 +1973,6 @@ async function sumValues(supabase, table, field, options = {}) {
   return { total, error: null };
 }
 
-function hasAnyFieldValue(row, fields) {
-  return fields.some((field) => {
-    const value = row?.[field];
-    return value !== null && value !== undefined && String(value).trim() !== '';
-  });
-}
-
-function hasAllFieldValues(row, fields) {
-  return fields.every((field) => {
-    const value = row?.[field];
-    return value !== null && value !== undefined && String(value).trim() !== '';
-  });
-}
-
-async function countMissingData(supabase, table, fields, options = {}) {
-  if (!allowedTables[table]) return { count: 0, checked: 0, error: 'Tabela nao permitida' };
-  const selectedFields = Array.from(new Set(['id', ...fields])).join(', ');
-  let query = supabase
-    .from(table)
-    .select(selectedFields)
-    .limit(options.limit || 1000);
-
-  if (options.status) query = query.eq('status', options.status);
-  if (options.city) {
-    const cityValue = cleanCityName(options.city);
-    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
-      query = query.ilike('cidade', `%${cityValue}%`);
-    } else if (table === 'solicitacoes') {
-      query = query.ilike('municipio', `%${cityValue}%`);
-    }
-  }
-
-  const { data, error } = await query;
-  if (error) return { count: 0, checked: 0, error: error.message };
-  const rows = data || [];
-  const isComplete = options.requireAll
-    ? (row) => hasAllFieldValues(row, fields)
-    : (row) => hasAnyFieldValue(row, fields);
-  return {
-    count: rows.filter((row) => !isComplete(row)).length,
-    checked: rows.length,
-    error: null
-  };
-}
-
-function buildHealthLines(metrics, cityLabel = '') {
-  const scope = cityLabel ? ` em ${cityLabel}` : '';
-  const lines = [
-    `- Liderancas sem telefone/email${scope}: ${metrics.liderancasSemContato.count}`,
-    `- Eleitores sem telefone${scope}: ${metrics.eleitoresSemTelefone.count}`,
-    `- Funcionarios sem telefone/email${scope}: ${metrics.funcionariosSemContato.count}`,
-    `- Marcadores sem coordenada${scope}: ${metrics.marcadoresSemCoordenada.count}`,
-    `- Solicitacoes abertas${scope}: ${metrics.solicitacoesAbertas}`
-  ];
-
-  const critical = [];
-  if (metrics.liderancasSemContato.count > 0) critical.push('completar contatos de liderancas');
-  if (metrics.marcadoresSemCoordenada.count > 0) critical.push('corrigir coordenadas do mapa');
-  if (metrics.solicitacoesAbertas > 0) critical.push('tratar solicitacoes abertas');
-
-  return {
-    lines,
-    recommendation: critical.length
-      ? `Prioridade operacional: ${critical.slice(0, 2).join(' e ')}.`
-      : 'Base operacional sem alerta critico nos principais cadastros.'
-  };
-}
-
-async function getDataHealthMetrics(supabase, city = '') {
-  const cityLabel = city ? cleanCityName(city) : '';
-  const cityOptions = cityLabel ? { city: cityLabel } : {};
-  const [
-    liderancasSemContato,
-    eleitoresSemTelefone,
-    funcionariosSemContato,
-    marcadoresSemCoordenada,
-    solicitacoesNovas,
-    solicitacoesRecebidas,
-    solicitacoesAndamento
-  ] = await Promise.all([
-    countMissingData(supabase, 'liderancas', ['telefone', 'email'], cityOptions),
-    countMissingData(supabase, 'eleitores', ['telefone'], cityOptions),
-    countMissingData(supabase, 'funcionarios', ['telefone', 'email'], cityOptions),
-    countMissingData(supabase, 'geolocalizacao', ['latitude', 'longitude'], { ...cityOptions, requireAll: true }),
-    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'NOVO' }),
-    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'RECEBIDO' }),
-    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'EM_ANDAMENTO' })
-  ]);
-
-  return {
-    liderancasSemContato,
-    eleitoresSemTelefone,
-    funcionariosSemContato,
-    marcadoresSemCoordenada,
-    solicitacoesAbertas: solicitacoesNovas.count + solicitacoesRecebidas.count + solicitacoesAndamento.count
-  };
-}
-
 async function buildSystemBriefing(supabase, city = '') {
   const today = new Date();
   const nextWeek = new Date(today);
@@ -2150,84 +2047,40 @@ async function buildSystemBriefing(supabase, city = '') {
   };
 }
 
-async function buildDataHealthBriefing(supabase, city = '') {
-  const cityLabel = city ? cleanCityName(city) : '';
-  const metrics = await getDataHealthMetrics(supabase, cityLabel);
-  const healthBlock = buildHealthLines(metrics, cityLabel);
-  const title = cityLabel ? `Saude dos dados de ${cityLabel}:` : 'Saude dos dados:';
-
-  return [
-    title,
-    ...healthBlock.lines,
-    healthBlock.recommendation,
-    'Posso listar os cadastros sem contato ou filtrar por cidade/bairro.'
-  ].join('\n');
-}
-
 async function buildCityBriefing(supabase, city) {
   const today = new Date();
   const nextWeek = new Date(today);
   nextWeek.setDate(today.getDate() + 7);
-  const cityLabel = cleanCityName(city);
 
-  const [
-    liderancas,
-    eleitores,
-    funcionarios,
-    solicitacoesNovas,
-    solicitacoesRecebidas,
-    solicitacoesAndamento,
-    agenda,
-    marcadores,
-    proximasLiderancas,
-    health
-  ] = await Promise.all([
+  const [liderancas, eleitores, solicitacoesNovas, solicitacoesRecebidas, agenda] = await Promise.all([
     countByCity(supabase, 'liderancas', city),
     countByCity(supabase, 'eleitores', city),
-    countRows(supabase, 'funcionarios', { city }),
     countByCity(supabase, 'solicitacoes', city, { status: 'NOVO' }),
     countByCity(supabase, 'solicitacoes', city, { status: 'RECEBIDO' }),
-    countByCity(supabase, 'solicitacoes', city, { status: 'EM_ANDAMENTO' }),
     countByCity(supabase, 'agenda_eventos', city, {
       dateField: 'data',
       from: formatDateOnly(today),
       to: formatDateOnly(nextWeek)
-    }),
-    countRows(supabase, 'geolocalizacao', { city }),
-    fetchRows(supabase, 'liderancas', { city, limit: 8, ascending: false }),
-    getDataHealthMetrics(supabase, city)
+    })
   ]);
 
-  const solicitacoesAbertas = solicitacoesNovas.count + solicitacoesRecebidas.count + solicitacoesAndamento.count;
-  const prioritized = prioritizeRows('liderancas', proximasLiderancas.rows).slice(0, 3);
-  const priorityLines = prioritized.map((row, index) => {
-    const phone = row.telefone ? ` | ${formatBrazilPhone(row.telefone)}` : '';
-    const bairro = row.bairro ? ` | bairro: ${row.bairro}` : '';
-    const influence = row.influencia ? ` | influencia: ${row.influencia}` : '';
-    return `${index + 1}) ${row.nome || 'Sem nome'}${influence}${bairro}${phone}`;
-  });
-  const healthBlock = buildHealthLines(health, cityLabel);
+  const solicitacoesAbertas = solicitacoesNovas.count + solicitacoesRecebidas.count;
+  const cityLabel = cleanCityName(city);
 
   return {
     reply: [
       `Briefing de ${cityLabel}:`,
-      `- Cadastros: ${liderancas.count} liderancas, ${eleitores.count} eleitores, ${funcionarios.count} funcionarios`,
-      `- Campo: ${solicitacoesAbertas} solicitacoes abertas, ${agenda.count} compromisso(s) nos proximos 7 dias`,
-      `- Territorio: ${marcadores.count} marcador(es) no mapa`,
-      priorityLines.length ? 'Sugestao de prioridade:' : '',
-      ...priorityLines,
-      'Saude dos dados:',
-      ...healthBlock.lines,
-      healthBlock.recommendation,
-      'Posso listar os contatos prioritarios, abrir solicitacoes ou detalhar o mapa da cidade.'
-    ].filter(Boolean).join('\n'),
+      `- Liderancas cadastradas: ${liderancas.count}`,
+      `- Eleitores cadastrados: ${eleitores.count}`,
+      `- Solicitacoes abertas: ${solicitacoesAbertas}`,
+      `- Agenda dos proximos 7 dias: ${agenda.count}`,
+      'Quer que eu liste os contatos das liderancas ou detalhe as solicitacoes abertas?'
+    ].join('\n'),
     counts: {
       liderancas: liderancas.count,
       eleitores: eleitores.count,
-      funcionarios: funcionarios.count,
       solicitacoesAbertas,
-      agendaProximos7Dias: agenda.count,
-      marcadores: marcadores.count
+      agendaProximos7Dias: agenda.count
     }
   };
 }
@@ -2571,17 +2424,6 @@ export default async function handler(req, res) {
     const conversationKey = getConversationKey(req, user);
     const lastContext = getConversationContext(conversationKey);
     const contextualCity = refersToCurrentLocation(message) ? lastContext?.currentLocation : '';
-    if (detectDataHealthBriefing(message)) {
-      const reply = await buildDataHealthBriefing(supabase, contextualCity || '');
-      logPhase('answer', {
-        traceId,
-        mode: 'data_health_briefing',
-        city: contextualCity || '',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
     if (detectSystemBriefing(message)) {
       const briefing = await buildSystemBriefing(supabase, contextualCity || '');
       logPhase('answer', {
