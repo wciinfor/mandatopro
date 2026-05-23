@@ -179,9 +179,10 @@ function buildShortHistoryMessages(history) {
 
 function detectFollowUpIntent(message) {
   const normalized = normalizeForMatch(message);
-  const followUpRegex = /(\beles\b|\bdeles\b|\bessas\b|\besses\b|\bos anteriores\b|\bdaqueles\b|\bo primeiro\b|\bo segundo\b|\bo terceiro\b|\ba primeira\b|\ba segunda\b|\ba terceira\b|\bprimeiro\b|\bsegundo\b|\bterceiro\b)/;
+  const followUpRegex = /(\beles\b|\bdeles\b|\bessas\b|\besses\b|\bquais\b|\bquais sao\b|\bliste\b|\blistar\b|\bmostre\b|\bessas\b|\besses\b|\bos anteriores\b|\bdaqueles\b|\bo primeiro\b|\bo segundo\b|\bo terceiro\b|\ba primeira\b|\ba segunda\b|\ba terceira\b|\bprimeiro\b|\bsegundo\b|\bterceiro\b)/;
   const wantsContacts = /(contato|telefone|celular|whatsapp|email|numero|numeros)/.test(normalized);
   const wantsLocation = /(municipio|cidade|bairro|uf|estado|local)/.test(normalized);
+  const wantsList = /(\bquais\b|\bquais sao\b|\bliste\b|\blistar\b|\bmostre\b|\bmostrar\b|\bnomes\b)/.test(normalized);
   const ordinalMap = {
     primeiro: 0,
     primeira: 0,
@@ -219,9 +220,10 @@ function detectFollowUpIntent(message) {
   });
 
   return {
-    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || ordinalIndex !== null,
+    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || wantsList || ordinalIndex !== null,
     wantsContacts,
     wantsLocation,
+    wantsList,
     ordinalIndex,
     requestedField
   };
@@ -270,6 +272,8 @@ function resolveFollowup(question, lastContext) {
     intent = 'list_location';
   } else if (followUp.wantsContacts || ['telefone', 'celular', 'whatsapp', 'email', 'phone', 'mobile'].includes(followUp.requestedField)) {
     intent = 'list_contacts';
+  } else if (followUp.wantsList) {
+    intent = 'list';
   }
 
   return {
@@ -280,7 +284,8 @@ function resolveFollowup(question, lastContext) {
     idField,
     ordinalIndex: followUp.ordinalIndex,
     requestedField: followUp.requestedField,
-    targetLabel
+    targetLabel,
+    reuseLastFilters: followUp.wantsList && (!targetIds || targetIds.length === 0)
   };
 }
 
@@ -796,7 +801,8 @@ function buildAnswerLocal(plan, rows, meta, question) {
 
   if (plan?.action === 'count') {
     const total = meta?.count || 0;
-    return `Encontrei ${total} registros em ${tableLabel}.`;
+    const noun = total === 1 ? tableLabel.replace(/s$/, '') : tableLabel;
+    return `Temos ${total} ${noun} cadastrados. Quer que eu liste quais sao?`;
   }
 
   if (!rows || rows.length === 0) {
@@ -815,12 +821,11 @@ function buildAnswerLocal(plan, rows, meta, question) {
   }
 
   const limit = Math.min(rows.length, plan?.limit || 5, 5);
-  const evidence = snippets.slice(0, limit).map((item) => `- ${item}`).join('\n');
+  const evidence = (rows || []).slice(0, limit).map((row) => `- ${formatRow(plan?.table, row)}`).join('\n');
   const shownNote = rows.length > limit ? `Mostrando ${limit} de ${rows.length}.` : '';
 
   return [
-    `Encontrei ${rows.length} ${rows.length === 1 ? 'resultado' : 'resultados'} em ${tableLabel}.`,
-    'Evidencias:',
+    `Encontrei ${rows.length} ${rows.length === 1 ? 'resultado' : 'resultados'} em ${tableLabel}:`,
     evidence,
     shownNote
   ].filter(Boolean).join('\n');
@@ -1582,7 +1587,10 @@ export default async function handler(req, res) {
         table: followUpResolution.lockedTable,
         filters: {},
         search: '',
-        limit: Math.min(followUpResolution.targetIds?.length || 1, 5),
+        limit: Math.min(
+          followUpResolution.intent === 'list' ? (lastContext?.count || 5) : (followUpResolution.targetIds?.length || 1),
+          20
+        ),
         order: 'date_desc',
         idField: followUpResolution.idField || 'id'
       };
@@ -1594,6 +1602,9 @@ export default async function handler(req, res) {
       if (followUpResolution.targetIds && followUpResolution.targetIds.length > 0) {
         resolvedPlan.filters.ids = followUpResolution.targetIds;
         resolvedPlan.filters.id_field = resolvedPlan.idField;
+      } else if (followUpResolution.reuseLastFilters && lastContext?.lastPlan?.filters) {
+        resolvedPlan.filters = { ...lastContext.lastPlan.filters };
+        resolvedPlan.search = lastContext.lastPlan.search || '';
       } else if (followUpResolution.targetLabel) {
         resolvedPlan.search = followUpResolution.targetLabel;
       }
@@ -1725,7 +1736,7 @@ export default async function handler(req, res) {
       }
     }
 
-    if (followUpActive && !resolvedPlan.filters?.ids && !resolvedPlan.search) {
+    if (followUpActive && resolvedPlan.action !== 'list' && !resolvedPlan.filters?.ids && !resolvedPlan.search) {
       const reply = 'Nao consegui identificar quais itens voce quer. Pode indicar o primeiro/segundo ou refazer a lista?';
       return res.status(200).json({ success: true, reply, traceId });
     }
@@ -1889,7 +1900,7 @@ export default async function handler(req, res) {
 
     const durationMs = Date.now() - startedAt;
     const snippets = buildSnippets(resolvedPlan, rows, question);
-    const reply = followUpActive
+    const reply = followUpActive && resolvedPlan.action !== 'list'
       ? buildFollowUpAnswer(resolvedPlan, rows, {
         traceId,
         followUp: followUpResolution,
