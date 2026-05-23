@@ -6,10 +6,27 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function AIChatWidget() {
   const { user } = useAuth();
+  const sessionIdRef = useRef(
+    globalThis.crypto?.randomUUID?.() || `thai-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+  const suggestedActions = [
+    'Briefing geral',
+    'Cheguei em Fortaleza',
+    'Agenda da semana aqui',
+    'Solicitacoes abertas aqui',
+    'Resumo financeiro do mes',
+    'Resumo de emendas',
+    'Documentos recentes',
+    'Notificacoes nao lidas',
+    'Resumo do mapa',
+    'Aniversariantes da semana',
+    'Quem devo procurar primeiro?',
+    'Contatos dos principais'
+  ];
   const initialMessages = [
     {
       role: 'assistant',
-      content: 'Oi! Sou a Maia, atendente virtual. Posso consultar campanhas, agenda, liderancas, eleitores, atendimentos e solicitacoes. O que voce precisa?'
+      content: 'Oi! Sou a Thai, sua assessora pessoal. Posso cruzar informacoes dos modulos do mandato sem voce abrir tabelas: cadastros, agenda, solicitacoes, emendas, financeiro, documentos, notificacoes, aniversariantes e mapa. Me diga "briefing geral" ou "cheguei em Fortaleza".'
     }
   ];
   const [open, setOpen] = useState(false);
@@ -56,8 +73,8 @@ export default function AIChatWidget() {
     return null;
   }
 
-  const handleSend = async () => {
-    const texto = input.trim();
+  const handleSend = async (messageOverride = '') => {
+    const texto = String(messageOverride || input).trim();
     if (!texto || loading) return;
 
     const novaMensagem = { role: 'user', content: texto };
@@ -73,6 +90,7 @@ export default function AIChatWidget() {
         body: JSON.stringify({
           message: texto,
           history: historico,
+          sessionId: sessionIdRef.current,
           user: {
             id: user?.id,
             nivel: user?.nivel,
@@ -96,10 +114,14 @@ export default function AIChatWidget() {
         setOpen(false);
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Erro: ${error.message}` }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Nao consegui consultar agora. Tente novamente em instantes.' }]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSuggestion = (suggestion) => {
+    handleSend(suggestion);
   };
 
   const handleKeyDown = (e) => {
@@ -121,11 +143,11 @@ export default function AIChatWidget() {
         <button
           onClick={() => setOpen(true)}
           className="w-20 h-20 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.45)] flex items-center justify-center overflow-hidden"
-          title="Maia"
+          title="Thai"
         >
           <Image
             src="/img/ag_ia.png"
-            alt="Maia"
+            alt="Thai"
             width={80}
             height={80}
             className="w-full h-full object-cover animate-pulse-scale rounded-full border-2 border-teal-500 box-border"
@@ -137,8 +159,8 @@ export default function AIChatWidget() {
         <div className="w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-teal-100 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white">
             <div className="flex items-center gap-2">
-              <Image src="/img/ag_ia.png" alt="Maia" width={24} height={24} className="w-6 h-6" />
-              <span className="font-semibold">Maia</span>
+              <Image src="/img/ag_ia.png" alt="Thai" width={24} height={24} className="w-6 h-6" />
+              <span className="font-semibold">Thai</span>
             </div>
             <div className="flex items-center gap-2">
               {hasUserMessages && (
@@ -169,8 +191,23 @@ export default function AIChatWidget() {
                 {msg.content}
               </div>
             ))}
+            {!hasUserMessages && (
+              <div className="flex flex-wrap gap-2 mr-6">
+                {suggestedActions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => handleSuggestion(suggestion)}
+                    disabled={loading}
+                    className="text-xs bg-white border border-teal-200 text-teal-700 px-3 py-2 rounded-lg hover:bg-teal-50 disabled:opacity-50"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
             {loading && (
-              <div className="text-xs text-gray-500">Consultando...</div>
+              <div className="text-xs text-gray-500">Thai esta consultando...</div>
             )}
             <div ref={scrollEndRef} />
           </div>
@@ -181,7 +218,7 @@ export default function AIChatWidget() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={2}
-              placeholder="Pergunte algo..."
+              placeholder="Ex: Briefing geral ou agenda da semana aqui"
               className="w-full resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
             />
             <button

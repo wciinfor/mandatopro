@@ -915,7 +915,7 @@ export default function ConfiguracaoSistema() {
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
                     <h3 className="font-semibold text-gray-900">Ativar IA</h3>
-                    <p className="text-sm text-gray-600">Habilita o assistente de IA para o admin</p>
+                    <p className="text-sm text-gray-600">Habilita a Thai, assessora pessoal do parlamentar</p>
                   </div>
                   <input
                     type="checkbox"
