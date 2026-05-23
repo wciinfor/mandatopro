@@ -21,6 +21,7 @@ export default function AIChatWidget() {
     'Resumo do mapa',
     'Aniversariantes da semana',
     'Saude dos dados',
+    'Liste liderancas sem contato',
     'Quem devo procurar primeiro?',
     'Contatos dos principais'
   ];
