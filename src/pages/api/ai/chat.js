@@ -68,7 +68,7 @@ const searchSynonyms = {
   solicitacao: ['solicitacao', 'solicitacoes', 'pedido', 'demanda'],
   atendimento: ['atendimento', 'atendimentos', 'chamado'],
   eleitor: ['eleitor', 'eleitores', 'cidadao', 'cidadaos'],
-  lideranca: ['lideranca', 'liderancas', 'lider']
+  lideranca: ['lideranca', 'liderancas', 'lider', 'lideres']
 };
 
 const CONTEXT_TTL_MS = 20 * 60 * 1000;
@@ -147,7 +147,7 @@ function detectTableFromText(message) {
   const tableKeywords = {
     campanhas: ['campanha', 'campanhas'],
     agenda_eventos: ['agenda', 'evento', 'eventos'],
-    liderancas: ['lideranca', 'liderancas'],
+    liderancas: ['lideranca', 'liderancas', 'lider', 'lideres'],
     eleitores: ['eleitor', 'eleitores'],
     atendimentos: ['atendimento', 'atendimentos'],
     solicitacoes: ['solicitacao', 'solicitacoes']
@@ -183,6 +183,7 @@ function detectFollowUpIntent(message) {
   const wantsContacts = /(contato|telefone|celular|whatsapp|email|numero|numeros)/.test(normalized);
   const wantsLocation = /(municipio|cidade|bairro|uf|estado|local)/.test(normalized);
   const wantsList = /(\bquais\b|\bquais sao\b|\bliste\b|\blistar\b|\bmostre\b|\bmostrar\b|\bnomes\b)/.test(normalized);
+  const confirmsPrevious = /^(sim|s|pode|pode sim|isso|exato|ok|claro|quero|listar|liste|mostre|pode listar)$/.test(normalized);
   const ordinalMap = {
     primeiro: 0,
     primeira: 0,
@@ -220,10 +221,11 @@ function detectFollowUpIntent(message) {
   });
 
   return {
-    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || wantsList || ordinalIndex !== null,
+    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || wantsList || confirmsPrevious || ordinalIndex !== null,
     wantsContacts,
     wantsLocation,
     wantsList,
+    confirmsPrevious,
     ordinalIndex,
     requestedField
   };
@@ -272,7 +274,7 @@ function resolveFollowup(question, lastContext) {
     intent = 'list_location';
   } else if (followUp.wantsContacts || ['telefone', 'celular', 'whatsapp', 'email', 'phone', 'mobile'].includes(followUp.requestedField)) {
     intent = 'list_contacts';
-  } else if (followUp.wantsList) {
+  } else if (followUp.wantsList || (followUp.confirmsPrevious && lastContext?.lastPlan?.action === 'count')) {
     intent = 'list';
   }
 
@@ -285,7 +287,7 @@ function resolveFollowup(question, lastContext) {
     ordinalIndex: followUp.ordinalIndex,
     requestedField: followUp.requestedField,
     targetLabel,
-    reuseLastFilters: followUp.wantsList && (!targetIds || targetIds.length === 0)
+    reuseLastFilters: (followUp.wantsList || followUp.confirmsPrevious) && (!targetIds || targetIds.length === 0)
   };
 }
 
@@ -959,6 +961,8 @@ function normalizePlan(plan) {
     eventos: 'agenda_eventos',
     lideranca: 'liderancas',
     liderancas: 'liderancas',
+    lider: 'liderancas',
+    lideres: 'liderancas',
     eleitor: 'eleitores',
     eleitores: 'eleitores',
     atendimento: 'atendimentos',
