@@ -1894,47 +1894,6 @@ function detectDataHealthBriefing(message) {
   return /(saude dos dados|qualidade dos dados|dados incompletos|cadastros incompletos|sem telefone|sem contato|sem coordenada|base incompleta|pendencias de dados)/.test(normalized);
 }
 
-function detectMissingDataList(message) {
-  const normalized = normalizeForMatch(message);
-  const wantsList = /(listar|liste|mostre|mostrar|quais|quem|abrir lista|me passe)/.test(normalized);
-  if (!wantsList) return null;
-
-  if (/(lideranca|liderancas)/.test(normalized) && /(sem contato|sem telefone|sem email|incomplet)/.test(normalized)) {
-    return {
-      table: 'liderancas',
-      fields: ['telefone', 'email'],
-      title: 'Liderancas sem telefone/email'
-    };
-  }
-
-  if (/(funcionario|funcionarios|equipe)/.test(normalized) && /(sem contato|sem telefone|sem email|incomplet)/.test(normalized)) {
-    return {
-      table: 'funcionarios',
-      fields: ['telefone', 'email'],
-      title: 'Funcionarios sem telefone/email'
-    };
-  }
-
-  if (/(eleitor|eleitores)/.test(normalized) && /(sem telefone|sem contato|incomplet)/.test(normalized)) {
-    return {
-      table: 'eleitores',
-      fields: ['telefone'],
-      title: 'Eleitores sem telefone'
-    };
-  }
-
-  if (/(mapa|marcador|marcadores|geolocalizacao)/.test(normalized) && /(sem coordenada|sem latitude|sem longitude|incomplet)/.test(normalized)) {
-    return {
-      table: 'geolocalizacao',
-      fields: ['latitude', 'longitude'],
-      requireAll: true,
-      title: 'Marcadores sem coordenada'
-    };
-  }
-
-  return null;
-}
-
 function applyLocationToPlan(plan, location) {
   if (!plan || plan.action === 'none' || !location) return plan;
   const table = plan.table;
@@ -2060,46 +2019,6 @@ async function countMissingData(supabase, table, fields, options = {}) {
   return {
     count: rows.filter((row) => !isComplete(row)).length,
     checked: rows.length,
-    error: null
-  };
-}
-
-function buildMissingDataLabel(row, table) {
-  if (table === 'geolocalizacao') {
-    return `${row.nome || 'Sem nome'} | ${row.tipo || '-'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''}`;
-  }
-  if (table === 'eleitores') {
-    return `${row.nome || 'Sem nome'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''}`;
-  }
-  if (table === 'funcionarios') {
-    return `${row.nome || 'Sem nome'} | ${row.cargo || '-'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''}`;
-  }
-  return `${row.nome || 'Sem nome'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''} | influencia: ${row.influencia || '-'}`;
-}
-
-async function fetchMissingDataRows(supabase, table, fields, options = {}) {
-  if (!allowedTables[table]) return { rows: [], error: 'Tabela nao permitida' };
-  const selectedFields = allowedTables[table].fields;
-  let query = supabase
-    .from(table)
-    .select(selectedFields)
-    .limit(options.limit || 20);
-
-  if (options.city) {
-    const cityValue = cleanCityName(options.city);
-    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
-      query = query.ilike('cidade', `%${cityValue}%`);
-    }
-  }
-
-  const { data, error } = await query.order(allowedTables[table].dateField, { ascending: false });
-  if (error) return { rows: [], error: error.message };
-  const isComplete = options.requireAll
-    ? (row) => hasAllFieldValues(row, fields)
-    : (row) => hasAnyFieldValue(row, fields);
-
-  return {
-    rows: (data || []).filter((row) => !isComplete(row)).slice(0, options.limit || 20),
     error: null
   };
 }
@@ -2243,29 +2162,6 @@ async function buildDataHealthBriefing(supabase, city = '') {
     healthBlock.recommendation,
     'Posso listar os cadastros sem contato ou filtrar por cidade/bairro.'
   ].join('\n');
-}
-
-async function buildMissingDataList(supabase, target, city = '') {
-  const cityLabel = city ? cleanCityName(city) : '';
-  const result = await fetchMissingDataRows(supabase, target.table, target.fields, {
-    city: cityLabel,
-    requireAll: Boolean(target.requireAll),
-    limit: 20
-  });
-
-  if (result.error) return `Nao consegui listar agora: ${result.error}`;
-  const scope = cityLabel ? ` em ${cityLabel}` : '';
-  if (result.rows.length === 0) {
-    return `${target.title}${scope}: nao encontrei pendencias nessa consulta.`;
-  }
-
-  const lines = result.rows.map((row, index) => `${index + 1}) ${buildMissingDataLabel(row, target.table)}`);
-  return [
-    `${target.title}${scope}:`,
-    ...lines,
-    result.rows.length >= 20 ? 'Mostrei os 20 primeiros registros encontrados.' : '',
-    'Posso filtrar por bairro/cidade ou detalhar um cadastro especifico.'
-  ].filter(Boolean).join('\n');
 }
 
 async function buildCityBriefing(supabase, city) {
@@ -2675,19 +2571,6 @@ export default async function handler(req, res) {
     const conversationKey = getConversationKey(req, user);
     const lastContext = getConversationContext(conversationKey);
     const contextualCity = refersToCurrentLocation(message) ? lastContext?.currentLocation : '';
-    const missingDataTarget = detectMissingDataList(message);
-    if (missingDataTarget) {
-      const reply = await buildMissingDataList(supabase, missingDataTarget, contextualCity || '');
-      logPhase('answer', {
-        traceId,
-        mode: 'missing_data_list',
-        table: missingDataTarget.table,
-        city: contextualCity || '',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
     if (detectDataHealthBriefing(message)) {
       const reply = await buildDataHealthBriefing(supabase, contextualCity || '');
       logPhase('answer', {
