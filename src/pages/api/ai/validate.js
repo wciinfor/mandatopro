@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
-import { createServerClient } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
