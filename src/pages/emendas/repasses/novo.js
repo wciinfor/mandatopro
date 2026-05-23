@@ -5,7 +5,6 @@ import { faMoneyBillWave, faSave, faArrowLeft } from '@fortawesome/free-solid-sv
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -44,26 +43,18 @@ export default function NovoRepasse() {
     setSalvando(true);
 
     try {
-      const { data, error } = await supabase
-        .from('repasses')
-        .insert([
-          {
-            codigo: formData.codigo,
-            emenda: formData.emenda,
-            parcela: parseInt(formData.parcela) || 1,
-            totalParcelas: parseInt(formData.totalParcelas) || 1,
-            valor: parseFloat(formData.valor) || null,
-            dataPrevista: formData.dataPrevista || null,
-            dataEfetivada: formData.dataEfetivada || null,
-            orgao: formData.orgao || null,
-            responsavel: formData.responsavel || null,
-            status: formData.status,
-            observacoes: formData.observacoes || null
-          }
-        ])
-        .select();
+      const response = await fetch('/api/emendas/repasses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      const result = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao cadastrar repasse');
+      }
 
       showSuccess('Repasse cadastrado com sucesso!', () => {
         router.push('/emendas/repasses');

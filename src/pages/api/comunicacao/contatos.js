@@ -1,4 +1,5 @@
-import { gerarTraceId, obterUsuarioHeader } from '@/lib/financeiro-utils';
+import { obterUsuarioAutenticado } from '@/lib/api-auth';
+import { gerarTraceId } from '@/lib/financeiro-utils';
 import { obterSupabaseServer, normalizarNivel, obterNivelPermitidoParaDestino, validarUsuario } from '@/lib/comunicacao-permissoes';
 
 export const runtime = 'nodejs';
@@ -11,15 +12,14 @@ export default async function handler(req, res) {
       return res.status(405).json({ message: 'Metodo nao permitido', traceId });
     }
 
-    const usuario = obterUsuarioHeader(req);
+    const supabase = await obterSupabaseServer();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
     validarUsuario(usuario);
 
     const nivelDestino = obterNivelPermitidoParaDestino(usuario?.nivel);
     if (!nivelDestino) {
       return res.status(403).json({ message: 'Sem permissão para usar o chat', traceId });
     }
-
-    const supabase = await obterSupabaseServer();
 
     const { data, error } = await supabase
       .from('usuarios')

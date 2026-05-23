@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -35,7 +35,6 @@ export default function EditarLancamento() {
         : null;
       const response = await fetch(`/api/financeiro/lancamentos/${id}`, {
         headers: {
-          usuario: usuario ? JSON.stringify(usuario) : ''
         }
       });
       const data = await response.json();
@@ -86,7 +85,6 @@ export default function EditarLancamento() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          usuario: usuario ? JSON.stringify(usuario) : ''
         },
         body: JSON.stringify({
           ...formData,

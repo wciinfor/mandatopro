@@ -85,9 +85,7 @@ export default function Documentos() {
     const fetchDocumentos = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/documentos', {
-          headers: { usuario: JSON.stringify(u) }
-        });
+        const response = await fetch('/api/documentos');
         if (!response.ok) throw new Error('Erro ao buscar documentos');
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
@@ -155,7 +153,7 @@ export default function Documentos() {
       const base64 = await fileToBase64(formUpload.arquivo);
       const response = await fetch('/api/documentos/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuario) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: formUpload.nome.trim(),
           descricao: formUpload.descricao.trim(),
@@ -204,7 +202,7 @@ export default function Documentos() {
     try {
       const response = await fetch(`/api/documentos?id=${docEditando.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuario) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ titulo: formEditar.nome.trim(), descricao: formEditar.descricao.trim() }),
       });
       const result = await response.json();
@@ -267,7 +265,7 @@ export default function Documentos() {
         // Editar
         const response = await fetch(`/api/documentos?id=${videoEditando.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuario) },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ titulo: formVideo.nome.trim(), descricao: formVideo.descricao.trim() }),
         });
         const result = await response.json();
@@ -285,7 +283,7 @@ export default function Documentos() {
         // Criar
         const response = await fetch('/api/documentos', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuario) },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             titulo: formVideo.nome.trim(),
             descricao: formVideo.descricao.trim(),
@@ -329,7 +327,6 @@ export default function Documentos() {
         try {
           const response = await fetch(`/api/documentos?id=${video.id}`, {
             method: 'DELETE',
-            headers: { usuario: JSON.stringify(usuario) },
           });
           if (!response.ok) throw new Error('Erro ao remover');
           setDocumentos((prev) => ({ ...prev, videos: prev.videos.filter((v) => v.id !== video.id) }));
@@ -440,8 +437,7 @@ export default function Documentos() {
       async () => {
         try {
           const response = await fetch(`/api/documentos?id=${doc.id}`, {
-            method: 'DELETE',
-            headers: { usuario: JSON.stringify(usuario) }
+            method: 'DELETE'
           });
           if (!response.ok) throw new Error('Erro ao remover documento');
 

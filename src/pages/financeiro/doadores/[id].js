@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -36,7 +36,7 @@ export default function EditarDoador() {
         ? JSON.parse(localStorage.getItem('usuario') || 'null')
         : null;
       const response = await fetch(`/api/financeiro/parceiros/${id}`, {
-        headers: { usuario: usuario ? JSON.stringify(usuario) : '' }
+        headers: {}
       });
       const data = await response.json();
       if (!response.ok) {
@@ -88,7 +88,6 @@ export default function EditarDoador() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          usuario: usuario ? JSON.stringify(usuario) : ''
         },
         body: JSON.stringify({
           ...formData,

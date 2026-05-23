@@ -1,10 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { createServerClient } from '@/lib/supabase-server';
 
 const somenteDigitos = (valor = '') => String(valor).replace(/\D/g, '');
+const mascararCpf = (valor = '') => {
+  const cpf = somenteDigitos(valor);
+  if (cpf.length !== 11) return '';
+  return `${cpf.slice(0, 3)}.***.***-${cpf.slice(-2)}`;
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -12,6 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const supabase = createServerClient();
     const protocolo = String(req.query?.protocolo || '').trim();
     const cpf = somenteDigitos(req.query?.cpf || '');
     const atendimentoIdQuery = String(req.query?.aid || '').trim();
@@ -91,7 +93,7 @@ export default async function handler(req, res) {
       eleitor: {
         id: atendimento?.eleitores?.id || null,
         nome: atendimento?.eleitores?.nome || '-',
-        cpf: atendimento?.eleitores?.cpf || '-'
+        cpf: mascararCpf(atendimento?.eleitores?.cpf || '') || '-'
       },
       historico: Array.isArray(historico) ? historico : []
     });

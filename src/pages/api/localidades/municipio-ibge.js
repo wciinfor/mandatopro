@@ -1,3 +1,6 @@
+import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+
 export const runtime = 'nodejs';
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
@@ -89,6 +92,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(usuario);
+
     const municipio = String(req.query?.municipio || '').trim();
     const uf = String(req.query?.uf || '').trim();
 

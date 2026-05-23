@@ -7,8 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import supabase from '@/lib/supabaseClient';
-import { applyMask, onlyDigits } from '@/utils/inputMasks';
+import { applyMask } from '@/utils/inputMasks';
 
 export default function EditarResponsavel() {
   const router = useRouter();
@@ -33,14 +32,14 @@ export default function EditarResponsavel() {
   const carregarResponsavel = useCallback(async () => {
     setCarregando(true);
     try {
-      let { data, error } = await supabase
-        .from('responsaveis_emendas')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const response = await fetch(`/api/emendas/responsaveis/${id}`);
+      const result = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao carregar responsavel');
+      }
 
+      const data = result.data;
       if (data) {
         setFormData({
           nome: data.nome || '',
@@ -89,23 +88,18 @@ export default function EditarResponsavel() {
     setSalvando(true);
 
     try {
-      let { error } = await supabase
-        .from('responsaveis_emendas')
-        .update({
-          nome: formData.nome,
-          cargo: formData.cargo,
-          orgao: formData.orgao,
-          cpf: onlyDigits(formData.cpf) || null,
-          telefone: onlyDigits(formData.telefone) || null,
-          email: formData.email || null,
-          whatsapp: onlyDigits(formData.whatsapp) || null,
-          observacoes: formData.observacoes || null,
-          status: formData.status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
+      const response = await fetch(`/api/emendas/responsaveis/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      const result = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao atualizar responsavel');
+      }
 
       showSuccess('Responsável atualizado com sucesso!');
       setTimeout(() => {

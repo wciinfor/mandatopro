@@ -114,7 +114,7 @@ ngrok http 3000
 2. Clique em **"Edit"** na seção **Webhook**
 3. Preencha:
    - **Callback URL**: `https://seu-dominio.com/api/whatsapp-business/webhook`
-   - **Verify Token**: `mandato-pro-webhook-token`
+   - **Verify Token**: gere um valor aleatorio forte e guarde em `WHATSAPP_WEBHOOK_TOKEN`
 4. Clique em **"Verify and Save"**
 5. ✅ Se verificar, marque os eventos:
    - `messages` (receber mensagens)
@@ -125,7 +125,7 @@ ngrok http 3000
 Crie arquivo `.env.local`:
 
 ```env
-WHATSAPP_VERIFY_TOKEN=mandato-pro-webhook-token
+WHATSAPP_WEBHOOK_TOKEN=gere-um-token-longo-aleatorio
 ```
 
 ---

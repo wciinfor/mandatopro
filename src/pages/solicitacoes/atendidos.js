@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -26,13 +26,13 @@ export default function SolicitacoesAtendidas() {
       try {
         setLoading(true);
         const response = await fetch('/api/solicitacoes?status=ATENDIDO&limit=100', {
-          headers: { usuario: JSON.stringify(usuario) }
+          headers: {}
         });
         if (!response.ok) throw new Error('Erro ao carregar');
         const result = await response.json();
         setSolicitacoes(result.data || []);
       } catch (error) {
-        console.error('Erro ao carregar solicitações atendidas:', error);
+        console.error('Erro ao carregar solicitaÃ§Ãµes atendidas:', error);
       } finally {
         setLoading(false);
       }
@@ -48,16 +48,16 @@ export default function SolicitacoesAtendidas() {
 
   return (
     <ProtectedRoute module={MODULES.SOLICITACOES}>
-      <Layout titulo="Solicitações Atendidas">
+      <Layout titulo="SolicitaÃ§Ãµes Atendidas">
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <FontAwesomeIcon icon={faCheckCircle} className="text-green-600 text-2xl" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Solicitações Atendidas</h2>
+              <h2 className="text-2xl font-bold text-gray-800">SolicitaÃ§Ãµes Atendidas</h2>
               <p className="text-sm text-gray-600">
-                {solicitacoesFiltradas.length} {solicitacoesFiltradas.length === 1 ? 'solicitação atendida' : 'solicitações atendidas'}
+                {solicitacoesFiltradas.length} {solicitacoesFiltradas.length === 1 ? 'solicitaÃ§Ã£o atendida' : 'solicitaÃ§Ãµes atendidas'}
               </p>
             </div>
           </div>
@@ -69,7 +69,7 @@ export default function SolicitacoesAtendidas() {
             />
             <input
               type="text"
-              placeholder="Buscar solicitação atendida..."
+              placeholder="Buscar solicitaÃ§Ã£o atendida..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
@@ -82,11 +82,11 @@ export default function SolicitacoesAtendidas() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Protocolo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">TÃ­tulo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solicitante</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data Atendimento</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Atendente</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ações</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">AÃ§Ãµes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

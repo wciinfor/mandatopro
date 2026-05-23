@@ -1,5 +1,6 @@
 // API para gerenciar configurações do sistema — armazenamento no Supabase
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario, exigirAdministrador } from '@/lib/api-auth';
 import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
 
 export const runtime = 'nodejs';
@@ -32,7 +33,8 @@ function rowsToConfig(rows) {
     corSecundaria: map.cor_secundaria || '#0d9488',
     whatsapp: {
       phoneNumberId: map.whatsapp_phone_number_id || '',
-      accessToken: map.whatsapp_access_token || ''
+      accessToken: '',
+      hasAccessToken: Boolean(map.whatsapp_access_token)
     }
   };
 }
@@ -41,6 +43,9 @@ export default async function handler(req, res) {
   const supabase = createServerClient();
 
   try {
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(usuario);
+
     if (req.method === 'GET') {
       const { data: rows, error } = await supabase
         .from('configuracoes_sistema')
@@ -69,6 +74,8 @@ export default async function handler(req, res) {
     }
 
     else if (req.method === 'POST') {
+      exigirAdministrador(usuario);
+
       const { tipo, dados } = req.body;
 
       if (!tipo || !dados) {
@@ -101,9 +108,21 @@ export default async function handler(req, res) {
       }
 
       else if (tipo === 'whatsapp') {
+        const { data: atualRows, error: atualError } = await supabase
+          .from('configuracoes_sistema')
+          .select('chave, valor')
+          .in('chave', ['whatsapp_access_token']);
+
+        if (atualError) throw atualError;
+
+        const tokenAtual = Array.isArray(atualRows)
+          ? atualRows.find((row) => row.chave === 'whatsapp_access_token')?.valor || ''
+          : '';
+        const accessToken = String(dados.accessToken || '').trim() || tokenAtual;
+
         const upserts = [
           { chave: 'whatsapp_phone_number_id', valor: dados.phoneNumberId ?? '', tipo: 'STRING', editavel: true },
-          { chave: 'whatsapp_access_token', valor: dados.accessToken ?? '', tipo: 'STRING', editavel: true },
+          { chave: 'whatsapp_access_token', valor: accessToken, tipo: 'STRING', editavel: true },
         ];
 
         const { error } = await supabase
@@ -146,7 +165,11 @@ export default async function handler(req, res) {
       return res.status(405).json({ success: false, message: 'Método não permitido' });
     }
   } catch (error) {
+    if (error?.statusCode === 401 || error?.statusCode === 403) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+
     console.error('Erro na API de configurações:', error);
-    return res.status(500).json({ success: false, message: 'Erro ao processar configuração', error: error.message });
+    return res.status(500).json({ success: false, message: 'Erro ao processar configuração' });
   }
 }

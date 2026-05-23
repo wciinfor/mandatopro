@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -440,6 +441,9 @@ export default async function handler(req, res) {
     }
 
     const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(usuario);
+
     const geoReferencia = await carregarGeoReferencia();
 
     console.log('[MAPA-CALOR] Contando eleitores base...');

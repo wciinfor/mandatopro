@@ -43,21 +43,9 @@ export default function EditarUsuario() {
 
   const [errors, setErrors] = useState({});
 
-  const obterUsuarioHeader = () => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-
-    return JSON.parse(localStorage.getItem('usuario') || 'null');
-  };
-
   const carregarUsuario = useCallback(async (signal) => {
-    const usuarioLocal = obterUsuarioHeader();
     const response = await fetch(`/api/usuarios/${id}`, {
-      signal,
-      headers: {
-        usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
-      }
+      signal
     });
 
     const body = await response.json();
@@ -82,13 +70,9 @@ export default function EditarUsuario() {
   const carregarLiderancas = useCallback(async (signal) => {
     try {
       setCarregandoLiderancas(true);
-      const usuarioLocal = obterUsuarioHeader();
 
       const response = await fetch('/api/usuarios/liderancas-opcoes', {
-        signal,
-        headers: {
-          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
-        }
+        signal
       });
 
       const body = await response.json();
@@ -199,7 +183,6 @@ export default function EditarUsuario() {
 
     try {
       setSalvando(true);
-      const usuarioLocal = obterUsuarioHeader();
 
       const payload = {
         nome: formData.nome,
@@ -215,8 +198,7 @@ export default function EditarUsuario() {
       const response = await fetch(`/api/usuarios/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });
