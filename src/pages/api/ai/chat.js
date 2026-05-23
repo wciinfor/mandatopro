@@ -1935,24 +1935,6 @@ function detectMissingDataList(message) {
   return null;
 }
 
-function detectMessageDraftIntent(message) {
-  const normalized = normalizeForMatch(message);
-  const wantsDraft = /(mensagem|texto|rascunho|modelo|whatsapp|zap|comunicado)/.test(normalized)
-    && /(prepar|escrev|gerar|montar|criar|suger|fazer|mande|enviar|envie)/.test(normalized);
-  if (!wantsDraft) return null;
-
-  if (/(aniversario|aniversariante|parabens)/.test(normalized)) {
-    return { kind: 'birthday', table: 'aniversariantes' };
-  }
-  if (/(reuniao|agenda|encontro|visita)/.test(normalized)) {
-    return { kind: 'meeting' };
-  }
-  if (/(solicitacao|solicitacoes|demanda|pedido)/.test(normalized)) {
-    return { kind: 'request' };
-  }
-  return { kind: 'general' };
-}
-
 function applyLocationToPlan(plan, location) {
   if (!plan || plan.action === 'none' || !location) return plan;
   const table = plan.table;
@@ -2667,136 +2649,6 @@ async function buildBirthdayBriefing(supabase) {
   ].filter(Boolean).join('\n');
 }
 
-function resolveDraftAudience(message, lastContext) {
-  const explicitTable = detectTableFromText(message);
-  const contextTable = lastContext?.table || '';
-  const table = explicitTable || (
-    ['liderancas', 'eleitores', 'funcionarios', 'financeiro_parceiros', 'orgaos'].includes(contextTable)
-      ? contextTable
-      : 'liderancas'
-  );
-  const location = extractLocationTerm(message)
-    || (refersToCurrentLocation(message) ? lastContext?.currentLocation : '')
-    || lastContext?.currentLocation
-    || '';
-  const filters = {};
-
-  if (location) {
-    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
-      filters.cidade = location;
-    } else if (['campanhas', 'agenda_eventos', 'solicitacoes'].includes(table)) {
-      filters.municipio = location;
-    }
-  }
-
-  if (!explicitTable && lastContext?.lastPlan?.filters && table === contextTable) {
-    Object.assign(filters, lastContext.lastPlan.filters);
-  }
-
-  return { table, filters, location };
-}
-
-function buildMessageTemplate(kind, city = '') {
-  const cityPart = city ? ` em ${cleanCityName(city)}` : '';
-  if (kind === 'birthday') {
-    return 'Ola, [NOME]! Passando para desejar um feliz aniversario. Que seu novo ciclo seja de saude, paz e muitas realizacoes. Conte sempre com nosso mandato.';
-  }
-  if (kind === 'meeting') {
-    return `Ola, [NOME]! Estou organizando minha agenda${cityPart} e gostaria de alinhar uma conversa rapida com voce. Qual melhor horario para falarmos?`;
-  }
-  if (kind === 'request') {
-    return 'Ola, [NOME]! Estou acompanhando as demandas da regiao e queria atualizar voce sobre os proximos encaminhamentos. Pode me confirmar o melhor horario para contato?';
-  }
-  return `Ola, [NOME]! Estou passando${cityPart} e gostaria de falar rapidamente com voce sobre as demandas da comunidade. Pode me dizer o melhor horario para conversarmos?`;
-}
-
-function buildDraftRecipientLines(rows, table) {
-  return (rows || []).slice(0, 10).map((row) => {
-    const name = row.nome || row.titulo || row.responsavel || 'Sem nome';
-    const phone = row.telefone || row.celular || row.whatsapp || row.phone || row.mobile || '';
-    const email = row.email || '';
-    const contact = phone
-      ? `${formatBrazilPhone(phone)} | WhatsApp: ${buildWhatsappUrl(phone)}`
-      : (email || 'sem contato');
-    const bairro = row.bairro ? ` | bairro: ${row.bairro}` : '';
-    const influence = table === 'liderancas' && row.influencia ? ` | influencia: ${row.influencia}` : '';
-    return `- ${name}${influence}${bairro}: ${contact}`;
-  });
-}
-
-async function fetchDraftAudienceRows(supabase, audience, lastContext) {
-  if (!allowedTables[audience.table]) return { rows: [], error: 'Tabela nao permitida' };
-  const fields = buildSelectFields({ action: 'list_contacts', table: audience.table }, audience.table);
-  const idField = lastContext?.idField || 'id';
-  const ids = Array.isArray(lastContext?.lastResultMeta?.ids) ? lastContext.lastResultMeta.ids : [];
-  const plan = {
-    action: 'list_contacts',
-    table: audience.table,
-    filters: { ...(audience.filters || {}) },
-    search: '',
-    limit: 10,
-    idField
-  };
-
-  if (ids.length > 0 && audience.table === lastContext?.table) {
-    plan.filters.ids = ids.slice(0, 10);
-    plan.filters.id_field = idField;
-  }
-
-  let query = supabase
-    .from(audience.table)
-    .select(fields)
-    .limit(10);
-  query = applyFilters(query, audience.table, plan);
-  query = query.order(allowedTables[audience.table].dateField, { ascending: false });
-  const { data, error } = await query;
-  if (error) return { rows: [], error: error.message };
-  return { rows: data || [], error: null };
-}
-
-async function buildBirthdayMessageDraft(supabase) {
-  const snapshot = await carregarSnapshotAniversariantes(supabase, {
-    limite: 10,
-    incluirInativos: false,
-    deduplicar: true
-  });
-  const rows = snapshot.proximosAniversariantes || [];
-  const lines = rows.slice(0, 10).map((item) => {
-    const contact = item.telefone || item.celular || item.whatsapp || item.email || 'sem contato';
-    return `- ${item.nome || 'Sem nome'}: ${contact}`;
-  });
-
-  return [
-    'Rascunho de mensagem de aniversario:',
-    buildMessageTemplate('birthday'),
-    lines.length ? 'Destinatarios proximos:' : '',
-    ...lines,
-    'Nao enviei a mensagem. Apenas preparei o texto para revisao.'
-  ].filter(Boolean).join('\n');
-}
-
-async function buildMessageDraft(supabase, message, intent, lastContext) {
-  if (intent.kind === 'birthday') return buildBirthdayMessageDraft(supabase);
-
-  const audience = resolveDraftAudience(message, lastContext);
-  const result = await fetchDraftAudienceRows(supabase, audience, lastContext);
-  if (result.error) return `Nao consegui preparar os destinatarios agora: ${result.error}`;
-
-  const tableLabel = labelForTable(audience.table);
-  const template = buildMessageTemplate(intent.kind, audience.location);
-  const recipients = buildDraftRecipientLines(result.rows, audience.table);
-  const scope = audience.location ? ` em ${cleanCityName(audience.location)}` : '';
-
-  return [
-    `Rascunho de mensagem para ${tableLabel}${scope}:`,
-    template,
-    recipients.length ? 'Contatos sugeridos:' : 'Nao encontrei contatos nesse contexto.',
-    ...recipients,
-    recipients.some((line) => line.includes('sem contato')) ? 'Alguns cadastros precisam de telefone/email antes do envio.' : '',
-    'Nao enviei a mensagem. Apenas preparei o texto para revisao.'
-  ].filter(Boolean).join('\n');
-}
-
 export default async function handler(req, res) {
   const traceId = crypto.randomUUID();
   const startedAt = Date.now();
@@ -2823,19 +2675,6 @@ export default async function handler(req, res) {
     const conversationKey = getConversationKey(req, user);
     const lastContext = getConversationContext(conversationKey);
     const contextualCity = refersToCurrentLocation(message) ? lastContext?.currentLocation : '';
-    const messageDraftIntent = detectMessageDraftIntent(message);
-    if (messageDraftIntent) {
-      const reply = await buildMessageDraft(supabase, message, messageDraftIntent, lastContext);
-      logPhase('answer', {
-        traceId,
-        mode: 'message_draft',
-        kind: messageDraftIntent.kind,
-        city: contextualCity || '',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
     const missingDataTarget = detectMissingDataList(message);
     if (missingDataTarget) {
       const reply = await buildMissingDataList(supabase, missingDataTarget, contextualCity || '');
