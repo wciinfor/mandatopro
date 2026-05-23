@@ -8,7 +8,7 @@ export default function AIChatWidget() {
   const initialMessages = [
     {
       role: 'assistant',
-      content: 'Oi! Sou a Maia, atendente virtual. Posso consultar campanhas, agenda, liderancas, eleitores, atendimentos e solicitacoes. O que voce precisa?'
+      content: 'Oi! Sou a Thai, sua assessora pessoal. Posso consultar campanhas, agenda, liderancas, eleitores, atendimentos e solicitacoes. O que voce precisa?'
     }
   ];
   const [open, setOpen] = useState(false);
@@ -120,11 +120,11 @@ export default function AIChatWidget() {
         <button
           onClick={() => setOpen(true)}
           className="w-20 h-20 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.45)] flex items-center justify-center overflow-hidden"
-          title="Maia"
+          title="Thai"
         >
           <img
             src="/img/ag_ia.png"
-            alt="Maia"
+            alt="Thai"
             className="w-full h-full object-cover animate-pulse-scale rounded-full border-2 border-teal-500 box-border"
           />
         </button>
@@ -134,8 +134,8 @@ export default function AIChatWidget() {
         <div className="w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-teal-100 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white">
             <div className="flex items-center gap-2">
-              <img src="/img/ag_ia.png" alt="Maia" className="w-6 h-6" />
-              <span className="font-semibold">Maia</span>
+              <img src="/img/ag_ia.png" alt="Thai" className="w-6 h-6" />
+              <span className="font-semibold">Thai</span>
             </div>
             <div className="flex items-center gap-2">
               {hasUserMessages && (
