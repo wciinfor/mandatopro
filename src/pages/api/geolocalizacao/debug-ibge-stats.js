@@ -1,13 +1,21 @@
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
 export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Metodo nao permitido' });
+  }
+
   console.log('[DEBUG-IBGE] Iniciando análise...');
 
   const supabase = createServerClient(req, res);
 
   try {
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirAdministrador(usuario);
+
     // Contar quantos id_municipio únicos existem
     const { data: allRecords, error } = await supabase
       .from('eleitores')
@@ -52,6 +60,10 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
+    if (error?.statusCode === 401 || error?.statusCode === 403) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+
     console.error('[DEBUG-IBGE] Erro:', error);
     res.status(500).json({ error: error.message });
   }

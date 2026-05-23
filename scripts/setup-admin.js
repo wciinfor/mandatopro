@@ -1,7 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
-const url = 'https://fhilsuwlllrnfpebtjvx.supabase.co';
-const key = 'sb_secret_iUm54fhzl87WIdbUHYlKXw_wQODZDV3';
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!url || !key) {
+  console.error('Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env.local');
+  process.exit(1);
+}
 
 const supabase = createClient(url, key);
 

@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,15 @@ function getMissingColumn(message) {
 }
 
 export default async function handler(req, res) {
+  const authSupabase = createServerClient();
+  try {
+    const { usuario } = await obterUsuarioAutenticado(req, authSupabase);
+    exigirUsuario(usuario);
+  } catch (error) {
+    const status = error?.statusCode || 500;
+    return res.status(status).json({ message: error.message || 'Erro interno' });
+  }
+
   if (req.method === 'GET') {
     try {
       const supabase = createServerClient();

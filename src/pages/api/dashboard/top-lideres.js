@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -79,6 +80,8 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(usuario);
 
     // Busca top 10 no banco já ordenado — evita buscar 200 e fazer N+1 queries
     const lideres = await fetchTopLideres(supabase);

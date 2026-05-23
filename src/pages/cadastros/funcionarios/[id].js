@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSave, faArrowLeft, faSpinner, faCamera, faTrash
@@ -201,7 +202,14 @@ export default function EditarFuncionario() {
                   title="Clique para selecionar foto"
                 >
                   {fotoPreview ? (
-                    <img src={fotoPreview} alt="Foto" className="w-full h-full object-cover" />
+                    <Image
+                      src={fotoPreview}
+                      alt="Foto"
+                      width={105}
+                      height={140}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-gray-400">
                       <FontAwesomeIcon icon={faCamera} className="text-3xl" />

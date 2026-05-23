@@ -1,6 +1,6 @@
 ﻿import { createServerClient } from '@/lib/supabase-server';
 
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAdministrador, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -88,19 +88,21 @@ export default async function handler(req, res) {
   // POST â€” registrar novo log
   if (req.method === 'POST') {
     try {
+      const { usuario } = await obterUsuarioAutenticado(req, supabase);
+      exigirUsuario(usuario);
+
       const body = req.body || {};
-      const usuarioIdNumero = Number.parseInt(body.usuarioId, 10);
       const statusValido = ['SUCESSO', 'ERRO', 'AVISO'].includes(body.status)
         ? body.status
         : 'SUCESSO';
 
       const payload = {
-        usuario_id: Number.isFinite(usuarioIdNumero) ? usuarioIdNumero : null,
+        usuario_id: usuario.id,
         acao: body.tipoEvento || body.acao || 'ACESSO',
         modulo: body.modulo || null,
         descricao: body.descricao || null,
         ip_address: obterIP(req),
-        user_agent: body.agenteBrowser || req.headers['user-agent'] || null,
+        user_agent: req.headers['user-agent'] || null,
         dados_novos: body.dados || null,
         status: statusValido,
         data_acao: new Date().toISOString()
@@ -116,8 +118,11 @@ export default async function handler(req, res) {
 
       return res.status(201).json({ sucesso: true, id: String(data?.id) });
     } catch (error) {
+      if (error?.statusCode === 401 || error?.statusCode === 403) {
+        return res.status(error.statusCode).json({ erro: error.message });
+      }
       console.error('Erro ao registrar log:', error);
-      return res.status(500).json({ erro: 'Erro ao registrar log', detalhes: error.message });
+      return res.status(500).json({ erro: 'Erro ao registrar log' });
     }
   }
 

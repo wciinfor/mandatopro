@@ -35,11 +35,7 @@ export default function EditarDespesa() {
       const usuario = typeof window !== 'undefined'
         ? JSON.parse(localStorage.getItem('usuario') || 'null')
         : null;
-      const response = await fetch(`/api/financeiro/despesas/${id}`, {
-        headers: {
-          usuario: usuario ? JSON.stringify(usuario) : ''
-        }
-      });
+      const response = await fetch(`/api/financeiro/despesas/${id}`);
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.message || 'Erro ao carregar despesa');
@@ -89,8 +85,7 @@ export default function EditarDespesa() {
       const response = await fetch(`/api/financeiro/despesas/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          usuario: usuario ? JSON.stringify(usuario) : ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           ...formData,

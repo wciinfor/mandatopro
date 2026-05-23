@@ -1,4 +1,5 @@
-import { gerarTraceId, obterUsuarioHeader } from '@/lib/financeiro-utils';
+import { obterUsuarioAutenticado } from '@/lib/api-auth';
+import { gerarTraceId } from '@/lib/financeiro-utils';
 import { obterSupabaseServer, validarParDeChat, validarUsuario } from '@/lib/comunicacao-permissoes';
 
 export const runtime = 'nodejs';
@@ -11,10 +12,10 @@ export default async function handler(req, res) {
       return res.status(405).json({ message: 'Metodo nao permitido', traceId });
     }
 
-    const usuario = obterUsuarioHeader(req);
+    const supabase = await obterSupabaseServer();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
     validarUsuario(usuario);
 
-    const supabase = await obterSupabaseServer();
     const meuId = Number(usuario.id);
 
     const body = req.body || {};

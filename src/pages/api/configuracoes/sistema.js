@@ -1,5 +1,6 @@
 ﻿// API alternativa de configuraÃ§Ãµes do sistema â€” armazenamento no Supabase
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario, exigirAdministrador } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,16 @@ function rowsToSistema(rows) {
 
 export default async function handler(req, res) {
   const supabase = createServerClient();
+  let usuario = null;
+
+  try {
+    const auth = await obterUsuarioAutenticado(req, supabase);
+    usuario = auth.usuario;
+    exigirUsuario(usuario);
+  } catch (error) {
+    const status = error?.statusCode || 500;
+    return res.status(status).json({ sucesso: false, erro: error.message || 'Erro de autenticacao' });
+  }
 
   // GET: Recuperar configuraÃ§Ãµes
   if (req.method === 'GET') {
@@ -52,6 +63,8 @@ export default async function handler(req, res) {
   // POST: Salvar configuraÃ§Ãµes
   if (req.method === 'POST') {
     try {
+      exigirAdministrador(usuario);
+
       const { dados } = req.body;
 
       if (!dados) {

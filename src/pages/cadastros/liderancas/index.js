@@ -146,19 +146,8 @@ export default function GerenciarLiderancas() {
   const handleExcluir = (id) => {
     showConfirm('Tem certeza que deseja excluir esta liderança?', async () => {
       try {
-        let usuarioHeader = null;
-        try {
-          const raw = localStorage.getItem('usuario');
-          usuarioHeader = raw ? JSON.parse(raw) : null;
-        } catch {
-          usuarioHeader = null;
-        }
-
         const response = await fetch(`/api/cadastros/liderancas/${id}`, {
-          method: 'DELETE',
-          headers: {
-            ...(usuarioHeader ? { usuario: JSON.stringify(usuarioHeader) } : {})
-          }
+          method: 'DELETE'
         });
 
         const payload = await response.json().catch(() => ({}));

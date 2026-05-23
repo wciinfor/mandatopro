@@ -151,7 +151,7 @@ export default function ModelosGrupos() {
       const base64 = await fileToBase64(formUpload.arquivo);
       const response = await fetch('/api/documentos/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuario) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: formUpload.nome.trim(),
           descricao: formUpload.descricao.trim(),

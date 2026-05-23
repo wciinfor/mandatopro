@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:security": "node scripts/check-client-supabase-access.js",
+    "check:env": "node scripts/check-env-consistency.js",
     "setup-db": "node scripts/db-setup.js",
     "seed-db": "node scripts/seed-db.js",
     "db:migrate": "npm run setup-db && npm run seed-db"

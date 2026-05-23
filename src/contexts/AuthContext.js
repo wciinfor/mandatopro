@@ -2,13 +2,12 @@ import { useState, createContext, useContext, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@/lib/supabaseClient';
 import { ROLES } from '@/utils/permissions';
-import { registrarLogAuditoria } from '@/services/database';
+import { registrarLogAuditoria } from '@/services/auditService';
 
 function isAbortError(error) {
   const message = String(error?.message || '').toLowerCase();
   return error?.name === 'AbortError' || message.includes('aborted');
 }
-
 // Contexto de autenticação
 const AuthContext = createContext();
 
@@ -172,147 +171,20 @@ export function useAuth() {
 // Função para obter usuário logado do banco de dados
 async function obterUsuarioLogado(email) {
   try {
-    const supabase = createClient();
-    
-    if (!supabase) {
+    const response = await fetch('/api/usuarios/me');
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Erro ao obter usuario logado');
+    }
+
+    if (email && result.data?.email && result.data.email !== email) {
       return null;
     }
 
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('email', email)
-      .eq('ativo', true)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-
-    return data;
+    return result.data;
   } catch (error) {
     console.error('Erro ao obter usuário logado:', error);
     return null;
-  }
-}
-
-// Função de login com Supabase
-export async function loginUser(email, senha) {
-  try {
-    const supabase = createClient();
-    
-    // Verificar se Supabase está configurado
-    if (!supabase || !supabase.auth) {
-      throw new Error('Supabase não está configurado. Verifique as variáveis de ambiente.');
-    }
-
-    // Tentar fazer login com Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    // Buscar dados do usuário no banco de dados
-    const usuario = await obterUsuarioLogado(email);
-
-    if (!usuario) {
-      throw new Error('Usuário não encontrado no banco de dados');
-    }
-
-    if (usuario.status !== 'ATIVO') {
-      throw new Error('Usuário inativo ou bloqueado');
-    }
-
-    // Atualizar último acesso
-    await supabase
-      .from('usuarios')
-      .update({ ultimo_acesso: new Date() })
-      .eq('id', usuario.id);
-
-    // Registrar login nos logs
-    await registrarLogAuditoria({
-      usuario_id: usuario.id,
-      acao: 'LOGIN',
-      modulo: 'AUTENTICACAO',
-      descricao: `${usuario.nome} fez login no sistema`,
-      status: 'SUCESSO'
-    });
-
-    return usuario;
-  } catch (error) {
-    console.error('Erro ao fazer login:', error);
-    throw error;
-  }
-}
-
-// Função para criar novo usuário (apenas administrador)
-export async function criarUsuario(dados) {
-  try {
-    const supabase = createClient();
-    
-    if (!supabase) {
-      throw new Error('Supabase não está configurado');
-    }
-
-    // Criar usuário no Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: dados.email,
-      password: dados.senha,
-      email_confirm: true
-    });
-
-    if (authError) {
-      throw authError;
-    }
-
-    // Criar registro de usuário no banco de dados
-    const { data: userData, error: dbError } = await supabase
-      .from('usuarios')
-      .insert([{
-        email: dados.email,
-        nome: dados.nome,
-        nivel: dados.nivel,
-        status: dados.status || 'ATIVO',
-        lideranca_id: dados.lideranca_id || null
-      }])
-      .select()
-      .single();
-
-    if (dbError) {
-      throw dbError;
-    }
-
-    return userData;
-  } catch (error) {
-    console.error('Erro ao criar usuário:', error);
-    throw error;
-  }
-}
-
-// Função para redefinir senha
-export async function redefinirSenha(email) {
-  try {
-    const supabase = createClient();
-    
-    if (!supabase) {
-      throw new Error('Supabase não está configurado');
-    }
-
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin}/auth/redefinir-senha` : undefined;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
-
-    if (error) {
-      throw error;
-    }
-
-    return { sucesso: true, mensagem: 'Email de recuperação enviado' };
-  } catch (error) {
-    console.error('Erro ao redefinir senha:', error);
-    throw error;
   }
 }

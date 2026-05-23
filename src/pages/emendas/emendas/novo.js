@@ -5,7 +5,6 @@ import { faFileInvoiceDollar, faSave, faArrowLeft } from '@fortawesome/free-soli
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -45,27 +44,18 @@ export default function NovaEmenda() {
     setSalvando(true);
 
     try {
-      const { data, error } = await supabase
-        .from('emendas')
-        .insert([
-          {
-            numero: formData.numero,
-            tipo: formData.tipo,
-            autor: formData.autor,
-            orgao: formData.orgao,
-            responsavel: formData.responsavel || null,
-            finalidade: formData.finalidade,
-            valorEmpenhado: parseFloat(formData.valorEmpenhado) || null,
-            valorExecutado: parseFloat(formData.valorExecutado) || 0,
-            dataEmpenho: formData.dataEmpenho || null,
-            dataVencimento: formData.dataVencimento || null,
-            status: formData.status,
-            observacoes: formData.observacoes || null
-          }
-        ])
-        .select();
+      const response = await fetch('/api/emendas/emendas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      const result = await response.json();
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao cadastrar emenda');
+      }
 
       showSuccess('Emenda cadastrada com sucesso!', () => {
         router.push('/emendas/emendas');

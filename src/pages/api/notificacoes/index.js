@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { gerarTraceId, obterUsuarioHeader, parsePaginacao } from '@/lib/financeiro-utils';
+import { obterUsuarioAutenticado } from '@/lib/api-auth';
+import { gerarTraceId, parsePaginacao } from '@/lib/financeiro-utils';
 
 export const runtime = 'nodejs';
 
@@ -17,7 +18,8 @@ export default async function handler(req, res) {
       return res.status(405).json({ message: 'Metodo nao permitido', traceId });
     }
 
-    const usuario = obterUsuarioHeader(req);
+    const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
     if (!usuario?.id) {
       return res.status(401).json({ message: 'Nao autenticado', traceId });
     }
@@ -26,7 +28,6 @@ export default async function handler(req, res) {
     const onlyUnread = String(req.query?.onlyUnread || '').toLowerCase();
     const filtrarNaoLidas = onlyUnread === '1' || onlyUnread === 'true' || onlyUnread === 'yes';
 
-    const supabase = createServerClient();
     const meuId = Number(usuario.id);
 
     let query = supabase

@@ -3,9 +3,12 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { installAuthenticatedFetch } from '@/lib/auth-fetch';
 
 function RuntimeAbortErrorGuard() {
   useEffect(() => {
+    installAuthenticatedFetch();
+
     const handler = (event) => {
       const reason = event?.reason;
       const name = String(reason?.name || '');
@@ -28,6 +31,8 @@ function RuntimeAbortErrorGuard() {
 }
 
 export default function App({ Component, pageProps }) {
+  installAuthenticatedFetch();
+
   return (
     <AuthProvider>
       <NotificationProvider>

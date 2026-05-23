@@ -1,9 +1,21 @@
 // API para enviar notificações (Email, SMS, WhatsApp)
 // Esta é uma estrutura base - você precisará configurar os serviços reais
 
+import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
+  }
+
+  const supabase = createServerClient();
+  try {
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirAdministrador(usuario);
+  } catch (error) {
+    const status = error?.statusCode || 500;
+    return res.status(status).json({ error: error.message || 'Erro interno' });
   }
 
   const { eleitorEmail, eleitorCelular, tipo, mensagem } = req.body;

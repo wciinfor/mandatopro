@@ -1,6 +1,22 @@
 import { createBrowserClient } from '@supabase/ssr';
 
 let supabase = null;
+let restrictedSupabase = null;
+
+const BLOCKED_BROWSER_MEMBERS = new Set(['from', 'rpc', 'storage', 'functions']);
+
+function criarClienteRestrito(client) {
+  return new Proxy(client, {
+    get(target, prop) {
+      if (BLOCKED_BROWSER_MEMBERS.has(prop)) {
+        throw new Error('Acesso direto ao Supabase bloqueado no navegador. Use uma rota /api autenticada.');
+      }
+
+      const value = target[prop];
+      return typeof value === 'function' ? value.bind(target) : value;
+    }
+  });
+}
 
 // Cliente Supabase para o navegador
 // Usa ANON_KEY (seguro, expõe só leitura/escrita com RLS)
@@ -11,12 +27,12 @@ export function createClient() {
 
   const globalSupabase = globalThis.__mandatoProSupabase;
   if (globalSupabase) {
-    supabase = globalSupabase;
-    return supabase;
+    restrictedSupabase = globalSupabase;
+    return restrictedSupabase;
   }
 
-  if (supabase) {
-    return supabase;
+  if (restrictedSupabase) {
+    return restrictedSupabase;
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,9 +44,10 @@ export function createClient() {
   }
 
   supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
-  globalThis.__mandatoProSupabase = supabase;
+  restrictedSupabase = criarClienteRestrito(supabase);
+  globalThis.__mandatoProSupabase = restrictedSupabase;
 
-  return supabase;
+  return restrictedSupabase;
 }
 
 function getClientOrThrow() {

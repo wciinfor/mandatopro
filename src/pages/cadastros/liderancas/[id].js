@@ -17,12 +17,17 @@ export default function EditarLideranca() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+  const showErrorRef = useRef(showError);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [fotoPreview, setFotoPreview] = useState(null);
   const [fotoScale, setFotoScale] = useState(1);
   const [fotoOffset, setFotoOffset] = useState({ x: 0, y: 0 });
   const [arrastandoFoto, setArrastandoFoto] = useState(false);
+
+  useEffect(() => {
+    showErrorRef.current = showError;
+  }, [showError]);
   const [inicioArrasto, setInicioArrasto] = useState({ x: 0, y: 0 });
   const loadedIdRef = useRef(null);
 
@@ -166,6 +171,7 @@ export default function EditarLideranca() {
     };
 
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // showError excluído: recria a cada render e causaria loop infinito
 
   const handleInputChange = (e) => {

@@ -53,12 +53,7 @@ export default function Usuarios() {
         return;
       }
 
-      const response = await fetch(`/api/usuarios?${params.toString()}`, {
-        signal,
-        headers: {
-          usuario: usuario ? JSON.stringify(usuario) : ''
-        }
-      });
+      const response = await fetch(`/api/usuarios?${params.toString()}`, { signal });
 
       const data = await response.json();
       if (!response.ok) {
@@ -121,14 +116,8 @@ export default function Usuarios() {
 
   const excluirUsuario = async (id) => {
     try {
-      const usuarioLocal = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('usuario') || 'null')
-        : null;
       const response = await fetch(`/api/usuarios/${id}`, {
-        method: 'DELETE',
-        headers: {
-          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
-        }
+        method: 'DELETE'
       });
       const data = await response.json();
       if (!response.ok) {
@@ -156,14 +145,10 @@ export default function Usuarios() {
 
   const atualizarStatusUsuario = async (id, status) => {
     try {
-      const usuarioLocal = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('usuario') || 'null')
-        : null;
       const response = await fetch(`/api/usuarios/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status })
       });
@@ -190,14 +175,8 @@ export default function Usuarios() {
 
   const resetarSenhaUsuario = async (id) => {
     try {
-      const usuarioLocal = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('usuario') || 'null')
-        : null;
       const response = await fetch(`/api/usuarios/${id}/reset-senha`, {
-        method: 'POST',
-        headers: {
-          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
-        }
+        method: 'POST'
       });
       const data = await response.json();
       if (!response.ok) {

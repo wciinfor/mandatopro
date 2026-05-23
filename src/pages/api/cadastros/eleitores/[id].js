@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -7,6 +8,8 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(usuario);
 
     // GET - Buscar eleitor
     if (req.method === 'GET') {

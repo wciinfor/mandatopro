@@ -51,7 +51,7 @@ export default function GerenciarEleitores() {
   }, [situacao, paginaAtual, filtro, filtroLideranca, filtroCidade, cidades]);
 
   useEffect(() => {
-    fetch('/api/usuarios/liderancas-opcoes', { headers: { usuario: JSON.stringify({nivel:'ADMINISTRADOR'}) } })
+    fetch('/api/usuarios/liderancas-opcoes')
       .then(r => r.json())
       .then(json => setLiderancas(Array.isArray(json.data) ? json.data : []))
       .catch(() => setLiderancas([]));

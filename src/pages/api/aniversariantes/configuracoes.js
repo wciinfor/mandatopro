@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario, exigirAdministrador } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -92,6 +93,19 @@ function normalizarPayload(payload) {
 
 export default async function handler(req, res) {
   const supabase = createServerClient();
+  let usuario;
+
+  try {
+    const auth = await obterUsuarioAutenticado(req, supabase);
+    usuario = auth.usuario;
+    exigirUsuario(usuario);
+  } catch (error) {
+    const status = error?.statusCode || 500;
+    return res.status(status).json({
+      success: false,
+      error: error.message || 'Erro interno'
+    });
+  }
 
   if (req.method === 'GET') {
     try {
@@ -129,6 +143,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
+      exigirAdministrador(usuario);
+
       const configuracaoNormalizada = normalizarPayload(req.body?.dados ?? req.body);
 
       const registros = Object.keys(CAMPOS_CONFIG).map((campo) => ({

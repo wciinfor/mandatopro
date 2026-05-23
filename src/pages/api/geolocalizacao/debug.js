@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { limparCacheGeolocaliza } from './eleitores-mapa-calor';
+import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -10,6 +10,8 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirAdministrador(usuario);
 
     console.log('[DEBUG GEO] Iniciando debug de geolocalização...');
 
@@ -55,6 +57,13 @@ export default async function handler(req, res) {
       municipiosDistintos: distinctMunicipios?.length || 0
     });
   } catch (error) {
+    if (error?.statusCode === 401 || error?.statusCode === 403) {
+      return res.status(error.statusCode).json({
+        success: false,
+        error: error.message
+      });
+    }
+
     console.error('[DEBUG GEO] Erro:', error);
     return res.status(500).json({
       success: false,

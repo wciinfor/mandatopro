@@ -60,7 +60,7 @@ export default function DisparoBotao({ onDisparo }) {
     try {
       const response = await fetch('/api/comunicacao/enviar-massa', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuarioLocal) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo,
           mensagem,

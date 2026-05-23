@@ -47,7 +47,6 @@ export default function NovoLancamento() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          usuario: usuario ? JSON.stringify(usuario) : ''
         },
         body: JSON.stringify({
           ...formData,

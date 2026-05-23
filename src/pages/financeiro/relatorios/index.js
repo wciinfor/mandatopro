@@ -34,19 +34,13 @@ export default function RelatoriosFinanceiros() {
       const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
       const fmt = (d) => d.toISOString().slice(0, 10);
 
-      const usuario = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('usuario') || 'null')
-        : null;
-
       const params = new URLSearchParams({
         tipo: 'totais_periodo',
         data_from: fmt(inicio),
         data_to: fmt(fim)
       });
 
-      const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`, {
-        headers: { usuario: usuario ? JSON.stringify(usuario) : '' }
-      });
+      const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`);
       const data = await response.json();
       if (response.ok) setResumo(data.data);
     } catch {
@@ -175,13 +169,7 @@ export default function RelatoriosFinanceiros() {
       if (data_from) params.set('data_from', data_from);
       if (data_to) params.set('data_to', data_to);
 
-      const usuario = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('usuario') || 'null')
-        : null;
-
-      const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`, {
-        headers: { usuario: usuario ? JSON.stringify(usuario) : '' }
-      });
+      const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`);
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.message || 'Erro ao gerar previa');

@@ -1,0 +1,43 @@
+name: Security Baseline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - codex/**
+
+jobs:
+  validate:
+    name: Validate security baseline
+    runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: placeholder-google-maps-key
+      WHATSAPP_WEBHOOK_TOKEN: placeholder-webhook-token
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Security check
+        run: npm run check:security
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

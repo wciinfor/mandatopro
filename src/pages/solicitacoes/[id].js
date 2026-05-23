@@ -33,9 +33,7 @@ export default function DetalhesSolicitacao() {
     const fetchSolicitacao = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/solicitacoes/${id}`, {
-          headers: { usuario: JSON.stringify(usuario) }
-        });
+        const response = await fetch(`/api/solicitacoes/${id}`);
         if (!response.ok) throw new Error('Solicitação não encontrada');
         const result = await response.json();
         const s = result.data;
@@ -67,8 +65,7 @@ export default function DetalhesSolicitacao() {
         const response = await fetch(`/api/solicitacoes/${id}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json',
-            usuario: JSON.stringify(usuario)
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({ observacoes: formData.observacoes, descricao: formData.descricao })
         });
@@ -94,8 +91,7 @@ export default function DetalhesSolicitacao() {
       const response = await fetch(`/api/solicitacoes/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          usuario: JSON.stringify(usuario)
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ observacoes: `${solicitacao?.observacoes || ''}\n[${new Date().toLocaleString('pt-BR')}] ${novoComentario}`.trim() })
       });
@@ -118,8 +114,7 @@ export default function DetalhesSolicitacao() {
           const response = await fetch(`/api/solicitacoes/${id}`, {
             method: 'PUT',
             headers: {
-              'Content-Type': 'application/json',
-              usuario: JSON.stringify(usuario)
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ status: novoStatus })
           });

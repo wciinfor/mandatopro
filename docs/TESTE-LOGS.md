@@ -240,9 +240,7 @@ Solução:
 
 ```javascript
 // Abra F12 → Console → execute:
-fetch('/api/logs?pagina=1&limite=1', {
-  headers: {'usuario': JSON.stringify({nivel: 'ADMINISTRADOR'})}
-})
+fetch('/api/logs?pagina=1&limite=1')
 .then(r => r.json())
 .then(d => console.log(JSON.stringify(d, null, 2)))
 ```

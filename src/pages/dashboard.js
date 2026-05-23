@@ -57,9 +57,7 @@ export default function Dashboard() {
     setUsuario(usuarioData);
 
     if (usuarioData?.id || usuarioData?.email) {
-      fetch('/api/usuarios/me', {
-        headers: { usuario: JSON.stringify(usuarioData) }
-      })
+      fetch('/api/usuarios/me')
         .then(r => r.ok ? r.json() : null)
         .then(body => {
           if (body?.data?.nome) {
@@ -381,14 +379,12 @@ export default function Dashboard() {
 
   // Carregar últimas solicitações do Supabase
   useEffect(() => {
-    if (!userSnapshot.id || userSnapshot.nivel === 'OPERADOR' || !userSnapshot.payload) return;
+    if (!userSnapshot.id || userSnapshot.nivel === 'OPERADOR') return;
     let ativo = true;
     const carregarSolicitacoes = async () => {
       try {
         setSolicitacoesLoading(true);
-        const response = await fetch('/api/solicitacoes?limit=4&offset=0', {
-          headers: { usuario: userSnapshot.payload }
-        });
+        const response = await fetch('/api/solicitacoes?limit=4&offset=0');
         if (!response.ok) return;
         const data = await response.json();
         if (ativo) setSolicitacoes(Array.isArray(data.data) ? data.data : []);
@@ -400,7 +396,7 @@ export default function Dashboard() {
     };
     carregarSolicitacoes();
     return () => { ativo = false; };
-  }, [userSnapshot.id, userSnapshot.nivel, userSnapshot.payload]);
+  }, [userSnapshot.id, userSnapshot.nivel]);
 
   // Filtrar solicitações baseado no perfil
   const solicitacoesFiltradas = solicitacoes;
