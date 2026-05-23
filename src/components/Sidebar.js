@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { registrarLogout } from '@/services/logService';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   faChartBar,
   faClipboardList,
@@ -24,6 +24,7 @@ import {
 
 export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, setModuloAtivo }) {
   const router = useRouter();
+  const { logout } = useAuth();
   const [menusAbertos, setMenusAbertos] = useState({});
   const [usuarioAtual, setUsuarioAtual] = useState(null);
 
@@ -169,13 +170,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
   };
 
   const handleLogout = async () => {
-    const usuarioData = JSON.parse(localStorage.getItem('usuario') || '{}');
-    
-    // Registra o logout
-    await registrarLogout(usuarioData);
-    
-    localStorage.removeItem('usuario');
-    router.push('/login');
+    await logout();
   };
 
   const handleModuloClick = (modulo) => {
