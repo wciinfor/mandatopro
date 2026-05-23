@@ -1,8 +1,10 @@
+// API de Upload de Documentos — envia arquivo para Supabase Storage
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioHeader } from '@/lib/financeiro-utils';
 
 export const runtime = 'nodejs';
 
+// Aumentar limite do body para aceitar arquivos grandes em base64
 export const config = {
   api: {
     bodyParser: {
@@ -19,25 +21,33 @@ const CATEGORIA_PARA_TIPO = {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Metodo nao permitido' });
+    return res.status(405).json({ success: false, message: 'Método não permitido' });
+  }
+
+  const usuario = obterUsuarioHeader(req);
+  if (!usuario) {
+    return res.status(401).json({ success: false, message: 'Não autenticado' });
+  }
+
+  if (usuario.nivel !== 'ADMINISTRADOR') {
+    return res.status(403).json({ success: false, message: 'Apenas administradores podem fazer upload de documentos' });
   }
 
   try {
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
-
     const { nome, descricao, categoria, arquivo_base64, arquivo_nome, mime_type } = req.body;
 
     if (!nome || !arquivo_base64 || !arquivo_nome) {
-      return res.status(400).json({ success: false, message: 'Nome e arquivo sao obrigatorios' });
+      return res.status(400).json({ success: false, message: 'Nome e arquivo são obrigatórios' });
     }
+
+    const supabase = createServerClient();
 
     const id = crypto.randomUUID();
     const ext = arquivo_nome.split('.').pop().toLowerCase();
     const caminho = `${categoria || 'geral'}/${id}.${ext}`;
     const buffer = Buffer.from(arquivo_base64, 'base64');
 
+    // Upload para o Supabase Storage
     const { error: storageError } = await supabase.storage
       .from('documentos')
       .upload(caminho, buffer, {
@@ -47,10 +57,12 @@ export default async function handler(req, res) {
 
     if (storageError) throw storageError;
 
+    // URL pública do arquivo
     const { data: urlData } = supabase.storage
       .from('documentos')
       .getPublicUrl(caminho);
 
+    // Criar registro na tabela documentos
     const { data, error: dbError } = await supabase
       .from('documentos')
       .insert({
@@ -69,6 +81,7 @@ export default async function handler(req, res) {
       .single();
 
     if (dbError) {
+      // Reverter upload se o DB falhou
       await supabase.storage.from('documentos').remove([caminho]);
       throw dbError;
     }
@@ -92,7 +105,7 @@ export default async function handler(req, res) {
         criador: usuario.nome || 'Admin',
         downloads: 0,
         categoria,
-        imagem: 'documento',
+        imagem: '📄',
         versao: '1.0',
         status: 'Ativo',
         favoritos: 0,
@@ -101,10 +114,9 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    const status = error?.statusCode || 500;
     console.error('Erro no upload de documento:', error);
     return res
-      .status(status)
+      .status(500)
       .json({ success: false, message: 'Erro ao fazer upload: ' + (error.message || 'Erro desconhecido') });
   }
 }

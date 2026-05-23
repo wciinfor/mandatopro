@@ -1,5 +1,4 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -132,8 +131,6 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
     const days = Math.max(parseInt(req.query.days || '7', 10), 1);
 
     const hoje = new Date();

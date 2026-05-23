@@ -42,7 +42,11 @@ export default function Despesas() {
         ? JSON.parse(localStorage.getItem('usuario') || 'null')
         : null;
 
-      const response = await fetch(`/api/financeiro/despesas?${params.toString()}`);
+      const response = await fetch(`/api/financeiro/despesas?${params.toString()}`, {
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
+      });
 
       const data = await response.json();
       if (!response.ok) {
@@ -103,7 +107,10 @@ export default function Despesas() {
         ? JSON.parse(localStorage.getItem('usuario') || 'null')
         : null;
       const response = await fetch(`/api/financeiro/despesas/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
       });
       const data = await response.json();
       if (!response.ok) {

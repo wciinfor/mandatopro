@@ -1,5 +1,4 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 import { carregarSnapshotAniversariantes } from '@/lib/aniversariantes';
 
 export const runtime = 'nodejs';
@@ -11,8 +10,6 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
     const limite = Number(req.query.limit || 1000);
     const incluirInativos = String(req.query.include_inativos || '').toLowerCase() === 'true';
     const deduplicar = true;

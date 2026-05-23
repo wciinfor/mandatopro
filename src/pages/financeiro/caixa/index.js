@@ -78,7 +78,11 @@ export default function CaixaSaldo() {
         ? JSON.parse(localStorage.getItem('usuario') || 'null')
         : null;
 
-      const response = await fetch(`/api/financeiro/caixa?${params.toString()}`);
+      const response = await fetch(`/api/financeiro/caixa?${params.toString()}`, {
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.message || 'Erro ao carregar caixa');

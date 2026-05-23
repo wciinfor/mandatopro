@@ -7,6 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
 
 export default function EditarEmenda() {
   const router = useRouter();
@@ -34,14 +35,14 @@ export default function EditarEmenda() {
   const carregarEmenda = useCallback(async () => {
     setCarregando(true);
     try {
-      const response = await fetch(`/api/emendas/emendas/${id}`);
-      const result = await response.json();
+      let { data, error } = await supabase
+        .from('emendas')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao carregar emenda');
-      }
+      if (error) throw error;
 
-      const data = result.data;
       if (data) {
         setFormData({
           numero: data.numero || '',
@@ -92,18 +93,26 @@ export default function EditarEmenda() {
     setSalvando(true);
 
     try {
-      const response = await fetch(`/api/emendas/emendas/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-      const result = await response.json();
+      let { error } = await supabase
+        .from('emendas')
+        .update({
+          numero: formData.numero,
+          tipo: formData.tipo,
+          autor: formData.autor,
+          orgao: formData.orgao,
+          responsavel: formData.responsavel || null,
+          finalidade: formData.finalidade,
+          valorEmpenhado: parseFloat(formData.valorEmpenhado) || null,
+          valorExecutado: parseFloat(formData.valorExecutado) || 0,
+          dataEmpenho: formData.dataEmpenho || null,
+          dataVencimento: formData.dataVencimento || null,
+          status: formData.status,
+          observacoes: formData.observacoes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao atualizar emenda');
-      }
+      if (error) throw error;
 
       showSuccess('Emenda atualizada com sucesso!');
       setTimeout(() => {

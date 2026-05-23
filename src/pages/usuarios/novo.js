@@ -43,7 +43,7 @@ export default function NovoUsuario() {
 
   const [errors, setErrors] = useState({});
 
-  const obterUsuarioLocal = () => {
+  const obterUsuarioHeader = () => {
     if (typeof window === 'undefined') {
       return null;
     }
@@ -54,9 +54,13 @@ export default function NovoUsuario() {
   const carregarLiderancas = useCallback(async (signal) => {
     try {
       setCarregandoLiderancas(true);
+      const usuarioLocal = obterUsuarioHeader();
 
       const response = await fetch('/api/usuarios/liderancas-opcoes', {
-        signal
+        signal,
+        headers: {
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        }
       });
 
       const data = await response.json();
@@ -82,7 +86,7 @@ export default function NovoUsuario() {
     carregouLiderancasRef.current = true;
 
     const abortController = new AbortController();
-    const user = obterUsuarioLocal();
+    const user = obterUsuarioHeader();
     setUsuarioLogado(user);
 
     carregarLiderancas(abortController.signal);
@@ -158,11 +162,13 @@ export default function NovoUsuario() {
 
     try {
       setSalvando(true);
+      const usuarioLocal = obterUsuarioHeader();
 
       const response = await fetch('/api/usuarios', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
         },
         body: JSON.stringify({
           nome: formData.nome,

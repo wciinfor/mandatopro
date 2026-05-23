@@ -8,6 +8,7 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFEmendas, gerarExcelEmendas } from '@/utils/relatorios';
+import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -24,14 +25,14 @@ export default function GerenciarEmendas() {
   const carregarEmendas = useCallback(async () => {
     setCarregando(true);
     try {
-      const response = await fetch('/api/emendas/emendas');
-      const result = await response.json();
+      let { data, error } = await supabase
+        .from('emendas')
+        .select('*')
+        .order('numero', { ascending: true });
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao carregar emendas');
-      }
+      if (error) throw error;
 
-      setEmendas(result.data || []);
+      setEmendas(data || []);
     } catch (error) {
       console.error('Erro ao carregar emendas:', error);
       showError('Erro ao carregar emendas');
@@ -93,14 +94,12 @@ export default function GerenciarEmendas() {
   const handleExcluir = (id) => {
     showConfirm('Tem certeza que deseja excluir esta emenda?', async () => {
       try {
-        const response = await fetch(`/api/emendas/emendas/${id}`, {
-          method: 'DELETE'
-        });
-        const result = await response.json();
+        const { error } = await supabase
+          .from('emendas')
+          .delete()
+          .eq('id', id);
 
-        if (!response.ok) {
-          throw new Error(result.message || 'Erro ao excluir emenda');
-        }
+        if (error) throw error;
 
         setEmendas(emendas.filter(e => e.id !== id));
         showSuccess('Emenda excluída com sucesso!');

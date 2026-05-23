@@ -7,6 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -57,15 +58,29 @@ export default function NovoOrgao() {
     setSalvando(true);
 
     try {
-      const response = await fetch('/api/emendas/orgaos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.message || 'Erro ao cadastrar orgao');
-      }
+      const { data, error } = await supabase
+        .from('orgaos')
+        .insert([
+          {
+            codigo: formData.codigo ? parseInt(formData.codigo) : null,
+            nome: formData.nome,
+            tipo: formData.tipo,
+            cnpj: formData.cnpj,
+            endereco: formData.endereco || null,
+            municipio: formData.municipio,
+            uf: formData.uf,
+            telefone: formData.telefone || null,
+            email: formData.email || null,
+            responsavel: formData.responsavel || null,
+            contato: formData.contato || null,
+            observacoes: formData.observacoes || null,
+            status: formData.status,
+            sigla: formData.sigla || null
+          }
+        ])
+        .select();
+
+      if (error) throw error;
 
       showSuccess('Órgão cadastrado com sucesso!', () => {
         router.push('/emendas/orgaos');

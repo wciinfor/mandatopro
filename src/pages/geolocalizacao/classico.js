@@ -7,6 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
 
 const containerStyle = {
   width: '100%',
@@ -56,14 +57,35 @@ export default function Geolocalizacao() {
 
   const carregarMarcadores = useCallback(async () => {
     try {
-      const response = await fetch('/api/geolocalizacao/marcadores');
-      const result = await response.json();
+      const { data, error } = await supabase
+        .from('geolocalizacao')
+        .select('id, tipo, nome, descricao, cidade, bairro, endereco, latitude, longitude, status, nivel_influencia, eleitor_id, lideranca_id, eleitores(telefone,celular,whatsapp,email), liderancas(telefone,email,influencia)')
+        .order('id', { ascending: false });
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao carregar marcadores');
+      if (error) {
+        throw error;
       }
 
-      setMarcadores(result.data || []);
+      const normalizados = (data || []).map(item => {
+        const telefoneEleitor = item.eleitores?.celular || item.eleitores?.telefone || item.eleitores?.whatsapp || null;
+        const telefoneLideranca = item.liderancas?.telefone || null;
+
+        return {
+          id: item.id,
+          tipo: item.tipo,
+          nome: item.nome,
+          cidade: item.cidade,
+          bairro: item.bairro,
+          endereco: item.endereco,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          status: item.status || 'ATIVO',
+          telefone: telefoneEleitor || telefoneLideranca,
+          influencia: item.liderancas?.influencia || item.nivel_influencia || null,
+        };
+      });
+
+      setMarcadores(normalizados);
     } catch (err) {
       console.error('Erro ao carregar marcadores:', err);
       showError('Erro ao carregar marcadores do mapa.');

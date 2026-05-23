@@ -7,6 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
 
 const estadosBrasileiros = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 
@@ -41,13 +42,14 @@ export default function EditarOrgao() {
   const carregarOrgao = useCallback(async () => {
     setCarregando(true);
     try {
-      const response = await fetch(`/api/emendas/orgaos/${id}`);
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.message || 'Erro ao carregar orgao');
-      }
+      let { data, error } = await supabase
+        .from('orgaos')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      const data = payload.data;
+      if (error) throw error;
+
       if (data) {
         setFormData({
           codigo: data.codigo || '',
@@ -100,15 +102,28 @@ export default function EditarOrgao() {
     setSalvando(true);
 
     try {
-      const response = await fetch(`/api/emendas/orgaos/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.message || 'Erro ao atualizar orgao');
-      }
+      let { error } = await supabase
+        .from('orgaos')
+        .update({
+          codigo: formData.codigo ? parseInt(formData.codigo) : null,
+          nome: formData.nome,
+          tipo: formData.tipo,
+          cnpj: formData.cnpj,
+          endereco: formData.endereco || null,
+          municipio: formData.municipio,
+          uf: formData.uf,
+          telefone: formData.telefone || null,
+          email: formData.email || null,
+          responsavel: formData.responsavel || null,
+          contato: formData.contato || null,
+          observacoes: formData.observacoes || null,
+          status: formData.status,
+          sigla: formData.sigla || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
 
       showSuccess('Órgão atualizado com sucesso!');
       setTimeout(() => {

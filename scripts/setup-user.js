@@ -37,7 +37,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
     console.log('🎉 USUÁRIO CRIADO COM SUCESSO!\n');
     console.log('Credenciais para Login:');
     console.log(`  📧 Email: ${email}`);
-    console.log(`  🔑 Senha: configure pelo fluxo seguro de usuarios/Auth`);
+    console.log(`  🔑 Senha: Teste123!`);
     console.log(`  👤 Nome: ${nome}`);
     console.log(`  🔐 Nível: ${nivel}`);
     console.log('='.repeat(60));

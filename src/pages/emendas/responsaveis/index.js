@@ -8,6 +8,7 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFResponsaveis, gerarExcelResponsaveis } from '@/utils/relatorios';
+import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -21,14 +22,14 @@ export default function GerenciarResponsaveis() {
   const carregarResponsaveis = useCallback(async () => {
     setCarregando(true);
     try {
-      const response = await fetch('/api/emendas/responsaveis');
-      const result = await response.json();
+      let { data, error } = await supabase
+        .from('responsaveis_emendas')
+        .select('*')
+        .order('nome', { ascending: true });
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao carregar responsaveis');
-      }
+      if (error) throw error;
 
-      setResponsaveis(result.data || []);
+      setResponsaveis(data || []);
     } catch (error) {
       console.error('Erro ao carregar responsáveis:', error);
       showError('Erro ao carregar responsáveis');
@@ -66,14 +67,12 @@ export default function GerenciarResponsaveis() {
   const handleExcluir = (id) => {
     showConfirm('Tem certeza que deseja excluir este responsável?', async () => {
       try {
-        const response = await fetch(`/api/emendas/responsaveis/${id}`, {
-          method: 'DELETE'
-        });
-        const result = await response.json();
+        const { error } = await supabase
+          .from('responsaveis_emendas')
+          .delete()
+          .eq('id', id);
 
-        if (!response.ok) {
-          throw new Error(result.message || 'Erro ao excluir responsavel');
-        }
+        if (error) throw error;
 
         setResponsaveis(responsaveis.filter(r => r.id !== id));
         showSuccess('Responsável excluído com sucesso!');

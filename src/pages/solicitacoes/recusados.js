@@ -25,7 +25,9 @@ export default function SolicitacoesRecusadas() {
     const fetchSolicitacoes = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/solicitacoes?status=RECUSADO&limit=100');
+        const response = await fetch('/api/solicitacoes?status=RECUSADO&limit=100', {
+          headers: { usuario: JSON.stringify(usuario) }
+        });
         if (!response.ok) throw new Error('Erro ao carregar');
         const result = await response.json();
         setSolicitacoes(result.data || []);

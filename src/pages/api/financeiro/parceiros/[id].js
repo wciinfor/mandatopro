@@ -1,7 +1,8 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import {
   gerarTraceId,
+  obterUsuarioHeader,
+  exigirAdmin,
   normalizarValor,
   registrarAuditoria,
   buildAuditoriaPayload
@@ -14,10 +15,10 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   try {
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
+    const usuario = obterUsuarioHeader(req);
+    exigirAdmin(usuario);
 
+    const supabase = createServerClient();
     const parceiroId = parseInt(id, 10);
 
     if (Number.isNaN(parceiroId)) {

@@ -12,7 +12,6 @@ export default function NovaCampanha() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError, showWarning, showConfirm } = useModal();
-  const showErrorRef = useRef(showError);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -25,10 +24,6 @@ export default function NovaCampanha() {
     status: 'PLANEJAMENTO',
     observacoes: ''
   });
-
-  useEffect(() => {
-    showErrorRef.current = showError;
-  }, [showError]);
 
   const [liderancasBuscador, setLiderancasBuscador] = useState('');
   const [liderancasEncontradas, setLiderancasEncontradas] = useState([]);
@@ -86,7 +81,7 @@ export default function NovaCampanha() {
         })));
       }
     } catch (error) {
-      showErrorRef.current('Erro ao carregar campanha: ' + error.message);
+      showError('Erro ao carregar campanha: ' + error.message);
     } finally {
       setCarregandoDados(false);
     }

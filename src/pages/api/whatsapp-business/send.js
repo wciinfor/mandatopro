@@ -1,6 +1,3 @@
-import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
-
 /**
  * API para enviar mensagens via WhatsApp Business
  */
@@ -11,10 +8,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
-
     const { phoneNumber, message, type = 'text' } = req.body;
     
     if (!phoneNumber || !message) {

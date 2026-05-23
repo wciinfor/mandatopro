@@ -11,12 +11,6 @@
 
 import axios from 'axios';
 
-function maskPhoneNumber(phone) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  if (digits.length <= 4) return '***';
-  return `${digits.slice(0, 4)}***${digits.slice(-2)}`;
-}
-
 class WhatsAppBusinessService {
   constructor() {
     // Configurações - serão carregadas do banco de dados ou variáveis de ambiente
@@ -95,7 +89,7 @@ class WhatsAppBusinessService {
       cleaned = '55' + cleaned;
     }
     
-    console.log(`Numero formatado para WhatsApp: ${maskPhoneNumber(cleaned)}`);
+    console.log(`📞 Número formatado: ${phone} → ${cleaned}`);
     return cleaned;
   }
 
@@ -121,7 +115,7 @@ class WhatsAppBusinessService {
     };
 
     try {
-      console.log(`Enviando mensagem WhatsApp para ${maskPhoneNumber(formattedNumber)}...`);
+      console.log(`📤 Enviando mensagem para ${formattedNumber}...`);
       
       const response = await axios.post(
         `${this.getApiUrl()}/messages`,
@@ -181,7 +175,7 @@ class WhatsAppBusinessService {
     };
 
     try {
-      console.log(`Enviando template WhatsApp "${templateName}" para ${maskPhoneNumber(formattedNumber)}...`);
+      console.log(`📤 Enviando template "${templateName}" para ${formattedNumber}...`);
       
       const response = await axios.post(
         `${this.getApiUrl()}/messages`,
@@ -294,12 +288,7 @@ class WhatsAppBusinessService {
    */
   validateWebhook(mode, token, verifyToken) {
     // Token de verificação deve ser definido no painel do Meta
-    const VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || '';
-
-    if (!VERIFY_TOKEN) {
-      console.error('WHATSAPP_WEBHOOK_TOKEN nao configurado');
-      return null;
-    }
+    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'mandato-pro-webhook-token';
     
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
       return verifyToken;
@@ -347,12 +336,7 @@ class WhatsAppBusinessService {
           messageData.document = message.document;
         }
 
-        console.log('Mensagem WhatsApp recebida:', {
-          id: messageData.id,
-          from: maskPhoneNumber(messageData.from),
-          timestamp: messageData.timestamp,
-          type: messageData.type
-        });
+        console.log('📨 Mensagem recebida:', messageData);
         return messageData;
       }
 

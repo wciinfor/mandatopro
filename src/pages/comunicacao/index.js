@@ -51,7 +51,9 @@ export default function Comunicacao() {
     if (!usuarioAtual?.id) return;
     setLoadingLista(true);
     try {
-      const resp = await fetch('/api/notificacoes?limit=200');
+      const resp = await fetch('/api/notificacoes?limit=200', {
+        headers: { usuario: JSON.stringify(usuarioAtual) }
+      });
       const payload = await resp.json();
       if (!resp.ok) throw payload;
       setConfigurado(payload?.configurado !== false);
@@ -78,7 +80,8 @@ export default function Comunicacao() {
       const resp = await fetch('/api/notificacoes/marcar-lidas', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          usuario: JSON.stringify(usuarioAtual)
         },
         body: JSON.stringify({ ids: [id] })
       });
@@ -98,7 +101,8 @@ export default function Comunicacao() {
       const resp = await fetch('/api/notificacoes/marcar-lidas', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          usuario: JSON.stringify(usuarioAtual)
         },
         body: JSON.stringify({ all: true })
       });
@@ -132,7 +136,8 @@ export default function Comunicacao() {
       const resp = await fetch('/api/notificacoes/enviar', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          usuario: JSON.stringify(usuarioAtual)
         },
         body: JSON.stringify({
           titulo: titulo.trim() || undefined,

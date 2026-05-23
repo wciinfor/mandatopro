@@ -1,5 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
+function parseUsuarioHeader(req) {
+  const raw = req?.headers?.usuario;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 function getBearerToken(req) {
   const authorization = req?.headers?.authorization || '';
   const match = String(authorization).match(/^Bearer\s+(.+)$/i);
@@ -47,6 +58,12 @@ export async function obterUsuarioAutenticado(req, supabaseAdmin) {
         }
       }
     }
+  }
+
+  // Compatibilidade temporaria com as telas atuais. Nao usar em rotas novas.
+  const usuarioHeader = parseUsuarioHeader(req);
+  if (usuarioHeader?.id || usuarioHeader?.email) {
+    return { usuario: usuarioHeader, metodo: 'header_legacy' };
   }
 
   return { usuario: null, metodo: 'none' };

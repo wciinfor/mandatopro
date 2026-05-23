@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
@@ -14,7 +14,6 @@ import {
 export default function GerenciarAtendimentos() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
-  const showErrorRef = useRef(showError);
   const FICHA_BG_VERSION = '20260325-4';
   
   const [atendimentos, setAtendimentos] = useState([]);
@@ -33,10 +32,6 @@ export default function GerenciarAtendimentos() {
   const [historicoAtendimento, setHistoricoAtendimento] = useState(null);
   const [historicoCarregando, setHistoricoCarregando] = useState(false);
   const [historicoErro, setHistoricoErro] = useState('');
-
-  useEffect(() => {
-    showErrorRef.current = showError;
-  }, [showError]);
   const [atendimentosSelecionados, setAtendimentosSelecionados] = useState([]);
 
   // Mapeamento de tipos para cores
@@ -71,7 +66,7 @@ export default function GerenciarAtendimentos() {
     } catch (error) {
       console.error('Erro ao carregar atendimentos:', error);
       setAtendimentos([]);
-      showErrorRef.current('Erro ao carregar atendimentos do banco de dados');
+      showError('Erro ao carregar atendimentos do banco de dados');
     } finally {
       setCarregando(false);
     }

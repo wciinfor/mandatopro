@@ -145,7 +145,7 @@ export default function RedefinirSenhaPage() {
     return () => {
       active = false;
     };
-  }, [router.isReady, router.query.code]);
+  }, [router.isReady]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -5,7 +5,8 @@ import { faUserTie, faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icon
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
-import { applyMask } from '@/utils/inputMasks';
+import supabase from '@/lib/supabaseClient';
+import { applyMask, onlyDigits } from '@/utils/inputMasks';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -43,18 +44,24 @@ export default function NovoResponsavel() {
     setSalvando(true);
 
     try {
-      const response = await fetch('/api/emendas/responsaveis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-      const result = await response.json();
+      const { data, error } = await supabase
+        .from('responsaveis_emendas')
+        .insert([
+          {
+            nome: formData.nome,
+            cargo: formData.cargo,
+            orgao: formData.orgao,
+            cpf: onlyDigits(formData.cpf) || null,
+            telefone: onlyDigits(formData.telefone) || null,
+            email: formData.email || null,
+            whatsapp: onlyDigits(formData.whatsapp) || null,
+            observacoes: formData.observacoes || null,
+            status: formData.status
+          }
+        ])
+        .select();
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao cadastrar responsavel');
-      }
+      if (error) throw error;
 
       showSuccess('Responsável cadastrado com sucesso!', () => {
         router.push('/emendas/responsaveis');

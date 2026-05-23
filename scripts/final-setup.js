@@ -46,7 +46,7 @@ async function setupComplete() {
     console.log('🎉 BANCO DE DADOS PRONTO!\n');
     console.log('Credenciais de Login:');
     console.log('  📧 Email: admin@mandatopro.com');
-    console.log('  Senha: configure pelo fluxo seguro de usuarios/Auth');
+    console.log('  🔑 Senha: Teste123!');
     console.log('='.repeat(60));
 
     console.log('\n🚀 PRÓXIMOS PASSOS:\n');

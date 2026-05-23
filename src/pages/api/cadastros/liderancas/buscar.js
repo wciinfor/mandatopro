@@ -1,5 +1,4 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export default async function handler(req, res) {
   // Apenas GET é permitido
@@ -17,8 +16,6 @@ export default async function handler(req, res) {
 
     // Criar cliente Supabase
     const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
 
     // Buscar lideranças que correspondem ao termo de busca
     // Procura em: nome, nomeSocial, email, profissao, areaAtuacao

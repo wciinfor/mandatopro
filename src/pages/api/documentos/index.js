@@ -1,6 +1,6 @@
 // API de Documentos — CRUD usando Supabase
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterUsuarioHeader } from '@/lib/financeiro-utils';
 
 export const runtime = 'nodejs';
 
@@ -19,24 +19,12 @@ const TIPO_PARA_CATEGORIA = Object.fromEntries(
 );
 
 export default async function handler(req, res) {
-  const supabase = createServerClient();
-  let usuario;
-
-  try {
-    const auth = await obterUsuarioAutenticado(req, supabase);
-    usuario = auth.usuario;
-    exigirUsuario(usuario);
-  } catch (error) {
-    const status = error?.statusCode || 500;
-    return res.status(status).json({
-      success: false,
-      message: error.message || 'Erro interno'
-    });
-  }
+  const usuario = obterUsuarioHeader(req);
   if (!usuario) {
     return res.status(401).json({ success: false, message: 'Não autenticado' });
   }
 
+  const supabase = createServerClient();
 
   // GET — listar documentos (opcionalmente filtrado por categoria)
   if (req.method === 'GET') {

@@ -50,7 +50,7 @@ async function seedData() {
     console.log('\n🎉 Dados iniciais insertados!');
     console.log('\nCredenciais de teste:');
     console.log('📧 Email: admin@mandatopro.com');
-    console.log('🔐 Senha: configure pelo fluxo seguro de usuarios/Auth');
+    console.log('🔐 Senha: Teste123!');
     console.log('\n✨ Sistema pronto para usar!');
 
     process.exit(0);

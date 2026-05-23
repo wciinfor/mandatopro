@@ -44,6 +44,7 @@ export default function Lancamentos() {
 
       const response = await fetch(`/api/financeiro/lancamentos?${params.toString()}`, {
         headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
         }
       });
 
@@ -108,6 +109,7 @@ export default function Lancamentos() {
       const response = await fetch(`/api/financeiro/lancamentos/${id}`, {
         method: 'DELETE',
         headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
         }
       });
       const data = await response.json();

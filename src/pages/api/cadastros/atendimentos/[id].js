@@ -1,5 +1,8 @@
-import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 function normalizeStatus(input) {
   const allowed = new Set(['AGENDADO', 'REALIZADO', 'CANCELADO']);
@@ -17,14 +20,6 @@ function normalizeStatus(input) {
 
 export default async function handler(req, res) {
   const { id } = req.query;
-  const supabase = createServerClient();
-  try {
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
-  } catch (error) {
-    const status = error?.statusCode || 500;
-    return res.status(status).json({ error: error.message || 'Erro interno' });
-  }
 
   if (!id) {
     return res.status(400).json({ error: 'ID é obrigatório' });

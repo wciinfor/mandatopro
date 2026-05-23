@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
-import { registrarLogin } from '@/services/logService';
+import { registrarLogin, registrarErro } from '@/services/logService';
 import { createClient } from '@/lib/supabaseClient';
 
 export default function Login() {
@@ -37,13 +37,14 @@ export default function Login() {
       if (session?.access_token && session?.refresh_token) {
         const supabase = createClient();
         if (supabase?.auth) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token
-          });
-          if (sessionError) {
-            console.warn('Erro ao definir sessao Supabase:', sessionError);
-          }
+          supabase.auth
+            .setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            })
+            .catch((err) => {
+              console.warn('Erro ao definir sessao Supabase:', err);
+            });
         }
       }
       
@@ -58,6 +59,15 @@ export default function Login() {
       router.push('/dashboard');
     } catch (error) {
       setErro(error.message);
+      
+      // Registra tentativa de login com erro
+      await registrarErro(
+        { email, nome: email.split('@')[0], nivel: 'DESCONHECIDO' },
+        'AUTENTICACAO',
+        'Tentativa de login falhou',
+        error
+      );
+      
       setLoading(false);
     }
   };

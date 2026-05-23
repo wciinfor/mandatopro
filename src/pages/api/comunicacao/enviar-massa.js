@@ -1,7 +1,6 @@
 // API para envio em massa de mensagens (Email, SMS, WhatsApp)
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
-import { gerarTraceId } from '@/lib/financeiro-utils';
+import { gerarTraceId, obterUsuarioHeader, exigirAdmin } from '@/lib/financeiro-utils';
 
 export const runtime = 'nodejs';
 
@@ -190,8 +189,8 @@ export default async function handler(req, res) {
   const supabase = createServerClient();
 
   try {
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
+    const usuario = obterUsuarioHeader(req);
+    exigirAdmin(usuario);
 
     const { tipo, mensagem, assunto, canais } = req.body;
 

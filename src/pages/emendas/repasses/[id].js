@@ -5,6 +5,7 @@ import { faMoneyBillWave, faSave, faArrowLeft, faSpinner } from '@fortawesome/fr
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
 
 export default function EditarRepasse() {
   const router = useRouter();
@@ -31,14 +32,14 @@ export default function EditarRepasse() {
   const carregarRepasse = useCallback(async () => {
     setCarregando(true);
     try {
-      const response = await fetch(`/api/emendas/repasses/${id}`);
-      const result = await response.json();
+      let { data, error } = await supabase
+        .from('repasses')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao carregar repasse');
-      }
+      if (error) throw error;
 
-      const data = result.data;
       setFormData({
         codigo: data.codigo || '',
         emenda: data.emenda || '',
@@ -82,18 +83,25 @@ export default function EditarRepasse() {
     setSalvando(true);
 
     try {
-      const response = await fetch(`/api/emendas/repasses/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-      const result = await response.json();
+      const { error } = await supabase
+        .from('repasses')
+        .update({
+          codigo: formData.codigo,
+          emenda: formData.emenda,
+          parcela: parseInt(formData.parcela) || 1,
+          totalParcelas: parseInt(formData.totalParcelas) || 1,
+          valor: parseFloat(formData.valor) || null,
+          dataPrevista: formData.dataPrevista || null,
+          dataEfetivada: formData.dataEfetivada || null,
+          orgao: formData.orgao || null,
+          responsavel: formData.responsavel || null,
+          status: formData.status,
+          observacoes: formData.observacoes || null,
+          updated_at: new Date()
+        })
+        .eq('id', id);
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao atualizar repasse');
-      }
+      if (error) throw error;
 
       showSuccess('Repasse atualizado com sucesso!', () => {
         router.push('/emendas/repasses');

@@ -39,7 +39,9 @@ export default function RelatoriosSolicitacoes() {
     const fetchStats = async () => {
       try {
         setLoadingStats(true);
-        const response = await fetch('/api/solicitacoes?limit=500');
+        const response = await fetch('/api/solicitacoes?limit=500', {
+          headers: { usuario: JSON.stringify(usuario) }
+        });
         if (!response.ok) throw new Error('Erro ao carregar');
         const result = await response.json();
         const dados = result.data || [];

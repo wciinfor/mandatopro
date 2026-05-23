@@ -11,8 +11,7 @@
  */
 
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado } from '@/lib/api-auth';
-import { gerarTraceId } from '@/lib/financeiro-utils';
+import { gerarTraceId, obterUsuarioHeader } from '@/lib/financeiro-utils';
 
 function nivelUsuario(usuario) {
   return String(usuario?.nivel || '').toUpperCase();
@@ -33,8 +32,7 @@ function isAdmin(usuario) {
 
 export default async function handler(req, res) {
   const traceId = gerarTraceId();
-  const supabase = createServerClient();
-  const { usuario } = await obterUsuarioAutenticado(req, supabase);
+  const usuario = obterUsuarioHeader(req);
 
   if (!usuario) {
     return res.status(401).json({ message: 'Não autenticado', traceId });
@@ -43,6 +41,8 @@ export default async function handler(req, res) {
   if (!podeAcessarSolicitacoes(usuario)) {
     return res.status(403).json({ message: 'Acesso restrito para liderança e administrador', traceId });
   }
+
+  const supabase = createServerClient();
 
   // ────────────────────────────────────────────────────────────
   // GET — listar solicitações com filtros + totais por status

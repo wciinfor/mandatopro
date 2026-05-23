@@ -53,7 +53,12 @@ export default function Usuarios() {
         return;
       }
 
-      const response = await fetch(`/api/usuarios?${params.toString()}`, { signal });
+      const response = await fetch(`/api/usuarios?${params.toString()}`, {
+        signal,
+        headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
+        }
+      });
 
       const data = await response.json();
       if (!response.ok) {
@@ -116,8 +121,14 @@ export default function Usuarios() {
 
   const excluirUsuario = async (id) => {
     try {
+      const usuarioLocal = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
       const response = await fetch(`/api/usuarios/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        }
       });
       const data = await response.json();
       if (!response.ok) {
@@ -145,10 +156,14 @@ export default function Usuarios() {
 
   const atualizarStatusUsuario = async (id, status) => {
     try {
+      const usuarioLocal = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
       const response = await fetch(`/api/usuarios/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
         },
         body: JSON.stringify({ status })
       });
@@ -175,8 +190,14 @@ export default function Usuarios() {
 
   const resetarSenhaUsuario = async (id) => {
     try {
+      const usuarioLocal = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('usuario') || 'null')
+        : null;
       const response = await fetch(`/api/usuarios/${id}/reset-senha`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
+        }
       });
       const data = await response.json();
       if (!response.ok) {

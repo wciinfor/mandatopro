@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -42,7 +42,7 @@ function isAbortError(error) {
 
 
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ ConfiguraÃ§Ãµes de Status e Prioridade Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// â”€â”€ Configurações de Status e Prioridade â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 const STATUS_CONFIG = {
@@ -75,7 +75,7 @@ const PRIORIDADE_CONFIG = {
   ALTA:     { label: 'Alta',    bg: 'bg-orange-500', text: 'text-white' },
 
 
-  'MÃ‰DIA':    { label: 'MÃ©dia',   bg: 'bg-yellow-500', text: 'text-white' },
+  'MÉDIA':    { label: 'Média',   bg: 'bg-yellow-500', text: 'text-white' },
 
 
   BAIXA:    { label: 'Baixa',   bg: 'bg-green-500',  text: 'text-white' },
@@ -90,10 +90,10 @@ const PRIORIDADE_CONFIG = {
 const CATEGORIAS = [
 
 
-  'EducaÃ§Ã£o', 'SaÃºde', 'Infraestrutura', 'Meio Ambiente',
+  'Educação', 'Saúde', 'Infraestrutura', 'Meio Ambiente',
 
 
-  'Esporte e Lazer', 'AssistÃªncia Social', 'Outros',
+  'Esporte e Lazer', 'Assistência Social', 'Outros',
 
 
 ];
@@ -125,7 +125,7 @@ function criarFormNovaInicial(usuario, liderancaLogada = false) {
     solicitante: nomeUsuario,
     tipo_solicitante: ehLideranca ? 'LIDERANCA' : 'ADMINISTRADOR',
     categoria: '',
-    prioridade: 'MÃ‰DIA',
+    prioridade: 'MÉDIA',
     municipio: '',
     bairro: '',
     telefone: telefoneUsuario,
@@ -139,7 +139,7 @@ function criarFormNovaInicial(usuario, liderancaLogada = false) {
 
 
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Helpers de Badge Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// â”€â”€ Helpers de Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 function StatusBadge({ status }) {
@@ -172,7 +172,7 @@ function StatusBadge({ status }) {
 function PrioridadeBadge({ prioridade }) {
 
 
-  const cfg = PRIORIDADE_CONFIG[prioridade] || PRIORIDADE_CONFIG['MÃ‰DIA'];
+  const cfg = PRIORIDADE_CONFIG[prioridade] || PRIORIDADE_CONFIG['MÉDIA'];
 
 
   return (
@@ -196,7 +196,7 @@ function PrioridadeBadge({ prioridade }) {
 
 
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Componente principal Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// â”€â”€ Componente principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 export default function Solicitacoes() {
@@ -224,7 +224,7 @@ export default function Solicitacoes() {
 
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Estado principal Ã¢â€â‚¬Ã¢â€â‚¬
+  // â”€â”€ Estado principal â”€â”€
 
 
   const [solicitacoes, setSolicitacoes] = useState([]);
@@ -245,7 +245,7 @@ export default function Solicitacoes() {
 
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Filtros Ã¢â€â‚¬Ã¢â€â‚¬
+  // â”€â”€ Filtros â”€â”€
 
 
   const [busca, setBusca] = useState('');
@@ -263,7 +263,7 @@ export default function Solicitacoes() {
 
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Modal Nova SolicitaÃ§Ã£o Ã¢â€â‚¬Ã¢â€â‚¬
+  // â”€â”€ Modal Nova Solicitação â”€â”€
 
 
   const [showNova, setShowNova] = useState(false);
@@ -290,7 +290,7 @@ export default function Solicitacoes() {
 
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Modal Gerenciar Ã¢â€â‚¬Ã¢â€â‚¬
+  // â”€â”€ Modal Gerenciar â”€â”€
 
 
   const [solAtiva, setSolAtiva] = useState(null);
@@ -322,6 +322,7 @@ export default function Solicitacoes() {
         const res = await fetch('/api/usuarios/liderancas-opcoes', {
           signal: abortController.signal,
           headers: {
+            usuario: JSON.stringify(getUsuario())
           }
         });
 
@@ -360,7 +361,7 @@ export default function Solicitacoes() {
 
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Carregar dados Ã¢â€â‚¬Ã¢â€â‚¬
+  // â”€â”€ Carregar dados â”€â”€
 
 
 
@@ -415,7 +416,7 @@ export default function Solicitacoes() {
         signal,
 
 
-        headers: {},
+        headers: { usuario: JSON.stringify(usuarioAtual) },
 
 
       });
@@ -443,7 +444,7 @@ export default function Solicitacoes() {
       }
 
 
-      showErrorRef.current('Erro ao carregar solicitaÃ§Ãµes: ' + err.message);
+      showErrorRef.current('Erro ao carregar solicitações: ' + err.message);
 
 
     } finally {
@@ -478,7 +479,7 @@ export default function Solicitacoes() {
 
 
 
-  // Reseta paginaÃ§Ã£o ao mudar filtros
+  // Reseta paginação ao mudar filtros
 
 
   useEffect(() => { setPagina(1); }, [busca, statusFiltro, prioridadeFiltro, categoriaFiltro]);
@@ -577,7 +578,7 @@ export default function Solicitacoes() {
 
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Criar solicitaÃ§Ã£o Ã¢â€â‚¬Ã¢â€â‚¬
+  // â”€â”€ Criar solicitação â”€â”€
 
 
   const handleCriar = async () => {
@@ -624,7 +625,7 @@ export default function Solicitacoes() {
     if (!payload.titulo || !payload.solicitante) {
 
 
-      showError('TÃ­tulo e Solicitante sÃ£o obrigatÃ³rios.');
+      showError('Título e Solicitante são obrigatórios.');
 
 
       return;
@@ -645,7 +646,7 @@ export default function Solicitacoes() {
         method: 'POST',
 
 
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(getUsuario()) },
 
 
         body: JSON.stringify(payload),
@@ -660,7 +661,7 @@ export default function Solicitacoes() {
       if (!res.ok) throw new Error(json.message);
 
 
-      showSuccess('SolicitaÃ§Ã£o criada com sucesso!');
+      showSuccess('Solicitação criada com sucesso!');
 
 
       setShowNova(false);
@@ -693,7 +694,7 @@ export default function Solicitacoes() {
 
 
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Alterar status Ã¢â€â‚¬Ã¢â€â‚¬
+  // â”€â”€ Alterar status â”€â”€
 
 
   const alterarStatus = async (id, novoStatus) => {
@@ -711,7 +712,7 @@ export default function Solicitacoes() {
         method: 'PUT',
 
 
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(getUsuario()) },
 
 
         body: JSON.stringify({ status: novoStatus, observacoes: obsGerenciar || undefined }),
@@ -771,7 +772,7 @@ export default function Solicitacoes() {
     <ProtectedRoute module={MODULES.SOLICITACOES}>
 
 
-      <Layout titulo="SolicitaÃ§Ãµes">
+      <Layout titulo="Solicitações">
 
 
         {/* Modal feedback */}
@@ -813,7 +814,7 @@ export default function Solicitacoes() {
 
 
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Cards de totais Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* â”€â”€ Cards de totais â”€â”€ */}
 
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -894,7 +895,7 @@ export default function Solicitacoes() {
 
 
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Filtros e aÃ§Ã£o Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* â”€â”€ Filtros e ação â”€â”€ */}
 
 
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
@@ -915,7 +916,7 @@ export default function Solicitacoes() {
                 type="text"
 
 
-                placeholder="Buscar por tÃ­tulo, solicitante ou protocolo..."
+                placeholder="Buscar por título, solicitante ou protocolo..."
 
 
                 value={busca}
@@ -963,7 +964,7 @@ export default function Solicitacoes() {
               <option value="ALTA">Alta</option>
 
 
-              <option value="MÃ‰DIA">MÃ©dia</option>
+              <option value="MÉDIA">Média</option>
 
 
               <option value="BAIXA">Baixa</option>
@@ -979,7 +980,7 @@ export default function Solicitacoes() {
               className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center gap-2 font-semibold">
 
 
-              <FontAwesomeIcon icon={faPlus} /> Nova SolicitaÃ§Ã£o
+              <FontAwesomeIcon icon={faPlus} /> Nova Solicitação
 
 
             </button>
@@ -1034,7 +1035,7 @@ export default function Solicitacoes() {
 
 
 
-        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Tabela Ã¢â€â‚¬Ã¢â€â‚¬ */}
+        {/* â”€â”€ Tabela â”€â”€ */}
 
 
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -1067,7 +1068,7 @@ export default function Solicitacoes() {
                   <tr>
 
 
-                    {['Protocolo / TÃ­tulo', 'Solicitante', 'Categoria', 'Local', 'Prioridade', 'Status', 'Data', 'AÃ§Ãµes'].map(h => (
+                    {['Protocolo / Título', 'Solicitante', 'Categoria', 'Local', 'Prioridade', 'Status', 'Data', 'Ações'].map(h => (
 
 
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -1100,7 +1101,7 @@ export default function Solicitacoes() {
                           <FontAwesomeIcon icon={faExclamationTriangle} className="text-5xl" />
 
 
-                          <p className="text-lg">Nenhuma solicitaÃ§Ã£o encontrada</p>
+                          <p className="text-lg">Nenhuma solicitação encontrada</p>
 
 
                         </div>
@@ -1151,7 +1152,7 @@ export default function Solicitacoes() {
                       </td>
 
 
-                      <td className="px-4 py-3 text-sm text-gray-700">{sol.categoria || 'â€”'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{sol.categoria || '—'}</td>
 
 
                       <td className="px-4 py-3">
@@ -1163,7 +1164,7 @@ export default function Solicitacoes() {
                           <FontAwesomeIcon icon={faMapMarkerAlt} className="text-gray-400 text-xs" />
 
 
-                          {sol.municipio || 'â€”'}
+                          {sol.municipio || '—'}
 
 
                         </div>
@@ -1199,7 +1200,7 @@ export default function Solicitacoes() {
                         <FontAwesomeIcon icon={faCalendarAlt} className="mr-1 text-gray-400" />
 
 
-                        {sol.data_abertura ? new Date(sol.data_abertura).toLocaleDateString('pt-BR') : 'â€”'}
+                        {sol.data_abertura ? new Date(sol.data_abertura).toLocaleDateString('pt-BR') : '—'}
 
 
                       </td>
@@ -1262,7 +1263,7 @@ export default function Solicitacoes() {
 
 
 
-          {/* PaginaÃ§Ã£o */}
+          {/* Paginação */}
 
 
           {!loading && totalPaginas > 1 && (
@@ -1271,7 +1272,7 @@ export default function Solicitacoes() {
             <div className="px-6 py-4 border-t flex items-center justify-between text-sm text-gray-600">
 
 
-              <span>PÃ¡gina {pagina} de {totalPaginas} â€” {totalRegistros} registros</span>
+              <span>Página {pagina} de {totalPaginas} — {totalRegistros} registros</span>
 
 
               <div className="flex gap-2">
@@ -1316,13 +1317,13 @@ export default function Solicitacoes() {
 
 
 
-        {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
-            MODAL â€” NOVA SOLICITAÃ‡ÃƒO
+            MODAL — NOVA SOLICITAÇÃO
 
 
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
 
 
         {showNova && (
@@ -1343,7 +1344,7 @@ export default function Solicitacoes() {
                   <FontAwesomeIcon icon={faPaperPlane} className="text-teal-600" />
 
 
-                  Nova SolicitaÃ§Ã£o
+                  Nova Solicitação
 
 
                 </h2>
@@ -1370,7 +1371,7 @@ export default function Solicitacoes() {
 
                   <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
 
-                    Dados do solicitante preenchidos automaticamente com o usuÃ¡rio de lideranÃ§a logado.
+                    Dados do solicitante preenchidos automaticamente com o usuário de liderança logado.
 
                   </div>
 
@@ -1380,7 +1381,7 @@ export default function Solicitacoes() {
 
                   <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-700">
 
-                    Selecione o solicitante entre o administrador logado e uma lideranÃ§a ativa cadastrada.
+                    Selecione o solicitante entre o administrador logado e uma liderança ativa cadastrada.
 
                   </div>
 
@@ -1393,7 +1394,7 @@ export default function Solicitacoes() {
                   <div className="md:col-span-2">
 
 
-                    <label className="block text-sm font-medium text-gray-700 mb-1">TÃ­tulo *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
 
 
                     <input type="text" value={formNova.titulo}
@@ -1447,7 +1448,7 @@ export default function Solicitacoes() {
 
                   {isAdmin && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Buscar LideranÃ§a</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Liderança</label>
 
                       {formNova.solicitante_origem === 'LIDERANCA' ? (
                         <div className="relative">
@@ -1490,7 +1491,7 @@ export default function Solicitacoes() {
                                   <div className="text-sm font-semibold text-gray-800">{lideranca.nome}</div>
                                   <div className="text-xs text-gray-500">
                                     {lideranca.email || 'Sem email'}
-                                    {lideranca.municipio ? ` â€¢ ${lideranca.municipio}` : ''}
+                                    {lideranca.municipio ? ` • ${lideranca.municipio}` : ''}
                                   </div>
                                 </button>
                               ))}
@@ -1618,7 +1619,7 @@ export default function Solicitacoes() {
                       <option value="ALTA">Alta</option>
 
 
-                      <option value="MÃ‰DIA">MÃ©dia</option>
+                      <option value="MÉDIA">Média</option>
 
 
                       <option value="BAIXA">Baixa</option>
@@ -1636,7 +1637,7 @@ export default function Solicitacoes() {
                   <div>
 
 
-                    <label className="block text-sm font-medium text-gray-700 mb-1">MunicÃ­pio</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Município</label>
 
 
                     <input type="text" value={formNova.municipio}
@@ -1678,7 +1679,7 @@ export default function Solicitacoes() {
                   <div className="md:col-span-2">
 
 
-                    <label className="block text-sm font-medium text-gray-700 mb-1">DescriÃ§Ã£o detalhada</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição detalhada</label>
 
 
                     <textarea rows={4} value={formNova.descricao}
@@ -1750,13 +1751,13 @@ export default function Solicitacoes() {
 
 
 
-        {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
-            MODAL â€” GERENCIAR SOLICITAÃ‡ÃƒO
+            MODAL — GERENCIAR SOLICITAÇÃO
 
 
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
 
 
         {solAtiva && (
@@ -1771,7 +1772,7 @@ export default function Solicitacoes() {
               <div className="flex items-center justify-between px-6 py-4 border-b">
 
 
-                <h2 className="text-lg font-bold text-gray-800">Gerenciar SolicitaÃ§Ã£o</h2>
+                <h2 className="text-lg font-bold text-gray-800">Gerenciar Solicitação</h2>
 
 
                 <button onClick={() => setSolAtiva(null)} className="text-gray-400 hover:text-gray-600">
@@ -1813,7 +1814,7 @@ export default function Solicitacoes() {
                   <div className="flex items-start gap-2">
 
 
-                    <span className="font-semibold text-gray-600 w-24 shrink-0">TÃ­tulo:</span>
+                    <span className="font-semibold text-gray-600 w-24 shrink-0">Título:</span>
 
 
                     <span className="text-gray-800">{solAtiva.titulo}</span>
@@ -1861,13 +1862,13 @@ export default function Solicitacoes() {
 
 
 
-                {/* ObservaÃ§Ãµes */}
+                {/* Observações */}
 
 
                 <div>
 
 
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ObservaÃ§Ãµes / Resposta</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações / Resposta</label>
 
 
                   <textarea rows={3} value={obsGerenciar} onChange={e => setObsGerenciar(e.target.value)}
@@ -1876,7 +1877,7 @@ export default function Solicitacoes() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 resize-none text-sm"
 
 
-                    placeholder="Adicione um comentÃ¡rio sobre o atendimento..." />
+                    placeholder="Adicione um comentário sobre o atendimento..." />
 
 
                 </div>
@@ -1885,7 +1886,7 @@ export default function Solicitacoes() {
 
 
 
-                {/* BotÃµes de aÃ§Ã£o por status */}
+                {/* Botões de ação por status */}
 
 
                 <div className="space-y-2">

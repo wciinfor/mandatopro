@@ -1,13 +1,8 @@
 import { useState, createContext, useContext, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { createClient } from '@/lib/supabaseClient';
+import supabase from '@/lib/supabaseClient';
 import { ROLES } from '@/utils/permissions';
 import { registrarLogAuditoria } from '@/services/database';
-
-function isAbortError(error) {
-  const message = String(error?.message || '').toLowerCase();
-  return error?.name === 'AbortError' || message.includes('aborted');
-}
 
 // Contexto de autenticação
 const AuthContext = createContext();
@@ -22,69 +17,34 @@ export function AuthProvider({ children }) {
     // Carregar usuário ao montar o componente
     loadUser();
 
-    // Listener para mudanças de autenticação (se Supabase está configurado)
-    const supabase = createClient();
-    
-    if (!supabase || !supabase.auth) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (session) {
-            // Buscar dados do usuário no banco de dados
-            const usuario = await obterUsuarioLogado(session.user.email);
-            if (usuario) {
-              setUser(usuario);
-              localStorage.setItem('usuario', JSON.stringify(usuario));
-            }
-          } else {
-            // NÃO limpar localStorage se já há usuário logado localmente
-            const usuarioLocal = localStorage.getItem('usuario');
-            if (!usuarioLocal) {
-              console.log('[AuthContext] Sem sessão Supabase e sem usuário local, limpando...');
-              setUser(null);
-              localStorage.removeItem('usuario');
-            } else {
-              console.log('[AuthContext] Sem sessão Supabase mas usuário local existe, mantendo...');
-            }
+    // Listener para mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session) {
+          // Buscar dados do usuário no banco de dados
+          const usuario = await obterUsuarioLogado(session.user.email);
+          if (usuario) {
+            setUser(usuario);
+            localStorage.setItem('usuario', JSON.stringify(usuario));
           }
+        } else {
+          setUser(null);
+          localStorage.removeItem('usuario');
         }
-      );
+      }
+    );
 
-      return () => {
-        subscription?.unsubscribe();
-      };
-    } catch (err) {
-      console.error('Erro ao configurar auth listener:', err);
-      setLoading(false);
-    }
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const loadUser = async () => {
-    let loadingResolved = false;
     try {
-      const supabase = createClient();
-      
-      // Se Supabase não está configurado, apenas carregar localStorage
-      if (!supabase) {
-        const userData = localStorage.getItem('usuario');
-        if (userData) {
-          const user = JSON.parse(userData);
-          setUser(user);
-        }
-        setLoading(false);
-        return;
-      }
-
       const userData = localStorage.getItem('usuario');
       if (userData) {
         const user = JSON.parse(userData);
         setUser(user);
-        setLoading(false);
-        loadingResolved = true;
       }
 
       // Verificar sessão do Supabase
@@ -97,13 +57,9 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (error) {
-      if (!isAbortError(error)) {
-        console.error('Erro ao carregar usuário:', error);
-      }
+      console.error('Erro ao carregar usuário:', error);
     } finally {
-      if (!loadingResolved) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -114,8 +70,6 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      const supabase = createClient();
-      
       // Registrar logout nos logs
       if (user) {
         await registrarLogAuditoria({
@@ -127,10 +81,8 @@ export function AuthProvider({ children }) {
         });
       }
 
-      // Fazer logout no Supabase (se configurado)
-      if (supabase && supabase.auth) {
-        await supabase.auth.signOut();
-      }
+      // Fazer logout no Supabase
+      await supabase.auth.signOut();
       
       localStorage.removeItem('usuario');
       setUser(null);
@@ -172,12 +124,6 @@ export function useAuth() {
 // Função para obter usuário logado do banco de dados
 async function obterUsuarioLogado(email) {
   try {
-    const supabase = createClient();
-    
-    if (!supabase) {
-      return null;
-    }
-
     const { data, error } = await supabase
       .from('usuarios')
       .select('*')
@@ -199,13 +145,6 @@ async function obterUsuarioLogado(email) {
 // Função de login com Supabase
 export async function loginUser(email, senha) {
   try {
-    const supabase = createClient();
-    
-    // Verificar se Supabase está configurado
-    if (!supabase || !supabase.auth) {
-      throw new Error('Supabase não está configurado. Verifique as variáveis de ambiente.');
-    }
-
     // Tentar fazer login com Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -252,12 +191,6 @@ export async function loginUser(email, senha) {
 // Função para criar novo usuário (apenas administrador)
 export async function criarUsuario(dados) {
   try {
-    const supabase = createClient();
-    
-    if (!supabase) {
-      throw new Error('Supabase não está configurado');
-    }
-
     // Criar usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: dados.email,
@@ -296,15 +229,7 @@ export async function criarUsuario(dados) {
 // Função para redefinir senha
 export async function redefinirSenha(email) {
   try {
-    const supabase = createClient();
-    
-    if (!supabase) {
-      throw new Error('Supabase não está configurado');
-    }
-
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin}/auth/redefinir-senha` : undefined;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
       throw error;

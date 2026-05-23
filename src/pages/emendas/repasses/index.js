@@ -8,6 +8,7 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFRepasses, gerarExcelRepasses } from '@/utils/relatorios';
+import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -21,14 +22,14 @@ export default function GerenciarRepasses() {
   const carregarRepasses = useCallback(async () => {
     setCarregando(true);
     try {
-      const response = await fetch('/api/emendas/repasses');
-      const result = await response.json();
+      let { data, error } = await supabase
+        .from('repasses')
+        .select('*')
+        .order('dataPrevista', { ascending: true });
 
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao carregar repasses');
-      }
+      if (error) throw error;
 
-      setRepasses(result.data || []);
+      setRepasses(data || []);
     } catch (error) {
       console.error('Erro ao carregar repasses:', error);
       showError('Erro ao carregar repasses');
@@ -101,14 +102,12 @@ export default function GerenciarRepasses() {
   const handleExcluir = (id) => {
     showConfirm('Tem certeza que deseja excluir este repasse?', async () => {
       try {
-        const response = await fetch(`/api/emendas/repasses/${id}`, {
-          method: 'DELETE'
-        });
-        const result = await response.json();
+        const { error } = await supabase
+          .from('repasses')
+          .delete()
+          .eq('id', id);
 
-        if (!response.ok) {
-          throw new Error(result.message || 'Erro ao excluir repasse');
-        }
+        if (error) throw error;
 
         setRepasses(repasses.filter(r => r.id !== id));
         showSuccess('Repasse excluído com sucesso!');

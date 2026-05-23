@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
 
 export const runtime = 'nodejs';
@@ -1492,14 +1491,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { message, history } = req.body || {};
-    if (!message) {
-      return res.status(400).json({ success: false, message: 'Mensagem obrigatoria', traceId });
+    const { message, user, history } = req.body || {};
+    if (!message || !user) {
+      return res.status(400).json({ success: false, message: 'Mensagem e usuario sao obrigatorios', traceId });
     }
 
-    const supabase = createServerClient();
-    const { usuario: user } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(user);
+    if (String(user.nivel || '').toUpperCase() !== 'ADMINISTRADOR') {
+      return res.status(403).json({ success: false, message: 'Acesso restrito ao administrador', traceId });
+    }
 
     const config = lerConfiguracoes();
     const providerConfig = getProviderConfig(config);
@@ -1606,6 +1605,7 @@ export default async function handler(req, res) {
       }
       resolvedPlan = applyDateRangeIfMissing(resolvedPlan, message);
     }
+    const supabase = createServerClient();
     const attempts = [];
     let fallbackUsed = null;
     const hasDateRange = Boolean(resolvedPlan.filters?.data_from || resolvedPlan.filters?.data_to);

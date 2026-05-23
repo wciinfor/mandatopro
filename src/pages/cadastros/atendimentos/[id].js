@@ -199,7 +199,6 @@ export default function EditarAtendimento() {
     };
 
     carregarAtendimento();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // showError excluído: recria a cada render e causaria loop infinito
 
   const handleInputChange = (e) => {

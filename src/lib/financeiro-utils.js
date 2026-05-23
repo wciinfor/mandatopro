@@ -4,6 +4,16 @@ export function gerarTraceId() {
   return crypto.randomUUID();
 }
 
+export function obterUsuarioHeader(req) {
+  const raw = req?.headers?.usuario;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    return null;
+  }
+}
+
 export function exigirAdmin(usuario) {
   if (!usuario || String(usuario.nivel || '').toUpperCase() !== 'ADMINISTRADOR') {
     const err = new Error('Acesso restrito ao administrador');

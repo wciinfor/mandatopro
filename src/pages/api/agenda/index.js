@@ -1,17 +1,9 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
 export default async function handler(req, res) {
   const supabase = createServerClient();
-  try {
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
-  } catch (error) {
-    const status = error?.statusCode || 500;
-    return res.status(status).json({ error: error.message || 'Erro interno' });
-  }
 
   if (req.method === 'GET') {
     try {

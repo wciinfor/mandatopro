@@ -50,7 +50,6 @@ export default function ConfiguracaoSistema() {
   const [whatsapp, setWhatsapp] = useState({
     phoneNumberId: '',
     accessToken: '',
-    hasAccessToken: false,
   });
 
   const [whatsappStatus, setWhatsappStatus] = useState({
@@ -125,7 +124,7 @@ export default function ConfiguracaoSistema() {
         }
 
         if (result.data.whatsapp) {
-          setWhatsapp(prev => ({ ...prev, ...result.data.whatsapp }));
+          setWhatsapp(result.data.whatsapp);
         }
 
         if (result.data.openai) {
@@ -256,7 +255,7 @@ export default function ConfiguracaoSistema() {
 
   // Salvar WhatsApp Business
   const salvarWhatsApp = async () => {
-    if (!whatsapp.phoneNumberId || (!whatsapp.accessToken && !whatsapp.hasAccessToken)) {
+    if (!whatsapp.phoneNumberId || !whatsapp.accessToken) {
       setErrorMessage('Preenchimento obrigatório: Phone Number ID e Access Token');
       setErrorModal(true);
       return;

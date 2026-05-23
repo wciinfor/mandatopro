@@ -1,6 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado } from '@/lib/api-auth';
-import { gerarTraceId } from '@/lib/financeiro-utils';
+import { gerarTraceId, obterUsuarioHeader } from '@/lib/financeiro-utils';
 
 export const runtime = 'nodejs';
 
@@ -12,8 +11,7 @@ export default async function handler(req, res) {
       return res.status(405).json({ message: 'Metodo nao permitido', traceId });
     }
 
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    const usuario = obterUsuarioHeader(req);
     if (!usuario?.id) {
       return res.status(401).json({ message: 'Nao autenticado', traceId });
     }
@@ -26,6 +24,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Informe ids ou all=true', traceId });
     }
 
+    const supabase = createServerClient();
     const meuId = Number(usuario.id);
     const now = new Date().toISOString();
 

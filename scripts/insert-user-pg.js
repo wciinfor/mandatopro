@@ -42,7 +42,7 @@ const client = new Client({
     console.log('🎉 TUDO PRONTO!\n');
     console.log('Você pode fazer login agora:');
     console.log('  📧 Email: admin@mandatopro.com');
-    console.log('  Senha: configure/redefina pelo fluxo seguro de usuarios/Auth');
+    console.log(`  🔑 Senha: Teste123!`);
     console.log('='.repeat(60));
 
     await client.end();

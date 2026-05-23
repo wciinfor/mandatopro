@@ -1,20 +1,8 @@
-import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
-
 /**
  * API para configurar WhatsApp Business
  */
 
 export default async function handler(req, res) {
-  try {
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
-  } catch (error) {
-    const status = error?.statusCode || 500;
-    return res.status(status).json({ error: error.message || 'Erro de autenticacao' });
-  }
-
   if (req.method === 'GET') {
     // Retorna status da configuração
     try {

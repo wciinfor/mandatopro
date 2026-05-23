@@ -38,6 +38,7 @@ export default function Doadores() {
 
       const response = await fetch(`/api/financeiro/parceiros?${params.toString()}`, {
         headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
         }
       });
 
@@ -106,6 +107,7 @@ export default function Doadores() {
       const response = await fetch(`/api/financeiro/parceiros/${id}`, {
         method: 'DELETE',
         headers: {
+          usuario: usuario ? JSON.stringify(usuario) : ''
         }
       });
       const data = await response.json();

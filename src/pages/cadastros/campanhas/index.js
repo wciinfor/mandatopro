@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
@@ -13,7 +13,6 @@ import {
 export default function GerenciarCampanhas() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
-  const showErrorRef = useRef(showError);
 
   const [campanhas, setCampanhas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,10 +23,6 @@ export default function GerenciarCampanhas() {
   const [dataFim, setDataFim] = useState('');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
-
-  useEffect(() => {
-    showErrorRef.current = showError;
-  }, [showError]);
 
   const carregarCampanhas = useCallback(async () => {
     try {
@@ -48,7 +43,7 @@ export default function GerenciarCampanhas() {
       const data = await response.json();
       setCampanhas(data.data || []);
     } catch (error) {
-      showErrorRef.current('Erro ao carregar campanhas: ' + error.message);
+      showError('Erro ao carregar campanhas: ' + error.message);
     } finally {
       setLoading(false);
     }

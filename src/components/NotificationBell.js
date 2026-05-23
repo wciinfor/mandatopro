@@ -30,7 +30,9 @@ export default function NotificationBell() {
       }
 
       try {
-        const resp = await fetch('/api/notificacoes/unread-count');
+        const resp = await fetch('/api/notificacoes/unread-count', {
+          headers: { usuario: JSON.stringify(usuario) }
+        });
         const payload = await resp.json();
         if (!resp.ok) return;
         if (!cancelled) setUnreadCount(Number(payload?.unread || 0));

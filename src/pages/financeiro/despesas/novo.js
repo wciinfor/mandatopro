@@ -48,7 +48,8 @@ export default function NovaDespesa() {
       const response = await fetch('/api/financeiro/despesas', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          usuario: usuario ? JSON.stringify(usuario) : ''
         },
         body: JSON.stringify({
           ...formData,

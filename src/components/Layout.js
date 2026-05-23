@@ -58,7 +58,9 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
 
     // Buscar nome atualizado do Supabase — roda apenas uma vez após authReady,
     // sem depender de `usuario` para evitar loop: setUsuario → usuario muda → fetch → loop.
-    fetch('/api/usuarios/me')
+    fetch('/api/usuarios/me', {
+      headers: { usuario: JSON.stringify(usuario) }
+    })
       .then(r => r.ok ? r.json() : null)
       .then(body => {
         if (body?.data?.nome) {

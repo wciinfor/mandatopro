@@ -1,5 +1,4 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -46,11 +45,8 @@ export default async function handler(req, res) {
   let supabase;
   try {
     supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
   } catch (err) {
-    const status = err?.statusCode || 500;
-    return res.status(status).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 
   // GET — listar funcionários ou gerar próxima matrícula

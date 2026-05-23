@@ -1,5 +1,4 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -26,13 +25,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
+    const { userId, nivel, limit } = req.query;
+    if (!userId || !nivel) {
+      return res.status(400).json({ message: 'Parametros obrigatorios ausentes' });
+    }
 
-    const { limit } = req.query;
-    const userId = usuario.id;
-    const nivel = usuario.nivel;
+    const supabase = createServerClient();
     const limite = Math.min(parseInt(limit || '10', 10), 50);
 
     const hoje = new Date();

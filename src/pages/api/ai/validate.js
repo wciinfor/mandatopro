@@ -1,6 +1,4 @@
 import crypto from 'crypto';
-import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
 
 export const runtime = 'nodejs';
@@ -20,10 +18,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
-
     const { apiKey, model, provider, dryRunPlanner, plannerQuestion } = req.body || {};
     const config = lerConfiguracoes();
     const selectedProvider = String(provider || config.openai?.provider || 'openai').toLowerCase();
@@ -170,7 +164,6 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, traceId });
   } catch (error) {
-    const status = error?.statusCode || 500;
-    return res.status(status).json({ success: false, message: error.message, traceId });
+    return res.status(500).json({ success: false, message: error.message, traceId });
   }
 }

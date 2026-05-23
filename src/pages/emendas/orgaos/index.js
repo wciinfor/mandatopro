@@ -8,6 +8,7 @@ import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
 import { gerarPDFOrgaos, gerarExcelOrgaos } from '@/utils/relatorios';
+import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
@@ -24,13 +25,14 @@ export default function GerenciarOrgaos() {
   const carregarOrgaos = useCallback(async () => {
     setCarregando(true);
     try {
-      const response = await fetch('/api/emendas/orgaos');
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.message || 'Erro ao carregar orgaos');
-      }
+      let { data, error } = await supabase
+        .from('orgaos')
+        .select('*')
+        .order('nome', { ascending: true });
 
-      setOrgaos(payload.data || []);
+      if (error) throw error;
+
+      setOrgaos(data || []);
     } catch (error) {
       console.error('Erro ao carregar órgãos:', error);
       showError('Erro ao carregar órgãos');
@@ -64,13 +66,12 @@ export default function GerenciarOrgaos() {
   const handleExcluir = (id) => {
     showConfirm('Tem certeza que deseja excluir este órgão?', async () => {
       try {
-        const response = await fetch(`/api/emendas/orgaos/${id}`, {
-          method: 'DELETE'
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload?.message || 'Erro ao excluir orgao');
-        }
+        const { error } = await supabase
+          .from('orgaos')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
 
         setOrgaos(orgaos.filter(o => o.id !== id));
         showSuccess('Órgão excluído com sucesso!');
