@@ -20,6 +20,7 @@ export default function AIChatWidget() {
     'Notificacoes nao lidas',
     'Resumo do mapa',
     'Aniversariantes da semana',
+    'Saude dos dados',
     'Quem devo procurar primeiro?',
     'Contatos dos principais'
   ];
