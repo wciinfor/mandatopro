@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -30,13 +30,7 @@ export default function EditarResponsavel() {
     status: 'ATIVO'
   });
 
-  useEffect(() => {
-    if (id) {
-      carregarResponsavel();
-    }
-  }, [id]);
-
-  const carregarResponsavel = async () => {
+  const carregarResponsavel = useCallback(async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -66,7 +60,13 @@ export default function EditarResponsavel() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [id, showError]);
+
+  useEffect(() => {
+    if (id) {
+      carregarResponsavel();
+    }
+  }, [id, carregarResponsavel]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

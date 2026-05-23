@@ -29,12 +29,17 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+debug.log
+debug-output.txt
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.local.example
 
 # private configs
 configuracoes.private.json
+data/logs/*.json
+supabase/.temp/
 
 # vercel
 .vercel

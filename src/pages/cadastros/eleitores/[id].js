@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -57,20 +57,67 @@ export default function EditarEleitor() {
     whatsapp: '',
     
     // Observações
+    lideranca: '',
     observacoes: '',
     
     // Status do cadastro
     statusCadastro: 'ATIVO'
   });
+  const [liderancas, setLiderancas] = useState([]);
 
-  // Carregar dados do eleitor ao montar
-  useEffect(() => {
-    if (id) {
-      carregarEleitor();
+  const normalizarTexto = (valor = '') =>
+    String(valor)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  const correspondeTexto = (base, referencia) => {
+    if (!base || !referencia) return false;
+    return base === referencia || base.includes(referencia) || referencia.includes(base);
+  };
+
+  const obterLiderancasFiltradas = (lista, bairro, municipio, cidade) => {
+    if (!Array.isArray(lista) || lista.length === 0) return [];
+
+    const bairroRef = normalizarTexto(bairro);
+    const municipioRef = normalizarTexto(municipio || cidade);
+
+    // Regra de negocio: prioriza bairro; municipio/cidade e fallback quando bairro nao informado.
+    if (bairroRef) {
+      return lista.filter((item) => {
+        const bairroLideranca = normalizarTexto(item?.bairro);
+        return correspondeTexto(bairroLideranca, bairroRef);
+      });
     }
-  }, [id]);
 
-  const carregarEleitor = async () => {
+    if (municipioRef) {
+      return lista.filter((item) => {
+        const municipioLideranca = normalizarTexto(item?.municipio || item?.cidade);
+        return correspondeTexto(municipioLideranca, municipioRef);
+      });
+    }
+
+    return [];
+  };
+
+  const liderancasFiltradas = obterLiderancasFiltradas(
+    liderancas,
+    formData.bairro,
+    formData.municipio,
+    formData.cidade
+  );
+
+  const possuiBairroPreenchido = Boolean(String(formData.bairro || '').trim());
+  const possuiMunicipioOuCidadePreenchido = Boolean(
+    String(formData.municipio || formData.cidade || '').trim()
+  );
+  const podeSelecionarLideranca = possuiBairroPreenchido || possuiMunicipioOuCidadePreenchido;
+  const criterioFiltroLideranca = possuiBairroPreenchido ? 'bairro' : 'município/cidade';
+
+  const carregarEleitor = useCallback(async () => {
     try {
       setLoading(true);
       // Buscar eleitor da API
@@ -118,16 +165,73 @@ export default function EditarEleitor() {
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Carregar dados do eleitor ao montar
+  useEffect(() => {
+    if (id) {
+      carregarEleitor();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     const maskedValue = applyMask(name, value);
+
     setFormData(prev => ({
       ...prev,
       [name]: maskedValue
     }));
   };
+
+  useEffect(() => {
+    const carregarLiderancas = async () => {
+      try {
+        const response = await fetch('/api/cadastros/liderancas?limit=500&status=ATIVO');
+        if (!response.ok) return;
+        const payload = await response.json();
+        setLiderancas(Array.isArray(payload?.data) ? payload.data : []);
+      } catch {
+        setLiderancas([]);
+      }
+    };
+
+    carregarLiderancas();
+  }, []);
+
+  useEffect(() => {
+    const nomesValidos = new Set(
+      liderancasFiltradas
+        .map((item) => String(item?.nome || '').trim())
+        .filter(Boolean)
+    );
+
+    setFormData((prev) => {
+      const atual = String(prev.lideranca || '').trim();
+
+      if (atual && nomesValidos.has(atual)) {
+        return prev;
+      }
+
+      if (liderancasFiltradas.length === 1) {
+        return {
+          ...prev,
+          lideranca: String(liderancasFiltradas[0]?.nome || '')
+        };
+      }
+
+      if (!atual) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        lideranca: ''
+      };
+    });
+  }, [liderancasFiltradas]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -487,7 +591,7 @@ export default function EditarEleitor() {
                     onChange={handleInputChange}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder="00000-000"
-                    maxLength="8"
+                    maxLength="9"
                   />
                   <button
                     type="button"
@@ -812,6 +916,39 @@ export default function EditarEleitor() {
             </h2>
 
             <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                LIDERANÇA
+              </label>
+              <select
+                name="lideranca"
+                value={formData.lideranca}
+                onChange={handleInputChange}
+                disabled={!podeSelecionarLideranca}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="">Selecione uma liderança</option>
+                {liderancasFiltradas.map((item) => (
+                  <option key={item.id} value={item.nome}>
+                    {item.nome}
+                  </option>
+                ))}
+              </select>
+              {!podeSelecionarLideranca && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Preencha bairro ou município/cidade para habilitar a seleção.
+                </p>
+              )}
+              <p className="text-xs text-teal-700 mt-1">
+                Filtro aplicado por <strong>{criterioFiltroLideranca}</strong>. Apenas lideranças cadastradas são permitidas.
+              </p>
+              {liderancasFiltradas.length === 0 && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Nenhuma liderança ativa encontrada para este {criterioFiltroLideranca}.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 OBSERVAÇÕES GERAIS
               </label>

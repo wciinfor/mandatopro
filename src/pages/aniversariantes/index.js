@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBirthdayCake, faSearch, faCog,
@@ -19,6 +20,7 @@ export default function Aniversariantes() {
   const [busca, setBusca] = useState('');
   const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth() + 1);
   const [filtro, setFiltro] = useState('todos'); // todos, hoje, semana, mes
+  const [somenteAniversariantesDoDia, setSomenteAniversariantesDoDia] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState('');
   const [stats, setStats] = useState({
@@ -37,8 +39,17 @@ export default function Aniversariantes() {
         setCarregando(true);
         setErroCarregamento('');
 
+        console.log('[PÁGINA ANIVERSARIANTES] Iniciando carregamento...', new Date().toISOString());
+
         const resposta = await fetch('/api/aniversariantes?limit=3000&deduplicar=1');
         const payload = await resposta.json();
+
+        console.log('[PÁGINA ANIVERSARIANTES] Resposta recebida:', {
+          ok: resposta.ok,
+          totalRecebido: payload?.resumo?.totalAniversariantes,
+          aniversariantesHoje: payload?.resumo?.aniversariantesHoje,
+          timestamp: new Date().toISOString()
+        });
 
         if (!resposta.ok || !payload?.success) {
           throw new Error(payload?.detalhes || payload?.error || `Erro HTTP: ${resposta.status}`);
@@ -51,6 +62,11 @@ export default function Aniversariantes() {
         const lista = Array.isArray(payload?.aniversariantes) ? payload.aniversariantes : [];
         const resumo = payload?.resumo || {};
 
+        console.log('[PÁGINA ANIVERSARIANTES] Processando dados:', {
+          listaLength: lista.length,
+          aniversariantesHoje: Number(resumo.aniversariantesHoje || 0)
+        });
+
         setAniversariantes(lista);
         setStats({
           aniversariantesHoje: Number(resumo.aniversariantesHoje || 0),
@@ -59,7 +75,7 @@ export default function Aniversariantes() {
           totalAniversariantes: Number(resumo.totalAniversariantes || lista.length)
         });
       } catch (error) {
-        console.error('Erro ao carregar aniversariantes:', error);
+        console.error('[PÁGINA ANIVERSARIANTES] Erro ao carregar:', error);
 
         if (!ativo) {
           return;
@@ -119,8 +135,10 @@ export default function Aniversariantes() {
     } else if (filtro === 'mes') {
       matchPeriodo = pessoa.diasAte <= 30;
     }
+
+    const matchSomenteDia = !somenteAniversariantesDoDia || pessoa.diasAte === 0;
     
-    return matchBusca && matchMes && matchPeriodo;
+    return matchBusca && matchMes && matchPeriodo && matchSomenteDia;
   });
 
   const handleEnviarMensagem = (pessoa) => {
@@ -272,6 +290,16 @@ export default function Aniversariantes() {
             </select>
           </div>
 
+          <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={somenteAniversariantesDoDia}
+              onChange={(e) => setSomenteAniversariantesDoDia(e.target.checked)}
+              className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+            />
+            Aniversariantes do dia
+          </label>
+
           <button
             onClick={handleExportarCSV}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
@@ -289,16 +317,26 @@ export default function Aniversariantes() {
           </button>
         </div>
 
-        {filtro !== 'todos' && (
+        {(filtro !== 'todos' || somenteAniversariantesDoDia) && (
           <div className="mt-3 flex items-center gap-2">
             <span className="text-sm text-gray-600">Filtro ativo:</span>
-            <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm font-semibold">
-              {filtro === 'hoje' && 'Aniversariantes de Hoje'}
-              {filtro === 'semana' && 'Próximos 7 Dias'}
-              {filtro === 'mes' && 'Próximos 30 Dias'}
-            </span>
+            {filtro !== 'todos' && (
+              <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm font-semibold">
+                {filtro === 'hoje' && 'Aniversariantes de Hoje'}
+                {filtro === 'semana' && 'Próximos 7 Dias'}
+                {filtro === 'mes' && 'Próximos 30 Dias'}
+              </span>
+            )}
+            {somenteAniversariantesDoDia && (
+              <span className="px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-sm font-semibold">
+                Somente aniversariantes do dia
+              </span>
+            )}
             <button
-              onClick={() => setFiltro('todos')}
+              onClick={() => {
+                setFiltro('todos');
+                setSomenteAniversariantesDoDia(false);
+              }}
               className="text-sm text-red-600 hover:text-red-700 font-semibold"
             >
               Limpar filtro
@@ -374,10 +412,13 @@ export default function Aniversariantes() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           {pessoa.foto ? (
-                            <img 
+                            <Image
                               src={pessoa.foto} 
                               alt={pessoa.nome} 
+                              width={40}
+                              height={40}
                               className="w-10 h-10 rounded-full object-cover"
+                              unoptimized
                             />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">

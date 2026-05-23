@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -22,11 +22,7 @@ export default function GerenciarOrgaos() {
   const [tipoFiltro, setTipoFiltro] = useState('TODOS');
   const [situacao, setSituacao] = useState('ATIVO');
 
-  useEffect(() => {
-    carregarOrgaos();
-  }, []);
-
-  const carregarOrgaos = async () => {
+  const carregarOrgaos = useCallback(async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -43,7 +39,11 @@ export default function GerenciarOrgaos() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [showError]);
+
+  useEffect(() => {
+    carregarOrgaos();
+  }, [carregarOrgaos]);
 
   const orgaosFiltrados = orgaos.filter(org => {
     const matchFiltro = filtro === '' || 

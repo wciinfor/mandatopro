@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,9 +11,20 @@ import { ROLES, ROLE_DESCRIPTIONS, getRoleColor } from '@/utils/permissions';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 
+function isAbortError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.name === 'AbortError' || message.includes('aborted');
+}
+
 export default function NovoUsuario() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError } = useModal();
+  const showErrorRef = useRef(showError);
+  const carregouLiderancasRef = useRef(false);
+
+  useEffect(() => {
+    showErrorRef.current = showError;
+  }, [showError]);
 
   const [salvando, setSalvando] = useState(false);
   const [carregandoLiderancas, setCarregandoLiderancas] = useState(false);
@@ -40,12 +51,13 @@ export default function NovoUsuario() {
     return JSON.parse(localStorage.getItem('usuario') || 'null');
   };
 
-  const carregarLiderancas = async () => {
+  const carregarLiderancas = useCallback(async (signal) => {
     try {
       setCarregandoLiderancas(true);
       const usuarioLocal = obterUsuarioHeader();
 
       const response = await fetch('/api/usuarios/liderancas-opcoes', {
+        signal,
         headers: {
           usuario: usuarioLocal ? JSON.stringify(usuarioLocal) : ''
         }
@@ -58,17 +70,31 @@ export default function NovoUsuario() {
 
       setLiderancas(Array.isArray(data?.data) ? data.data : []);
     } catch (error) {
-      showError('Erro ao carregar liderancas: ' + error.message);
+      if (isAbortError(error)) {
+        return;
+      }
+      showErrorRef.current('Erro ao carregar liderancas: ' + error.message);
     } finally {
-      setCarregandoLiderancas(false);
+      if (!signal?.aborted) {
+        setCarregandoLiderancas(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (carregouLiderancasRef.current) return;
+    carregouLiderancasRef.current = true;
+
+    const abortController = new AbortController();
     const user = obterUsuarioHeader();
     setUsuarioLogado(user);
-    carregarLiderancas();
-  }, []);
+
+    carregarLiderancas(abortController.signal);
+
+    return () => {
+      abortController.abort();
+    };
+  }, [carregarLiderancas]);
 
   // Auto-vincula a liderança quando logado como LIDERANÇA
   useEffect(() => {

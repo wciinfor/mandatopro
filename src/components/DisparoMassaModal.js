@@ -31,6 +31,20 @@ export default function DisparoBotao({ onDisparo }) {
   };
 
   const handleDisparo = async () => {
+    const usuarioLocal = (() => {
+      try {
+        if (typeof window === 'undefined') return null;
+        return JSON.parse(localStorage.getItem('usuario') || 'null');
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!usuarioLocal || String(usuarioLocal.nivel || '').toUpperCase() !== 'ADMINISTRADOR') {
+      alert('Apenas administradores podem fazer disparo em massa');
+      return;
+    }
+
     if (!mensagem.trim()) {
       alert('Digite uma mensagem');
       return;
@@ -46,7 +60,7 @@ export default function DisparoBotao({ onDisparo }) {
     try {
       const response = await fetch('/api/comunicacao/enviar-massa', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', usuario: JSON.stringify(usuarioLocal) },
         body: JSON.stringify({
           tipo,
           mensagem,

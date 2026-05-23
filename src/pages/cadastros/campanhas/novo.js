@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -28,6 +28,7 @@ export default function NovaCampanha() {
   const [liderancasBuscador, setLiderancasBuscador] = useState('');
   const [liderancasEncontradas, setLiderancasEncontradas] = useState([]);
   const [liderancasSelecionadas, setLiderancasSelecionadas] = useState([]);
+  const liderancasSelecionadasRef = useRef([]);
   const [buscandoLiderancas, setBuscandoLiderancas] = useState(false);
 
   const [servicos, setServicos] = useState([]);
@@ -38,24 +39,7 @@ export default function NovaCampanha() {
   const [loading, setLoading] = useState(false);
   const [carregandoDados, setCarregandoDados] = useState(!!id);
 
-  // Carregar dados se estiver editando
-  useEffect(() => {
-    if (id) {
-      carregarCampanha();
-    }
-    carregarServicos();
-  }, [id]);
-
-  // Buscar lideranças quando o texto do buscador muda
-  useEffect(() => {
-    if (liderancasBuscador.trim().length > 0) {
-      buscarLiderancas();
-    } else {
-      setLiderancasEncontradas([]);
-    }
-  }, [liderancasBuscador]);
-
-  const carregarCampanha = async () => {
+  const carregarCampanha = useCallback(async () => {
     try {
       setCarregandoDados(true);
       const response = await fetch(`/api/cadastros/campanhas/${id}`);
@@ -101,9 +85,9 @@ export default function NovaCampanha() {
     } finally {
       setCarregandoDados(false);
     }
-  };
+  }, [id]); // showError excluído: recria a cada render e causaria loop infinito
 
-  const carregarServicos = async () => {
+  const carregarServicos = useCallback(async () => {
     try {
       const response = await fetch('/api/cadastros/campanhas/servicos');
       
@@ -116,9 +100,9 @@ export default function NovaCampanha() {
     } catch (error) {
       console.error('Erro ao carregar serviços:', error);
     }
-  };
+  }, []);
 
-  const buscarLiderancas = async () => {
+  const buscarLiderancas = useCallback(async () => {
     try {
       setBuscandoLiderancas(true);
       const params = new URLSearchParams({
@@ -134,9 +118,9 @@ export default function NovaCampanha() {
 
       const { data } = await response.json();
       
-      // Filtrar lideranças já selecionadas
+      // Filtrar liderãnças já selecionadas (usa ref para não criar dependência de estado)
       const liderancasDisponiveis = data.filter(lid => 
-        !liderancasSelecionadas.some(selecionada => selecionada.id === lid.id)
+        !liderancasSelecionadasRef.current.some(selecionada => selecionada.id === lid.id)
       );
       
       setLiderancasEncontradas(liderancasDisponiveis);
@@ -145,7 +129,29 @@ export default function NovaCampanha() {
     } finally {
       setBuscandoLiderancas(false);
     }
-  };
+  }, [liderancasBuscador]); // liderancasSelecionadas excluído: causava loop ao adicionar lideranças
+
+  // Mantém ref sincronizado sem causar re-render no callback de busca
+  useEffect(() => {
+    liderancasSelecionadasRef.current = liderancasSelecionadas;
+  }, [liderancasSelecionadas]);
+
+  // Carregar dados se estiver editando
+  useEffect(() => {
+    if (id) {
+      carregarCampanha();
+    }
+    carregarServicos();
+  }, [id, carregarCampanha, carregarServicos]);
+
+  // Buscar lideranças quando o texto do buscador muda
+  useEffect(() => {
+    if (liderancasBuscador.trim().length > 0) {
+      buscarLiderancas();
+    } else {
+      setLiderancasEncontradas([]);
+    }
+  }, [liderancasBuscador, buscarLiderancas]);
 
   const adicionarLideranca = (lideranca) => {
     if (!liderancasSelecionadas.some(l => l.id === lideranca.id)) {

@@ -35,7 +35,16 @@ export const registrarLog = async (evento) => {
     });
 
     if (!response.ok) {
-      console.error('Erro ao registrar log:', response.statusText);
+      let detalhe = response.statusText || `HTTP ${response.status}`;
+
+      try {
+        const payload = await response.json();
+        detalhe = payload?.detalhes || payload?.erro || payload?.error || payload?.message || detalhe;
+      } catch {
+        // Mantem fallback de status quando corpo nao for JSON.
+      }
+
+      console.error('Erro ao registrar log:', detalhe);
     }
     return response.ok;
   } catch (error) {

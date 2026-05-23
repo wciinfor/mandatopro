@@ -33,6 +33,11 @@ import useModal from '@/hooks/useModal';
 
 import { MODULES } from '@/utils/permissions';
 
+function isAbortError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.name === 'AbortError' || message.includes('aborted');
+}
+
 
 
 
@@ -309,11 +314,13 @@ export default function Solicitacoes() {
     }
 
     let ativo = true;
+    const abortController = new AbortController();
 
     const carregarLiderancasAtivas = async () => {
       try {
         setCarregandoLiderancas(true);
         const res = await fetch('/api/usuarios/liderancas-opcoes', {
+          signal: abortController.signal,
           headers: {
             usuario: JSON.stringify(getUsuario())
           }
@@ -328,12 +335,15 @@ export default function Solicitacoes() {
           setLiderancasAtivas(Array.isArray(json.data) ? json.data : []);
         }
       } catch (err) {
+        if (isAbortError(err)) {
+          return;
+        }
         if (ativo) {
           setLiderancasAtivas([]);
           showErrorRef.current('Erro ao carregar liderancas para solicitante: ' + err.message);
         }
       } finally {
-        if (ativo) {
+        if (ativo && !abortController.signal.aborted) {
           setCarregandoLiderancas(false);
         }
       }
@@ -343,6 +353,7 @@ export default function Solicitacoes() {
 
     return () => {
       ativo = false;
+      abortController.abort();
     };
   }, [showNova, isAdmin]);
 
@@ -356,13 +367,21 @@ export default function Solicitacoes() {
 
 
 
-  const carregarSolicitacoes = useCallback(async () => {
+  const carregarSolicitacoes = useCallback(async (signal) => {
 
 
     try {
 
 
       setLoading(true);
+
+      const usuarioAtual = getUsuario();
+      if (!usuarioAtual?.id) {
+        setSolicitacoes([]);
+        setTotalRegistros(0);
+        setTotais({ total: 0, NOVO: 0, RECEBIDO: 0, ATENDIDO: 0, RECUSADO: 0 });
+        return;
+      }
 
 
       const params = new URLSearchParams({
@@ -394,8 +413,10 @@ export default function Solicitacoes() {
 
       const res = await fetch(`/api/solicitacoes?${params}`, {
 
+        signal,
 
-        headers: { usuario: JSON.stringify(getUsuario()) },
+
+        headers: { usuario: JSON.stringify(usuarioAtual) },
 
 
       });
@@ -418,11 +439,19 @@ export default function Solicitacoes() {
 
     } catch (err) {
 
+      if (isAbortError(err)) {
+        return;
+      }
+
 
       showErrorRef.current('Erro ao carregar solicitações: ' + err.message);
 
 
     } finally {
+
+      if (signal?.aborted) {
+        return;
+      }
 
 
       setLoading(false);
@@ -437,7 +466,14 @@ export default function Solicitacoes() {
 
 
 
-  useEffect(() => { carregarSolicitacoes(); }, [carregarSolicitacoes]);
+  useEffect(() => {
+    const abortController = new AbortController();
+    carregarSolicitacoes(abortController.signal);
+
+    return () => {
+      abortController.abort();
+    };
+  }, [carregarSolicitacoes]);
 
 
 

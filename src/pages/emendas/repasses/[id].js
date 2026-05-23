@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMoneyBillWave, faSave, faArrowLeft, faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -29,13 +29,7 @@ export default function EditarRepasse() {
     observacoes: ''
   });
 
-  useEffect(() => {
-    if (id) {
-      carregarRepasse();
-    }
-  }, [id]);
-
-  const carregarRepasse = async () => {
+  const carregarRepasse = useCallback(async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -65,7 +59,13 @@ export default function EditarRepasse() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [id, showError]);
+
+  useEffect(() => {
+    if (id) {
+      carregarRepasse();
+    }
+  }, [id, carregarRepasse]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -19,11 +19,7 @@ export default function GerenciarRepasses() {
   const [repasses, setRepasses] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
-  useEffect(() => {
-    carregarRepasses();
-  }, []);
-
-  const carregarRepasses = async () => {
+  const carregarRepasses = useCallback(async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -40,7 +36,11 @@ export default function GerenciarRepasses() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [showError]);
+
+  useEffect(() => {
+    carregarRepasses();
+  }, [carregarRepasses]);
 
   const [filtro, setFiltro] = useState('');
   const [statusFiltro, setStatusFiltro] = useState('TODOS');

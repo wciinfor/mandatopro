@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { registrarLogout } from '@/services/logService';
@@ -25,6 +25,7 @@ import {
 export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, setModuloAtivo }) {
   const router = useRouter();
   const [menusAbertos, setMenusAbertos] = useState({});
+  const [usuarioAtual, setUsuarioAtual] = useState(null);
 
   const lerUsuarioAtual = () => {
     if (typeof window === 'undefined') return null;
@@ -35,7 +36,14 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     }
   };
 
-  const usuarioAtual = lerUsuarioAtual();
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setUsuarioAtual(lerUsuarioAtual());
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, []);
+
   const nivelUsuario = String(usuarioAtual?.nivel || '').toUpperCase();
 
   const modulos = [
@@ -67,7 +75,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
       rota: '/geolocalizacao'
     },
     {
-      nome: 'Comunicação',
+      nome: 'Notificações',
       icone: faBullhorn,
       submenu: [],
       rota: '/comunicacao'

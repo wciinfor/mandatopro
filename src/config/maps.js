@@ -1,6 +1,6 @@
 // Configuração do Google Maps
 export const GOOGLE_MAPS_CONFIG = {
-  apiKey: 'AIzaSyBc30k7GJW3UvC2RGKx4RY8XyxJDJStcWg',
+  apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   libraries: ['places'],
   language: 'pt-BR',
   region: 'BR'

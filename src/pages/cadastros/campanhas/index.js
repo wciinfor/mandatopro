@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
@@ -24,12 +24,7 @@ export default function GerenciarCampanhas() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
 
-  // Carregar campanhas ao montar
-  useEffect(() => {
-    carregarCampanhas();
-  }, []);
-
-  const carregarCampanhas = async () => {
+  const carregarCampanhas = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -52,7 +47,12 @@ export default function GerenciarCampanhas() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dataFim, dataInicio, filtro, localidade, status]); // showError excluído: recria a cada render e causaria loop infinito
+
+  // Carregar campanhas ao montar e ao alterar filtros
+  useEffect(() => {
+    carregarCampanhas();
+  }, [carregarCampanhas]);
 
   const campanhasFiltradas = campanhas.filter(campanha => {
     return true; // Filtros já aplicados na API

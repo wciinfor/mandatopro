@@ -66,8 +66,8 @@ export const MODULE_PERMISSIONS = {
   },
   [MODULES.COMUNICACAO]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true, sendMass: true },
-    [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false, sendMass: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false, sendMass: false }
+    [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false, sendMass: true },
+    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false, sendMass: false }
   },
   [MODULES.AGENDA]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
