@@ -13,6 +13,7 @@ export default function AIChatWidget() {
   const suggestedActions = [
     'Briefing geral',
     'Cheguei em Fortaleza',
+    'Roteiro de campo aqui',
     'Agenda da semana aqui',
     'Solicitacoes abertas aqui',
     'Resumo financeiro do mes',
@@ -21,6 +22,9 @@ export default function AIChatWidget() {
     'Notificacoes nao lidas',
     'Resumo do mapa',
     'Aniversariantes da semana',
+    'Saude dos dados',
+    'Liste liderancas sem contato',
+    'Prepare mensagem para liderancas',
     'Quem devo procurar primeiro?',
     'Contatos dos principais'
   ];

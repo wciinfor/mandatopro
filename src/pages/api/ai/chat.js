@@ -1956,6 +1956,76 @@ function detectSystemBriefing(message) {
   return /(briefing geral|resumo geral|panorama geral|situacao geral|situação geral|resumo do sistema|como estamos|painel geral|me atualize|o que temos hoje|status geral)/.test(normalized);
 }
 
+function detectDataHealthBriefing(message) {
+  const normalized = normalizeForMatch(message);
+  return /(saude dos dados|qualidade dos dados|dados incompletos|cadastros incompletos|sem telefone|sem contato|sem coordenada|base incompleta|pendencias de dados)/.test(normalized);
+}
+
+function detectMissingDataList(message) {
+  const normalized = normalizeForMatch(message);
+  const wantsList = /(listar|liste|mostre|mostrar|quais|quem|abrir lista|me passe)/.test(normalized);
+  if (!wantsList) return null;
+
+  if (/(lideranca|liderancas)/.test(normalized) && /(sem contato|sem telefone|sem email|incomplet)/.test(normalized)) {
+    return {
+      table: 'liderancas',
+      fields: ['telefone', 'email'],
+      title: 'Liderancas sem telefone/email'
+    };
+  }
+
+  if (/(funcionario|funcionarios|equipe)/.test(normalized) && /(sem contato|sem telefone|sem email|incomplet)/.test(normalized)) {
+    return {
+      table: 'funcionarios',
+      fields: ['telefone', 'email'],
+      title: 'Funcionarios sem telefone/email'
+    };
+  }
+
+  if (/(eleitor|eleitores)/.test(normalized) && /(sem telefone|sem contato|incomplet)/.test(normalized)) {
+    return {
+      table: 'eleitores',
+      fields: ['telefone'],
+      title: 'Eleitores sem telefone'
+    };
+  }
+
+  if (/(mapa|marcador|marcadores|geolocalizacao)/.test(normalized) && /(sem coordenada|sem latitude|sem longitude|incomplet)/.test(normalized)) {
+    return {
+      table: 'geolocalizacao',
+      fields: ['latitude', 'longitude'],
+      requireAll: true,
+      title: 'Marcadores sem coordenada'
+    };
+  }
+
+  return null;
+}
+
+function detectMessageDraftIntent(message) {
+  const normalized = normalizeForMatch(message);
+  const wantsDraft = /(mensagem|texto|rascunho|modelo|whatsapp|zap|comunicado)/.test(normalized)
+    && /(prepar|escrev|gerar|montar|criar|suger|fazer|mande|enviar|envie)/.test(normalized);
+  if (!wantsDraft) return null;
+
+  if (/(aniversario|aniversariante|parabens)/.test(normalized)) {
+    return { kind: 'birthday', table: 'aniversariantes' };
+  }
+  if (/(reuniao|agenda|encontro|visita)/.test(normalized)) {
+    return { kind: 'meeting' };
+  }
+  if (/(solicitacao|solicitacoes|demanda|pedido)/.test(normalized)) {
+    return { kind: 'request' };
+  }
+  return { kind: 'general' };
+}
+
+function detectFieldPlanIntent(message) {
+  const normalized = normalizeForMatch(message);
+  return /(roteiro|plano de acao|plano de campo|visita|visitar|agenda de campo|o que fazer primeiro|por onde comecar|proximos passos)/.test(normalized)
+    && /(cidade|aqui|campo|lideranca|liderancas|solicitacao|solicitacoes|agenda|mapa|bairro|bairros|fortaleza|belem|municipio|municipio)/.test(normalized);
+}
+
 function applyLocationToPlan(plan, location) {
   if (!plan || plan.action === 'none' || !location) return plan;
   const table = plan.table;
@@ -2040,6 +2110,144 @@ async function sumValues(supabase, table, field, options = {}) {
   return { total, error: null };
 }
 
+function hasAnyFieldValue(row, fields) {
+  return fields.some((field) => {
+    const value = row?.[field];
+    return value !== null && value !== undefined && String(value).trim() !== '';
+  });
+}
+
+function hasAllFieldValues(row, fields) {
+  return fields.every((field) => {
+    const value = row?.[field];
+    return value !== null && value !== undefined && String(value).trim() !== '';
+  });
+}
+
+async function countMissingData(supabase, table, fields, options = {}) {
+  if (!allowedTables[table]) return { count: 0, checked: 0, error: 'Tabela nao permitida' };
+  const selectedFields = Array.from(new Set(['id', ...fields])).join(', ');
+  let query = supabase
+    .from(table)
+    .select(selectedFields)
+    .limit(options.limit || 1000);
+
+  if (options.status) query = query.eq('status', options.status);
+  if (options.city) {
+    const cityValue = cleanCityName(options.city);
+    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
+      query = query.ilike('cidade', `%${cityValue}%`);
+    } else if (table === 'solicitacoes') {
+      query = query.ilike('municipio', `%${cityValue}%`);
+    }
+  }
+
+  const { data, error } = await query;
+  if (error) return { count: 0, checked: 0, error: error.message };
+  const rows = data || [];
+  const isComplete = options.requireAll
+    ? (row) => hasAllFieldValues(row, fields)
+    : (row) => hasAnyFieldValue(row, fields);
+  return {
+    count: rows.filter((row) => !isComplete(row)).length,
+    checked: rows.length,
+    error: null
+  };
+}
+
+function buildMissingDataLabel(row, table) {
+  if (table === 'geolocalizacao') {
+    return `${row.nome || 'Sem nome'} | ${row.tipo || '-'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''}`;
+  }
+  if (table === 'eleitores') {
+    return `${row.nome || 'Sem nome'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''}`;
+  }
+  if (table === 'funcionarios') {
+    return `${row.nome || 'Sem nome'} | ${row.cargo || '-'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''}`;
+  }
+  return `${row.nome || 'Sem nome'} | ${row.cidade || '-'}${row.bairro ? `/${row.bairro}` : ''} | influencia: ${row.influencia || '-'}`;
+}
+
+async function fetchMissingDataRows(supabase, table, fields, options = {}) {
+  if (!allowedTables[table]) return { rows: [], error: 'Tabela nao permitida' };
+  const selectedFields = allowedTables[table].fields;
+  let query = supabase
+    .from(table)
+    .select(selectedFields)
+    .limit(options.limit || 20);
+
+  if (options.city) {
+    const cityValue = cleanCityName(options.city);
+    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
+      query = query.ilike('cidade', `%${cityValue}%`);
+    }
+  }
+
+  const { data, error } = await query.order(allowedTables[table].dateField, { ascending: false });
+  if (error) return { rows: [], error: error.message };
+  const isComplete = options.requireAll
+    ? (row) => hasAllFieldValues(row, fields)
+    : (row) => hasAnyFieldValue(row, fields);
+
+  return {
+    rows: (data || []).filter((row) => !isComplete(row)).slice(0, options.limit || 20),
+    error: null
+  };
+}
+
+function buildHealthLines(metrics, cityLabel = '') {
+  const scope = cityLabel ? ` em ${cityLabel}` : '';
+  const lines = [
+    `- Liderancas sem telefone/email${scope}: ${metrics.liderancasSemContato.count}`,
+    `- Eleitores sem telefone${scope}: ${metrics.eleitoresSemTelefone.count}`,
+    `- Funcionarios sem telefone/email${scope}: ${metrics.funcionariosSemContato.count}`,
+    `- Marcadores sem coordenada${scope}: ${metrics.marcadoresSemCoordenada.count}`,
+    `- Solicitacoes abertas${scope}: ${metrics.solicitacoesAbertas}`
+  ];
+
+  const critical = [];
+  if (metrics.liderancasSemContato.count > 0) critical.push('completar contatos de liderancas');
+  if (metrics.marcadoresSemCoordenada.count > 0) critical.push('corrigir coordenadas do mapa');
+  if (metrics.solicitacoesAbertas > 0) critical.push('tratar solicitacoes abertas');
+
+  return {
+    lines,
+    recommendation: critical.length
+      ? `Prioridade operacional: ${critical.slice(0, 2).join(' e ')}.`
+      : 'Base operacional sem alerta critico nos principais cadastros.'
+  };
+}
+
+async function getDataHealthMetrics(supabase, city = '') {
+  const cityLabel = city ? cleanCityName(city) : '';
+  const cityOptions = cityLabel ? { city: cityLabel } : {};
+  const [
+    liderancasSemContato,
+    eleitoresSemTelefone,
+    funcionariosSemContato,
+    marcadoresSemCoordenada,
+    solicitacoesNovas,
+    solicitacoesRecebidas,
+    solicitacoesAndamento
+  ] = await Promise.all([
+    countMissingData(supabase, 'liderancas', ['telefone', 'email'], cityOptions),
+    countMissingData(supabase, 'eleitores', ['telefone'], cityOptions),
+    countMissingData(supabase, 'funcionarios', ['telefone', 'email'], cityOptions),
+    countMissingData(supabase, 'geolocalizacao', ['latitude', 'longitude'], { ...cityOptions, requireAll: true }),
+    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'NOVO' }),
+    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'RECEBIDO' }),
+    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'EM_ANDAMENTO' })
+  ]);
+
+  return {
+    liderancasSemContato,
+    eleitoresSemTelefone,
+    funcionariosSemContato,
+    marcadoresSemCoordenada,
+    solicitacoesAbertas: solicitacoesNovas.count + solicitacoesRecebidas.count + solicitacoesAndamento.count
+  };
+}
+
 async function buildSystemBriefing(supabase, city = '') {
   const today = new Date();
   const nextWeek = new Date(today);
@@ -2114,40 +2322,107 @@ async function buildSystemBriefing(supabase, city = '') {
   };
 }
 
+async function buildDataHealthBriefing(supabase, city = '') {
+  const cityLabel = city ? cleanCityName(city) : '';
+  const metrics = await getDataHealthMetrics(supabase, cityLabel);
+  const healthBlock = buildHealthLines(metrics, cityLabel);
+  const title = cityLabel ? `Saude dos dados de ${cityLabel}:` : 'Saude dos dados:';
+
+  return [
+    title,
+    ...healthBlock.lines,
+    healthBlock.recommendation,
+    'Posso listar os cadastros sem contato ou filtrar por cidade/bairro.'
+  ].join('\n');
+}
+
+async function buildMissingDataList(supabase, target, city = '') {
+  const cityLabel = city ? cleanCityName(city) : '';
+  const result = await fetchMissingDataRows(supabase, target.table, target.fields, {
+    city: cityLabel,
+    requireAll: Boolean(target.requireAll),
+    limit: 20
+  });
+
+  if (result.error) return `Nao consegui listar agora: ${result.error}`;
+  const scope = cityLabel ? ` em ${cityLabel}` : '';
+  if (result.rows.length === 0) {
+    return `${target.title}${scope}: nao encontrei pendencias nessa consulta.`;
+  }
+
+  const lines = result.rows.map((row, index) => `${index + 1}) ${buildMissingDataLabel(row, target.table)}`);
+  return [
+    `${target.title}${scope}:`,
+    ...lines,
+    result.rows.length >= 20 ? 'Mostrei os 20 primeiros registros encontrados.' : '',
+    'Posso filtrar por bairro/cidade ou detalhar um cadastro especifico.'
+  ].filter(Boolean).join('\n');
+}
+
 async function buildCityBriefing(supabase, city) {
   const today = new Date();
   const nextWeek = new Date(today);
   nextWeek.setDate(today.getDate() + 7);
+  const cityLabel = cleanCityName(city);
 
-  const [liderancas, eleitores, solicitacoesNovas, solicitacoesRecebidas, agenda] = await Promise.all([
+  const [
+    liderancas,
+    eleitores,
+    funcionarios,
+    solicitacoesNovas,
+    solicitacoesRecebidas,
+    solicitacoesAndamento,
+    agenda,
+    marcadores,
+    proximasLiderancas,
+    health
+  ] = await Promise.all([
     countByCity(supabase, 'liderancas', city),
     countByCity(supabase, 'eleitores', city),
+    countRows(supabase, 'funcionarios', { city }),
     countByCity(supabase, 'solicitacoes', city, { status: 'NOVO' }),
     countByCity(supabase, 'solicitacoes', city, { status: 'RECEBIDO' }),
+    countByCity(supabase, 'solicitacoes', city, { status: 'EM_ANDAMENTO' }),
     countByCity(supabase, 'agenda_eventos', city, {
       dateField: 'data',
       from: formatDateOnly(today),
       to: formatDateOnly(nextWeek)
-    })
+    }),
+    countRows(supabase, 'geolocalizacao', { city }),
+    fetchRows(supabase, 'liderancas', { city, limit: 8, ascending: false }),
+    getDataHealthMetrics(supabase, city)
   ]);
 
-  const solicitacoesAbertas = solicitacoesNovas.count + solicitacoesRecebidas.count;
-  const cityLabel = cleanCityName(city);
+  const solicitacoesAbertas = solicitacoesNovas.count + solicitacoesRecebidas.count + solicitacoesAndamento.count;
+  const prioritized = prioritizeRows('liderancas', proximasLiderancas.rows).slice(0, 3);
+  const priorityLines = prioritized.map((row, index) => {
+    const phone = row.telefone ? ` | ${formatBrazilPhone(row.telefone)}` : '';
+    const bairro = row.bairro ? ` | bairro: ${row.bairro}` : '';
+    const influence = row.influencia ? ` | influencia: ${row.influencia}` : '';
+    return `${index + 1}) ${row.nome || 'Sem nome'}${influence}${bairro}${phone}`;
+  });
+  const healthBlock = buildHealthLines(health, cityLabel);
 
   return {
     reply: [
       `Briefing de ${cityLabel}:`,
-      `- Liderancas cadastradas: ${liderancas.count}`,
-      `- Eleitores cadastrados: ${eleitores.count}`,
-      `- Solicitacoes abertas: ${solicitacoesAbertas}`,
-      `- Agenda dos proximos 7 dias: ${agenda.count}`,
-      'Quer que eu liste os contatos das liderancas ou detalhe as solicitacoes abertas?'
-    ].join('\n'),
+      `- Cadastros: ${liderancas.count} liderancas, ${eleitores.count} eleitores, ${funcionarios.count} funcionarios`,
+      `- Campo: ${solicitacoesAbertas} solicitacoes abertas, ${agenda.count} compromisso(s) nos proximos 7 dias`,
+      `- Territorio: ${marcadores.count} marcador(es) no mapa`,
+      priorityLines.length ? 'Sugestao de prioridade:' : '',
+      ...priorityLines,
+      'Saude dos dados:',
+      ...healthBlock.lines,
+      healthBlock.recommendation,
+      'Posso listar os contatos prioritarios, abrir solicitacoes ou detalhar o mapa da cidade.'
+    ].filter(Boolean).join('\n'),
     counts: {
       liderancas: liderancas.count,
       eleitores: eleitores.count,
+      funcionarios: funcionarios.count,
       solicitacoesAbertas,
-      agendaProximos7Dias: agenda.count
+      agendaProximos7Dias: agenda.count,
+      marcadores: marcadores.count
     }
   };
 }
@@ -2465,6 +2740,211 @@ async function buildBirthdayBriefing(supabase) {
   ].filter(Boolean).join('\n');
 }
 
+function resolveDraftAudience(message, lastContext) {
+  const explicitTable = detectTableFromText(message);
+  const contextTable = lastContext?.table || '';
+  const table = explicitTable || (
+    ['liderancas', 'eleitores', 'funcionarios', 'financeiro_parceiros', 'orgaos'].includes(contextTable)
+      ? contextTable
+      : 'liderancas'
+  );
+  const location = extractLocationTerm(message)
+    || (refersToCurrentLocation(message) ? lastContext?.currentLocation : '')
+    || lastContext?.currentLocation
+    || '';
+  const filters = {};
+
+  if (location) {
+    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
+      filters.cidade = location;
+    } else if (['campanhas', 'agenda_eventos', 'solicitacoes'].includes(table)) {
+      filters.municipio = location;
+    }
+  }
+
+  if (!explicitTable && lastContext?.lastPlan?.filters && table === contextTable) {
+    Object.assign(filters, lastContext.lastPlan.filters);
+  }
+
+  return { table, filters, location };
+}
+
+function buildMessageTemplate(kind, city = '') {
+  const cityPart = city ? ` em ${cleanCityName(city)}` : '';
+  if (kind === 'birthday') {
+    return 'Ola, [NOME]! Passando para desejar um feliz aniversario. Que seu novo ciclo seja de saude, paz e muitas realizacoes. Conte sempre com nosso mandato.';
+  }
+  if (kind === 'meeting') {
+    return `Ola, [NOME]! Estou organizando minha agenda${cityPart} e gostaria de alinhar uma conversa rapida com voce. Qual melhor horario para falarmos?`;
+  }
+  if (kind === 'request') {
+    return 'Ola, [NOME]! Estou acompanhando as demandas da regiao e queria atualizar voce sobre os proximos encaminhamentos. Pode me confirmar o melhor horario para contato?';
+  }
+  return `Ola, [NOME]! Estou passando${cityPart} e gostaria de falar rapidamente com voce sobre as demandas da comunidade. Pode me dizer o melhor horario para conversarmos?`;
+}
+
+function buildDraftRecipientLines(rows, table) {
+  return (rows || []).slice(0, 10).map((row) => {
+    const name = row.nome || row.titulo || row.responsavel || 'Sem nome';
+    const phone = row.telefone || row.celular || row.whatsapp || row.phone || row.mobile || '';
+    const email = row.email || '';
+    const contact = phone
+      ? `${formatBrazilPhone(phone)} | WhatsApp: ${buildWhatsappUrl(phone)}`
+      : (email || 'sem contato');
+    const bairro = row.bairro ? ` | bairro: ${row.bairro}` : '';
+    const influence = table === 'liderancas' && row.influencia ? ` | influencia: ${row.influencia}` : '';
+    return `- ${name}${influence}${bairro}: ${contact}`;
+  });
+}
+
+async function fetchDraftAudienceRows(supabase, audience, lastContext) {
+  if (!allowedTables[audience.table]) return { rows: [], error: 'Tabela nao permitida' };
+  const fields = buildSelectFields({ action: 'list_contacts', table: audience.table }, audience.table);
+  const idField = lastContext?.idField || 'id';
+  const ids = Array.isArray(lastContext?.lastResultMeta?.ids) ? lastContext.lastResultMeta.ids : [];
+  const plan = {
+    action: 'list_contacts',
+    table: audience.table,
+    filters: { ...(audience.filters || {}) },
+    search: '',
+    limit: 10,
+    idField
+  };
+
+  if (ids.length > 0 && audience.table === lastContext?.table) {
+    plan.filters.ids = ids.slice(0, 10);
+    plan.filters.id_field = idField;
+  }
+
+  let query = supabase
+    .from(audience.table)
+    .select(fields)
+    .limit(10);
+  query = applyFilters(query, audience.table, plan);
+  query = query.order(allowedTables[audience.table].dateField, { ascending: false });
+  const { data, error } = await query;
+  if (error) return { rows: [], error: error.message };
+  return { rows: data || [], error: null };
+}
+
+async function buildBirthdayMessageDraft(supabase) {
+  const snapshot = await carregarSnapshotAniversariantes(supabase, {
+    limite: 10,
+    incluirInativos: false,
+    deduplicar: true
+  });
+  const rows = snapshot.proximosAniversariantes || [];
+  const lines = rows.slice(0, 10).map((item) => {
+    const contact = item.telefone || item.celular || item.whatsapp || item.email || 'sem contato';
+    return `- ${item.nome || 'Sem nome'}: ${contact}`;
+  });
+
+  return [
+    'Rascunho de mensagem de aniversario:',
+    buildMessageTemplate('birthday'),
+    lines.length ? 'Destinatarios proximos:' : '',
+    ...lines,
+    'Nao enviei a mensagem. Apenas preparei o texto para revisao.'
+  ].filter(Boolean).join('\n');
+}
+
+async function buildMessageDraft(supabase, message, intent, lastContext) {
+  if (intent.kind === 'birthday') return buildBirthdayMessageDraft(supabase);
+
+  const audience = resolveDraftAudience(message, lastContext);
+  const result = await fetchDraftAudienceRows(supabase, audience, lastContext);
+  if (result.error) return `Nao consegui preparar os destinatarios agora: ${result.error}`;
+
+  const tableLabel = labelForTable(audience.table);
+  const template = buildMessageTemplate(intent.kind, audience.location);
+  const recipients = buildDraftRecipientLines(result.rows, audience.table);
+  const scope = audience.location ? ` em ${cleanCityName(audience.location)}` : '';
+
+  return [
+    `Rascunho de mensagem para ${tableLabel}${scope}:`,
+    template,
+    recipients.length ? 'Contatos sugeridos:' : 'Nao encontrei contatos nesse contexto.',
+    ...recipients,
+    recipients.some((line) => line.includes('sem contato')) ? 'Alguns cadastros precisam de telefone/email antes do envio.' : '',
+    'Nao enviei a mensagem. Apenas preparei o texto para revisao.'
+  ].filter(Boolean).join('\n');
+}
+
+function resolveFieldPlanCity(message, lastContext) {
+  return extractLocationTerm(message)
+    || (refersToCurrentLocation(message) ? lastContext?.currentLocation : '')
+    || detectCityArrival(message)
+    || lastContext?.currentLocation
+    || '';
+}
+
+function buildFieldPlanLeaderLines(rows) {
+  return prioritizeRows('liderancas', rows).slice(0, 4).map((row, index) => {
+    const phone = row.telefone ? ` | ${formatBrazilPhone(row.telefone)}` : '';
+    const whatsapp = row.telefone ? ` | WhatsApp: ${buildWhatsappUrl(row.telefone)}` : '';
+    const bairro = row.bairro ? ` | bairro: ${row.bairro}` : '';
+    const influence = row.influencia ? ` | influencia: ${row.influencia}` : '';
+    const contactNote = !row.telefone && !row.email ? ' | sem contato' : '';
+    return `${index + 1}) ${row.nome || 'Sem nome'}${influence}${bairro}${phone}${whatsapp}${contactNote}`;
+  });
+}
+
+function buildFieldPlanAgendaLines(rows) {
+  return (rows || []).slice(0, 3).map((row) => {
+    const hora = row.hora_inicio ? ` ${row.hora_inicio}` : '';
+    return `- ${formatDate(row.data)}${hora}: ${row.titulo || 'Sem titulo'} (${row.local || row.municipio || '-'})`;
+  });
+}
+
+function buildFieldPlanRequestLines(rows) {
+  return (rows || []).slice(0, 4).map((row) => (
+    `- ${row.protocolo || row.id}: ${row.titulo || 'Sem titulo'} | ${row.status || '-'} | ${row.bairro || row.municipio || '-'}`
+  ));
+}
+
+async function buildFieldActionPlan(supabase, message, lastContext) {
+  const city = resolveFieldPlanCity(message, lastContext);
+  const cityLabel = city ? cleanCityName(city) : '';
+  const range = getRequestedDateRange(message);
+  const [leaders, agenda, requests, health] = await Promise.all([
+    fetchRows(supabase, 'liderancas', { city: cityLabel, limit: 10, ascending: false }),
+    fetchRows(supabase, 'agenda_eventos', {
+      city: cityLabel,
+      from: range.from,
+      to: range.to,
+      limit: 5,
+      ascending: true
+    }),
+    fetchRows(supabase, 'solicitacoes', {
+      city: cityLabel,
+      statuses: ['NOVO', 'RECEBIDO', 'EM_ANDAMENTO'],
+      limit: 6,
+      ascending: false
+    }),
+    getDataHealthMetrics(supabase, cityLabel)
+  ]);
+
+  const leaderLines = buildFieldPlanLeaderLines(leaders.rows);
+  const agendaLines = buildFieldPlanAgendaLines(agenda.rows);
+  const requestLines = buildFieldPlanRequestLines(requests.rows);
+  const healthBlock = buildHealthLines(health, cityLabel);
+  const title = cityLabel ? `Roteiro de campo em ${cityLabel}:` : 'Roteiro de campo:';
+
+  return [
+    title,
+    '1. Comece pelas liderancas prioritarias:',
+    leaderLines.length ? leaderLines.join('\n') : '- Nao encontrei liderancas nesse contexto.',
+    '2. Confira a agenda proxima:',
+    agendaLines.length ? agendaLines.join('\n') : '- Sem compromissos encontrados no periodo.',
+    '3. Trate as solicitacoes abertas:',
+    requestLines.length ? requestLines.join('\n') : '- Sem solicitacoes abertas encontradas.',
+    '4. Corrija riscos operacionais antes da visita:',
+    ...healthBlock.lines,
+    healthBlock.recommendation,
+    '5. Proxima acao sugerida: peça "prepare mensagem para liderancas aqui" ou "liste liderancas sem contato aqui".'
+  ].join('\n');
+}
+
 export default async function handler(req, res) {
   const traceId = crypto.randomUUID();
   const startedAt = Date.now();
@@ -2491,6 +2971,54 @@ export default async function handler(req, res) {
     const conversationKey = getConversationKey(req, user);
     const lastContext = getConversationContext(conversationKey);
     const contextualCity = refersToCurrentLocation(message) ? lastContext?.currentLocation : '';
+    if (detectFieldPlanIntent(message)) {
+      const reply = await buildFieldActionPlan(supabase, message, lastContext);
+      logPhase('answer', {
+        traceId,
+        mode: 'field_action_plan',
+        city: contextualCity || lastContext?.currentLocation || '',
+        durationMs: Date.now() - startedAt
+      });
+      return res.status(200).json({ success: true, reply, traceId });
+    }
+
+    const messageDraftIntent = detectMessageDraftIntent(message);
+    if (messageDraftIntent) {
+      const reply = await buildMessageDraft(supabase, message, messageDraftIntent, lastContext);
+      logPhase('answer', {
+        traceId,
+        mode: 'message_draft',
+        kind: messageDraftIntent.kind,
+        city: contextualCity || '',
+        durationMs: Date.now() - startedAt
+      });
+      return res.status(200).json({ success: true, reply, traceId });
+    }
+
+    const missingDataTarget = detectMissingDataList(message);
+    if (missingDataTarget) {
+      const reply = await buildMissingDataList(supabase, missingDataTarget, contextualCity || '');
+      logPhase('answer', {
+        traceId,
+        mode: 'missing_data_list',
+        table: missingDataTarget.table,
+        city: contextualCity || '',
+        durationMs: Date.now() - startedAt
+      });
+      return res.status(200).json({ success: true, reply, traceId });
+    }
+
+    if (detectDataHealthBriefing(message)) {
+      const reply = await buildDataHealthBriefing(supabase, contextualCity || '');
+      logPhase('answer', {
+        traceId,
+        mode: 'data_health_briefing',
+        city: contextualCity || '',
+        durationMs: Date.now() - startedAt
+      });
+      return res.status(200).json({ success: true, reply, traceId });
+    }
+
     if (detectSystemBriefing(message)) {
       const briefing = await buildSystemBriefing(supabase, contextualCity || '');
       logPhase('answer', {
