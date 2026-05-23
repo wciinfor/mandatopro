@@ -420,8 +420,27 @@ function formatRow(table, row) {
 }
 
 function labelForTable(table) {
-  if (!table) return 'registros';
-  return String(table).replace('_', ' ');
+  const labels = {
+    campanhas: 'campanhas',
+    agenda_eventos: 'eventos da agenda',
+    liderancas: 'liderancas',
+    eleitores: 'eleitores',
+    atendimentos: 'atendimentos',
+    solicitacoes: 'solicitacoes'
+  };
+  return labels[table] || 'registros';
+}
+
+function countLabelForTable(table) {
+  const labels = {
+    campanhas: { plural: 'campanhas', singular: 'campanha', suffix: 'cadastradas' },
+    agenda_eventos: { plural: 'eventos da agenda', singular: 'evento da agenda', suffix: 'cadastrados' },
+    liderancas: { plural: 'liderancas', singular: 'lideranca', suffix: 'cadastradas' },
+    eleitores: { plural: 'eleitores', singular: 'eleitor', suffix: 'cadastrados' },
+    atendimentos: { plural: 'atendimentos', singular: 'atendimento', suffix: 'cadastrados' },
+    solicitacoes: { plural: 'solicitacoes', singular: 'solicitacao', suffix: 'cadastradas' }
+  };
+  return labels[table] || { plural: 'registros', singular: 'registro', suffix: 'cadastrados' };
 }
 
 function formatValue(value, table, field) {
@@ -803,8 +822,12 @@ function buildAnswerLocal(plan, rows, meta, question) {
 
   if (plan?.action === 'count') {
     const total = meta?.count || 0;
-    const noun = total === 1 ? tableLabel.replace(/s$/, '') : tableLabel;
-    return `Temos ${total} ${noun} cadastrados. Quer que eu liste quais sao?`;
+    const label = countLabelForTable(plan?.table);
+    if (total === 0) {
+      return `Nao encontrei ${label.plural} ${label.suffix} nessa consulta. Se quiser, posso verificar por outro termo, cidade, bairro ou status.`;
+    }
+    const noun = total === 1 ? label.singular : label.plural;
+    return `Temos ${total} ${noun} ${label.suffix}. Quer que eu liste quais sao?`;
   }
 
   if (!rows || rows.length === 0) {
@@ -865,6 +888,10 @@ async function buildAnswer(plan, rows, meta, question, provider, historyMessages
     sugestoes: suggestions,
     perguntaClarificacao: clarifyingQuestion
   };
+
+  if (plan?.action === 'count') {
+    return buildAnswerLocal(plan, rows, { ...meta, snippets }, question);
+  }
 
   if (!provider?.apiKey) {
     return buildAnswerLocal(plan, rows, { ...meta, snippets }, question);
