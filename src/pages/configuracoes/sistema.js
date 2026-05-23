@@ -1,7 +1,6 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import Image from 'next/image';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -80,21 +79,25 @@ export default function ConfiguracaoSistema() {
   const providerModelValue = openai.provider === 'groq' ? openai.groqModel : openai.model;
   const hasProviderKey = openai.provider === 'groq' ? openai.hasGroqKey : openai.hasKey;
 
-  const verificarStatusWhatsApp = useCallback(async () => {
+  // Carregar dados da API
+  useEffect(() => {
     try {
-      const response = await fetch('/api/whatsapp-business/config');
-      const data = await response.json();
-      setWhatsappStatus({
-        isConfigured: data.isConfigured || false,
-        isConnected: data.isConnected || false,
-        lastUpdate: new Date().toLocaleString('pt-BR')
-      });
+      carregarConfiguracoes();
+
+      // Verificar hash para definir aba ativa
+      if (window.location.hash === '#whatsapp') {
+        setActiveTab('whatsapp');
+      } else if (window.location.hash === '#ia') {
+        setActiveTab('ia');
+      } else if (window.location.hash === '#dados') {
+        setActiveTab('sistema');
+      }
     } catch (error) {
-      console.error('Erro ao verificar status:', error);
+      console.error('Erro ao carregar página de configurações:', error);
     }
   }, []);
 
-  const carregarConfiguracoes = useCallback(async () => {
+  const carregarConfiguracoes = async () => {
     try {
       const response = await fetch('/api/configuracoes');
       if (!response.ok) {
@@ -149,25 +152,21 @@ export default function ConfiguracaoSistema() {
     } catch (error) {
       console.error('Erro ao verificar status WhatsApp:', error);
     }
-  }, [verificarStatusWhatsApp]);
+  };
 
-  // Carregar dados da API
-  useEffect(() => {
+  const verificarStatusWhatsApp = async () => {
     try {
-      carregarConfiguracoes();
-
-      // Verificar hash para definir aba ativa
-      if (window.location.hash === '#whatsapp') {
-        setActiveTab('whatsapp');
-      } else if (window.location.hash === '#ia') {
-        setActiveTab('ia');
-      } else if (window.location.hash === '#dados') {
-        setActiveTab('sistema');
-      }
+      const response = await fetch('/api/whatsapp-business/config');
+      const data = await response.json();
+      setWhatsappStatus({
+        isConfigured: data.isConfigured || false,
+        isConnected: data.isConnected || false,
+        lastUpdate: new Date().toLocaleString('pt-BR')
+      });
     } catch (error) {
-      console.error('Erro ao carregar página de configurações:', error);
+      console.error('Erro ao verificar status:', error);
     }
-  }, [carregarConfiguracoes]);
+  };
 
   // Manipular upload de logo
   const handleLogoChange = (e) => {
@@ -494,13 +493,10 @@ export default function ConfiguracaoSistema() {
                 <div className="md:col-span-1">
                   <div className="bg-gray-100 rounded-lg p-6 border-2 border-dashed border-gray-300 text-center hover:bg-gray-200 transition cursor-pointer relative group">
                     {logoPreview || sistema.logo ? (
-                      <Image
+                      <img
                         src={logoPreview || sistema.logo}
                         alt="Logo"
-                        width={160}
-                        height={160}
                         className="h-40 mx-auto object-contain"
-                        unoptimized
                       />
                     ) : (
                       <div className="py-10">

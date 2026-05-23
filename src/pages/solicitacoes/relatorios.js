@@ -74,7 +74,7 @@ export default function RelatoriosSolicitacoes() {
       }
     };
     fetchStats();
-  }, [usuario]);
+  }, [usuario?.id]);
 
   const handleGerarRelatorio = () => {
     try {

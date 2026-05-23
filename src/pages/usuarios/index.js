@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -12,13 +12,7 @@ import { MODULES, ROLES, ROLE_DESCRIPTIONS, getRoleColor } from '@/utils/permiss
 
 export default function Usuarios() {
   const router = useRouter();
-  const { modalState, closeModal, showConfirm, showSuccess, showError, showModal } = useModal();
-  const showErrorRef = useRef(showError);
-  const openingRecoveryLinkRef = useRef(false);
-
-  useEffect(() => {
-    showErrorRef.current = showError;
-  }, [showError]);
+  const { modalState, closeModal, showConfirm, showSuccess, showError } = useModal();
 
   // Estado
   const [usuarios, setUsuarios] = useState([]);
@@ -32,7 +26,7 @@ export default function Usuarios() {
   const [filtroNivel, setFiltroNivel] = useState('TODOS');
   const [filtroStatus, setFiltroStatus] = useState('ATIVO');
 
-  const carregarUsuarios = useCallback(async (signal) => {
+  const carregarUsuarios = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -47,14 +41,7 @@ export default function Usuarios() {
         ? JSON.parse(localStorage.getItem('usuario') || 'null')
         : null;
 
-      if (!usuario?.id) {
-        setUsuarios([]);
-        setTotalRegistros(0);
-        return;
-      }
-
       const response = await fetch(`/api/usuarios?${params.toString()}`, {
-        signal,
         headers: {
           usuario: usuario ? JSON.stringify(usuario) : ''
         }
@@ -68,24 +55,15 @@ export default function Usuarios() {
       setUsuarios(data.data || []);
       setTotalRegistros(data.total || 0);
     } catch (error) {
-      if (error?.name !== 'AbortError') {
-        showErrorRef.current('Erro ao carregar usuarios: ' + error.message);
-      }
+      showError('Erro ao carregar usuarios: ' + error.message);
     } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, [busca, filtroNivel, filtroStatus, itensPorPagina, paginaAtual]);
+  };
 
   useEffect(() => {
-    const abortController = new AbortController();
-    carregarUsuarios(abortController.signal);
-
-    return () => {
-      abortController.abort();
-    };
-  }, [carregarUsuarios]);
+    carregarUsuarios();
+  }, [busca, filtroNivel, filtroStatus, paginaAtual]);
 
   const usuariosFiltrados = usuarios;
 
@@ -203,32 +181,8 @@ export default function Usuarios() {
       if (!response.ok) {
         throw new Error(data?.message || 'Erro ao gerar link');
       }
-
-      const actionLink = String(data?.actionLink || '').trim();
-      if (!actionLink) {
-        showSuccess('Link de recuperacao gerado.');
-        return;
-      }
-
-      showModal({
-        message: 'Link de recuperacao gerado.',
-        type: 'success',
-        confirmText: 'Clique aqui para Redefinir',
-        onConfirm: () => {
-          if (typeof window === 'undefined') return;
-          if (openingRecoveryLinkRef.current) return;
-          openingRecoveryLinkRef.current = true;
-
-          const popup = window.open(actionLink, '_blank', 'noopener,noreferrer');
-          if (!popup) {
-            openingRecoveryLinkRef.current = false;
-            showError('Nao foi possivel abrir a nova janela. Habilite pop-up para continuar.');
-            return;
-          }
-
-          popup.opener = null;
-        }
-      });
+      const linkInfo = data.actionLink ? `\n\nLink: ${data.actionLink}` : '';
+      showSuccess(`Link de recuperacao gerado.${linkInfo}`);
     } catch (error) {
       showError('Erro ao resetar senha: ' + error.message);
     }

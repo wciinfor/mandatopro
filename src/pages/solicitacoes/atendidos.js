@@ -38,7 +38,7 @@ export default function SolicitacoesAtendidas() {
       }
     };
     fetchSolicitacoes();
-  }, [usuario]);
+  }, [usuario?.id]);
 
   const solicitacoesFiltradas = solicitacoes.filter(sol =>
     sol.titulo.toLowerCase().includes(busca.toLowerCase()) ||

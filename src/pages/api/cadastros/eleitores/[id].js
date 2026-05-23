@@ -77,35 +77,15 @@ export default async function handler(req, res) {
         data_nascimento: normalizar(body.dataNascimento || body.data_nascimento),
         sexo: normalizar(body.sexo) ?? 'MASCULINO',
         profissao: normalizar(body.profissao),
-        lideranca: normalizar(body.lideranca),
         status: normalizar(body.statusCadastro || body.status)
       };
 
-      let { data: eleitor, error } = await supabase
+      const { data: eleitor, error } = await supabase
         .from('eleitores')
         .update(payload)
         .eq('id', parseInt(id))
         .select()
         .single();
-
-      // Compatibilidade com bancos que ainda nao possuem a coluna lideranca
-      const erroColunaLideranca =
-        error &&
-        (String(error.message || '').toLowerCase().includes('lideranca') ||
-          String(error.details || '').toLowerCase().includes('lideranca'));
-
-      if (erroColunaLideranca) {
-        const payloadSemLideranca = { ...payload };
-        delete payloadSemLideranca.lideranca;
-        const retry = await supabase
-          .from('eleitores')
-          .update(payloadSemLideranca)
-          .eq('id', parseInt(id))
-          .select()
-          .single();
-        eleitor = retry.data;
-        error = retry.error;
-      }
 
       if (error) {
         return res.status(400).json({ 

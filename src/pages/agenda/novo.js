@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -54,17 +54,6 @@ export default function NovoEvento() {
     'Outros'
   ];
 
-  const parseApiResponse = async (res) => {
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.toLowerCase().includes('application/json')) {
-      const body = await res.text();
-      const preview = (body || '').slice(0, 120).replace(/\s+/g, ' ').trim();
-      throw new Error(`Resposta invalida do servidor (${res.status}): ${preview || 'sem conteudo'}`);
-    }
-
-    return res.json();
-  };
-
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -73,11 +62,23 @@ export default function NovoEvento() {
     }));
   };
 
-  const carregarEvento = useCallback(async () => {
+  useEffect(() => {
+    if (id) {
+      carregarEvento();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) {
+      carregarCampanhas();
+    }
+  }, [id]);
+
+  const carregarEvento = async () => {
     setCarregando(true);
     try {
       const res = await fetch('/api/agenda');
-      const json = await parseApiResponse(res);
+      const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erro ao carregar evento');
       const data = (json.data || []).find(e => String(e.id) === String(id));
       if (!data) throw new Error('Evento não encontrado');
@@ -104,13 +105,13 @@ export default function NovoEvento() {
     } finally {
       setCarregando(false);
     }
-  }, [id, user?.nivel]);
+  };
 
-  const carregarCampanhas = useCallback(async () => {
+  const carregarCampanhas = async () => {
     setCarregandoCampanhas(true);
     try {
-      const res = await fetch('/api/cadastros/campanhas?limit=200&offset=0');
-      const json = await parseApiResponse(res);
+      const res = await fetch('/api/campanhas');
+      const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Erro ao carregar campanhas');
       setCampanhas(json.data || json.campanhas || []);
     } catch (error) {
@@ -120,19 +121,7 @@ export default function NovoEvento() {
     } finally {
       setCarregandoCampanhas(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (id) {
-      carregarEvento();
-    }
-  }, [id, carregarEvento]);
-
-  useEffect(() => {
-    if (!id) {
-      carregarCampanhas();
-    }
-  }, [id, carregarCampanhas]);
+  };
 
   const handleImportarCampanha = async () => {
     if (!campanhaSelecionada) return;
@@ -144,7 +133,7 @@ export default function NovoEvento() {
       const usuarioId = user?.id || null;
       if (usuarioId) {
         const res = await fetch('/api/agenda');
-        const json = await parseApiResponse(res);
+        const json = await res.json();
         const existentes = (json.data || []).filter(e =>
           e.tipo === 'EVENTO' &&
           e.categoria === 'Campanha' &&
@@ -223,7 +212,7 @@ export default function NovoEvento() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, ...payload })
         });
-        const json = await parseApiResponse(res);
+        const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Erro ao atualizar evento');
       } else {
         const res = await fetch('/api/agenda', {
@@ -231,7 +220,7 @@ export default function NovoEvento() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const json = await parseApiResponse(res);
+        const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Erro ao criar evento');
       }
 

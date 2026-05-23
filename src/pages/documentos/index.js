@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
-import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPalette, faUsers, faBook, faDownload, faFolder, faPlus,
@@ -45,19 +44,6 @@ const CATEGORIAS = {
     descricao: 'Manuais, guias e materiais educativos'
   }
 };
-
-function parseTamanhoParaMB(tamanho) {
-  const texto = String(tamanho || '').trim();
-  if (!texto) return 0;
-
-  const normalizado = texto.replace(',', '.').toUpperCase();
-  const numero = parseFloat(normalizado);
-
-  if (!Number.isFinite(numero)) return 0;
-  if (normalizado.includes('GB')) return numero * 1024;
-  if (normalizado.includes('KB')) return numero / 1024;
-  return numero;
-}
 
 export default function Documentos() {
   const router = useRouter();
@@ -349,14 +335,11 @@ export default function Documentos() {
     const tipo = (doc.tipo || '').toLowerCase();
     if (imgTypes.includes(tipo) && doc.url) {
       return (
-        <Image
+        <img
           src={doc.url}
           alt={doc.nome}
-          width={80}
-          height={80}
           className="w-full h-full object-cover"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          unoptimized
+          onError={(e) => { e.target.style.display = 'none'; }}
         />
       );
     }
@@ -572,11 +555,11 @@ export default function Documentos() {
           <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
             <div className="text-3xl font-bold text-purple-600">
               {Object.values(documentos).flat().reduce((acc, doc) => {
-                const tamanhoNum = parseTamanhoParaMB(doc.tamanho);
+                const tamanhoNum = parseFloat(doc.tamanho);
                 return acc + tamanhoNum;
               }, 0).toFixed(1)} MB
             </div>
-            <div className="text-sm text-gray-600">Espaço Estimado dos Arquivos</div>
+            <div className="text-sm text-gray-600">Espaço Total</div>
           </div>
         </div>
       </Layout>
@@ -661,13 +644,10 @@ export default function Documentos() {
                     className="relative block bg-black group"
                   >
                     {ytId ? (
-                      <Image
+                      <img
                         src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
                         alt={video.nome}
-                        width={480}
-                        height={270}
                         className="w-full h-44 object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                        unoptimized
                       />
                     ) : (
                       <div className="w-full h-44 bg-red-900 flex items-center justify-center">
@@ -796,13 +776,10 @@ export default function Documentos() {
                     </div>
                     {formVideo.url && extrairYoutubeId(formVideo.url) && (
                       <div className="mt-2 rounded-lg overflow-hidden border border-gray-200">
-                        <Image
+                        <img
                           src={`https://img.youtube.com/vi/${extrairYoutubeId(formVideo.url)}/hqdefault.jpg`}
                           alt="Preview"
-                          width={480}
-                          height={180}
                           className="w-full h-32 object-cover"
-                          unoptimized
                         />
                       </div>
                     )}

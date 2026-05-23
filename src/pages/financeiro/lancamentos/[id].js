@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -27,7 +27,11 @@ export default function EditarLancamento() {
   const [loading, setLoading] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
-  const carregarLancamento = useCallback(async () => {
+  useEffect(() => {
+    if (id) carregarLancamento();
+  }, [id]);
+
+  const carregarLancamento = async () => {
     try {
       setCarregando(true);
       const usuario = typeof window !== 'undefined'
@@ -59,11 +63,7 @@ export default function EditarLancamento() {
     } finally {
       setCarregando(false);
     }
-  }, [id, showError]);
-
-  useEffect(() => {
-    if (id) carregarLancamento();
-  }, [id, carregarLancamento]);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;

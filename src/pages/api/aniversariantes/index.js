@@ -14,22 +14,10 @@ export default async function handler(req, res) {
     const incluirInativos = String(req.query.include_inativos || '').toLowerCase() === 'true';
     const deduplicar = true;
 
-    console.log('[API ANIVERSARIANTES] Requisição recebida:', {
-      limite,
-      incluirInativos,
-      timestamp: new Date().toISOString()
-    });
-
     const snapshot = await carregarSnapshotAniversariantes(supabase, {
       limite,
       incluirInativos,
       deduplicar
-    });
-
-    console.log('[API ANIVERSARIANTES] Retornando resposta:', {
-      totalAniversariantes: snapshot.resumo.totalAniversariantes,
-      aniversariantesHoje: snapshot.resumo.aniversariantesHoje,
-      proximosRetornados: snapshot.proximosAniversariantes.length
     });
 
     return res.status(200).json({
@@ -40,7 +28,7 @@ export default async function handler(req, res) {
       inconsistencias: snapshot.inconsistencias
     });
   } catch (error) {
-    console.error('[API ANIVERSARIANTES] Erro:', error);
+    console.error('Erro ao buscar aniversariantes:', error);
     return res.status(500).json({
       success: false,
       error: 'Erro ao buscar aniversariantes no Supabase',

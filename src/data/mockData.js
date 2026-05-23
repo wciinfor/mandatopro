@@ -303,14 +303,9 @@ export const repasses = [
 
 // Funções auxiliares para cálculos
 export const getDashboardStats = () => {
-  // Normaliza data para início do dia em UTC (00:00:00 UTC)
-  const inicioDoDia = (data = new Date()) => {
-    return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate()));
-  };
-
   // Função para calcular próximos aniversariantes
   const getProximosAniversariantes = () => {
-    const hoje = inicioDoDia(); // Normaliza para início do dia em UTC
+    const hoje = new Date();
     const todasPessoas = [
       ...eleitores.map(e => ({ ...e, tipo: 'eleitor', dataNascimento: e.dataNascimento })),
       ...liderancas.map(l => ({ ...l, tipo: 'lideranca', dataNascimento: l.dataNascimento })),
@@ -321,12 +316,12 @@ export const getDashboardStats = () => {
       .filter(p => p.dataNascimento)
       .map(pessoa => {
         const [ano, mes, dia] = pessoa.dataNascimento.split('-').map(Number);
-        const aniversarioEsteAno = new Date(Date.UTC(hoje.getUTCFullYear(), mes - 1, dia));
-        const aniversarioProximoAno = new Date(Date.UTC(hoje.getUTCFullYear() + 1, mes - 1, dia));
+        const aniversarioEsteAno = new Date(hoje.getFullYear(), mes - 1, dia);
+        const aniversarioProximoAno = new Date(hoje.getFullYear() + 1, mes - 1, dia);
         
         const proximoAniversario = aniversarioEsteAno >= hoje ? aniversarioEsteAno : aniversarioProximoAno;
-        const diasAte = Math.round((proximoAniversario - hoje) / (1000 * 60 * 60 * 24));
-        const idade = hoje.getUTCFullYear() - ano + (aniversarioEsteAno < hoje ? 1 : 0);
+        const diasAte = Math.ceil((proximoAniversario - hoje) / (1000 * 60 * 60 * 24));
+        const idade = hoje.getFullYear() - ano + (aniversarioEsteAno < hoje ? 1 : 0);
         
         return {
           ...pessoa,

@@ -42,16 +42,7 @@ export default async function handler(req, res) {
             id,
             nome,
             cpf,
-            rg,
-            email,
-            telefone,
-            celular,
-            endereco,
-            logradouro,
-            bairro,
-            cep,
-            nomeMae,
-            nomemae
+            rg
           ),
           campanhas:campanhas!atendimentos_campanha_id_fkey (
             id,

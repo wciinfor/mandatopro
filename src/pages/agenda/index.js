@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendarAlt, faPlus, faEdit, faTrash, faEye, faUsers, faMapMarkerAlt, faClock, faFilter, faCheckCircle, faPrint
@@ -9,15 +9,6 @@ import Modal from '@/components/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { MODULES } from '@/utils/permissions';
 import PDFGenerator from '@/utils/pdfGenerator';
-
-const normalizarEvento = (evento) => ({
-  ...evento,
-  horaInicio: evento.horaInicio || evento.hora_inicio || '',
-  horaFim: evento.horaFim || evento.hora_fim || '',
-  confirmados: evento.confirmados ?? 0,
-  participantes: evento.participantes ?? 0,
-  criado_por_id: evento.criado_por_id ?? null
-});
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -30,7 +21,20 @@ export default function Agenda() {
   const [modalExcluir, setModalExcluir] = useState(false);
   const [eventoParaExcluir, setEventoParaExcluir] = useState(null);
 
-  const carregarEventos = useCallback(async () => {
+  useEffect(() => {
+    carregarEventos();
+  }, []);
+
+  const normalizarEvento = (evento) => ({
+    ...evento,
+    horaInicio: evento.horaInicio || evento.hora_inicio || '',
+    horaFim: evento.horaFim || evento.hora_fim || '',
+    confirmados: evento.confirmados ?? 0,
+    participantes: evento.participantes ?? 0,
+    criado_por_id: evento.criado_por_id ?? null
+  });
+
+  const carregarEventos = async () => {
     setCarregando(true);
     try {
       const res = await fetch('/api/agenda');
@@ -42,11 +46,7 @@ export default function Agenda() {
     } finally {
       setCarregando(false);
     }
-  }, []);
-
-  useEffect(() => {
-    carregarEventos();
-  }, [carregarEventos]);
+  };
 
   const isEventoCampanha = (evento) => {
     return (evento.tipo || '').toUpperCase() === 'EVENTO'

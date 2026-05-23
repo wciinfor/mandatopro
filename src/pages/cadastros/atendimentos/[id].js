@@ -199,7 +199,7 @@ export default function EditarAtendimento() {
     };
 
     carregarAtendimento();
-  }, [id]); // showError excluído: recria a cada render e causaria loop infinito
+  }, [id]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

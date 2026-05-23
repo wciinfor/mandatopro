@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -26,7 +26,11 @@ export default function Lancamentos() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
 
-  const carregarLancamentos = useCallback(async () => {
+  useEffect(() => {
+    carregarLancamentos();
+  }, [filtro, tipoFiltro, statusFiltro, dataInicio, dataFim, paginaAtual]);
+
+  const carregarLancamentos = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -60,11 +64,7 @@ export default function Lancamentos() {
     } finally {
       setLoading(false);
     }
-  }, [dataFim, dataInicio, filtro, itensPorPagina, paginaAtual, showError, statusFiltro, tipoFiltro]);
-
-  useEffect(() => {
-    carregarLancamentos();
-  }, [carregarLancamentos]);
+  };
 
   const lancamentosFiltrados = lancamentos;
 

@@ -89,13 +89,12 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const body = req.body || {};
-      const usuarioIdNumero = Number.parseInt(body.usuarioId, 10);
       const statusValido = ['SUCESSO', 'ERRO', 'AVISO'].includes(body.status)
         ? body.status
         : 'SUCESSO';
 
       const payload = {
-        usuario_id: Number.isFinite(usuarioIdNumero) ? usuarioIdNumero : null,
+        usuario_id: body.usuarioId ? parseInt(body.usuarioId, 10) : null,
         acao: body.tipoEvento || body.acao || 'ACESSO',
         modulo: body.modulo || null,
         descricao: body.descricao || null,

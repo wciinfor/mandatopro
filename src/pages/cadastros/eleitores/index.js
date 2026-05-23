@@ -16,10 +16,7 @@ export default function GerenciarEleitores() {
   
   const [eleitores, setEleitores] = useState([]);
   const [liderancas, setLiderancas] = useState([]);
-  const [cidades, setCidades] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingCidades, setLoadingCidades] = useState(false);
-  const [totalEleitores, setTotalEleitores] = useState(0);
   const [filtro, setFiltro] = useState('');
   const [filtroLideranca, setFiltroLideranca] = useState('');
   const [filtroCidade, setFiltroCidade] = useState('');
@@ -27,28 +24,10 @@ export default function GerenciarEleitores() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
 
-  const normalizarCidadeKey = (valor = '') =>
-    String(valor)
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase()
-      .replace(/[^A-Z0-9 ]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  const liderancasFiltradas = liderancas.filter((l) => {
-    if (!filtroCidade) return true;
-    const cidadeLiderancaKey = normalizarCidadeKey(l?.municipio || '');
-    return cidadeLiderancaKey === filtroCidade;
-  });
-
+  // Carregar eleitores ao montar
   useEffect(() => {
-    const t = setTimeout(() => {
-      carregarEleitores();
-    }, 250);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [situacao, paginaAtual, filtro, filtroLideranca, filtroCidade, cidades]);
+    carregarEleitores();
+  }, [situacao]);
 
   useEffect(() => {
     fetch('/api/usuarios/liderancas-opcoes', { headers: { usuario: JSON.stringify({nivel:'ADMINISTRADOR'}) } })
@@ -57,73 +36,10 @@ export default function GerenciarEleitores() {
       .catch(() => setLiderancas([]));
   }, []);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      carregarCidades();
-    }, 150);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!filtroLideranca) return;
-    const existe = liderancasFiltradas.some((l) => String(l.id) === String(filtroLideranca));
-    if (!existe) {
-      setFiltroLideranca('');
-      setPaginaAtual(1);
-    }
-  }, [filtroLideranca, liderancasFiltradas]);
-
-  const carregarCidades = async () => {
-    try {
-      setLoadingCidades(true);
-
-      const params = new URLSearchParams();
-      params.set('onlyCities', 'true');
-
-      const response = await fetch(`/api/cadastros/eleitores?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error('Erro ao carregar cidades');
-      }
-
-      const data = await response.json();
-      const opcoes = Array.isArray(data?.data) ? data.data : [];
-      setCidades(opcoes);
-
-      if (filtroCidade && !opcoes.some((c) => c.key === filtroCidade)) {
-        setFiltroCidade('');
-      }
-    } catch (error) {
-      setCidades([]);
-      showError('Erro ao carregar cidades: ' + error.message);
-    } finally {
-      setLoadingCidades(false);
-    }
-  };
-
   const carregarEleitores = async () => {
     try {
       setLoading(true);
-
-      const offset = (paginaAtual - 1) * itensPorPagina;
-      const params = new URLSearchParams();
-      params.set('status', situacao);
-      params.set('limit', String(itensPorPagina));
-      params.set('offset', String(offset));
-
-      if (filtro && filtro.trim().length > 0) params.set('search', filtro.trim());
-      if (filtroLideranca) params.set('liderancaId', filtroLideranca);
-
-      if (filtroCidade) {
-        const cidadeSelecionada = cidades.find((c) => c.key === filtroCidade);
-        if (cidadeSelecionada?.values?.length) {
-          cidadeSelecionada.values.forEach((value) => params.append('cidadeValues', value));
-        } else {
-          params.set('cidade', filtroCidade);
-        }
-      }
-
-      const response = await fetch(`/api/cadastros/eleitores?${params.toString()}`);
+      const response = await fetch(`/api/cadastros/eleitores?status=${situacao}&limit=5000`);
       
       if (!response.ok) {
         throw new Error('Erro ao carregar eleitores');
@@ -131,7 +47,6 @@ export default function GerenciarEleitores() {
 
       const data = await response.json();
       setEleitores(data.data || []);
-      setTotalEleitores(Number(data.total || 0));
     } catch (error) {
       showError('Erro ao carregar eleitores: ' + error.message);
     } finally {
@@ -139,8 +54,24 @@ export default function GerenciarEleitores() {
     }
   };
 
-  const totalPaginas = Math.max(1, Math.ceil((totalEleitores || 0) / itensPorPagina));
-  const eleitoresPaginados = eleitores;
+  const cidades = [...new Set(eleitores.map(el => el.cidade || el.municipio).filter(Boolean))].sort();
+
+  const eleitoresFiltrados = eleitores.filter(el => {
+    const matchFiltro = filtro === '' ||
+      el.nome.toLowerCase().includes(filtro.toLowerCase()) ||
+      (el.rg && el.rg.includes(filtro)) ||
+      (el.tituloEleitoral && el.tituloEleitoral.includes(filtro));
+    const matchLideranca = filtroLideranca === '' ||
+      String(el.lideranca_id || '') === filtroLideranca;
+    const matchCidade = filtroCidade === '' ||
+      (el.cidade || el.municipio || '') === filtroCidade;
+    return matchFiltro && matchLideranca && matchCidade;
+  });
+
+  const totalPaginas = Math.ceil(eleitoresFiltrados.length / itensPorPagina);
+  const indiceInicio = (paginaAtual - 1) * itensPorPagina;
+  const indiceFim = indiceInicio + itensPorPagina;
+  const eleitoresPaginados = eleitoresFiltrados.slice(indiceInicio, indiceFim);
 
   const handleInserir = () => {
     router.push('/cadastros/eleitores/novo');
@@ -175,7 +106,7 @@ export default function GerenciarEleitores() {
       const s = String(v ?? '');
       return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const linhas = eleitoresPaginados.map(el => [
+    const linhas = eleitoresFiltrados.map(el => [
       el.nome,
       el.telefone || ''
     ].map(escapar).join(','));
@@ -194,18 +125,18 @@ export default function GerenciarEleitores() {
     pdfGen.initDoc();
     pdfGen.addHeader('LISTAGEM DE ELEITORES');
     
-    const tableData = eleitoresPaginados.map(el => [
+    const tableData = eleitoresFiltrados.map(el => [
       el.codigo,
       el.nome,
       el.rg,
-      el.cidade || el.municipio || '-',
-      el.bairro || '-',
+      el.tituloEleitoral,
+      el.situacaoTSE || el.situacao_tse || el.situacaotse,
       el.telefone,
       el.statusCadastro || el.status
     ]);
     
     pdfGen.doc.autoTable({
-      head: [['Código', 'Nome', 'RG', 'Cidade', 'Bairro', 'Telefone', 'Status']],
+      head: [['Código', 'Nome', 'RG', 'Título Eleitoral', 'Situação TSE', 'Telefone', 'Status']],
       body: tableData,
       startY: 50,
       styles: { fontSize: 8, cellPadding: 2 },
@@ -307,28 +238,8 @@ export default function GerenciarEleitores() {
               </select>
             </div>
           </div>
-          {/* Linha 2: Cidade + Liderança + Limpar */}
+          {/* Linha 2: Liderança + Cidade + Limpar */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                CIDADE
-              </label>
-              <select
-                value={filtroCidade}
-                onChange={(e) => {
-                  setFiltroCidade(e.target.value);
-                  setFiltroLideranca('');
-                  setPaginaAtual(1);
-                }}
-                disabled={loadingCidades}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              >
-                <option value="">Todas</option>
-                {cidades.map(c => (
-                  <option key={c.key} value={c.key}>{c.label}</option>
-                ))}
-              </select>
-            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 LIDERANÇA
@@ -339,8 +250,23 @@ export default function GerenciarEleitores() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="">Todas</option>
-                {liderancasFiltradas.map(l => (
+                {liderancas.map(l => (
                   <option key={l.id} value={String(l.id)}>{l.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                CIDADE
+              </label>
+              <select
+                value={filtroCidade}
+                onChange={(e) => { setFiltroCidade(e.target.value); setPaginaAtual(1); }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              >
+                <option value="">Todas</option>
+                {cidades.map(c => (
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
@@ -365,7 +291,7 @@ export default function GerenciarEleitores() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">Total:</span>
-                <span className="font-bold text-lg text-teal-600">{totalEleitores}</span>
+                <span className="font-bold text-lg text-teal-600">{eleitoresFiltrados.length}</span>
               </div>
               <button
                 onClick={handleImprimirListagem}
@@ -392,8 +318,8 @@ export default function GerenciarEleitores() {
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Código</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Nome</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">RG</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Cidade</th>
-                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Bairro</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Título Eleitoral</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Situação TSE</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Telefone</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Status</th>
                   <th className="px-4 py-3 text-center text-sm font-bold text-gray-700">Ações</th>
@@ -421,8 +347,8 @@ export default function GerenciarEleitores() {
                       <td className="px-4 py-3 text-sm">{eleitor.id}</td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-800">{eleitor.nome}</td>
                       <td className="px-4 py-3 text-sm">{eleitor.rg}</td>
-                      <td className="px-4 py-3 text-sm">{eleitor.cidade || eleitor.municipio || '-'}</td>
-                      <td className="px-4 py-3 text-sm">{eleitor.bairro || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{eleitor.tituloEleitoral || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{eleitor.situacaoTSE || eleitor.situacao_tse || eleitor.situacaotse || '-'}</td>
                       <td className="px-4 py-3 text-sm">{eleitor.telefone || eleitor.celular || '-'}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${

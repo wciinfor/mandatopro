@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { obterLiderancas } from '@/services/liderancaService';
 import {
   faList, faPlus, faFilter, faPrint, faEdit, faTrash, faChevronLeft, faChevronRight, 
   faAngleDoubleLeft, faAngleDoubleRight, faIdCard, faFileDownload, faArrowUp, faArrowDown, faSort
@@ -93,7 +94,28 @@ export default function GerenciarLiderancas() {
     router.push('/cadastros/liderancas/novo');
   };
 
-  const carregarContagemCadastros = useCallback(async (liderancasList) => {
+  const carregarLiderancas = async () => {
+    setCarregando(true);
+    setErroCarregamento('');
+    try {
+      const dados = await obterLiderancas();
+      setLiderancas(dados || []);
+      
+      // Carregar contagem de cadastros para cada liderança
+      carregarContagemCadastros(dados || []);
+    } catch (error) {
+      const mensagem = error?.message || 'Erro ao carregar liderancas. Tente novamente.';
+      setErroCarregamento(mensagem);
+      showError(mensagem);
+      if (mensagem.toLowerCase().includes('sessao expirada')) {
+        router.push('/login');
+      }
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const carregarContagemCadastros = async (liderancasList) => {
     try {
       const contagem = {};
       for (const lid of liderancasList) {
@@ -110,33 +132,10 @@ export default function GerenciarLiderancas() {
     } catch (error) {
       console.error('Erro ao carregar contagem de cadastros:', error);
     }
-  }, []);
-
-  const carregarLiderancas = useCallback(async () => {
-    setCarregando(true);
-    setErroCarregamento('');
-    try {
-      const response = await fetch('/api/cadastros/liderancas?limit=500');
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.message || 'Erro ao carregar lideranças');
-      }
-      const json = await response.json();
-      const dados = json.data || [];
-      setLiderancas(dados);
-      carregarContagemCadastros(dados);
-    } catch (error) {
-      const mensagem = error?.message || 'Erro ao carregar liderancas. Tente novamente.';
-      setErroCarregamento(mensagem);
-    } finally {
-      setCarregando(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   useEffect(() => {
     carregarLiderancas();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleEditar = (id) => {
@@ -144,39 +143,9 @@ export default function GerenciarLiderancas() {
   };
 
   const handleExcluir = (id) => {
-    showConfirm('Tem certeza que deseja excluir esta liderança?', async () => {
-      try {
-        let usuarioHeader = null;
-        try {
-          const raw = localStorage.getItem('usuario');
-          usuarioHeader = raw ? JSON.parse(raw) : null;
-        } catch {
-          usuarioHeader = null;
-        }
-
-        const response = await fetch(`/api/cadastros/liderancas/${id}`, {
-          method: 'DELETE',
-          headers: {
-            ...(usuarioHeader ? { usuario: JSON.stringify(usuarioHeader) } : {})
-          }
-        });
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(payload?.message || 'Erro ao excluir liderança');
-        }
-
-        setLiderancas((prev) => prev.filter((l) => l.id !== id));
-        setContagemCadastros((prev) => {
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
-        showSuccess('Liderança excluída com sucesso!');
-      } catch (error) {
-        showError(error?.message || 'Erro ao excluir liderança');
-      }
+    showConfirm('Tem certeza que deseja excluir esta liderança?', () => {
+      setLiderancas(liderancas.filter(l => l.id !== id));
+      showSuccess('Liderança excluída com sucesso!');
     });
   };
 
@@ -425,6 +394,7 @@ export default function GerenciarLiderancas() {
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Telefone</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">Área de Atuação</th>
                   <th 
                     className={`px-4 py-3 text-center text-sm font-bold cursor-pointer transition ${
                       colunhaOrdenacao === 'projecao' 
@@ -509,6 +479,7 @@ export default function GerenciarLiderancas() {
                     <td className="px-4 py-3 text-sm">{lideranca.id}</td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{lideranca.nome || lideranca.nomeSocial}</td>
                     <td className="px-4 py-3 text-sm">{lideranca.telefone}</td>
+                    <td className="px-4 py-3 text-sm">{lideranca.areaAtuacao || '-'}</td>
                     <td className="px-4 py-3 text-sm text-center">
                       <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-semibold text-xs">
                         {lideranca.projecao_votos || lideranca.projecaoVotos || 0}

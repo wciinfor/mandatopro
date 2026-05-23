@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -19,7 +19,11 @@ export default function GerenciarResponsaveis() {
   const [responsaveis, setResponsaveis] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
-  const carregarResponsaveis = useCallback(async () => {
+  useEffect(() => {
+    carregarResponsaveis();
+  }, []);
+
+  const carregarResponsaveis = async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -36,11 +40,7 @@ export default function GerenciarResponsaveis() {
     } finally {
       setCarregando(false);
     }
-  }, [showError]);
-
-  useEffect(() => {
-    carregarResponsaveis();
-  }, [carregarResponsaveis]);
+  };
 
   const [filtro, setFiltro] = useState('');
   const [orgaoFiltro, setOrgaoFiltro] = useState('TODOS');

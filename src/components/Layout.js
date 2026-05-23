@@ -4,77 +4,95 @@ import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
 import AIChatWidget from './AIChatWidget';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faUserTie } from '@fortawesome/free-solid-svg-icons';
-
-function obterModuloAtivo(path = '') {
-  if (path === '/dashboard') return 'Dashboard';
-  if (path.startsWith('/cadastros/eleitores')) return 'Cadastros - Eleitores';
-  if (path.startsWith('/cadastros/liderancas')) return 'Cadastros - Lideranças';
-  if (path.startsWith('/cadastros/funcionarios')) return 'Cadastros - Funcionários';
-  if (path.startsWith('/cadastros/atendimentos')) return 'Cadastros - Atendimentos';
-  if (path.startsWith('/emendas/orgaos')) return 'Emendas - Órgãos';
-  if (path.startsWith('/emendas/responsaveis')) return 'Emendas - Responsáveis';
-  if (path.startsWith('/emendas/emendas')) return 'Emendas - Emendas';
-  if (path.startsWith('/emendas/repasses')) return 'Emendas - Repasses';
-  if (path.startsWith('/financeiro/lancamentos')) return 'Financeiro - Lancamentos';
-  if (path.startsWith('/financeiro/receitas')) return 'Financeiro - Receitas';
-  if (path.startsWith('/financeiro/despesas')) return 'Financeiro - Despesas';
-  if (path.startsWith('/financeiro/caixa')) return 'Financeiro - Caixa / Saldo';
-  if (path.startsWith('/financeiro/doadores')) return 'Financeiro - Doadores / Parceiros';
-  if (path.startsWith('/financeiro/relatorios')) return 'Financeiro - Relatórios Financeiros';
-  if (path.startsWith('/geolocalizacao')) return 'Geolocalização';
-  if (path.startsWith('/comunicacao')) return 'Notificações';
-  if (path.startsWith('/configuracoes')) return 'Configurações';
-  return 'Dashboard';
-}
+import { faBars, faBell, faUserTie } from '@fortawesome/free-solid-svg-icons';
 
 export default function Layout({ children, titulo = 'MandatoPro' }) {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [hidratado, setHidratado] = useState(false);
   const [sidebarAberto, setSidebarAberto] = useState(false);
-  const moduloAtivo = obterModuloAtivo(router.pathname);
+  const [moduloAtivo, setModuloAtivo] = useState('Dashboard');
 
   useEffect(() => {
-    try {
-      const usuarioStr = localStorage.getItem('usuario');
-      setUsuario(usuarioStr ? JSON.parse(usuarioStr) : null);
-    } catch {
-      setUsuario(null);
-    } finally {
-      setAuthReady(true);
-    }
-  }, []);
+    const usuarioStr = localStorage.getItem('usuario');
 
-  useEffect(() => {
-    if (!authReady) return;
+    if (usuarioStr) {
+      try {
+        const userData = JSON.parse(usuarioStr);
+        setUsuario(userData);
 
-    if (!usuario) {
+        // Buscar nome atualizado do Supabase
+        fetch('/api/usuarios/me', {
+          headers: { usuario: JSON.stringify(userData) }
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(body => {
+            if (body?.data) {
+              const atualizado = { ...userData, nome: body.data.nome };
+              setUsuario(atualizado);
+              localStorage.setItem('usuario', JSON.stringify(atualizado));
+            }
+          })
+          .catch(() => {}); // falha silenciosa, exibe o cache
+      } catch (error) {
+        localStorage.removeItem('usuario');
+        router.push('/login');
+      }
+    } else {
       if (router.pathname !== '/login') {
         router.push('/login');
       }
-      return;
     }
 
-    // Buscar nome atualizado do Supabase — roda apenas uma vez após authReady,
-    // sem depender de `usuario` para evitar loop: setUsuario → usuario muda → fetch → loop.
-    fetch('/api/usuarios/me', {
-      headers: { usuario: JSON.stringify(usuario) }
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then(body => {
-        if (body?.data?.nome) {
-          setUsuario(prev => {
-            if (prev?.nome === body.data.nome) return prev; // sem mudança, não re-renderiza
-            const atualizado = { ...prev, nome: body.data.nome };
-            localStorage.setItem('usuario', JSON.stringify(atualizado));
-            return atualizado;
-          });
-        }
-      })
-      .catch(() => {}); // falha silenciosa, exibe o cache
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authReady, router.pathname]);
+    setHidratado(true);
+  }, []); // Executar apenas uma vez na montagem
+
+  useEffect(() => {
+    // Determinar módulo ativo baseado na rota atual
+    const path = router.pathname;
+    if (path === '/dashboard') {
+      setModuloAtivo('Dashboard');
+    } else if (path.startsWith('/cadastros/eleitores')) {
+      setModuloAtivo('Cadastros - Eleitores');
+    } else if (path.startsWith('/cadastros/liderancas')) {
+      setModuloAtivo('Cadastros - Lideranças');
+    } else if (path.startsWith('/cadastros/funcionarios')) {
+      setModuloAtivo('Cadastros - Funcionários');
+    } else if (path.startsWith('/cadastros/atendimentos')) {
+      setModuloAtivo('Cadastros - Atendimentos');
+    } else if (path.startsWith('/emendas/orgaos')) {
+      setModuloAtivo('Emendas - Órgãos');
+    } else if (path.startsWith('/emendas/responsaveis')) {
+      setModuloAtivo('Emendas - Responsáveis');
+    } else if (path.startsWith('/emendas/emendas')) {
+      setModuloAtivo('Emendas - Emendas');
+    } else if (path.startsWith('/emendas/repasses')) {
+      setModuloAtivo('Emendas - Repasses');
+    } else if (path.startsWith('/financeiro/lancamentos')) {
+      setModuloAtivo('Financeiro - Lancamentos');
+    } else if (path.startsWith('/financeiro/receitas')) {
+      setModuloAtivo('Financeiro - Receitas');
+    } else if (path.startsWith('/financeiro/despesas')) {
+      setModuloAtivo('Financeiro - Despesas');
+    } else if (path.startsWith('/financeiro/caixa')) {
+      setModuloAtivo('Financeiro - Caixa / Saldo');
+    } else if (path.startsWith('/financeiro/doadores')) {
+      setModuloAtivo('Financeiro - Doadores / Parceiros');
+    } else if (path.startsWith('/financeiro/relatorios')) {
+      setModuloAtivo('Financeiro - Relatórios Financeiros');
+    } else if (path.startsWith('/geolocalizacao')) {
+      setModuloAtivo('Geolocalização');
+    } else if (path.startsWith('/comunicacao')) {
+      setModuloAtivo('Comunicação');
+    } else if (path.startsWith('/configuracoes')) {
+      setModuloAtivo('Configurações');
+    }
+  }, [router.pathname]);
+
+  // Apenas renderizar conteúdo após hidratação para evitar mismatch
+  if (!hidratado) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-teal-50 flex">
@@ -83,7 +101,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
         sidebarAberto={sidebarAberto}
         setSidebarAberto={setSidebarAberto}
         moduloAtivo={moduloAtivo}
-        setModuloAtivo={() => {}}
+        setModuloAtivo={setModuloAtivo}
       />
 
       {/* Main Content */}

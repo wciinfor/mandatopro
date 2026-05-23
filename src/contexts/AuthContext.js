@@ -4,11 +4,6 @@ import { createClient } from '@/lib/supabaseClient';
 import { ROLES } from '@/utils/permissions';
 import { registrarLogAuditoria } from '@/services/database';
 
-function isAbortError(error) {
-  const message = String(error?.message || '').toLowerCase();
-  return error?.name === 'AbortError' || message.includes('aborted');
-}
-
 // Contexto de autenticação
 const AuthContext = createContext();
 
@@ -97,9 +92,7 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (error) {
-      if (!isAbortError(error)) {
-        console.error('Erro ao carregar usuário:', error);
-      }
+      console.error('Erro ao carregar usuário:', error);
     } finally {
       if (!loadingResolved) {
         setLoading(false);
@@ -302,9 +295,7 @@ export async function redefinirSenha(email) {
       throw new Error('Supabase não está configurado');
     }
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const redirectTo = origin ? `${origin}/auth/redefinir-senha` : undefined;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
       throw error;

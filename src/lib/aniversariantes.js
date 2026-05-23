@@ -2,34 +2,6 @@ const MS_POR_DIA = 24 * 60 * 60 * 1000;
 
 const STATUS_ATIVO = 'ATIVO';
 
-// Cache em memória para dados dos eleitores (TTL: 15 minutos)
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos (era 1 hora, reduzido para desenvolvimento)
-let cacheAniversariantes = {
-  eleitores: null,
-  liderancas: null,
-  funcionarios: null,
-  timestamp: 0
-};
-
-function isCacheValido() {
-  return cacheAniversariantes.timestamp &&
-         (Date.now() - cacheAniversariantes.timestamp) < CACHE_TTL_MS &&
-         cacheAniversariantes.eleitores &&
-         cacheAniversariantes.liderancas &&
-         cacheAniversariantes.funcionarios;
-}
-
-// Função pública para limpar cache (uso externo via API)
-export function limparCacheAniversariantes() {
-  console.log('[ANIVERSARIANTES] Cache cleared manualmente');
-  cacheAniversariantes = {
-    eleitores: null,
-    liderancas: null,
-    funcionarios: null,
-    timestamp: 0
-  };
-}
-
 const CAMPOS_DATA_NASCIMENTO = ['data_nascimento', 'dataNascimento', 'datanascimento'];
 const CAMPOS_NOME = ['nome', 'nome_completo'];
 const CAMPOS_EMAIL = ['email'];
@@ -38,8 +10,7 @@ const CAMPOS_CPF = ['cpf'];
 const CAMPOS_ELEITOR_ID = ['eleitor_id'];
 
 function inicioDoDia(data = new Date()) {
-  // Usa UTC para evitar problemas de timezone
-  return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), data.getUTCDate()));
+  return new Date(data.getFullYear(), data.getMonth(), data.getDate());
 }
 
 function primeiroValor(obj, campos = []) {
@@ -131,18 +102,17 @@ function calcularDetalhesAniversario(dataNascimento, dataBase = new Date()) {
   const { ano, mes, dia } = dataNascimento;
   const hoje = inicioDoDia(dataBase);
 
-  // Cria datas de aniversário usando UTC
-  const aniversarioEsteAno = new Date(Date.UTC(hoje.getUTCFullYear(), mes - 1, dia));
+  const aniversarioEsteAno = new Date(hoje.getFullYear(), mes - 1, dia);
   const proximoAniversario = new Date(aniversarioEsteAno);
 
   if (proximoAniversario < hoje) {
-    proximoAniversario.setUTCFullYear(hoje.getUTCFullYear() + 1);
+    proximoAniversario.setFullYear(hoje.getFullYear() + 1);
   }
 
   const diasAte = Math.round((proximoAniversario - hoje) / MS_POR_DIA);
 
   const idade = Number.isFinite(ano)
-    ? (hoje.getUTCFullYear() - ano + (aniversarioEsteAno < hoje ? 1 : 0))
+    ? (hoje.getFullYear() - ano + (aniversarioEsteAno < hoje ? 1 : 0))
     : null;
 
   return {
@@ -334,100 +304,23 @@ export async function carregarSnapshotAniversariantes(supabase, opcoes = {}) {
   const incluirInativos = Boolean(opcoes.incluirInativos);
   const deduplicar = opcoes.deduplicar === undefined ? true : Boolean(opcoes.deduplicar);
   const limite = limitar(opcoes.limite, 1, 5000, 500);
-  const dataBase = inicioDoDia(opcoes.dataBase ? new Date(opcoes.dataBase) : new Date());
-
-  console.log('[ANIVERSARIANTES] Iniciando carregamento:', {
-    dataBase: dataBase.toISOString(),
-    incluirInativos,
-    deduplicar,
-    limite,
-    cacheValido: isCacheValido()
-  });
+  const dataBase = opcoes.dataBase ? new Date(opcoes.dataBase) : new Date();
 
   const inconsistencias = inicializarInconsistencias();
 
-  // Função auxiliar para buscar TODOS os registros com paginação
-  async function buscarTodos(tabela) {
-    const TAMANHO_PAGINA = 1000;
-    const todosOsDados = [];
-    let pagina = 0;
-    let temMais = true;
+  const [eleitoresResp, liderancasResp, funcionariosResp] = await Promise.all([
+    supabase.from('eleitores').select('*'),
+    supabase.from('liderancas').select('*'),
+    supabase.from('funcionarios').select('*')
+  ]);
 
-    while (temMais) {
-      const inicio = pagina * TAMANHO_PAGINA;
-      const fim = inicio + TAMANHO_PAGINA - 1;
+  if (eleitoresResp.error) throw eleitoresResp.error;
+  if (liderancasResp.error) throw liderancasResp.error;
+  if (funcionariosResp.error) throw funcionariosResp.error;
 
-      const { data, error } = await supabase
-        .from(tabela)
-        .select('*')
-        .range(inicio, fim);
-
-      if (error) {
-        console.error(`[ANIVERSARIANTES] Erro ao buscar ${tabela}:`, error);
-        throw error;
-      }
-
-      if (!Array.isArray(data) || data.length === 0) {
-        temMais = false;
-      } else {
-        todosOsDados.push(...data);
-
-        if (data.length < TAMANHO_PAGINA) {
-          temMais = false;
-        } else {
-          pagina++;
-        }
-      }
-    }
-
-    return todosOsDados;
-  }
-
-  // Tenta usar o cache se válido
-  let eleitores, liderancas, funcionarios;
-
-  if (isCacheValido()) {
-    console.log('[ANIVERSARIANTES] Usando CACHE (valid por mais', Math.round((CACHE_TTL_MS - (Date.now() - cacheAniversariantes.timestamp)) / 1000 / 60), 'minutos)');
-    eleitores = cacheAniversariantes.eleitores;
-    liderancas = cacheAniversariantes.liderancas;
-    funcionarios = cacheAniversariantes.funcionarios;
-  } else {
-    // Busca TODOS os dados com paginação
-    console.log('[ANIVERSARIANTES] Cache inválido ou expirado, buscando banco de dados...');
-    const [eleitoresResp, liderancasResp, funcionariosResp] = await Promise.all([
-      buscarTodos('eleitores'),
-      buscarTodos('liderancas'),
-      buscarTodos('funcionarios')
-    ]);
-
-    eleitores = Array.isArray(eleitoresResp) ? eleitoresResp : [];
-    liderancas = Array.isArray(liderancasResp) ? liderancasResp : [];
-    funcionarios = Array.isArray(funcionariosResp) ? funcionariosResp : [];
-
-    // Atualiza cache
-    cacheAniversariantes = {
-      eleitores,
-      liderancas,
-      funcionarios,
-      timestamp: Date.now()
-    };
-
-    console.log('[ANIVERSARIANTES] Cache atualizado com', eleitores.length, 'eleitores,', liderancas.length, 'lideranças,', funcionarios.length, 'funcionários');
-  }
-
-  // Contadores do banco
-  const eleitoresCount = await supabase.from('eleitores').select('id', { count: 'exact', head: true });
-  const liderancasCount = await supabase.from('liderancas').select('id', { count: 'exact', head: true });
-  const funcionariosCount = await supabase.from('funcionarios').select('id', { count: 'exact', head: true });
-
-  console.log('[ANIVERSARIANTES] Dados carregados:', {
-    eleitoresCarregados: eleitores.length,
-    eleitoresTotal: eleitoresCount.count,
-    liderancasCarregadas: liderancas.length,
-    liderancasTotal: liderancasCount.count,
-    funcionariosCarregados: funcionarios.length,
-    funcionariosTotal: funcionariosCount.count
-  });
+  const eleitores = Array.isArray(eleitoresResp.data) ? eleitoresResp.data : [];
+  const liderancas = Array.isArray(liderancasResp.data) ? liderancasResp.data : [];
+  const funcionarios = Array.isArray(funcionariosResp.data) ? funcionariosResp.data : [];
 
   const eleitoresPorId = new Map(
     eleitores
@@ -517,16 +410,6 @@ export async function carregarSnapshotAniversariantes(supabase, opcoes = {}) {
       totalRemovido: Math.max(totalAntesDeduplicacao - listaPublica.length, 0)
     }
   };
-
-  console.log('[ANIVERSARIANTES] Resultado final:', {
-    totalProcessado: totalAntesDeduplicacao,
-    totalAposDeduplicacao: listaPublica.length,
-    aniversariantesHoje: resumo.aniversariantesHoje,
-    aniversariantesSemana: resumo.aniversariantesSemana,
-    aniversariantesMes: resumo.aniversariantesMes,
-    dataBaseUsada: dataBase.toISOString(),
-    hojeEmUTC: dataBase.toISOString().slice(0, 10)
-  });
 
   return {
     resumo,

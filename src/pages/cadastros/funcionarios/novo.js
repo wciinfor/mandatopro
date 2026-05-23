@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -7,6 +7,9 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES } from '@/utils/permissions';
 import { applyMask, parseCurrencyBRL } from '@/utils/inputMasks';
 
 export default function NovoFuncionario() {
@@ -17,14 +20,6 @@ export default function NovoFuncionario() {
   const [resultados, setResultados] = useState([]);
   const [mostrarResultados, setMostrarResultados] = useState(false);
   const [eleitorSelecionado, setEleitorSelecionado] = useState(null);
-  const [matriculaGerada, setMatriculaGerada] = useState('Carregando...');
-
-  useEffect(() => {
-    fetch('/api/cadastros/funcionarios?nextMatricula=1')
-      .then(r => r.json())
-      .then(json => setMatriculaGerada(json.matricula || 'FUNC-????'))
-      .catch(() => setMatriculaGerada('FUNC-????'));
-  }, []);
 
   const [formData, setFormData] = useState({
     // Dados do eleitor (vêm da busca)
@@ -57,12 +52,17 @@ export default function NovoFuncionario() {
     setCarregando(true);
 
     try {
-      const response = await fetch(`/api/cadastros/eleitores?search=${encodeURIComponent(termo)}&limit=10`);
-      if (!response.ok) throw new Error('Erro ao buscar eleitores');
-      const json = await response.json();
-      const lista = json.data || [];
-      setResultados(lista);
-      setMostrarResultados(lista.length > 0);
+      // Buscar no Supabase
+      const { data, error } = await supabase
+        .from('eleitores')
+        .select('id, nome, cpf, email, telefone')
+        .or(`nome.ilike.%${termo}%,cpf.ilike.%${termo}%`)
+        .limit(10);
+
+      if (error) throw error;
+
+      setResultados(data || []);
+      setMostrarResultados((data || []).length > 0);
     } catch (error) {
       console.error('Erro ao buscar eleitores:', error);
       showError('Erro ao buscar eleitores');
@@ -131,6 +131,7 @@ export default function NovoFuncionario() {
     setCarregando(true);
 
     try {
+      // Preparar dados para salvar no Supabase
       const dadosFuncionario = {
         eleitor_id: eleitorSelecionado.id,
         cargo: formData.cargo,
@@ -139,36 +140,32 @@ export default function NovoFuncionario() {
         salario: parseCurrencyBRL(formData.salario),
         cargaHoraria: formData.cargaHoraria ? parseInt(formData.cargaHoraria) : 40,
         tipoContrato: formData.tipoContrato,
-        // matricula é gerada automaticamente pelo servidor
+        matricula: formData.matricula || null,
         status: formData.status,
-        observacoes: formData.observacoes || null,
-        nome: eleitorSelecionado.nome,
-        cpf: (eleitorSelecionado.cpf || '').replace(/\D/g, ''),
-        email: eleitorSelecionado.email || null,
-        telefone: (eleitorSelecionado.telefone || '').replace(/\D/g, ''),
+        observacoes: formData.observacoes || null
       };
 
-      const response = await fetch('/api/cadastros/funcionarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dadosFuncionario),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Erro ao cadastrar funcionário');
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .insert([dadosFuncionario])
+        .select();
+      if (error) throw error;
 
       showSuccess('Funcionário cadastrado com sucesso!');
+      
       setTimeout(() => {
         router.push('/cadastros/funcionarios');
       }, 2000);
     } catch (error) {
       console.error('Erro ao cadastrar funcionário:', error);
-      showError('Erro ao cadastrar: ' + error.message);
+      showError('Erro ao cadastrar funcionário. Tente novamente.');
     } finally {
       setCarregando(false);
     }
   };
 
   return (
+    <ProtectedRoute module={MODULES.FUNCIONARIOS}>
     <Layout titulo="Cadastro de Novo Funcionário">
       <div className="max-w-6xl mx-auto">
         {/* Busca de Eleitor */}
@@ -305,9 +302,7 @@ export default function NovoFuncionario() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">MATRÍCULA</label>
-                  <div className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-teal-700 font-semibold text-sm">
-                    {matriculaGerada}
-                  </div>
+                  <input type="text" name="matricula" value={formData.matricula} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
                 </div>
 
                 <div>
@@ -353,5 +348,6 @@ export default function NovoFuncionario() {
 
       <Modal isOpen={modalState.isOpen} onClose={closeModal} title={modalState.type === 'success' ? 'Sucesso' : 'Erro'} message={modalState.message} type={modalState.type} />
     </Layout>
+    </ProtectedRoute>
   );
 }

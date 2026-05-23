@@ -1,24 +1,15 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import Image from 'next/image';
 import {
   faUniversity, faUsers, faExclamationTriangle, faBullhorn, faCalendarAlt, faBirthdayCake, faTrophy, faEye, faCheckCircle, faTimesCircle, faClock, faMapMarkerAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRegistrarAcesso } from '@/hooks/useRegistrarAcesso';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const userSnapshot = useMemo(
-    () => ({
-      id: user?.id ?? null,
-      nivel: user?.nivel ?? null,
-      payload: user ? JSON.stringify(user) : null
-    }),
-    [user]
-  );
   const [usuario, setUsuario] = useState(null);
   const [stats, setStats] = useState({
     totalEleitores: 0,
@@ -79,15 +70,20 @@ export default function Dashboard() {
           throw new Error(`Erro HTTP: ${response.status}`);
         }
         const data = await response.json();
-        setStats(prev => ({
-          ...prev,
+        setStats({
           totalEleitores: data.totalEleitores || 0,
           eleitoresAtivos: data.eleitoresAtivos || 0,
           eleitoresInativos: data.eleitoresInativos || 0,
           totalLiderancas: data.totalLiderancas || 0,
           campanhasAtivas: data.campanhasAtivas || 0,
           totalAtendimentos: data.totalAtendimentos || 0,
-        }));
+          aniversariantesHoje: data.aniversariantesHoje || 0,
+          aniversariantesSemana: data.aniversariantesSemana || 0,
+          aniversariantesMes: data.aniversariantesMes || 0,
+          proximosAniversariantes: Array.isArray(data.proximosAniversariantes)
+            ? data.proximosAniversariantes
+            : []
+        });
       } catch (error) {
         console.error('Erro ao carregar estatisticas do dashboard:', error);
       } finally {
@@ -96,30 +92,6 @@ export default function Dashboard() {
     };
 
     carregarStats();
-  }, []);
-
-  // Aniversariantes carregados de forma independente para não bloquear os cards
-  useEffect(() => {
-    const carregarAniversariantes = async () => {
-      try {
-        const response = await fetch('/api/aniversariantes?limit=10');
-        if (!response.ok) return;
-        const data = await response.json();
-        const resumo = data.resumo || {};
-        setStats(prev => ({
-          ...prev,
-          aniversariantesHoje: resumo.aniversariantesHoje || 0,
-          aniversariantesSemana: resumo.aniversariantesSemana || 0,
-          aniversariantesMes: resumo.aniversariantesMes || 0,
-          proximosAniversariantes: Array.isArray(data.proximosAniversariantes)
-            ? data.proximosAniversariantes
-            : []
-        }));
-      } catch (error) {
-        console.error('Erro ao carregar aniversariantes:', error);
-      }
-    };
-    carregarAniversariantes();
   }, []);
 
   useEffect(() => {
@@ -150,7 +122,7 @@ export default function Dashboard() {
     const carregarAgenda = async () => {
       try {
         setAgendaLoading(true);
-        if (!userSnapshot.id || !userSnapshot.nivel) {
+        if (!user?.id || !user?.nivel) {
           if (ativo) {
             setAgendaEventos([]);
           }
@@ -158,8 +130,8 @@ export default function Dashboard() {
         }
 
         const params = new URLSearchParams({
-          userId: String(userSnapshot.id),
-          nivel: String(userSnapshot.nivel),
+          userId: String(user.id),
+          nivel: String(user.nivel),
           limit: '10'
         });
 
@@ -194,7 +166,7 @@ export default function Dashboard() {
       }
     };
 
-    if (userSnapshot.id && userSnapshot.nivel) {
+    if (user) {
       carregarAgenda();
     } else {
       setAgendaEventos([]);
@@ -204,7 +176,7 @@ export default function Dashboard() {
     return () => {
       ativo = false;
     };
-  }, [userSnapshot.id, userSnapshot.nivel]);
+  }, [user?.id, user?.nivel]);
 
   useEffect(() => {
     let ativo = true;
@@ -218,13 +190,7 @@ export default function Dashboard() {
         }));
 
         const response = await fetch('/api/geolocalizacao/eleitores-mapa-calor?rankingLimit=5');
-
-        let data = {};
-        try {
-          data = await response.json();
-        } catch {
-          data = {};
-        }
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(data?.detalhes || data?.error || `Erro HTTP: ${response.status}`);
@@ -381,13 +347,13 @@ export default function Dashboard() {
 
   // Carregar últimas solicitações do Supabase
   useEffect(() => {
-    if (!userSnapshot.id || userSnapshot.nivel === 'OPERADOR' || !userSnapshot.payload) return;
+    if (!user || user?.nivel === 'OPERADOR') return;
     let ativo = true;
     const carregarSolicitacoes = async () => {
       try {
         setSolicitacoesLoading(true);
         const response = await fetch('/api/solicitacoes?limit=4&offset=0', {
-          headers: { usuario: userSnapshot.payload }
+          headers: { usuario: JSON.stringify(user) }
         });
         if (!response.ok) return;
         const data = await response.json();
@@ -400,7 +366,7 @@ export default function Dashboard() {
     };
     carregarSolicitacoes();
     return () => { ativo = false; };
-  }, [userSnapshot.id, userSnapshot.nivel, userSnapshot.payload]);
+  }, [user?.id, user?.nivel]);
 
   // Filtrar solicitações baseado no perfil
   const solicitacoesFiltradas = solicitacoes;
@@ -474,7 +440,7 @@ export default function Dashboard() {
               <p className="text-xs text-gray-500">Ultimos 15 dias</p>
             </div>
             <span className="text-sm font-semibold text-teal-700">
-              Total: {Number(stats.totalEleitores || 0).toLocaleString('pt-BR')}
+              Total: {charts.eleitoresSeries.reduce((acc, item) => acc + (item.value || 0), 0)}
             </span>
           </div>
           {chartsLoading ? (
@@ -495,8 +461,8 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl shadow-lg p-5 lg:p-6 border border-amber-100">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-800">Campanhas do mês</h3>
-              <p className="text-xs text-gray-500">Registros com data no mês atual</p>
+              <h3 className="text-lg font-bold text-gray-800">Campanhas abertas no mes</h3>
+              <p className="text-xs text-gray-500">Status: Planejamento e Execucao</p>
             </div>
             <span className="text-sm font-semibold text-amber-700">
               Total: {charts.campanhasSeries.reduce((acc, item) => acc + (item.value || 0), 0)}
@@ -735,27 +701,15 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="space-y-3">
-            {(stats.proximosAniversariantes || [])
-              .filter((pessoa) => {
-                const diasAte = Number(pessoa?.diasAte);
-                return Number.isFinite(diasAte) ? diasAte >= 0 && diasAte <= 30 : true;
-              })
-              .slice(0, 5)
-              .map((pessoa) => {
+            {stats.proximosAniversariantes?.slice(0, 5).map((pessoa) => {
               const hierarquia = String(pessoa.hierarquia || pessoa.tipo || 'ELEITOR').toUpperCase();
-              let diffDays = Number(pessoa?.diasAte);
-
-              if (!Number.isFinite(diffDays)) {
-                const hoje = new Date();
-                hoje.setHours(0, 0, 0, 0);
-                const aniversario = new Date(hoje.getFullYear(), Number(pessoa.mes) - 1, Number(pessoa.dia));
-                if (aniversario < hoje) {
-                  aniversario.setFullYear(hoje.getFullYear() + 1);
-                }
-                diffDays = Math.round((aniversario - hoje) / (1000 * 60 * 60 * 24));
+              const hoje = new Date();
+              const aniversario = new Date(hoje.getFullYear(), pessoa.mes - 1, pessoa.dia);
+              if (aniversario < hoje) {
+                aniversario.setFullYear(hoje.getFullYear() + 1);
               }
-
-              diffDays = Math.max(0, Math.floor(diffDays));
+              const diffTime = aniversario - hoje;
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
               
               const isHoje = diffDays === 0;
               const isAmanha = diffDays === 1;
@@ -764,14 +718,7 @@ export default function Dashboard() {
                 <div key={`${pessoa.tipo}-${pessoa.id}`} className={`p-2 rounded-lg ${isHoje ? 'bg-pink-50 border-2 border-pink-300' : 'bg-teal-50'}`}>
                   <div className="flex items-center gap-2">
                     {pessoa.foto ? (
-                      <Image
-                        src={pessoa.foto}
-                        alt={pessoa.nome}
-                        width={40}
-                        height={40}
-                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                        unoptimized
-                      />
+                      <img src={pessoa.foto} alt={pessoa.nome} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
                         <span className="text-white font-bold text-xs">
@@ -823,10 +770,7 @@ export default function Dashboard() {
                 </div>
               );
             })}
-            {((stats.proximosAniversariantes || []).filter((pessoa) => {
-              const diasAte = Number(pessoa?.diasAte);
-              return Number.isFinite(diasAte) ? diasAte >= 0 && diasAte <= 30 : true;
-            }).length === 0) && (
+            {(!stats.proximosAniversariantes || stats.proximosAniversariantes.length === 0) && (
               <div className="text-center py-6 text-gray-500 text-sm">
                 <FontAwesomeIcon icon={faBirthdayCake} className="text-3xl mb-2 text-gray-300" />
                 <p>Nenhum aniversariante nos próximos dias</p>
@@ -912,17 +856,15 @@ export default function Dashboard() {
           </div>
 
           <div className="mb-3 p-3 bg-teal-50 rounded-lg flex items-center justify-between">
-            <span className="text-xs lg:text-sm font-semibold text-gray-700">Eleitores na base</span>
+            <span className="text-xs lg:text-sm font-semibold text-gray-700">Eleitores considerados</span>
             <span className="text-lg lg:text-xl font-bold text-teal-700">
               {heatmapPreview.loading ? (
                 <span className="inline-block h-6 w-14 bg-teal-100 rounded animate-pulse" />
               ) : (
-                Number(heatmapPreview.totalConsiderados || 0).toLocaleString('pt-BR')
+                heatmapPreview.totalConsiderados
               )}
             </span>
           </div>
-
-          <p className="text-[11px] text-gray-500 mb-3">Prévia de concentração por município</p>
 
           {heatmapPreview.loading && (
             <div className="space-y-2">

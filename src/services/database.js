@@ -358,7 +358,7 @@ export async function obterEstatisticasDashboard() {
   }
 }
 
-const databaseService = {
+export default {
   // Usuários
   criarUsuario,
   obterUsuarios,
@@ -392,5 +392,3 @@ const databaseService = {
   // Estatísticas
   obterEstatisticasDashboard,
 };
-
-export default databaseService;

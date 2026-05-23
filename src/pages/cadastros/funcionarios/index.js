@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import supabase from '@/lib/supabaseClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 import {
@@ -32,20 +33,46 @@ export default function GerenciarFuncionarios() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
 
-  const carregarFuncionarios = useCallback(async () => {
+  // Carregar funcionários do Supabase
+  useEffect(() => {
+    carregarFuncionarios();
+  }, []);
+
+  const carregarFuncionarios = async () => {
     setCarregando(true);
     try {
-      const response = await fetch('/api/cadastros/funcionarios?limit=500');
-      if (!response.ok) throw new Error('Erro ao carregar funcionários');
-      const json = await response.json();
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .select(`
+          id,
+          eleitor_id,
+          cargo,
+          departamento,
+          dataAdmissao,
+          salario,
+          matricula,
+          status,
+          observacoes,
+          eleitores:eleitor_id (
+            id,
+            nome,
+            cpf,
+            email,
+            telefone
+          )
+        `)
+        .order('id', { ascending: false });
 
-      const funcionariosFormatados = (json.data || []).map(func => ({
+      if (error) throw error;
+
+      // Mapear dados para estrutura esperada
+      const funcionariosFormatados = (data || []).map(func => ({
         id: func.id,
         eleitor_id: func.eleitor_id,
-        nome: func.nome || '',
-        cpf: func.cpf || '',
-        email: func.email || '',
-        telefone: func.telefone || '',
+        nome: func.eleitores?.nome || '',
+        cpf: func.eleitores?.cpf || '',
+        email: func.eleitores?.email || '',
+        telefone: func.eleitores?.telefone || '',
         cargo: func.cargo || '',
         departamento: func.departamento || '',
         data_admissao: func.dataAdmissao || '',
@@ -58,15 +85,11 @@ export default function GerenciarFuncionarios() {
       setFuncionarios(funcionariosFormatados);
     } catch (error) {
       console.error('Erro ao carregar funcionários:', error);
+      showError('Erro ao carregar funcionários');
     } finally {
       setCarregando(false);
     }
-  }, []);
-
-  // Carregar funcionários do Supabase
-  useEffect(() => {
-    carregarFuncionarios();
-  }, [carregarFuncionarios]);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
@@ -98,10 +121,14 @@ export default function GerenciarFuncionarios() {
   const handleExcluir = (id) => {
     showConfirm('Tem certeza que deseja excluir este funcionário?', async () => {
       try {
-        const response = await fetch(`/api/cadastros/funcionarios?id=${id}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('Erro ao excluir');
+        const { error } = await supabase
+          .from('funcionarios')
+          .delete()
+          .eq('id', id);
 
-        setFuncionarios(prev => prev.filter(f => f.id !== id));
+        if (error) throw error;
+
+        setFuncionarios(funcionarios.filter(f => f.id !== id));
         showSuccess('Funcionário excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir:', error);

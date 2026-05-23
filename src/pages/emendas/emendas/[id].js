@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -32,7 +32,13 @@ export default function EditarEmenda() {
     observacoes: ''
   });
 
-  const carregarEmenda = useCallback(async () => {
+  useEffect(() => {
+    if (id) {
+      carregarEmenda();
+    }
+  }, [id]);
+
+  const carregarEmenda = async () => {
     setCarregando(true);
     try {
       let { data, error } = await supabase
@@ -65,13 +71,7 @@ export default function EditarEmenda() {
     } finally {
       setCarregando(false);
     }
-  }, [id, showError]);
-
-  useEffect(() => {
-    if (id) {
-      carregarEmenda();
-    }
-  }, [id, carregarEmenda]);
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
