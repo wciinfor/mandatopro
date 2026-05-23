@@ -1,7 +1,8 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import {
   gerarTraceId,
+  obterUsuarioHeader,
+  exigirAdmin,
   parsePaginacao,
   registrarAuditoria,
   buildAuditoriaPayload
@@ -21,9 +22,10 @@ export default async function handler(req, res) {
   const traceId = gerarTraceId();
 
   try {
+    const usuario = obterUsuarioHeader(req);
+    exigirAdmin(usuario);
+
     const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
 
     if (req.method === 'GET') {
       const { search, nivel, status, include_inativos } = req.query;

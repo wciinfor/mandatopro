@@ -1,7 +1,5 @@
 ﻿import { createServerClient } from '@/lib/supabase-server';
 
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
-
 export const runtime = 'nodejs';
 
 const obterIP = (req) =>
@@ -9,6 +7,17 @@ const obterIP = (req) =>
   req.headers['x-real-ip'] ||
   req.socket?.remoteAddress ||
   'desconhecido';
+
+const validarAdmin = (req) => {
+  try {
+    const raw = req.headers['usuario'];
+    if (!raw) return null;
+    const usuario = JSON.parse(raw);
+    return usuario?.nivel === 'ADMINISTRADOR' ? usuario : null;
+  } catch {
+    return null;
+  }
+};
 
 // Mapeia os campos do banco para o formato esperado pelo frontend
 const mapearLog = (log) => ({
@@ -34,10 +43,12 @@ export default async function handler(req, res) {
 
   // GET â€” listar logs (admin only)
   if (req.method === 'GET') {
-    try {
-      const { usuario: admin } = await obterUsuarioAutenticado(req, supabase);
-      exigirAdministrador(admin);
+    const admin = validarAdmin(req);
+    if (!admin) {
+      return res.status(403).json({ erro: 'Acesso negado. Apenas administradores podem acessar logs.' });
+    }
 
+    try {
       // PaginaÃ§Ã£o
       const pagina = parseInt(req.query.pagina) || 1;
       const limite = parseInt(req.query.limite) || 50;
@@ -78,9 +89,6 @@ export default async function handler(req, res) {
         paginacao: { pagina, limite, total: count || 0, totalPaginas }
       });
     } catch (error) {
-      if (error?.statusCode === 401 || error?.statusCode === 403) {
-        return res.status(error.statusCode).json({ erro: error.message });
-      }
       return res.status(500).json({ erro: 'Erro ao recuperar logs', detalhes: error.message });
     }
   }
@@ -122,15 +130,17 @@ export default async function handler(req, res) {
 
   // DELETE â€” limpar logs antigos (admin only)
   if (req.method === 'DELETE') {
+    const admin = validarAdmin(req);
+    if (!admin) {
+      return res.status(403).json({ erro: 'Acesso negado.' });
+    }
+
+    const diasRetencao = parseInt(req.query.diasRetencao);
+    if (!diasRetencao || isNaN(diasRetencao)) {
+      return res.status(400).json({ erro: 'ParÃ¢metro diasRetencao obrigatÃ³rio' });
+    }
+
     try {
-      const { usuario: admin } = await obterUsuarioAutenticado(req, supabase);
-      exigirAdministrador(admin);
-
-      const diasRetencao = parseInt(req.query.diasRetencao);
-      if (!diasRetencao || isNaN(diasRetencao)) {
-        return res.status(400).json({ erro: 'ParÃ¢metro diasRetencao obrigatÃ³rio' });
-      }
-
       const dataLimite = new Date();
       dataLimite.setDate(dataLimite.getDate() - diasRetencao);
 
@@ -153,9 +163,6 @@ export default async function handler(req, res) {
         mensagem: `${count || 0} logs removidos (mais antigos que ${diasRetencao} dias)`
       });
     } catch (error) {
-      if (error?.statusCode === 401 || error?.statusCode === 403) {
-        return res.status(error.statusCode).json({ erro: error.message });
-      }
       return res.status(500).json({ erro: 'Erro ao deletar logs', detalhes: error.message });
     }
   }
