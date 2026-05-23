@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function AIChatWidget() {
   const { user } = useAuth();
+  const isAdmin = String(user?.nivel || '').toUpperCase() === 'ADMINISTRADOR';
   const initialMessages = [
     {
       role: 'assistant',
@@ -13,6 +14,7 @@ export default function AIChatWidget() {
   ];
   const [open, setOpen] = useState(false);
   const [enabled, setEnabled] = useState(false);
+  const [statusChecked, setStatusChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [input, setInput] = useState('');
   const scrollContainerRef = useRef(null);
@@ -35,13 +37,15 @@ export default function AIChatWidget() {
         }
       } catch (error) {
         console.error('Erro ao carregar configuracoes:', error);
+      } finally {
+        setStatusChecked(true);
       }
     };
 
-    if (user?.nivel === 'ADMINISTRADOR') {
+    if (isAdmin) {
       carregarStatus();
     }
-  }, [user?.nivel]);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!open) return;
@@ -51,13 +55,20 @@ export default function AIChatWidget() {
     }
   }, [messages, loading, open]);
 
-  if (user?.nivel !== 'ADMINISTRADOR' || !enabled) {
+  if (!isAdmin) {
     return null;
   }
 
   const handleSend = async () => {
     const texto = input.trim();
     if (!texto || loading) return;
+    if (statusChecked && !enabled) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'A Thai ainda nao esta ativada ou sem chave de IA configurada. Verifique Configuracoes > Sistema > Ativar IA.'
+      }]);
+      return;
+    }
 
     const novaMensagem = { role: 'user', content: texto };
     const historico = [...messages, novaMensagem].slice(-8);
