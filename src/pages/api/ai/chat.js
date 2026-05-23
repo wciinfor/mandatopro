@@ -2,16 +2,10 @@ import crypto from 'crypto';
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
-import { carregarSnapshotAniversariantes } from '@/lib/aniversariantes';
 
 export const runtime = 'nodejs';
 
 const allowedTables = {
-  eleitores: {
-    fields: 'id, nome, telefone, cidade, bairro, status',
-    dateField: 'created_at',
-    searchField: 'nome'
-  },
   campanhas: {
     fields: 'id, nome, data_campanha, status, local, municipio',
     dateField: 'data_campanha',
@@ -23,12 +17,12 @@ const allowedTables = {
     searchField: 'titulo'
   },
   liderancas: {
-    fields: 'id, nome, telefone, email, cidade, bairro, influencia, status',
+    fields: 'id, nome, telefone, status',
     dateField: 'created_at',
     searchField: 'nome'
   },
-  funcionarios: {
-    fields: 'id, nome, telefone, email, cargo, departamento, cidade, bairro, status',
+  eleitores: {
+    fields: 'id, nome, telefone, cidade, bairro, status',
     dateField: 'created_at',
     searchField: 'nome'
   },
@@ -41,84 +35,28 @@ const allowedTables = {
     fields: 'id, protocolo, titulo, status, municipio, bairro, data_abertura',
     dateField: 'data_abertura',
     searchField: 'titulo'
-  },
-  emendas: {
-    fields: 'id, numero_emenda, titulo, valor, status, data_apresentacao, beneficiarios',
-    dateField: 'data_apresentacao',
-    searchField: 'titulo'
-  },
-  orgaos: {
-    fields: 'id, nome, sigla, email, telefone, responsavel, status',
-    dateField: 'created_at',
-    searchField: 'nome'
-  },
-  repasses: {
-    fields: 'id, emenda_id, valor, data_prevista, data_efetiva, status',
-    dateField: 'data_prevista',
-    searchField: 'status'
-  },
-  financeiro_lancamentos: {
-    fields: 'id, codigo, data_lancamento, tipo, categoria, parceiro_nome, valor, status',
-    dateField: 'data_lancamento',
-    searchField: 'parceiro_nome'
-  },
-  financeiro_despesas: {
-    fields: 'id, codigo, data_despesa, tipo, categoria, fornecedor_nome, valor, status',
-    dateField: 'data_despesa',
-    searchField: 'fornecedor_nome'
-  },
-  financeiro_parceiros: {
-    fields: 'id, codigo, nome, tipo, email, telefone, status',
-    dateField: 'created_at',
-    searchField: 'nome'
-  },
-  documentos: {
-    fields: 'id, titulo, tipo, categoria, data_upload, publico',
-    dateField: 'data_upload',
-    searchField: 'titulo'
-  },
-  notificacoes: {
-    fields: 'id, titulo, mensagem, lida, created_at',
-    dateField: 'created_at',
-    searchField: 'titulo'
-  },
-  geolocalizacao: {
-    fields: 'id, tipo, nome, cidade, bairro, endereco, latitude, longitude, status, nivel_influencia',
-    dateField: 'id',
-    searchField: 'nome'
-  },
-  aniversariantes: {
-    fields: 'id, eleitor_id, data_nascimento, mes, ano_nascimento, enviado_mensagem, created_at',
-    dateField: 'created_at',
-    searchField: 'eleitor_id'
   }
 };
 
-const tableNames = Object.keys(allowedTables).join(', ');
-
-const PLANNER_PROMPT = `Voce e o planejador da Thai, assessora pessoal do parlamentar no MandatoPro.\n` +
+const PLANNER_PROMPT = `Voce e um planejador de consultas do MandatoPro.\n` +
   `Responda APENAS com JSON valido.\n` +
-  `Tabelas permitidas: ${tableNames}.\n` +
-  `Acoes permitidas: list, search, count, detail, list_contacts, prioritize, none.\n` +
+  `Tabelas permitidas: campanhas, agenda_eventos, liderancas, eleitores, atendimentos, solicitacoes.\n` +
+  `Acoes permitidas: list, search, count, detail, list_contacts, none.\n` +
   `Filtros permitidos: status, municipio, cidade, bairro, data_from, data_to, ids, id_field.\n` +
-  `Para pessoas por cidade, use filters.cidade em eleitores, liderancas, funcionarios ou geolocalizacao. Para agenda/campanhas/solicitacoes, use filters.municipio.\n` +
   `Use o campo search para nome/titulo/protocolo.\n` +
-  `Se houver "Contexto da conversa" e a pergunta for follow-up (ex: eles/deles/todos/contatos/primeiro/segundo/quem devo procurar), use a mesma table do contexto e reaproveite filtros/ids anteriores.\n` +
+  `Se houver "Contexto da conversa" e a pergunta for follow-up (ex: eles/deles/primeiro/segundo), use a mesma table do contexto, action detail ou list_contacts e filtre pelos ids fornecidos.\n` +
   `Se nao for pergunta de dados, use {"action":"none","reason":"..."}.`;
 
 const PLANNER_REPAIR_PROMPT = `Voce recebe um JSON invalido do planner.\n` +
   `Corrija e devolva SOMENTE JSON valido no schema: {action, table, filters, search, limit, order}.\n` +
-  `Acoes: list, search, count, detail, list_contacts, prioritize, none.\n` +
-  `Tabelas: ${tableNames}.\n` +
+  `Acoes: list, search, count, detail, list_contacts, none.\n` +
+  `Tabelas: campanhas, agenda_eventos, liderancas, eleitores, atendimentos, solicitacoes.\n` +
   `Filtros: status, municipio, cidade, bairro, data_from, data_to, ids, id_field.\n` +
   `Se nao for consulta de dados, use {"action":"none","reason":"..."}.`;
 
-const ANSWER_PROMPT = `Voce e a Thai, assessora pessoal do parlamentar. Responda APENAS com base nos dados fornecidos.\n` +
+const ANSWER_PROMPT = `Voce responde APENAS com base nos dados fornecidos.\n` +
   `Nao invente informacoes.\n` +
-  `Use tom direto, executivo e util em campo.\n` +
-  `Para contagens, responda no formato "Temos X ... cadastrados" quando fizer sentido.\n` +
-  `Para contatos, comece com "Segue os contatos:" e liste nome e telefone/email disponivel.\n` +
-  `Se houver resultados, responda curto e humano, preservando os dados fornecidos sem alterar numeros, nomes ou datas.\n` +
+  `Se houver resultados, responda curto e humano, e copie as linhas de evidencias exatamente como recebidas.\n` +
   `Se nao houver resultados, explique a tentativa, use as sugestoes fornecidas e faca a pergunta objetiva informada.\n` +
   `Nao use dados externos nem assuma valores ausentes.`;
 
@@ -131,15 +69,7 @@ const searchSynonyms = {
   solicitacao: ['solicitacao', 'solicitacoes', 'pedido', 'demanda'],
   atendimento: ['atendimento', 'atendimentos', 'chamado'],
   eleitor: ['eleitor', 'eleitores', 'cidadao', 'cidadaos'],
-  lideranca: ['lideranca', 'liderancas', 'lider'],
-  funcionario: ['funcionario', 'funcionarios', 'equipe', 'servidor'],
-  emenda: ['emenda', 'emendas', 'recurso'],
-  repasse: ['repasse', 'repasses'],
-  financeiro: ['financeiro', 'despesa', 'despesas', 'lancamento', 'lancamentos', 'parceiro', 'parceiros'],
-  documento: ['documento', 'documentos', 'arquivo', 'arquivos'],
-  notificacao: ['notificacao', 'notificacoes', 'alerta', 'avisos'],
-  geolocalizacao: ['geolocalizacao', 'mapa', 'territorio', 'marcadores'],
-  aniversariante: ['aniversariante', 'aniversariantes', 'aniversario', 'aniversarios']
+  lideranca: ['lideranca', 'liderancas', 'lider']
 };
 
 const CONTEXT_TTL_MS = 20 * 60 * 1000;
@@ -220,19 +150,8 @@ function detectTableFromText(message) {
     agenda_eventos: ['agenda', 'evento', 'eventos'],
     liderancas: ['lideranca', 'liderancas'],
     eleitores: ['eleitor', 'eleitores'],
-    funcionarios: ['funcionario', 'funcionarios', 'equipe'],
     atendimentos: ['atendimento', 'atendimentos'],
-    solicitacoes: ['solicitacao', 'solicitacoes', 'pedido', 'demanda'],
-    emendas: ['emenda', 'emendas'],
-    orgaos: ['orgao', 'orgaos', 'órgão', 'órgãos'],
-    repasses: ['repasse', 'repasses'],
-    financeiro_lancamentos: ['lancamento', 'lancamentos', 'doacao', 'doacoes', 'receita', 'receitas'],
-    financeiro_despesas: ['despesa', 'despesas', 'gasto', 'gastos'],
-    financeiro_parceiros: ['parceiro', 'parceiros', 'doador', 'doadores'],
-    documentos: ['documento', 'documentos', 'arquivo', 'arquivos'],
-    notificacoes: ['notificacao', 'notificacoes', 'aviso', 'avisos', 'alerta', 'alertas'],
-    geolocalizacao: ['geolocalizacao', 'geolocalização', 'mapa', 'territorio', 'território', 'marcador', 'marcadores'],
-    aniversariantes: ['aniversariante', 'aniversariantes', 'aniversario', 'aniversarios']
+    solicitacoes: ['solicitacao', 'solicitacoes']
   };
   for (const [table, keywords] of Object.entries(tableKeywords)) {
     if (keywords.some((term) => normalized.includes(term))) {
@@ -261,11 +180,9 @@ function buildShortHistoryMessages(history) {
 
 function detectFollowUpIntent(message) {
   const normalized = normalizeForMatch(message);
-  const followUpRegex = /(\beles\b|\bdeles\b|\bessas\b|\besses\b|\btodos\b|\btodas\b|\btods\b|\bos contatos\b|\bos anteriores\b|\bdaqueles\b|\bo primeiro\b|\bo segundo\b|\bo terceiro\b|\ba primeira\b|\ba segunda\b|\ba terceira\b|\bprimeiro\b|\bsegundo\b|\bterceiro\b)/;
+  const followUpRegex = /(\beles\b|\bdeles\b|\bessas\b|\besses\b|\bos anteriores\b|\bdaqueles\b|\bo primeiro\b|\bo segundo\b|\bo terceiro\b|\ba primeira\b|\ba segunda\b|\ba terceira\b|\bprimeiro\b|\bsegundo\b|\bterceiro\b)/;
   const wantsContacts = /(contato|telefone|celular|whatsapp|email|numero|numeros)/.test(normalized);
   const wantsLocation = /(municipio|cidade|bairro|uf|estado|local)/.test(normalized);
-  const wantsAll = /(\btodos\b|\btodas\b|\btods\b|\btodo mundo\b|\bgeral\b)/.test(normalized);
-  const wantsPriority = /(prioridade|priorizar|priorize|procurar primeiro|falar primeiro|acionar primeiro|quem devo procurar|quem devo falar|mais importante|mais fortes|principais)/.test(normalized);
   const ordinalMap = {
     primeiro: 0,
     primeira: 0,
@@ -303,11 +220,9 @@ function detectFollowUpIntent(message) {
   });
 
   return {
-    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || wantsPriority || ordinalIndex !== null,
+    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || ordinalIndex !== null,
     wantsContacts,
     wantsLocation,
-    wantsAll,
-    wantsPriority,
     ordinalIndex,
     requestedField
   };
@@ -332,9 +247,7 @@ function resolveFollowup(question, lastContext) {
   const labels = shown.map((item) => item.label).filter(Boolean);
 
   let targetIds = ids;
-  if (followUp.wantsAll) {
-    targetIds = [];
-  } else if (followUp.ordinalIndex !== null && ids.length > 0) {
+  if (followUp.ordinalIndex !== null && ids.length > 0) {
     if (followUp.ordinalIndex === -1) {
       targetIds = ids.slice(-1);
     } else if (ids[followUp.ordinalIndex]) {
@@ -354,9 +267,7 @@ function resolveFollowup(question, lastContext) {
   }
 
   let intent = 'detail';
-  if (followUp.wantsPriority) {
-    intent = 'prioritize';
-  } else if (followUp.wantsLocation || ['municipio', 'cidade', 'bairro', 'uf', 'estado', 'local'].includes(followUp.requestedField)) {
+  if (followUp.wantsLocation || ['municipio', 'cidade', 'bairro', 'uf', 'estado', 'local'].includes(followUp.requestedField)) {
     intent = 'list_location';
   } else if (followUp.wantsContacts || ['telefone', 'celular', 'whatsapp', 'email', 'phone', 'mobile'].includes(followUp.requestedField)) {
     intent = 'list_contacts';
@@ -370,10 +281,7 @@ function resolveFollowup(question, lastContext) {
     idField,
     ordinalIndex: followUp.ordinalIndex,
     requestedField: followUp.requestedField,
-    targetLabel,
-    wantsAll: followUp.wantsAll,
-    wantsPriority: followUp.wantsPriority,
-    reuseLastFilters: followUp.wantsAll || followUp.wantsPriority || ids.length === 0
+    targetLabel
   };
 }
 
@@ -439,12 +347,6 @@ function formatDate(value) {
   }
 }
 
-function formatCurrency(value) {
-  const number = Number(value || 0);
-  if (!Number.isFinite(number)) return '-';
-  return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
 function formatRow(table, row) {
   if (table === 'campanhas') {
     return `${row.nome || 'Sem nome'} | ${formatDate(row.data_campanha)} | ${row.status || '-'} | ${row.municipio || row.local || '-'}`;
@@ -454,10 +356,7 @@ function formatRow(table, row) {
     return `${row.titulo || 'Sem titulo'} | ${formatDate(row.data)}${hora} | ${row.tipo || '-'} | ${row.municipio || row.local || '-'}`;
   }
   if (table === 'liderancas') {
-    return `${row.nome || 'Sem nome'} | ${row.telefone || '-'} | ${row.email || '-'} | ${row.cidade || '-'} | ${row.bairro || '-'} | ${row.influencia || '-'} | ${row.status || '-'}`;
-  }
-  if (table === 'funcionarios') {
-    return `${row.nome || 'Sem nome'} | ${row.cargo || '-'} | ${row.departamento || '-'} | ${row.telefone || '-'} | ${row.status || '-'}`;
+    return `${row.nome || 'Sem nome'} | ${row.telefone || '-'} | ${row.status || '-'}`;
   }
   if (table === 'eleitores') {
     return `${row.nome || 'Sem nome'} | ${row.cidade || '-'} | ${row.bairro || '-'} | ${row.status || '-'}`;
@@ -468,57 +367,12 @@ function formatRow(table, row) {
   if (table === 'solicitacoes') {
     return `${row.protocolo || 'Sem protocolo'} | ${row.titulo || 'Sem titulo'} | ${row.status || '-'} | ${row.municipio || '-'}`;
   }
-  if (table === 'emendas') {
-    return `${row.numero_emenda || row.id} | ${row.titulo || 'Sem titulo'} | ${row.status || '-'} | ${formatCurrency(row.valor)}`;
-  }
-  if (table === 'repasses') {
-    return `${row.id} | ${formatCurrency(row.valor)} | ${row.status || '-'} | prevista: ${formatDate(row.data_prevista)}`;
-  }
-  if (table === 'financeiro_lancamentos') {
-    return `${row.codigo || row.id} | ${formatDate(row.data_lancamento)} | ${row.tipo || '-'} | ${row.parceiro_nome || '-'} | ${formatCurrency(row.valor)} | ${row.status || '-'}`;
-  }
-  if (table === 'financeiro_despesas') {
-    return `${row.codigo || row.id} | ${formatDate(row.data_despesa)} | ${row.tipo || '-'} | ${row.fornecedor_nome || '-'} | ${formatCurrency(row.valor)} | ${row.status || '-'}`;
-  }
-  if (table === 'financeiro_parceiros' || table === 'orgaos') {
-    return `${row.nome || 'Sem nome'} | ${row.telefone || '-'} | ${row.email || '-'} | ${row.status || '-'}`;
-  }
-  if (table === 'documentos') {
-    return `${row.titulo || 'Sem titulo'} | ${row.tipo || '-'} | ${row.categoria || '-'} | ${formatDate(row.data_upload)}`;
-  }
-  if (table === 'notificacoes') {
-    return `${row.titulo || 'Sem titulo'} | ${row.lida ? 'lida' : 'nao lida'} | ${formatDate(row.created_at)}`;
-  }
-  if (table === 'geolocalizacao') {
-    return `${row.nome || 'Sem nome'} | ${row.tipo || '-'} | ${row.cidade || '-'} | ${row.bairro || '-'} | ${row.status || '-'}`;
-  }
-  if (table === 'aniversariantes') {
-    return `${row.eleitor_id || row.id} | ${formatDate(row.data_nascimento)} | mes ${row.mes || '-'} | mensagem enviada: ${row.enviado_mensagem ? 'sim' : 'nao'}`;
-  }
   return JSON.stringify(row);
 }
 
 function labelForTable(table) {
-  const labels = {
-    campanhas: 'campanhas',
-    agenda_eventos: 'eventos da agenda',
-    liderancas: 'liderancas',
-    eleitores: 'eleitores',
-    funcionarios: 'funcionarios',
-    atendimentos: 'atendimentos',
-    solicitacoes: 'solicitacoes',
-    emendas: 'emendas',
-    orgaos: 'orgaos',
-    repasses: 'repasses',
-    financeiro_lancamentos: 'lancamentos financeiros',
-    financeiro_despesas: 'despesas',
-    financeiro_parceiros: 'parceiros financeiros',
-    documentos: 'documentos',
-    notificacoes: 'notificacoes',
-    geolocalizacao: 'marcadores no mapa',
-    aniversariantes: 'aniversariantes'
-  };
-  return labels[table] || 'registros';
+  if (!table) return 'registros';
+  return String(table).replace('_', ' ');
 }
 
 function formatValue(value, table, field) {
@@ -543,21 +397,10 @@ function shortenText(value, maxLen) {
 const snippetFields = {
   campanhas: ['nome', 'municipio', 'local', 'status', 'data_campanha'],
   agenda_eventos: ['titulo', 'municipio', 'local', 'tipo', 'data'],
-  liderancas: ['nome', 'telefone', 'email', 'cidade', 'bairro', 'influencia', 'status'],
+  liderancas: ['nome', 'telefone', 'status'],
   eleitores: ['nome', 'cidade', 'bairro', 'status'],
-  funcionarios: ['nome', 'cargo', 'departamento', 'telefone', 'cidade', 'bairro', 'status'],
   atendimentos: ['protocolo', 'assunto', 'status', 'data_atendimento'],
-  solicitacoes: ['protocolo', 'titulo', 'status', 'municipio', 'bairro', 'data_abertura'],
-  emendas: ['numero_emenda', 'titulo', 'valor', 'status', 'data_apresentacao'],
-  orgaos: ['nome', 'sigla', 'telefone', 'email', 'responsavel', 'status'],
-  repasses: ['valor', 'data_prevista', 'data_efetiva', 'status'],
-  financeiro_lancamentos: ['codigo', 'data_lancamento', 'tipo', 'categoria', 'parceiro_nome', 'valor', 'status'],
-  financeiro_despesas: ['codigo', 'data_despesa', 'tipo', 'categoria', 'fornecedor_nome', 'valor', 'status'],
-  financeiro_parceiros: ['codigo', 'nome', 'tipo', 'telefone', 'email', 'status'],
-  documentos: ['titulo', 'tipo', 'categoria', 'data_upload', 'publico'],
-  notificacoes: ['titulo', 'mensagem', 'lida', 'created_at'],
-  geolocalizacao: ['nome', 'tipo', 'cidade', 'bairro', 'endereco', 'status'],
-  aniversariantes: ['eleitor_id', 'data_nascimento', 'mes', 'ano_nascimento', 'enviado_mensagem']
+  solicitacoes: ['protocolo', 'titulo', 'status', 'municipio', 'bairro', 'data_abertura']
 };
 
 function getSnippetFieldsForPlan(plan, table) {
@@ -638,111 +481,6 @@ function buildContactLines(rows, table, idField, lastContext, requestedField) {
   });
 }
 
-function onlyDigits(value) {
-  return String(value || '').replace(/\D/g, '');
-}
-
-function formatBrazilPhone(value) {
-  const digits = onlyDigits(value);
-  if (!digits) return '';
-  const local = digits.startsWith('55') && digits.length > 11 ? digits.slice(2) : digits;
-  if (local.length === 11) {
-    return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
-  }
-  if (local.length === 10) {
-    return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
-  }
-  return value;
-}
-
-function buildWhatsappUrl(value) {
-  const digits = onlyDigits(value);
-  if (!digits) return '';
-  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
-  return `https://wa.me/${normalized}`;
-}
-
-function buildActionableContactLine(row, table, idField, labelMap, fieldsToCheck) {
-  const rowId = idField ? row?.[idField] : '';
-  const label = labelMap.get(String(rowId)) || buildDisplayLabel(table, row);
-  const phoneField = fieldsToCheck.find((field) => ['telefone', 'phone', 'celular', 'mobile', 'whatsapp'].includes(field) && row?.[field]);
-  const emailField = fieldsToCheck.find((field) => field === 'email' && row?.[field]);
-  const phone = phoneField ? formatBrazilPhone(row?.[phoneField]) : '';
-  const whatsapp = phoneField ? buildWhatsappUrl(row?.[phoneField]) : '';
-  const email = emailField ? row?.[emailField] : '';
-  const parts = [];
-
-  if (phone) parts.push(`telefone: ${phone}`);
-  if (whatsapp) parts.push(`WhatsApp: ${whatsapp}`);
-  if (email) parts.push(`email: ${email}`);
-
-  return {
-    label,
-    hasContact: parts.length > 0,
-    line: parts.length > 0 ? `- ${label}: ${parts.join(' | ')}` : `- ${label}: sem telefone/email cadastrado`
-  };
-}
-
-function influenceRank(value) {
-  const normalized = normalizeForMatch(value).replace(/_/g, ' ');
-  if (normalized.includes('muito alta') || normalized.includes('muitoalta')) return 4;
-  if (normalized.includes('alta')) return 3;
-  if (normalized.includes('media')) return 2;
-  if (normalized.includes('baixa')) return 1;
-  return 0;
-}
-
-function contactRank(row) {
-  if (row?.telefone || row?.celular || row?.whatsapp || row?.phone || row?.mobile) return 2;
-  if (row?.email) return 1;
-  return 0;
-}
-
-function prioritizeRows(table, rows) {
-  if (table !== 'liderancas') return rows || [];
-  return [...(rows || [])].sort((a, b) => {
-    const influenceDiff = influenceRank(b?.influencia) - influenceRank(a?.influencia);
-    if (influenceDiff !== 0) return influenceDiff;
-    const contactDiff = contactRank(b) - contactRank(a);
-    if (contactDiff !== 0) return contactDiff;
-    return String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR');
-  });
-}
-
-function buildPriorityAnswer(plan, rows, meta) {
-  const table = plan?.table || '';
-  if (table !== 'liderancas') {
-    return 'Consigo priorizar melhor as liderancas. Quer que eu filtre por cidade primeiro?';
-  }
-  if (!rows || rows.length === 0) {
-    return 'Nao encontrei liderancas para priorizar nesse contexto. Quer informar a cidade?';
-  }
-
-  const prioritized = prioritizeRows(table, rows).slice(0, 5);
-  const labelMap = new Map();
-  const lastContext = meta?.lastContext || {};
-  const shown = Array.isArray(lastContext?.shown) ? lastContext.shown : (lastContext?.displayList || []);
-  shown.forEach((item) => {
-    if (item?.id) labelMap.set(String(item.id), item.label);
-  });
-
-  const lines = prioritized.map((row, index) => {
-    const label = labelMap.get(String(row?.id)) || buildDisplayLabel(table, row);
-    const influence = row?.influencia || 'sem influencia informada';
-    const bairro = row?.bairro ? ` | bairro: ${row.bairro}` : '';
-    const phone = row?.telefone ? ` | ${formatBrazilPhone(row.telefone)}` : '';
-    const whatsapp = row?.telefone ? ` | WhatsApp: ${buildWhatsappUrl(row.telefone)}` : '';
-    const contactNote = !row?.telefone && !row?.email ? ' | sem contato cadastrado' : '';
-    return `${index + 1}) ${label} - influencia: ${influence}${bairro}${phone}${whatsapp}${contactNote}`;
-  });
-
-  return [
-    'Eu priorizaria assim:',
-    ...lines,
-    'Critério: maior influência primeiro, depois quem tem contato disponível.'
-  ].join('\n');
-}
-
 function buildFollowUpAnswer(plan, rows, meta) {
   const tableLabel = labelForTable(plan?.table);
   const requestedField = meta?.followUp?.requestedField || '';
@@ -759,10 +497,6 @@ function buildFollowUpAnswer(plan, rows, meta) {
 
   if (!rows || rows.length === 0) {
     return `Nao encontrei os itens anteriores em ${tableLabel}. Quer refazer a lista?`;
-  }
-
-  if (intent === 'prioritize' || plan?.action === 'prioritize') {
-    return buildPriorityAnswer(plan, rows, meta);
   }
 
   const availableFields = intent === 'list_location'
@@ -800,30 +534,16 @@ function buildFollowUpAnswer(plan, rows, meta) {
     ].join('\n');
   }
 
-  let header = 'Segue os contatos:';
+  let header = 'Aqui estao os contatos:';
   if (intent === 'list_location') {
     header = requestedField ? `Aqui esta a ${requestedField}:` : 'Aqui esta a localizacao:';
   } else if (requestedField) {
-    header = `Segue os ${requestedField}:`;
+    header = `Aqui estao os ${requestedField}:`;
   }
   const contactLines = lines
     .filter((item) => item.value)
-    .map((item) => `- ${item.label}: ${item.value}`);
-  const actionableContactLines = intent === 'list_contacts'
-    ? (rows || []).map((row) => buildActionableContactLine(row, plan?.table, idField, labelMap, fieldsToCheck))
-    : [];
-  const missingContacts = actionableContactLines.filter((item) => !item.hasContact).length;
-  const totalContext = Number(lastContext?.count || 0);
-  const limitNote = totalContext > rows.length
-    ? `Mostrei ${rows.length} de ${totalContext}. Posso refinar por bairro ou status se precisar.`
-    : '';
-  const missingNote = missingContacts > 0
-    ? `${missingContacts} cadastro(s) sem telefone/email.`
-    : '';
-  const outputLines = actionableContactLines.length > 0
-    ? actionableContactLines.map((item) => item.line)
-    : contactLines;
-  return [header, ...outputLines, missingNote, limitNote].filter(Boolean).join('\n');
+    .map((item) => `- ${item.label} - ${item.field}: ${item.value}`);
+  return [header, ...contactLines].join('\n');
 }
 
 function buildLastContext(traceId, plan, rows, countOverride) {
@@ -840,11 +560,9 @@ function buildLastContext(traceId, plan, rows, countOverride) {
   const displayList = buildDisplayList(table, rows, idField);
   const shown = displayList.map((item) => ({ id: item.id, label: item.label, idField: item.idField }));
   const countValue = typeof countOverride === 'number' ? countOverride : (rows?.length || 0);
-  const currentLocation = getLocationFromPlan(plan);
 
   return {
     traceId,
-    currentLocation,
     table,
     idField,
     count: countValue,
@@ -881,7 +599,6 @@ function buildConversationContextBlock(context) {
   const fieldList = Array.from(new Set([...fields, ...contactFields])).slice(0, 8).join(', ');
 
   return [
-    `Cidade atual: ${context.currentLocation || '-'}\n`,
     `Ultima consulta: tabela=${plan.table} action=${plan.action} search=${plan.search || '-'}\n`,
     `Itens retornados (ate 3):\n${items || '-'}`,
     `Campos principais: ${fieldList || 'nao informado'}`
@@ -937,7 +654,7 @@ function buildSnippets(plan, rows, question) {
     const value = shortenText(formatted, maxLen);
     const matched = searchTerm && normalizeForMatch(rawValue).includes(searchTerm);
     const matchTag = matched ? ' (match)' : '';
-    return `${label}: ${value}${matchTag}`;
+    return `campo ${label} = ${value}${matchTag}`;
   });
 }
 
@@ -956,29 +673,6 @@ function buildPlanSummary(plan) {
     parts.push(`periodo ${from} a ${to}`);
   }
   return parts.length ? parts.join(', ') : 'consulta geral';
-}
-
-function countPhraseForTable(table) {
-  const phrases = {
-    campanhas: { noun: 'campanhas', suffix: 'cadastradas' },
-    agenda_eventos: { noun: 'eventos na agenda', suffix: 'cadastrados' },
-    liderancas: { noun: 'liderancas', suffix: 'cadastradas' },
-    eleitores: { noun: 'eleitores', suffix: 'cadastrados' },
-    funcionarios: { noun: 'funcionarios', suffix: 'cadastrados' },
-    atendimentos: { noun: 'atendimentos', suffix: 'cadastrados' },
-    solicitacoes: { noun: 'solicitacoes', suffix: 'cadastradas' },
-    emendas: { noun: 'emendas', suffix: 'cadastradas' },
-    orgaos: { noun: 'orgaos', suffix: 'cadastrados' },
-    repasses: { noun: 'repasses', suffix: 'cadastrados' },
-    financeiro_lancamentos: { noun: 'lancamentos financeiros', suffix: 'cadastrados' },
-    financeiro_despesas: { noun: 'despesas', suffix: 'cadastradas' },
-    financeiro_parceiros: { noun: 'parceiros financeiros', suffix: 'cadastrados' },
-    documentos: { noun: 'documentos', suffix: 'cadastrados' },
-    notificacoes: { noun: 'notificacoes', suffix: 'cadastradas' },
-    geolocalizacao: { noun: 'marcadores no mapa', suffix: 'cadastrados' },
-    aniversariantes: { noun: 'aniversariantes', suffix: 'monitorados' }
-  };
-  return phrases[table] || { noun: labelForTable(table), suffix: 'cadastrados' };
 }
 
 function buildSuggestions(plan) {
@@ -1060,10 +754,7 @@ function buildAnswerLocal(plan, rows, meta, question) {
 
   if (plan?.action === 'count') {
     const total = meta?.count || 0;
-    const scope = buildPlanSummary(plan);
-    const scopeText = scope === 'consulta geral' ? '' : ` com ${scope}`;
-    const phrase = countPhraseForTable(plan?.table);
-    return `Temos ${total} ${phrase.noun} ${phrase.suffix}${scopeText}.`;
+    return `Encontrei ${total} registros em ${tableLabel}.`;
   }
 
   if (!rows || rows.length === 0) {
@@ -1087,6 +778,7 @@ function buildAnswerLocal(plan, rows, meta, question) {
 
   return [
     `Encontrei ${rows.length} ${rows.length === 1 ? 'resultado' : 'resultados'} em ${tableLabel}.`,
+    'Evidencias:',
     evidence,
     shownNote
   ].filter(Boolean).join('\n');
@@ -1208,7 +900,7 @@ function normalizePlan(plan) {
     contatos: 'list_contacts'
   };
   const action = actionAliases[actionRaw] || actionRaw;
-  if (!['list', 'search', 'count', 'detail', 'list_contacts', 'prioritize', 'none'].includes(action)) return { action: 'none' };
+  if (!['list', 'search', 'count', 'detail', 'list_contacts', 'none'].includes(action)) return { action: 'none' };
   if (action === 'none') return { action };
 
   const tableRaw = String(plan.table || '').toLowerCase();
@@ -1220,39 +912,12 @@ function normalizePlan(plan) {
     eventos: 'agenda_eventos',
     lideranca: 'liderancas',
     liderancas: 'liderancas',
-    funcionario: 'funcionarios',
-    funcionarios: 'funcionarios',
-    equipe: 'funcionarios',
     eleitor: 'eleitores',
     eleitores: 'eleitores',
     atendimento: 'atendimentos',
     atendimentos: 'atendimentos',
     solicitacao: 'solicitacoes',
-    solicitacoes: 'solicitacoes',
-    emenda: 'emendas',
-    emendas: 'emendas',
-    orgao: 'orgaos',
-    orgaos: 'orgaos',
-    repasse: 'repasses',
-    repasses: 'repasses',
-    documento: 'documentos',
-    documentos: 'documentos',
-    notificacao: 'notificacoes',
-    notificacoes: 'notificacoes',
-    mapa: 'geolocalizacao',
-    geolocalizacao: 'geolocalizacao',
-    aniversariante: 'aniversariantes',
-    aniversariantes: 'aniversariantes',
-    aniversario: 'aniversariantes',
-    aniversarios: 'aniversariantes',
-    despesas: 'financeiro_despesas',
-    despesa: 'financeiro_despesas',
-    lancamentos: 'financeiro_lancamentos',
-    lancamento: 'financeiro_lancamentos',
-    receitas: 'financeiro_lancamentos',
-    parceiros: 'financeiro_parceiros',
-    parceiro: 'financeiro_parceiros',
-    financeiro: 'financeiro_lancamentos'
+    solicitacoes: 'solicitacoes'
   };
   const table = tableAliases[tableRaw] || tableRaw;
   if (!allowedTables[table]) return { action: 'none' };
@@ -1403,20 +1068,9 @@ function getPrimarySearchFields(table) {
   if (table === 'campanhas') return ['nome', 'municipio', 'local'];
   if (table === 'agenda_eventos') return ['titulo', 'municipio', 'local'];
   if (table === 'solicitacoes') return ['titulo', 'protocolo', 'municipio', 'bairro'];
-  if (table === 'liderancas') return ['nome', 'telefone', 'email', 'cidade', 'bairro', 'influencia'];
+  if (table === 'liderancas') return ['nome', 'telefone'];
   if (table === 'eleitores') return ['nome', 'cidade', 'bairro'];
-  if (table === 'funcionarios') return ['nome', 'telefone', 'email', 'cargo', 'departamento', 'cidade', 'bairro'];
   if (table === 'atendimentos') return ['protocolo', 'assunto'];
-  if (table === 'emendas') return ['numero_emenda', 'titulo', 'beneficiarios', 'status'];
-  if (table === 'orgaos') return ['nome', 'sigla', 'responsavel', 'email', 'telefone'];
-  if (table === 'repasses') return ['status', 'observacoes'];
-  if (table === 'financeiro_lancamentos') return ['codigo', 'tipo', 'categoria', 'parceiro_nome', 'descricao', 'status'];
-  if (table === 'financeiro_despesas') return ['codigo', 'tipo', 'categoria', 'fornecedor_nome', 'descricao', 'status'];
-  if (table === 'financeiro_parceiros') return ['codigo', 'nome', 'tipo', 'email', 'telefone', 'status'];
-  if (table === 'documentos') return ['titulo', 'tipo', 'categoria'];
-  if (table === 'notificacoes') return ['titulo', 'mensagem'];
-  if (table === 'geolocalizacao') return ['nome', 'tipo', 'cidade', 'bairro', 'endereco'];
-  if (table === 'aniversariantes') return ['eleitor_id', 'mes'];
   const fallback = allowedTables[table]?.searchField;
   return fallback ? [fallback] : [];
 }
@@ -1588,20 +1242,18 @@ function quickIntentPlan(message, history, lastContext) {
   const normalized = normalizeForMatch(text);
   const countRegex = /(quantos|quantas|total|contagem|quantidade|numero)/;
   const listRegex = /(quais|listar|liste|mostre|exiba|tem|temos|ha|existe)/;
-  const priorityRegex = /(prioridade|priorizar|priorize|procurar primeiro|falar primeiro|acionar primeiro|quem devo procurar|quem devo falar|mais importante|mais fortes|principais)/;
 
   let action = '';
-  if (priorityRegex.test(normalized)) action = 'prioritize';
-  else if (countRegex.test(normalized)) action = 'count';
+  if (countRegex.test(normalized)) action = 'count';
   else if (listRegex.test(normalized)) action = 'list';
   else action = 'search';
 
   const filters = {};
-  const location = extractLocationTerm(text) || (refersToCurrentLocation(text) ? lastContext?.currentLocation : '');
+  const location = extractLocationTerm(text);
   if (location) {
     if (['campanhas', 'agenda_eventos', 'solicitacoes'].includes(table)) {
       filters.municipio = location;
-    } else if (['eleitores', 'liderancas', 'funcionarios', 'geolocalizacao'].includes(table)) {
+    } else if (table === 'eleitores') {
       if (normalized.includes('bairro')) {
         filters.bairro = location;
       } else {
@@ -1644,8 +1296,7 @@ function buildSelectFields(plan, table) {
       return baseFields.join(', ');
     }
     const idField = baseFields.includes('id') ? ['id'] : [];
-    const labelFields = ['nome', 'titulo', 'protocolo'].filter((field) => baseFields.includes(field));
-    const merged = Array.from(new Set([...idField, ...labelFields, ...contactFields]));
+    const merged = Array.from(new Set([...idField, ...contactFields]));
     return merged.join(', ');
   }
   if (plan?.action === 'list_location') {
@@ -1655,13 +1306,6 @@ function buildSelectFields(plan, table) {
     }
     const idField = baseFields.includes('id') ? ['id'] : [];
     const merged = Array.from(new Set([...idField, ...locationFields]));
-    return merged.join(', ');
-  }
-  if (plan?.action === 'prioritize') {
-    const priorityFields = ['influencia', 'telefone', 'email', 'cidade', 'bairro', 'status'].filter((field) => baseFields.includes(field));
-    const idField = baseFields.includes('id') ? ['id'] : [];
-    const labelFields = ['nome', 'titulo', 'protocolo'].filter((field) => baseFields.includes(field));
-    const merged = Array.from(new Set([...idField, ...labelFields, ...priorityFields]));
     return merged.join(', ');
   }
   return allowedTables[table].fields;
@@ -1690,11 +1334,11 @@ function applyFilters(query, table, plan) {
       query = query.ilike('municipio', `%${municipioValue}%`);
     }
   }
-  if (filters.cidade && ['eleitores', 'liderancas', 'funcionarios', 'geolocalizacao'].includes(table)) {
+  if (filters.cidade && ['eleitores'].includes(table)) {
     const cidadeValue = normalizeTextValue(filters.cidade);
     query = query.ilike('cidade', `%${cidadeValue}%`);
   }
-  if (filters.bairro && ['eleitores', 'liderancas', 'funcionarios', 'geolocalizacao', 'solicitacoes'].includes(table)) {
+  if (filters.bairro && ['eleitores', 'solicitacoes'].includes(table)) {
     const bairroValue = normalizeTextValue(filters.bairro);
     query = query.ilike('bairro', `%${bairroValue}%`);
   }
@@ -1703,13 +1347,6 @@ function applyFilters(query, table, plan) {
 
   if (plan.search) {
     query = applySearchWithFields(query, table, plan.search, getPrimarySearchFields(table));
-  }
-
-  if (plan.action === 'prioritize' && table === 'liderancas') {
-    query = query
-      .order('influencia', { ascending: false })
-      .order(config.dateField, { ascending: false });
-    return query;
   }
 
   const ascending = plan.order === 'date_asc';
@@ -1847,557 +1484,6 @@ async function tryFallbackRelaxFilters(supabase, plan, limit) {
   };
 }
 
-function getLocationFromPlan(plan) {
-  const filters = plan?.filters || {};
-  return filters.cidade || filters.municipio || '';
-}
-
-function cleanCityName(value) {
-  return normalizeTextValue(value)
-    .replace(/\s*-\s*[a-z]{2}$/i, '')
-    .replace(/\b(ce|pa|sp|rj|mg|ba|pe|pr|rs|sc|go|df|ma|pi|rn|pb|al|se|am|ac|ap|ro|rr|to|mt|ms|es)\b$/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function detectCityArrival(message) {
-  const text = normalizeTextValue(message);
-  const patterns = [
-    /\b(?:cheguei|chegamos|estou|estamos|to|vou estar|estarei|chegando)\s+(?:em|na|no|a)\s+(.+)$/i,
-    /\b(?:cidade atual|cidade|local atual)\s*(?:e|:)?\s+(.+)$/i,
-    /\b(?:briefing|resumo|panorama)\s+(?:de|da|do|em|na|no)\s+(.+)$/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      const city = cleanCityName(match[1]);
-      if (city && city.length > 2) return city;
-    }
-  }
-
-  return '';
-}
-
-function refersToCurrentLocation(message) {
-  const normalized = normalizeForMatch(message);
-  return /(\baqui\b|\bnessa cidade\b|\bnesta cidade\b|\bna cidade\b|\bnesse municipio\b|\bneste municipio\b|\bno municipio\b|\bpor aqui\b)/.test(normalized);
-}
-
-function detectSystemBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(briefing geral|resumo geral|panorama geral|situacao geral|situação geral|resumo do sistema|como estamos|painel geral|me atualize|o que temos hoje|status geral)/.test(normalized);
-}
-
-function applyLocationToPlan(plan, location) {
-  if (!plan || plan.action === 'none' || !location) return plan;
-  const table = plan.table;
-  if (!allowedTables[table]) return plan;
-  const filters = { ...(plan.filters || {}) };
-
-  if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table) && !filters.cidade && !filters.bairro) {
-    filters.cidade = location;
-  }
-  if (['campanhas', 'agenda_eventos', 'solicitacoes'].includes(table) && !filters.municipio) {
-    filters.municipio = location;
-  }
-
-  return { ...plan, filters };
-}
-
-function withContextLocation(newContext, lastContext, plan) {
-  const currentLocation = getLocationFromPlan(plan) || newContext?.currentLocation || lastContext?.currentLocation || '';
-  return { ...newContext, currentLocation };
-}
-
-async function countByCity(supabase, table, city, extra = {}) {
-  let query = supabase
-    .from(table)
-    .select('id', { count: 'exact', head: true });
-
-  const cityValue = cleanCityName(city);
-  if (['liderancas', 'eleitores'].includes(table)) {
-    query = query.ilike('cidade', `%${cityValue}%`);
-  } else if (table === 'agenda_eventos') {
-    query = query.or(`municipio.ilike.*${cityValue}*,local.ilike.*${cityValue}*`);
-  } else if (table === 'solicitacoes') {
-    query = query.ilike('municipio', `%${cityValue}%`);
-  }
-
-  if (extra.status) query = query.eq('status', extra.status);
-  if (extra.dateField && extra.from) query = query.gte(extra.dateField, extra.from);
-  if (extra.dateField && extra.to) query = query.lte(extra.dateField, extra.to);
-
-  const { count, error } = await query;
-  if (error) return { count: 0, error: error.message };
-  return { count: count || 0, error: null };
-}
-
-async function countRows(supabase, table, options = {}) {
-  if (!allowedTables[table]) return { count: 0, error: 'Tabela nao permitida' };
-  let query = supabase
-    .from(table)
-    .select('id', { count: 'exact', head: true });
-
-  if (options.status) query = query.eq('status', options.status);
-  if (options.lida !== undefined) query = query.eq('lida', options.lida);
-  if (options.publico !== undefined) query = query.eq('publico', options.publico);
-  if (options.from && options.dateField) query = query.gte(options.dateField, options.from);
-  if (options.to && options.dateField) query = query.lte(options.dateField, options.to);
-  if (options.city) {
-    const cityValue = cleanCityName(options.city);
-    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
-      query = query.ilike('cidade', `%${cityValue}%`);
-    } else if (['campanhas', 'agenda_eventos'].includes(table)) {
-      query = query.or(`municipio.ilike.*${cityValue}*,local.ilike.*${cityValue}*`);
-    } else if (table === 'solicitacoes') {
-      query = query.ilike('municipio', `%${cityValue}%`);
-    }
-  }
-
-  const { count, error } = await query;
-  if (error) return { count: 0, error: error.message };
-  return { count: count || 0, error: null };
-}
-
-async function sumValues(supabase, table, field, options = {}) {
-  if (!allowedTables[table]) return { total: 0, error: 'Tabela nao permitida' };
-  let query = supabase.from(table).select(field);
-  if (options.status) query = query.eq('status', options.status);
-  if (options.from && options.dateField) query = query.gte(options.dateField, options.from);
-  if (options.to && options.dateField) query = query.lte(options.dateField, options.to);
-  if (options.ativo !== undefined) query = query.eq('ativo', options.ativo);
-  const { data, error } = await query.limit(1000);
-  if (error) return { total: 0, error: error.message };
-  const total = (data || []).reduce((sum, row) => sum + Number(row?.[field] || 0), 0);
-  return { total, error: null };
-}
-
-async function buildSystemBriefing(supabase, city = '') {
-  const today = new Date();
-  const nextWeek = new Date(today);
-  nextWeek.setDate(today.getDate() + 7);
-  const month = getMonthRange(today);
-  const cityLabel = city ? cleanCityName(city) : '';
-  const cityOptions = cityLabel ? { city: cityLabel } : {};
-
-  const [
-    eleitores,
-    liderancas,
-    funcionarios,
-    campanhas,
-    atendimentos,
-    solicitacoesAbertasNovo,
-    solicitacoesAbertasRecebido,
-    emendas,
-    repassesPendentes,
-    documentos,
-    notificacoesNaoLidas,
-    agendaSemana,
-    marcadores,
-    receitasMes,
-    despesasMes
-  ] = await Promise.all([
-    countRows(supabase, 'eleitores', cityOptions),
-    countRows(supabase, 'liderancas', cityOptions),
-    countRows(supabase, 'funcionarios', cityOptions),
-    countRows(supabase, 'campanhas', cityOptions),
-    countRows(supabase, 'atendimentos'),
-    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'NOVO' }),
-    countRows(supabase, 'solicitacoes', { ...cityOptions, status: 'RECEBIDO' }),
-    countRows(supabase, 'emendas'),
-    countRows(supabase, 'repasses', { status: 'PENDENTE' }),
-    countRows(supabase, 'documentos'),
-    countRows(supabase, 'notificacoes', { lida: false }),
-    countRows(supabase, 'agenda_eventos', {
-      ...cityOptions,
-      dateField: 'data',
-      from: formatDateOnly(today),
-      to: formatDateOnly(nextWeek)
-    }),
-    countRows(supabase, 'geolocalizacao', cityOptions),
-    sumValues(supabase, 'financeiro_lancamentos', 'valor', {
-      dateField: 'data_lancamento',
-      from: month.from,
-      to: month.to,
-      ativo: true
-    }),
-    sumValues(supabase, 'financeiro_despesas', 'valor', {
-      dateField: 'data_despesa',
-      from: month.from,
-      to: month.to,
-      ativo: true
-    })
-  ]);
-
-  const solicitacoesAbertas = solicitacoesAbertasNovo.count + solicitacoesAbertasRecebido.count;
-  const scope = cityLabel ? ` de ${cityLabel}` : ' geral';
-
-  return {
-    reply: [
-      `Briefing${scope}:`,
-      `- Cadastros: ${eleitores.count} eleitores, ${liderancas.count} liderancas, ${funcionarios.count} funcionarios`,
-      `- Relacionamento: ${campanhas.count} campanhas, ${atendimentos.count} atendimentos, ${solicitacoesAbertas} solicitacoes abertas`,
-      `- Agenda: ${agendaSemana.count} evento(s) nos proximos 7 dias`,
-      `- Emendas: ${emendas.count} emendas, ${repassesPendentes.count} repasse(s) pendente(s)`,
-      `- Financeiro deste mes: ${formatCurrency(receitasMes.total)} em lancamentos, ${formatCurrency(despesasMes.total)} em despesas`,
-      `- Operacao: ${documentos.count} documentos, ${notificacoesNaoLidas.count} notificacoes nao lidas, ${marcadores.count} marcadores no mapa`,
-      'Posso detalhar qualquer modulo: agenda, solicitacoes, emendas, financeiro, documentos, mapa ou cadastros.'
-    ].join('\n')
-  };
-}
-
-async function buildCityBriefing(supabase, city) {
-  const today = new Date();
-  const nextWeek = new Date(today);
-  nextWeek.setDate(today.getDate() + 7);
-
-  const [liderancas, eleitores, solicitacoesNovas, solicitacoesRecebidas, agenda] = await Promise.all([
-    countByCity(supabase, 'liderancas', city),
-    countByCity(supabase, 'eleitores', city),
-    countByCity(supabase, 'solicitacoes', city, { status: 'NOVO' }),
-    countByCity(supabase, 'solicitacoes', city, { status: 'RECEBIDO' }),
-    countByCity(supabase, 'agenda_eventos', city, {
-      dateField: 'data',
-      from: formatDateOnly(today),
-      to: formatDateOnly(nextWeek)
-    })
-  ]);
-
-  const solicitacoesAbertas = solicitacoesNovas.count + solicitacoesRecebidas.count;
-  const cityLabel = cleanCityName(city);
-
-  return {
-    reply: [
-      `Briefing de ${cityLabel}:`,
-      `- Liderancas cadastradas: ${liderancas.count}`,
-      `- Eleitores cadastrados: ${eleitores.count}`,
-      `- Solicitacoes abertas: ${solicitacoesAbertas}`,
-      `- Agenda dos proximos 7 dias: ${agenda.count}`,
-      'Quer que eu liste os contatos das liderancas ou detalhe as solicitacoes abertas?'
-    ].join('\n'),
-    counts: {
-      liderancas: liderancas.count,
-      eleitores: eleitores.count,
-      solicitacoesAbertas,
-      agendaProximos7Dias: agenda.count
-    }
-  };
-}
-
-function detectAgendaBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(agenda|compromisso|compromissos|evento|eventos)/.test(normalized)
-    && /(hoje|amanha|semana|proximos|proximas|aqui|cidade)/.test(normalized);
-}
-
-function detectOpenRequestsBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(solicitacao|solicitacoes|demanda|demandas|pedido|pedidos)/.test(normalized)
-    && /(aberta|abertas|pendente|pendentes|novo|novos|recebido|recebidos|aqui|cidade)/.test(normalized);
-}
-
-function detectFinanceBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(financeiro|caixa|receita|receitas|despesa|despesas|gasto|gastos|lancamento|lancamentos)/.test(normalized)
-    && /(mes|mês|atual|resumo|saldo|quanto|total|hoje)/.test(normalized);
-}
-
-function detectAmendmentsBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(emenda|emendas|repasse|repasses|recurso|recursos)/.test(normalized)
-    && /(resumo|status|pendente|pendentes|aprovada|aprovadas|andamento|valor|quanto|total|listar|liste)/.test(normalized);
-}
-
-function detectDocumentsBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(documento|documentos|arquivo|arquivos|material|materiais)/.test(normalized)
-    && /(recente|recentes|ultimo|ultimos|resumo|listar|liste|publico|publicos)/.test(normalized);
-}
-
-function detectNotificationsBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(notificacao|notificacoes|aviso|avisos|alerta|alertas)/.test(normalized)
-    && /(nao lida|nao lidas|pendente|pendentes|resumo|listar|liste|recentes)/.test(normalized);
-}
-
-function detectMapBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(mapa|geolocalizacao|territorio|territorial|marcador|marcadores|bairro|bairros)/.test(normalized)
-    && /(resumo|ranking|onde|cidade|aqui|marcador|marcadores|concentracao|concentrados|quantos|quantas)/.test(normalized);
-}
-
-function detectBirthdayBriefing(message) {
-  const normalized = normalizeForMatch(message);
-  return /(aniversario|aniversarios|aniversariante|aniversariantes)/.test(normalized)
-    && /(hoje|semana|mes|proximos|proximas|resumo|listar|liste|quem)/.test(normalized);
-}
-
-function getRequestedDateRange(message) {
-  const explicitRange = extractDateRange(message);
-  if (explicitRange) return explicitRange;
-  const today = new Date();
-  const nextWeek = new Date(today);
-  nextWeek.setDate(today.getDate() + 7);
-  return { from: formatDateOnly(today), to: formatDateOnly(nextWeek) };
-}
-
-async function fetchRows(supabase, table, options = {}) {
-  if (!allowedTables[table]) return { rows: [], error: 'Tabela nao permitida' };
-  const limit = Math.min(options.limit || 5, 20);
-  let query = supabase
-    .from(table)
-    .select(options.fields || allowedTables[table].fields)
-    .limit(limit);
-
-  if (options.status) query = query.eq('status', options.status);
-  if (Array.isArray(options.statuses) && options.statuses.length > 0) {
-    query = query.in('status', options.statuses);
-  }
-  if (options.city) {
-    const cityValue = cleanCityName(options.city);
-    if (['liderancas', 'eleitores', 'funcionarios', 'geolocalizacao'].includes(table)) {
-      query = query.ilike('cidade', `%${cityValue}%`);
-    } else if (['campanhas', 'agenda_eventos'].includes(table)) {
-      query = query.or(`municipio.ilike.*${cityValue}*,local.ilike.*${cityValue}*`);
-    } else if (table === 'solicitacoes') {
-      query = query.ilike('municipio', `%${cityValue}%`);
-    }
-  }
-  if (options.from) query = query.gte(allowedTables[table].dateField, options.from);
-  if (options.to) query = query.lte(allowedTables[table].dateField, options.to);
-
-  const ascending = options.ascending !== undefined ? options.ascending : true;
-  query = query.order(allowedTables[table].dateField, { ascending });
-  const { data, error } = await query;
-  if (error) return { rows: [], error: error.message };
-  return { rows: data || [], error: null };
-}
-
-async function buildAgendaBriefing(supabase, message, city = '') {
-  const range = getRequestedDateRange(message);
-  const cityLabel = city ? cleanCityName(city) : '';
-  const [total, rowsResult] = await Promise.all([
-    countRows(supabase, 'agenda_eventos', {
-      city: cityLabel,
-      dateField: 'data',
-      from: range.from,
-      to: range.to
-    }),
-    fetchRows(supabase, 'agenda_eventos', {
-      city: cityLabel,
-      from: range.from,
-      to: range.to,
-      limit: 5,
-      ascending: true
-    })
-  ]);
-
-  const scope = cityLabel ? ` em ${cityLabel}` : '';
-  const lines = rowsResult.rows.map((row) => {
-    const hora = row.hora_inicio ? ` ${row.hora_inicio}` : '';
-    return `- ${formatDate(row.data)}${hora}: ${row.titulo || 'Sem titulo'} (${row.local || row.municipio || '-'})`;
-  });
-
-  return [
-    `Agenda${scope}: ${total.count} compromisso(s) no periodo.`,
-    ...lines,
-    total.count > rowsResult.rows.length ? `Mostrei ${rowsResult.rows.length} de ${total.count}.` : '',
-    'Posso detalhar um compromisso ou filtrar por cidade/data.'
-  ].filter(Boolean).join('\n');
-}
-
-async function buildOpenRequestsBriefing(supabase, city = '') {
-  const cityLabel = city ? cleanCityName(city) : '';
-  const statuses = ['NOVO', 'RECEBIDO', 'EM_ANDAMENTO'];
-  const [totalNovo, totalRecebido, totalAndamento, rowsResult] = await Promise.all([
-    countRows(supabase, 'solicitacoes', { city: cityLabel, status: 'NOVO' }),
-    countRows(supabase, 'solicitacoes', { city: cityLabel, status: 'RECEBIDO' }),
-    countRows(supabase, 'solicitacoes', { city: cityLabel, status: 'EM_ANDAMENTO' }),
-    fetchRows(supabase, 'solicitacoes', {
-      city: cityLabel,
-      statuses,
-      limit: 5,
-      ascending: false
-    })
-  ]);
-  const total = totalNovo.count + totalRecebido.count + totalAndamento.count;
-  const scope = cityLabel ? ` em ${cityLabel}` : '';
-  const lines = rowsResult.rows.map((row) => (
-    `- ${row.protocolo || row.id}: ${row.titulo || 'Sem titulo'} | ${row.status || '-'} | ${row.municipio || '-'}${row.bairro ? `/${row.bairro}` : ''}`
-  ));
-
-  return [
-    `Solicitacoes abertas${scope}: ${total}.`,
-    `- Novas: ${totalNovo.count}`,
-    `- Recebidas: ${totalRecebido.count}`,
-    `- Em andamento: ${totalAndamento.count}`,
-    ...lines,
-    total > rowsResult.rows.length ? `Mostrei ${rowsResult.rows.length} de ${total}.` : '',
-    'Posso detalhar uma solicitacao ou separar por bairro/prioridade.'
-  ].filter(Boolean).join('\n');
-}
-
-async function buildFinanceBriefing(supabase, message) {
-  const range = /ano/i.test(message) ? null : getMonthRange(new Date());
-  const rangeOptions = range
-    ? { from: range.from, to: range.to }
-    : {};
-  const [receitas, despesas, pendentes, despesasPendentes, parceiros] = await Promise.all([
-    sumValues(supabase, 'financeiro_lancamentos', 'valor', {
-      dateField: 'data_lancamento',
-      ...rangeOptions,
-      ativo: true
-    }),
-    sumValues(supabase, 'financeiro_despesas', 'valor', {
-      dateField: 'data_despesa',
-      ...rangeOptions,
-      ativo: true
-    }),
-    countRows(supabase, 'financeiro_lancamentos', { status: 'PENDENTE' }),
-    countRows(supabase, 'financeiro_despesas', { status: 'PENDENTE' }),
-    countRows(supabase, 'financeiro_parceiros', { status: 'ATIVO' })
-  ]);
-  const saldo = receitas.total - despesas.total;
-  const periodo = range ? 'deste mes' : 'do periodo';
-
-  return [
-    `Resumo financeiro ${periodo}:`,
-    `- Lancamentos/entradas: ${formatCurrency(receitas.total)}`,
-    `- Despesas: ${formatCurrency(despesas.total)}`,
-    `- Saldo estimado: ${formatCurrency(saldo)}`,
-    `- Lancamentos pendentes: ${pendentes.count}`,
-    `- Despesas pendentes: ${despesasPendentes.count}`,
-    `- Parceiros ativos: ${parceiros.count}`,
-    'Posso abrir as despesas pendentes, lancamentos recentes ou parceiros.'
-  ].join('\n');
-}
-
-async function buildAmendmentsBriefing(supabase) {
-  const [total, apresentadas, analise, aprovadas, repassesPendentes, valorEmendas, valorRepassesPendentes, rowsResult] = await Promise.all([
-    countRows(supabase, 'emendas'),
-    countRows(supabase, 'emendas', { status: 'APRESENTADA' }),
-    countRows(supabase, 'emendas', { status: 'EM_ANALISE' }),
-    countRows(supabase, 'emendas', { status: 'APROVADA' }),
-    countRows(supabase, 'repasses', { status: 'PENDENTE' }),
-    sumValues(supabase, 'emendas', 'valor'),
-    sumValues(supabase, 'repasses', 'valor', { status: 'PENDENTE' }),
-    fetchRows(supabase, 'emendas', { limit: 5, ascending: false })
-  ]);
-  const lines = rowsResult.rows.map((row) => (
-    `- ${row.numero_emenda || row.id}: ${row.titulo || 'Sem titulo'} | ${row.status || '-'} | ${formatCurrency(row.valor)}`
-  ));
-
-  return [
-    'Resumo de emendas:',
-    `- Total: ${total.count}`,
-    `- Apresentadas: ${apresentadas.count}`,
-    `- Em analise: ${analise.count}`,
-    `- Aprovadas: ${aprovadas.count}`,
-    `- Valor total cadastrado: ${formatCurrency(valorEmendas.total)}`,
-    `- Repasses pendentes: ${repassesPendentes.count} (${formatCurrency(valorRepassesPendentes.total)})`,
-    ...lines,
-    'Posso detalhar uma emenda, orgao ou repasse pendente.'
-  ].join('\n');
-}
-
-async function buildDocumentsBriefing(supabase) {
-  const [total, publicos, rowsResult] = await Promise.all([
-    countRows(supabase, 'documentos'),
-    countRows(supabase, 'documentos', { publico: true }),
-    fetchRows(supabase, 'documentos', { limit: 5, ascending: false })
-  ]);
-  const lines = rowsResult.rows.map((row) => (
-    `- ${row.titulo || 'Sem titulo'} | ${row.tipo || '-'} | ${row.categoria || '-'} | ${formatDate(row.data_upload)}`
-  ));
-
-  return [
-    'Documentos:',
-    `- Total cadastrado: ${total.count}`,
-    `- Publicos: ${publicos.count}`,
-    'Recentes:',
-    ...lines,
-    'Posso buscar por tipo, categoria ou titulo.'
-  ].join('\n');
-}
-
-async function buildNotificationsBriefing(supabase) {
-  const [naoLidas, recentes] = await Promise.all([
-    countRows(supabase, 'notificacoes', { lida: false }),
-    fetchRows(supabase, 'notificacoes', { limit: 5, ascending: false })
-  ]);
-  const lines = recentes.rows.map((row) => (
-    `- ${row.titulo || 'Sem titulo'} | ${row.lida ? 'lida' : 'nao lida'} | ${formatDate(row.created_at)}`
-  ));
-
-  return [
-    `Notificacoes: ${naoLidas.count} nao lida(s).`,
-    ...lines,
-    'Posso listar apenas as nao lidas ou buscar por titulo.'
-  ].join('\n');
-}
-
-async function buildMapBriefing(supabase, city = '') {
-  const cityLabel = city ? cleanCityName(city) : '';
-  let query = supabase
-    .from('geolocalizacao')
-    .select(allowedTables.geolocalizacao.fields)
-    .limit(500);
-
-  if (cityLabel) query = query.ilike('cidade', `%${cityLabel}%`);
-
-  const { data, error } = await query.order('id', { ascending: false });
-  if (error) return `Nao consegui consultar o mapa agora: ${error.message}`;
-
-  const rows = data || [];
-  const semCoordenada = rows.filter((row) => !row.latitude || !row.longitude).length;
-  const liderancas = rows.filter((row) => String(row.tipo || '').toLowerCase().includes('lider')).length;
-  const bairros = rows.reduce((acc, row) => {
-    const bairro = row.bairro || 'Sem bairro';
-    acc[bairro] = (acc[bairro] || 0) + 1;
-    return acc;
-  }, {});
-  const rankingBairros = Object.entries(bairros)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([bairro, total]) => `- ${bairro}: ${total}`);
-  const scope = cityLabel ? ` em ${cityLabel}` : '';
-
-  return [
-    `Mapa${scope}: ${rows.length} marcador(es) consultados.`,
-    `- Liderancas no mapa: ${liderancas}`,
-    `- Sem coordenada: ${semCoordenada}`,
-    rankingBairros.length ? 'Bairros com maior concentracao:' : '',
-    ...rankingBairros,
-    'Posso listar os marcadores, filtrar por bairro ou cruzar com liderancas/eleitores.'
-  ].filter(Boolean).join('\n');
-}
-
-async function buildBirthdayBriefing(supabase) {
-  const snapshot = await carregarSnapshotAniversariantes(supabase, {
-    limite: 8,
-    incluirInativos: false,
-    deduplicar: true
-  });
-  const proximos = snapshot.proximosAniversariantes || [];
-  const lines = proximos.slice(0, 8).map((item) => {
-    const quando = Number(item.diasAte || 0) === 0 ? 'hoje' : `em ${item.diasAte} dia(s)`;
-    const contato = item.telefone || item.celular || item.whatsapp || item.email || 'sem contato';
-    return `- ${item.nome || 'Sem nome'} (${item.tipo || 'cadastro'}) - ${quando} | ${contato}`;
-  });
-
-  return [
-    'Aniversariantes:',
-    `- Hoje: ${snapshot.resumo?.aniversariantesHoje || 0}`,
-    `- Proximos 7 dias: ${snapshot.resumo?.aniversariantesSemana || 0}`,
-    `- Proximos 30 dias: ${snapshot.resumo?.aniversariantesMes || 0}`,
-    `- Total monitorado: ${snapshot.resumo?.totalAniversariantes || 0}`,
-    lines.length ? 'Proximos:' : '',
-    ...lines,
-    'Posso preparar a lista de contatos ou separar por eleitor, lideranca e funcionario.'
-  ].filter(Boolean).join('\n');
-}
-
 export default async function handler(req, res) {
   const traceId = crypto.randomUUID();
   const startedAt = Date.now();
@@ -2423,129 +1509,6 @@ export default async function handler(req, res) {
 
     const conversationKey = getConversationKey(req, user);
     const lastContext = getConversationContext(conversationKey);
-    const contextualCity = refersToCurrentLocation(message) ? lastContext?.currentLocation : '';
-    if (detectSystemBriefing(message)) {
-      const briefing = await buildSystemBriefing(supabase, contextualCity || '');
-      logPhase('answer', {
-        traceId,
-        mode: 'system_briefing',
-        city: contextualCity || '',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply: briefing.reply, traceId });
-    }
-
-    const cityArrival = detectCityArrival(message);
-    if (cityArrival) {
-      const briefing = await buildCityBriefing(supabase, cityArrival);
-      if (conversationKey) {
-        const cityPlan = {
-          action: 'count',
-          table: 'liderancas',
-          filters: { cidade: cityArrival },
-          search: '',
-          limit: Math.min(briefing.counts.liderancas || 20, 100),
-          order: 'date_desc'
-        };
-        const cityContext = withContextLocation(
-          buildLastContext(traceId, cityPlan, [], briefing.counts.liderancas),
-          lastContext,
-          cityPlan
-        );
-        setConversationContext(conversationKey, cityContext);
-      }
-      logPhase('answer', {
-        traceId,
-        mode: 'city_briefing',
-        city: cityArrival,
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply: briefing.reply, traceId });
-    }
-
-    if (detectAgendaBriefing(message)) {
-      const reply = await buildAgendaBriefing(supabase, message, contextualCity || '');
-      logPhase('answer', {
-        traceId,
-        mode: 'agenda_briefing',
-        city: contextualCity || '',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
-    if (detectOpenRequestsBriefing(message)) {
-      const reply = await buildOpenRequestsBriefing(supabase, contextualCity || '');
-      logPhase('answer', {
-        traceId,
-        mode: 'requests_briefing',
-        city: contextualCity || '',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
-    if (detectFinanceBriefing(message)) {
-      const reply = await buildFinanceBriefing(supabase, message);
-      logPhase('answer', {
-        traceId,
-        mode: 'finance_briefing',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
-    if (detectAmendmentsBriefing(message)) {
-      const reply = await buildAmendmentsBriefing(supabase);
-      logPhase('answer', {
-        traceId,
-        mode: 'amendments_briefing',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
-    if (detectDocumentsBriefing(message)) {
-      const reply = await buildDocumentsBriefing(supabase);
-      logPhase('answer', {
-        traceId,
-        mode: 'documents_briefing',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
-    if (detectNotificationsBriefing(message)) {
-      const reply = await buildNotificationsBriefing(supabase);
-      logPhase('answer', {
-        traceId,
-        mode: 'notifications_briefing',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
-    if (detectMapBriefing(message)) {
-      const reply = await buildMapBriefing(supabase, contextualCity || '');
-      logPhase('answer', {
-        traceId,
-        mode: 'map_briefing',
-        city: contextualCity || '',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
-    if (detectBirthdayBriefing(message)) {
-      const reply = await buildBirthdayBriefing(supabase);
-      logPhase('answer', {
-        traceId,
-        mode: 'birthday_briefing',
-        durationMs: Date.now() - startedAt
-      });
-      return res.status(200).json({ success: true, reply, traceId });
-    }
-
     const followUpResolution = resolveFollowup(message, lastContext);
     const followUpActive = followUpResolution.isFollowUp;
     const historyMessages = buildShortHistoryMessages(history);
@@ -2576,10 +1539,7 @@ export default async function handler(req, res) {
         table: followUpResolution.lockedTable,
         filters: {},
         search: '',
-        limit: Math.min(
-          (followUpResolution.wantsAll || followUpResolution.wantsPriority) ? (lastContext?.count || 20) : (followUpResolution.targetIds?.length || 1),
-          100
-        ),
+        limit: Math.min(followUpResolution.targetIds?.length || 1, 5),
         order: 'date_desc',
         idField: followUpResolution.idField || 'id'
       };
@@ -2591,9 +1551,6 @@ export default async function handler(req, res) {
       if (followUpResolution.targetIds && followUpResolution.targetIds.length > 0) {
         resolvedPlan.filters.ids = followUpResolution.targetIds;
         resolvedPlan.filters.id_field = resolvedPlan.idField;
-      } else if (followUpResolution.reuseLastFilters && lastContext?.lastPlan?.filters) {
-        resolvedPlan.filters = { ...lastContext.lastPlan.filters };
-        resolvedPlan.search = lastContext.lastPlan.search || '';
       } else if (followUpResolution.targetLabel) {
         resolvedPlan.search = followUpResolution.targetLabel;
       }
@@ -2648,9 +1605,6 @@ export default async function handler(req, res) {
         }
       }
       resolvedPlan = applyDateRangeIfMissing(resolvedPlan, message);
-      if (refersToCurrentLocation(message) && lastContext?.currentLocation) {
-        resolvedPlan = applyLocationToPlan(resolvedPlan, lastContext.currentLocation);
-      }
     }
     const attempts = [];
     let fallbackUsed = null;
@@ -2682,11 +1636,7 @@ export default async function handler(req, res) {
           conversationContextBlock
         );
         if (!followUpActive && (fallback.data || []).length > 0 && conversationKey) {
-          const newContext = withContextLocation(
-            buildLastContext(traceId, fallback.plan, fallback.data || []),
-            lastContext,
-            fallback.plan
-          );
+          const newContext = buildLastContext(traceId, fallback.plan, fallback.data || []);
           setConversationContext(conversationKey, newContext);
         }
         return res.status(200).json({ success: true, reply, data: fallback.data || [], traceId });
@@ -2708,13 +1658,7 @@ export default async function handler(req, res) {
       }
     }
 
-    if (
-      followUpActive &&
-      !followUpResolution?.reuseLastFilters &&
-      !resolvedPlan.search &&
-      Object.keys(resolvedPlan.filters || {}).length === 0 &&
-      (!followUpResolution?.targetIds || followUpResolution.targetIds.length === 0)
-    ) {
+    if (followUpActive && (!followUpResolution?.targetIds || followUpResolution.targetIds.length === 0)) {
       if (lastContext?.count && lastContext.count > 0) {
         const bootstrapLimit = Math.min(lastContext.count, 3);
         let bootstrapQuery = supabase
@@ -2726,7 +1670,7 @@ export default async function handler(req, res) {
         if (!bootstrapError && bootstrapRows && bootstrapRows.length > 0) {
           const bootstrapContext = buildLastContext(traceId, resolvedPlan, bootstrapRows);
           if (conversationKey) {
-            setConversationContext(conversationKey, withContextLocation(bootstrapContext, lastContext, resolvedPlan));
+            setConversationContext(conversationKey, bootstrapContext);
           }
           didBootstrapList = true;
           const newIds = bootstrapContext.lastResultMeta?.ids || [];
@@ -2738,10 +1682,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const hasFollowUpFilter = Object.keys(resolvedPlan.filters || {}).some((key) => (
-      key !== 'id_field' && key !== 'idField' && Boolean(resolvedPlan.filters[key])
-    ));
-    if (followUpActive && !resolvedPlan.filters?.ids && !resolvedPlan.search && !hasFollowUpFilter) {
+    if (followUpActive && !resolvedPlan.filters?.ids && !resolvedPlan.search) {
       const reply = 'Nao consegui identificar quais itens voce quer. Pode indicar o primeiro/segundo ou refazer a lista?';
       return res.status(200).json({ success: true, reply, traceId });
     }
@@ -2788,11 +1729,7 @@ export default async function handler(req, res) {
       );
 
       if (conversationKey) {
-        const countContext = withContextLocation(
-          buildLastContext(traceId, resolvedPlan, [], count),
-          lastContext,
-          resolvedPlan
-        );
+        const countContext = buildLastContext(traceId, resolvedPlan, [], count);
         setConversationContext(conversationKey, countContext);
       }
 
@@ -2909,18 +1846,15 @@ export default async function handler(req, res) {
 
     const durationMs = Date.now() - startedAt;
     const snippets = buildSnippets(resolvedPlan, rows, question);
-    const answerRows = resolvedPlan.action === 'prioritize'
-      ? prioritizeRows(resolvedPlan.table, rows)
-      : rows;
     const reply = followUpActive
-      ? buildFollowUpAnswer(resolvedPlan, answerRows, {
+      ? buildFollowUpAnswer(resolvedPlan, rows, {
         traceId,
         followUp: followUpResolution,
         lastContext
       })
       : await buildAnswer(
         resolvedPlan,
-        answerRows,
+        rows,
         {
           traceId,
           durationMs,
@@ -2951,11 +1885,7 @@ export default async function handler(req, res) {
     });
 
     if (!followUpActive && rows.length > 0 && conversationKey) {
-      const newContext = withContextLocation(
-        buildLastContext(traceId, resolvedPlan, rows),
-        lastContext,
-        resolvedPlan
-      );
+      const newContext = buildLastContext(traceId, resolvedPlan, rows);
       setConversationContext(conversationKey, newContext);
     }
 
