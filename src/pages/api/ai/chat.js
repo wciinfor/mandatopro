@@ -1953,6 +1953,12 @@ function detectMessageDraftIntent(message) {
   return { kind: 'general' };
 }
 
+function detectFieldPlanIntent(message) {
+  const normalized = normalizeForMatch(message);
+  return /(roteiro|plano de acao|plano de campo|visita|visitar|agenda de campo|o que fazer primeiro|por onde comecar|proximos passos)/.test(normalized)
+    && /(cidade|aqui|campo|lideranca|liderancas|solicitacao|solicitacoes|agenda|mapa|bairro|bairros|fortaleza|belem|municipio|municipio)/.test(normalized);
+}
+
 function applyLocationToPlan(plan, location) {
   if (!plan || plan.action === 'none' || !location) return plan;
   const table = plan.table;
@@ -2797,6 +2803,81 @@ async function buildMessageDraft(supabase, message, intent, lastContext) {
   ].filter(Boolean).join('\n');
 }
 
+function resolveFieldPlanCity(message, lastContext) {
+  return extractLocationTerm(message)
+    || (refersToCurrentLocation(message) ? lastContext?.currentLocation : '')
+    || detectCityArrival(message)
+    || lastContext?.currentLocation
+    || '';
+}
+
+function buildFieldPlanLeaderLines(rows) {
+  return prioritizeRows('liderancas', rows).slice(0, 4).map((row, index) => {
+    const phone = row.telefone ? ` | ${formatBrazilPhone(row.telefone)}` : '';
+    const whatsapp = row.telefone ? ` | WhatsApp: ${buildWhatsappUrl(row.telefone)}` : '';
+    const bairro = row.bairro ? ` | bairro: ${row.bairro}` : '';
+    const influence = row.influencia ? ` | influencia: ${row.influencia}` : '';
+    const contactNote = !row.telefone && !row.email ? ' | sem contato' : '';
+    return `${index + 1}) ${row.nome || 'Sem nome'}${influence}${bairro}${phone}${whatsapp}${contactNote}`;
+  });
+}
+
+function buildFieldPlanAgendaLines(rows) {
+  return (rows || []).slice(0, 3).map((row) => {
+    const hora = row.hora_inicio ? ` ${row.hora_inicio}` : '';
+    return `- ${formatDate(row.data)}${hora}: ${row.titulo || 'Sem titulo'} (${row.local || row.municipio || '-'})`;
+  });
+}
+
+function buildFieldPlanRequestLines(rows) {
+  return (rows || []).slice(0, 4).map((row) => (
+    `- ${row.protocolo || row.id}: ${row.titulo || 'Sem titulo'} | ${row.status || '-'} | ${row.bairro || row.municipio || '-'}`
+  ));
+}
+
+async function buildFieldActionPlan(supabase, message, lastContext) {
+  const city = resolveFieldPlanCity(message, lastContext);
+  const cityLabel = city ? cleanCityName(city) : '';
+  const range = getRequestedDateRange(message);
+  const [leaders, agenda, requests, health] = await Promise.all([
+    fetchRows(supabase, 'liderancas', { city: cityLabel, limit: 10, ascending: false }),
+    fetchRows(supabase, 'agenda_eventos', {
+      city: cityLabel,
+      from: range.from,
+      to: range.to,
+      limit: 5,
+      ascending: true
+    }),
+    fetchRows(supabase, 'solicitacoes', {
+      city: cityLabel,
+      statuses: ['NOVO', 'RECEBIDO', 'EM_ANDAMENTO'],
+      limit: 6,
+      ascending: false
+    }),
+    getDataHealthMetrics(supabase, cityLabel)
+  ]);
+
+  const leaderLines = buildFieldPlanLeaderLines(leaders.rows);
+  const agendaLines = buildFieldPlanAgendaLines(agenda.rows);
+  const requestLines = buildFieldPlanRequestLines(requests.rows);
+  const healthBlock = buildHealthLines(health, cityLabel);
+  const title = cityLabel ? `Roteiro de campo em ${cityLabel}:` : 'Roteiro de campo:';
+
+  return [
+    title,
+    '1. Comece pelas liderancas prioritarias:',
+    leaderLines.length ? leaderLines.join('\n') : '- Nao encontrei liderancas nesse contexto.',
+    '2. Confira a agenda proxima:',
+    agendaLines.length ? agendaLines.join('\n') : '- Sem compromissos encontrados no periodo.',
+    '3. Trate as solicitacoes abertas:',
+    requestLines.length ? requestLines.join('\n') : '- Sem solicitacoes abertas encontradas.',
+    '4. Corrija riscos operacionais antes da visita:',
+    ...healthBlock.lines,
+    healthBlock.recommendation,
+    '5. Proxima acao sugerida: peça "prepare mensagem para liderancas aqui" ou "liste liderancas sem contato aqui".'
+  ].join('\n');
+}
+
 export default async function handler(req, res) {
   const traceId = crypto.randomUUID();
   const startedAt = Date.now();
@@ -2823,6 +2904,17 @@ export default async function handler(req, res) {
     const conversationKey = getConversationKey(req, user);
     const lastContext = getConversationContext(conversationKey);
     const contextualCity = refersToCurrentLocation(message) ? lastContext?.currentLocation : '';
+    if (detectFieldPlanIntent(message)) {
+      const reply = await buildFieldActionPlan(supabase, message, lastContext);
+      logPhase('answer', {
+        traceId,
+        mode: 'field_action_plan',
+        city: contextualCity || lastContext?.currentLocation || '',
+        durationMs: Date.now() - startedAt
+      });
+      return res.status(200).json({ success: true, reply, traceId });
+    }
+
     const messageDraftIntent = detectMessageDraftIntent(message);
     if (messageDraftIntent) {
       const reply = await buildMessageDraft(supabase, message, messageDraftIntent, lastContext);
