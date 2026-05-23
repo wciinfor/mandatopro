@@ -305,6 +305,49 @@ function getProviderConfig(config) {
   };
 }
 
+function valorBooleanoConfig(value) {
+  return ['1', 'true', 'sim', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
+
+async function carregarConfigIa(supabase) {
+  const config = lerConfiguracoes();
+  try {
+    const { data, error } = await supabase
+      .from('configuracoes_sistema')
+      .select('chave, valor')
+      .in('chave', [
+        'openai_provider',
+        'openai_api_key',
+        'openai_model',
+        'groq_api_key',
+        'groq_model',
+        'openai_enabled'
+      ]);
+
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach((row) => {
+      map[row.chave] = row.valor;
+    });
+
+    return {
+      ...config,
+      openai: {
+        ...config.openai,
+        provider: map.openai_provider || config.openai?.provider || 'openai',
+        apiKey: map.openai_api_key || config.openai?.apiKey || '',
+        model: map.openai_model || config.openai?.model || 'gpt-4o-mini',
+        groqApiKey: map.groq_api_key || config.openai?.groqApiKey || '',
+        groqModel: map.groq_model || config.openai?.groqModel || 'llama-3.1-8b-instant',
+        enabled: map.openai_enabled !== undefined ? valorBooleanoConfig(map.openai_enabled) : (config.openai?.enabled ?? false)
+      }
+    };
+  } catch (error) {
+    console.error('Erro ao carregar IA do banco, usando fallback local/env:', error);
+    return config;
+  }
+}
+
 async function callChatCompletion(provider, payload) {
   const response = await fetch(provider.endpoint, {
     method: 'POST',
@@ -1500,7 +1543,8 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: 'Acesso restrito ao administrador', traceId });
     }
 
-    const config = lerConfiguracoes();
+    const supabase = createServerClient();
+    const config = await carregarConfigIa(supabase);
     const providerConfig = getProviderConfig(config);
     if (!config.openai?.enabled || !providerConfig.apiKey) {
       return res.status(400).json({ success: false, message: 'IA nao configurada', disabled: true, traceId });
@@ -1605,7 +1649,6 @@ export default async function handler(req, res) {
       }
       resolvedPlan = applyDateRangeIfMissing(resolvedPlan, message);
     }
-    const supabase = createServerClient();
     const attempts = [];
     let fallbackUsed = null;
     const hasDateRange = Boolean(resolvedPlan.filters?.data_from || resolvedPlan.filters?.data_to);

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
+import { createServerClient } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +12,50 @@ const PLANNER_PROMPT = `Voce e um planejador de consultas do MandatoPro.\n` +
   `Use o campo search para nome/titulo/protocolo.\n` +
   `Se nao for pergunta de dados, use {"action":"none","reason":"..."}.`;
 
+function valorBooleanoConfig(value) {
+  return ['1', 'true', 'sim', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
+
+async function carregarConfigIa() {
+  const config = lerConfiguracoes();
+  try {
+    const supabase = createServerClient();
+    const { data, error } = await supabase
+      .from('configuracoes_sistema')
+      .select('chave, valor')
+      .in('chave', [
+        'openai_provider',
+        'openai_api_key',
+        'openai_model',
+        'groq_api_key',
+        'groq_model',
+        'openai_enabled'
+      ]);
+
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach((row) => {
+      map[row.chave] = row.valor;
+    });
+
+    return {
+      ...config,
+      openai: {
+        ...config.openai,
+        provider: map.openai_provider || config.openai?.provider || 'openai',
+        apiKey: map.openai_api_key || config.openai?.apiKey || '',
+        model: map.openai_model || config.openai?.model || 'gpt-4o-mini',
+        groqApiKey: map.groq_api_key || config.openai?.groqApiKey || '',
+        groqModel: map.groq_model || config.openai?.groqModel || 'llama-3.1-8b-instant',
+        enabled: map.openai_enabled !== undefined ? valorBooleanoConfig(map.openai_enabled) : (config.openai?.enabled ?? false)
+      }
+    };
+  } catch (error) {
+    console.error('Erro ao carregar IA do banco no validate, usando fallback local/env:', error);
+    return config;
+  }
+}
+
 export default async function handler(req, res) {
   const traceId = crypto.randomUUID();
   if (req.method !== 'POST') {
@@ -19,7 +64,7 @@ export default async function handler(req, res) {
 
   try {
     const { apiKey, model, provider, dryRunPlanner, plannerQuestion } = req.body || {};
-    const config = lerConfiguracoes();
+    const config = await carregarConfigIa();
     const selectedProvider = String(provider || config.openai?.provider || 'openai').toLowerCase();
     const token = apiKey || (selectedProvider === 'groq' ? config.openai?.groqApiKey : config.openai?.apiKey);
     const modelo = model || (selectedProvider === 'groq'

@@ -9,14 +9,25 @@ const CHAVES_SISTEMA = [
   'nome_orgao', 'sigla', 'logo', 'cnpj', 'endereco', 'telefone',
   'email_orgao', 'website', 'cargo', 'nome_parlamentar',
   'cor_principal', 'cor_secundaria',
-  'whatsapp_phone_number_id', 'whatsapp_access_token'
+  'whatsapp_phone_number_id', 'whatsapp_access_token',
+  'openai_provider', 'openai_api_key', 'openai_model',
+  'groq_api_key', 'groq_model', 'openai_enabled'
 ];
 
-function rowsToConfig(rows) {
+function valorBooleano(value) {
+  return ['1', 'true', 'sim', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
+
+function rowsToMap(rows) {
   const map = {};
   for (const row of (rows || [])) {
     map[row.chave] = row.valor;
   }
+  return map;
+}
+
+function rowsToConfig(rows) {
+  const map = rowsToMap(rows);
   return {
     nomeOrgao: map.nome_orgao || '',
     sigla: map.sigla || '',
@@ -37,6 +48,22 @@ function rowsToConfig(rows) {
   };
 }
 
+function aplicarOpenAiDoBanco(configPrivado, rows) {
+  const map = rowsToMap(rows);
+  return {
+    ...configPrivado,
+    openai: {
+      ...configPrivado.openai,
+      provider: map.openai_provider || configPrivado.openai?.provider || 'openai',
+      apiKey: map.openai_api_key || configPrivado.openai?.apiKey || '',
+      model: map.openai_model || configPrivado.openai?.model || 'gpt-4o-mini',
+      groqApiKey: map.groq_api_key || configPrivado.openai?.groqApiKey || '',
+      groqModel: map.groq_model || configPrivado.openai?.groqModel || 'llama-3.1-8b-instant',
+      enabled: map.openai_enabled !== undefined ? valorBooleano(map.openai_enabled) : (configPrivado.openai?.enabled ?? false)
+    }
+  };
+}
+
 export default async function handler(req, res) {
   const supabase = createServerClient();
 
@@ -50,7 +77,7 @@ export default async function handler(req, res) {
       if (error) throw error;
 
       const config = rowsToConfig(rows);
-      const privado = lerConfiguracoes();
+      const privado = aplicarOpenAiDoBanco(lerConfiguracoes(), rows);
 
       return res.status(200).json({
         success: true,
@@ -116,7 +143,14 @@ export default async function handler(req, res) {
       }
 
       else if (tipo === 'openai') {
-        const configPrivado = lerConfiguracoes();
+        const { data: rowsOpenAi, error: readError } = await supabase
+          .from('configuracoes_sistema')
+          .select('chave, valor')
+          .in('chave', CHAVES_SISTEMA);
+
+        if (readError) throw readError;
+
+        const configPrivado = aplicarOpenAiDoBanco(lerConfiguracoes(), rowsOpenAi);
         const provider = dados.provider || configPrivado.openai?.provider || 'openai';
         const apiKey = dados.apiKey ?? configPrivado.openai?.apiKey ?? '';
         const model = dados.model || configPrivado.openai?.model || 'gpt-4o-mini';
@@ -130,9 +164,22 @@ export default async function handler(req, res) {
           updatedAt: new Date().toISOString()
         };
 
-        if (!salvarConfiguracoes(configPrivado)) {
-          return res.status(500).json({ success: false, message: 'Erro ao salvar configuracao OpenAI' });
-        }
+        const upserts = [
+          { chave: 'openai_provider', valor: provider, tipo: 'STRING', editavel: true },
+          { chave: 'openai_api_key', valor: apiKey, tipo: 'STRING', editavel: true },
+          { chave: 'openai_model', valor: model, tipo: 'STRING', editavel: true },
+          { chave: 'groq_api_key', valor: groqApiKey, tipo: 'STRING', editavel: true },
+          { chave: 'groq_model', valor: groqModel, tipo: 'STRING', editavel: true },
+          { chave: 'openai_enabled', valor: String(Boolean(enabled)), tipo: 'BOOLEAN', editavel: true }
+        ];
+
+        const { error } = await supabase
+          .from('configuracoes_sistema')
+          .upsert(upserts, { onConflict: 'chave' });
+
+        if (error) throw error;
+
+        salvarConfiguracoes(configPrivado);
 
         return res.status(200).json({ success: true, message: 'Configuração IA salva com sucesso' });
       }
