@@ -72,6 +72,7 @@ const searchSynonyms = {
 };
 
 const CONTEXT_TTL_MS = 20 * 60 * 1000;
+const LIST_PAGE_SIZE = 10;
 const conversationStore = new Map();
 
 function cleanupConversationStore(now) {
@@ -183,6 +184,7 @@ function detectFollowUpIntent(message) {
   const wantsContacts = /(contato|telefone|celular|whatsapp|email|numero|numeros)/.test(normalized);
   const wantsLocation = /(municipio|cidade|bairro|uf|estado|local)/.test(normalized);
   const wantsList = /(\bquais\b|\bquais sao\b|\bliste\b|\blistar\b|\bmostre\b|\bmostrar\b|\bnomes\b)/.test(normalized);
+  const wantsContinue = /(\bcontinuar\b|\bcontinue\b|\bmais\b|\bproximos\b|\bproximas\b|\bproxima pagina\b|\bver mais\b|\bpode continuar\b)/.test(normalized);
   const confirmsPrevious = /^(sim|s|pode|pode sim|isso|exato|ok|claro|quero|listar|liste|mostre|pode listar)$/.test(normalized);
   const ordinalMap = {
     primeiro: 0,
@@ -221,10 +223,11 @@ function detectFollowUpIntent(message) {
   });
 
   return {
-    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || wantsList || confirmsPrevious || ordinalIndex !== null,
+    isFollowUp: followUpRegex.test(normalized) || wantsContacts || wantsLocation || wantsList || wantsContinue || confirmsPrevious || ordinalIndex !== null,
     wantsContacts,
     wantsLocation,
     wantsList,
+    wantsContinue,
     confirmsPrevious,
     ordinalIndex,
     requestedField
@@ -274,7 +277,7 @@ function resolveFollowup(question, lastContext) {
     intent = 'list_location';
   } else if (followUp.wantsContacts || ['telefone', 'celular', 'whatsapp', 'email', 'phone', 'mobile'].includes(followUp.requestedField)) {
     intent = 'list_contacts';
-  } else if (followUp.wantsList || (followUp.confirmsPrevious && lastContext?.lastPlan?.action === 'count')) {
+  } else if (followUp.wantsList || followUp.wantsContinue || (followUp.confirmsPrevious && lastContext?.lastPlan?.action === 'count')) {
     intent = 'list';
   }
 
@@ -287,7 +290,8 @@ function resolveFollowup(question, lastContext) {
     ordinalIndex: followUp.ordinalIndex,
     requestedField: followUp.requestedField,
     targetLabel,
-    reuseLastFilters: (followUp.wantsList || followUp.confirmsPrevious) && (!targetIds || targetIds.length === 0)
+    continueList: followUp.wantsContinue,
+    reuseLastFilters: (followUp.wantsList || followUp.wantsContinue || followUp.confirmsPrevious) && (!targetIds || targetIds.length === 0)
   };
 }
 
@@ -617,6 +621,7 @@ function buildFollowUpAnswer(plan, rows, meta) {
 function buildLastContext(traceId, plan, rows, countOverride) {
   const table = plan?.table || '';
   const idField = pickIdField(rows, table);
+  const offset = Number(plan?.offset || 0);
   const ids = (rows || [])
     .map((row) => (idField ? row?.[idField] : null))
     .filter(Boolean)
@@ -628,25 +633,31 @@ function buildLastContext(traceId, plan, rows, countOverride) {
   const displayList = buildDisplayList(table, rows, idField);
   const shown = displayList.map((item) => ({ id: item.id, label: item.label, idField: item.idField }));
   const countValue = typeof countOverride === 'number' ? countOverride : (rows?.length || 0);
+  const shownUntil = offset + (rows?.length || 0);
+  const nextOffset = countValue > shownUntil ? shownUntil : null;
 
   return {
     traceId,
     table,
     idField,
     count: countValue,
+    nextOffset,
     shown,
     lastPlan: {
       action: plan?.action || 'none',
       table,
       search: plan?.search || '',
-      filters: plan?.filters || {}
+      filters: plan?.filters || {},
+      limit: plan?.limit || LIST_PAGE_SIZE
     },
     lastResultMeta: {
       table,
       count: countValue,
       idField,
       ids,
-      nomes: names
+      nomes: names,
+      offset,
+      nextOffset
     },
     displayList
   };
@@ -845,14 +856,23 @@ function buildAnswerLocal(plan, rows, meta, question) {
     ].join('\n');
   }
 
-  const limit = Math.min(rows.length, plan?.limit || 5, 5);
+  const limit = Math.min(rows.length, plan?.limit || LIST_PAGE_SIZE, LIST_PAGE_SIZE);
   const evidence = (rows || []).slice(0, limit).map((row) => `- ${formatRow(plan?.table, row)}`).join('\n');
-  const shownNote = rows.length > limit ? `Mostrando ${limit} de ${rows.length}.` : '';
+  const total = Number(meta?.total ?? rows.length);
+  const offset = Number(meta?.offset || plan?.offset || 0);
+  const shownUntil = offset + limit;
+  const currentRange = offset > 0 ? `${offset + 1}-${shownUntil}` : String(limit);
+  const header = total > limit
+    ? `Encontrei ${total} ${total === 1 ? 'resultado' : 'resultados'} em ${tableLabel}. Seguem ${currentRange}:`
+    : `Encontrei ${rows.length} ${rows.length === 1 ? 'resultado' : 'resultados'} em ${tableLabel}:`;
+  const pageNote = total > shownUntil
+    ? `Mostrei ${offset + 1}-${shownUntil} de ${total}. Responda "continuar" para ver mais.`
+    : (total > limit ? `Mostrei ${offset + 1}-${shownUntil} de ${total}.` : '');
 
   return [
-    `Encontrei ${rows.length} ${rows.length === 1 ? 'resultado' : 'resultados'} em ${tableLabel}:`,
+    header,
     evidence,
-    shownNote
+    pageNote
   ].filter(Boolean).join('\n');
 }
 
@@ -891,6 +911,15 @@ async function buildAnswer(plan, rows, meta, question, provider, historyMessages
 
   if (plan?.action === 'count') {
     return buildAnswerLocal(plan, rows, { ...meta, snippets }, question);
+  }
+
+  if (['list', 'search'].includes(plan?.action)) {
+    const offset = Number(meta?.offset || plan?.offset || 0);
+    const total = Number(meta?.total ?? rows?.length ?? 0);
+    const shownUntil = offset + (rows?.length || 0);
+    if (total > shownUntil || offset > 0) {
+      return buildAnswerLocal(plan, rows, { ...meta, snippets }, question);
+    }
   }
 
   if (!provider?.apiKey) {
@@ -1613,6 +1642,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, reply, traceId });
       }
 
+      if (followUpResolution.continueList && (lastContext?.nextOffset === null || lastContext?.nextOffset === undefined)) {
+        const reply = 'Ja mostrei todos os registros dessa lista. Quer aplicar outro filtro?';
+        return res.status(200).json({ success: true, reply, traceId });
+      }
+
       resolvedPlan = {
         action: followUpResolution.intent,
         table: followUpResolution.lockedTable,
@@ -1620,8 +1654,9 @@ export default async function handler(req, res) {
         search: '',
         limit: Math.min(
           followUpResolution.intent === 'list' ? (lastContext?.count || 5) : (followUpResolution.targetIds?.length || 1),
-          20
+          LIST_PAGE_SIZE
         ),
+        offset: followUpResolution.continueList ? Number(lastContext?.nextOffset || 0) : 0,
         order: 'date_desc',
         idField: followUpResolution.idField || 'id'
       };
@@ -1636,6 +1671,7 @@ export default async function handler(req, res) {
       } else if (followUpResolution.reuseLastFilters && lastContext?.lastPlan?.filters) {
         resolvedPlan.filters = { ...lastContext.lastPlan.filters };
         resolvedPlan.search = lastContext.lastPlan.search || '';
+        resolvedPlan.limit = LIST_PAGE_SIZE;
       } else if (followUpResolution.targetLabel) {
         resolvedPlan.search = followUpResolution.targetLabel;
       }
@@ -1696,6 +1732,10 @@ export default async function handler(req, res) {
     const hasDateRange = Boolean(resolvedPlan.filters?.data_from || resolvedPlan.filters?.data_to);
     const allowFallbacks = !followUpActive && !hasDateRange;
     let didBootstrapList = false;
+    if (['list', 'search'].includes(resolvedPlan.action)) {
+      resolvedPlan.limit = Math.min(Number(resolvedPlan.limit || LIST_PAGE_SIZE), LIST_PAGE_SIZE);
+      resolvedPlan.offset = Math.max(Number(resolvedPlan.offset || 0), 0);
+    }
     const selectedFields = buildSelectFields(resolvedPlan, resolvedPlan.table);
 
     if (resolvedPlan.action === 'none') {
@@ -1743,7 +1783,11 @@ export default async function handler(req, res) {
       }
     }
 
-    if (followUpActive && (!followUpResolution?.targetIds || followUpResolution.targetIds.length === 0)) {
+    if (
+      followUpActive
+      && resolvedPlan.action !== 'list'
+      && (!followUpResolution?.targetIds || followUpResolution.targetIds.length === 0)
+    ) {
       if (lastContext?.count && lastContext.count > 0) {
         const bootstrapLimit = Math.min(lastContext.count, 3);
         let bootstrapQuery = supabase
@@ -1828,19 +1872,21 @@ export default async function handler(req, res) {
 
     let query = supabase
       .from(resolvedPlan.table)
-      .select(selectedFields)
-      .limit(resolvedPlan.limit);
+      .select(selectedFields, { count: 'exact' });
 
     query = applyFilters(query, resolvedPlan.table, resolvedPlan);
+    const offset = Number(resolvedPlan.offset || 0);
+    query = query.range(offset, offset + resolvedPlan.limit - 1);
     const queryStarted = Date.now();
-    const { data, error } = await query;
-    attempts.push({ plan: resolvedPlan, count: data?.length || 0, error: error?.message || null });
+    const { data, error, count: totalRows } = await query;
+    attempts.push({ plan: resolvedPlan, count: data?.length || 0, total: totalRows || 0, error: error?.message || null });
     logPhase('query', {
       traceId,
       table: resolvedPlan.table,
       filters: resolvedPlan.filters || {},
       search: resolvedPlan.search || '',
       rowsCount: data?.length || 0,
+      totalRows: totalRows || 0,
       durationMs: Date.now() - queryStarted,
       provider: providerConfig.provider,
       model: providerConfig.model,
@@ -1945,7 +1991,9 @@ export default async function handler(req, res) {
           durationMs,
           fallbackUsed,
           attempts,
-          snippets
+          snippets,
+          total: totalRows ?? rows.length,
+          offset: Number(resolvedPlan.offset || 0)
         },
         question,
         providerConfig,
@@ -1970,7 +2018,10 @@ export default async function handler(req, res) {
     });
 
     if (!followUpActive && rows.length > 0 && conversationKey) {
-      const newContext = buildLastContext(traceId, resolvedPlan, rows);
+      const newContext = buildLastContext(traceId, resolvedPlan, rows, totalRows ?? rows.length);
+      setConversationContext(conversationKey, newContext);
+    } else if (followUpActive && rows.length > 0 && conversationKey) {
+      const newContext = buildLastContext(traceId, resolvedPlan, rows, totalRows ?? rows.length);
       setConversationContext(conversationKey, newContext);
     }
 
