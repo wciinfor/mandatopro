@@ -123,6 +123,34 @@
     document.getElementById('mandatoImportBtn')?.addEventListener('click', importMandatoContacts);
   }
 
+  function getInstanceManager() {
+    try {
+      if (typeof InstanceManager !== 'undefined') return InstanceManager;
+    } catch {
+      return null;
+    }
+    return window.InstanceManager || null;
+  }
+
+  function bindMandatoInstanceForm() {
+    const button = document.getElementById('addInstanceBtn');
+    if (!button || button.dataset.mandatoBound === 'true') return;
+
+    button.dataset.mandatoBound = 'true';
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const manager = getInstanceManager();
+      if (!manager || typeof manager.addInstance !== 'function') {
+        window.UI?.showError?.('Modulo de instancias ainda nao carregado. Atualize a pagina e tente novamente.');
+        return;
+      }
+
+      await manager.addInstance();
+    }, true);
+  }
+
   async function importMandatoContacts() {
     const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
     const cidade = document.getElementById('mandatoCidade')?.value || '';
@@ -175,6 +203,8 @@
     patchFetchAuth();
     patchAuth();
     patchNavigation();
+    setTimeout(bindMandatoInstanceForm, 500);
+    setTimeout(bindMandatoInstanceForm, 1800);
     setTimeout(addMandatoContactsButton, 1200);
   }
 
