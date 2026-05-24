@@ -20,8 +20,21 @@ async function getAccessToken() {
   const supabase = createClient();
   if (!supabase?.auth) return '';
 
-  const { data } = await supabase.auth.getSession();
-  return data?.session?.access_token || '';
+  const timeoutMs = 2000;
+  const timeoutPromise = new Promise((resolve) =>
+    setTimeout(() => resolve({ data: { session: null } }), timeoutMs)
+  );
+
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      timeoutPromise
+    ]);
+
+    return result?.data?.session?.access_token || '';
+  } catch {
+    return '';
+  }
 }
 
 function mergeAuthorization(init, token) {
