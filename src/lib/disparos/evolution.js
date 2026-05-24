@@ -8,7 +8,7 @@ export class EvolutionApiError extends Error {
 }
 
 function getConfig() {
-  const baseUrl = String(process.env.EVOLUTION_API_URL || '').replace(/\/+$/, '');
+  const baseUrl = normalizeEvolutionBaseUrl(process.env.EVOLUTION_API_URL);
   const apiKey = process.env.EVOLUTION_API_KEY;
 
   if (!baseUrl || !apiKey) {
@@ -20,6 +20,25 @@ function getConfig() {
     apiKey,
     timeoutMs: Number(process.env.EVOLUTION_REQUEST_TIMEOUT_MS || process.env.REQUEST_TIMEOUT_MS || 15000)
   };
+}
+
+function normalizeEvolutionBaseUrl(value) {
+  const raw = String(value || '').trim().replace(/\/+$/, '');
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    if (url.pathname.replace(/\/+$/, '') === '/manager') {
+      url.pathname = '';
+      url.search = '';
+      url.hash = '';
+      return url.toString().replace(/\/+$/, '');
+    }
+  } catch {
+    return raw.replace(/\/manager$/i, '');
+  }
+
+  return raw.replace(/\/manager$/i, '');
 }
 
 async function request(method, path, body) {
