@@ -85,6 +85,42 @@ function buildHtml() {
     '<div id="mainApp" class="main-app authenticated" style="display:block">'
   );
 
+  const instanceFormHtml = `                <div class="card mb-4" id="instanceForm">
+                    <div class="card-header bg-gradient-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Adicionar Instancia</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-5">
+                                <label for="newInstanceName" class="form-label">Nome da instancia</label>
+                                <input type="text" class="form-control" id="newInstanceName" placeholder="Ex: gabinete-fortaleza">
+                            </div>
+                            <div class="col-md-5">
+                                <label for="newInstanceAPIKEY" class="form-label">Token / API key Evolution</label>
+                                <input type="password" class="form-control" id="newInstanceAPIKEY" placeholder="Cole o token da instancia">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary w-100" id="addInstanceBtn">
+                                    <i class="bi bi-plus-lg me-2"></i>Adicionar
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">A instancia deve existir primeiro na Evolution API. Aqui voce vincula o nome e token para uso nos disparos.</small>
+                    </div>
+                </div>
+
+`;
+
+  html = html.replace(
+    /<small class="text-white-50">Inst[\s\S]*?administrador<\/small>/,
+    `<small class="text-white-50">Cadastre a instancia criada na Evolution API</small>`
+  );
+
+  html = html.replace(
+    /(<div class="content-section" id="instancias-section">[\s\S]*?<div class="content-header">[\s\S]*?<\/div>\s*)<div class="card">/,
+    `$1${instanceFormHtml}                <div class="card">`
+  );
+
   return html;
 }
 
