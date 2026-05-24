@@ -169,6 +169,14 @@ function buildEmbedScript() {
 
   async function getAccessToken() {
     try {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const hashToken = hashParams.get('mandato_token');
+      if (hashToken) return hashToken;
+    } catch {
+      // Ignora hash invalido e tenta o cliente Supabase do iframe.
+    }
+
+    try {
       const result = await window.SupabaseClient?.auth?.getSession?.();
       return result?.data?.session?.access_token || '';
     } catch {

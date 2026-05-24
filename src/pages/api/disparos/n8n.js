@@ -137,18 +137,27 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, message: 'Metodo nao permitido' });
   }
 
-  const webhookUrl = getWebhookUrl();
-  if (!webhookUrl) {
-    return res.status(503).json({
-      success: false,
-      message: 'Webhook N8N do Disparo PRO nao configurado'
-    });
-  }
-
   try {
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+
+    const isConnectionCheck = String(req.body?.action || '') === 'verificar_conexao';
+    const webhookUrl = getWebhookUrl();
+
+    if (!webhookUrl) {
+      if (isConnectionCheck) {
+        const evolutionFallback = await getEvolutionConnectionFallback(req.body || {});
+        if (evolutionFallback) {
+          return res.status(200).json(evolutionFallback);
+        }
+      }
+
+      return res.status(503).json({
+        success: false,
+        message: 'Webhook N8N do Disparo PRO nao configurado'
+      });
+    }
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -168,7 +177,7 @@ export default async function handler(req, res) {
       });
     }
 
-    if (String(req.body?.action || '') === 'verificar_conexao') {
+    if (isConnectionCheck) {
       const normalized = normalizeConnectionPayload(payload);
       if (hasQrOrOpen(normalized)) {
         return res.status(200).json(normalized);
