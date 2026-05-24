@@ -11,27 +11,14 @@ export default function AIChatWidget() {
     globalThis.crypto?.randomUUID?.() || `thai-${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
   const suggestedActions = [
-    'Briefing geral',
-    'Cheguei em Fortaleza',
-    'Roteiro de campo aqui',
-    'Agenda da semana aqui',
-    'Solicitacoes abertas aqui',
-    'Resumo financeiro do mes',
-    'Resumo de emendas',
-    'Documentos recentes',
-    'Notificacoes nao lidas',
-    'Resumo do mapa',
-    'Aniversariantes da semana',
-    'Saude dos dados',
-    'Liste liderancas sem contato',
-    'Prepare mensagem para liderancas',
-    'Quem devo procurar primeiro?',
-    'Contatos dos principais'
+    'Agenda semanal',
+    'Contato de lideres',
+    'Campanhas da semana'
   ];
   const initialMessages = [
     {
       role: 'assistant',
-      content: 'Oi! Sou a Thai, sua assessora pessoal. Posso cruzar informacoes dos modulos do mandato sem voce abrir tabelas: cadastros, agenda, solicitacoes, emendas, financeiro, documentos, notificacoes, aniversariantes e mapa. Me diga "briefing geral" ou "cheguei em Fortaleza".'
+      content: 'Oi! Sou a Thai, sua assessora pessoal. Posso consultar rapidamente sua agenda, lideres e campanhas. O que voce precisa agora?'
     }
   ];
   const [open, setOpen] = useState(false);
@@ -233,7 +220,7 @@ export default function AIChatWidget() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={2}
-              placeholder="Ex: Briefing geral ou agenda da semana aqui"
+              placeholder="Ex: contatos dos lideres em Fortaleza"
               className="w-full resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
             />
             <button
