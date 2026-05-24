@@ -267,6 +267,54 @@ function buildEmbedScript() {
     return window.InstanceManager || null;
   }
 
+  function updateMandatoInstanceBadges() {
+    const total = window.AppState?.instances?.length || 0;
+    const active = window.AppState?.activeInstances?.length
+      || (window.AppState?.instances || []).filter((instance) => instance.status === 'connected').length;
+
+    const instanceBadge = document.getElementById('instanceCountBadge');
+    if (instanceBadge) {
+      instanceBadge.textContent = String(total);
+      instanceBadge.style.display = 'inline';
+    }
+
+    const activeCount = document.getElementById('activeInstancesCount');
+    if (activeCount) {
+      activeCount.textContent = String(active);
+    }
+  }
+
+  function patchUiBadges() {
+    if (!window.UI || window.UI.__mandatoBadgesPatched) return;
+    const originalUpdateBadges = window.UI.updateBadges?.bind(window.UI);
+    window.UI.__mandatoBadgesPatched = true;
+    window.UI.updateBadges = function updateMandatoBadges(...args) {
+      originalUpdateBadges?.(...args);
+      updateMandatoInstanceBadges();
+    };
+  }
+
+  function bindMandatoInstanceActions() {
+    if (window.__mandatoInstanceActionsBound) return;
+    window.__mandatoInstanceActionsBound = true;
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest?.('.show-qr-btn');
+      if (!button) return;
+
+      const instanceId = button.dataset.instanceId;
+      if (!instanceId) return;
+
+      const manager = getInstanceManager();
+      if (!manager || typeof manager.showConnectionModal !== 'function') return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      manager.showConnectionModal(instanceId);
+    }, true);
+  }
+
   function bindMandatoInstanceForm() {
     const button = document.getElementById('addInstanceBtn');
     if (!button || button.dataset.mandatoBound === 'true') return;
@@ -307,6 +355,7 @@ function buildEmbedScript() {
             lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
           }));
           window.InstanceManager?.updateInstancesList?.();
+          updateMandatoInstanceBadges();
           await Promise.allSettled(window.AppState.instances.map((instance) => this.saveInstance(instance)));
           return;
         }
@@ -318,6 +367,7 @@ function buildEmbedScript() {
 
         window.StorageService?.setLocalJson?.('disparador_instances', window.AppState.instances);
         window.InstanceManager?.updateInstancesList?.();
+        updateMandatoInstanceBadges();
       } catch (error) {
         console.error('Erro ao carregar instancias do MandatoPro:', error);
       }
@@ -338,6 +388,7 @@ function buildEmbedScript() {
           instance._supabaseId = payload.data._supabaseId;
           instance.lastCheck = payload.data.lastCheck ? new Date(payload.data.lastCheck) : instance.lastCheck;
         }
+        updateMandatoInstanceBadges();
         return payload.data?._supabaseId || payload.data?.id || null;
       } catch (error) {
         console.error('Erro ao salvar instancia no MandatoPro:', error);
@@ -423,8 +474,13 @@ function buildEmbedScript() {
     patchNavigation();
     patchServiceWorker();
     patchInstancePersistence();
+    patchUiBadges();
+    bindMandatoInstanceActions();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
+    setTimeout(patchUiBadges, 1200);
+    setTimeout(updateMandatoInstanceBadges, 1600);
+    setTimeout(updateMandatoInstanceBadges, 3000);
     setTimeout(addMandatoContactsButton, 1200);
   }
 
