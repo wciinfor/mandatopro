@@ -26,6 +26,7 @@ function obterModuloAtivo(path = '') {
   if (path.startsWith('/geolocalizacao')) return 'Geolocalização';
   if (path.startsWith('/comunicacao')) return 'Notificações';
   if (path.startsWith('/configuracoes')) return 'Configurações';
+  if (path.startsWith('/disparos')) return 'Disparos';
   return 'Dashboard';
 }
 

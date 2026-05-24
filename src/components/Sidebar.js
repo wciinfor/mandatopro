@@ -19,7 +19,8 @@ import {
   faSignOutAlt,
   faTimes,
   faCog,
-  faShieldAlt
+  faShieldAlt,
+  faPaperPlane
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, setModuloAtivo }) {
@@ -80,6 +81,12 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
       icone: faBullhorn,
       submenu: [],
       rota: '/comunicacao'
+    },
+    {
+      nome: 'Disparos',
+      icone: faPaperPlane,
+      submenu: [],
+      rota: '/disparos'
     },
     {
       nome: 'Agenda',
