@@ -7,9 +7,12 @@ export class EvolutionApiError extends Error {
   }
 }
 
-function getConfig() {
-  const baseUrl = normalizeEvolutionBaseUrl(process.env.EVOLUTION_API_URL);
-  const apiKey = process.env.EVOLUTION_API_KEY;
+const DEFAULT_EVOLUTION_API_URL = 'https://api.insystens.online';
+
+function getConfig(options = {}) {
+  const apiKey = options.apiKey || process.env.EVOLUTION_API_KEY;
+  const configuredBaseUrl = process.env.EVOLUTION_API_URL || process.env.DISPARO_EVOLUTION_API_URL;
+  const baseUrl = normalizeEvolutionBaseUrl(configuredBaseUrl || (options.apiKey ? DEFAULT_EVOLUTION_API_URL : ''));
 
   if (!baseUrl || !apiKey) {
     throw new EvolutionApiError('Evolution API nao configurada no servidor', 400);
@@ -41,8 +44,8 @@ function normalizeEvolutionBaseUrl(value) {
   return raw.replace(/\/manager$/i, '');
 }
 
-async function request(method, path, body) {
-  const { baseUrl, apiKey, timeoutMs } = getConfig();
+async function request(method, path, body, options = {}) {
+  const { baseUrl, apiKey, timeoutMs } = getConfig(options);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -85,12 +88,12 @@ export function criarInstancia(nome, token) {
   });
 }
 
-export function obterStatusInstancia(nome) {
-  return request('GET', `/instance/connectionState/${encodeURIComponent(nome)}`);
+export function obterStatusInstancia(nome, apiKey) {
+  return request('GET', `/instance/connectionState/${encodeURIComponent(nome)}`, undefined, { apiKey });
 }
 
-export function obterQrCodeInstancia(nome) {
-  return request('GET', `/instance/connect/${encodeURIComponent(nome)}`);
+export function obterQrCodeInstancia(nome, apiKey) {
+  return request('GET', `/instance/connect/${encodeURIComponent(nome)}`, undefined, { apiKey });
 }
 
 export function desconectarInstancia(nome) {

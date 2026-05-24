@@ -112,9 +112,10 @@ function hasQrOrOpen(payload) {
 async function getEvolutionConnectionFallback(body = {}) {
   const instanceName = String(body.instanceName || body.instance || '').trim();
   if (!instanceName) return null;
+  const instanceApiKey = String(body.instanceAPIKEY || body.apikey || body.instanceKey || '').trim();
 
   try {
-    const statusPayload = await obterStatusInstancia(instanceName);
+    const statusPayload = await obterStatusInstancia(instanceName, instanceApiKey || undefined);
     const normalizedStatus = normalizeConnectionPayload(statusPayload);
     if (normalizedStatus.result === 'open') return normalizedStatus;
   } catch (error) {
@@ -122,7 +123,7 @@ async function getEvolutionConnectionFallback(body = {}) {
   }
 
   try {
-    const qrPayload = await obterQrCodeInstancia(instanceName);
+    const qrPayload = await obterQrCodeInstancia(instanceName, instanceApiKey || undefined);
     const normalizedQr = normalizeConnectionPayload(qrPayload);
     if (hasQrOrOpen(normalizedQr)) return normalizedQr;
   } catch (error) {
