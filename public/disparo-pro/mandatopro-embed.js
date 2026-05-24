@@ -275,10 +275,18 @@
     }
   }
 
+  function patchServiceWorker() {
+    if (!window.PWAManager || window.PWAManager.__mandatoPatched) return;
+    window.PWAManager.__mandatoPatched = true;
+    window.PWAManager.canRegisterServiceWorker = () => false;
+    window.PWAManager.registerServiceWorker = async () => null;
+  }
+
   function init() {
     patchFetchAuth();
     patchAuth();
     patchNavigation();
+    patchServiceWorker();
     patchInstancePersistence();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);

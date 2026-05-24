@@ -402,10 +402,18 @@ function buildEmbedScript() {
     }
   }
 
+  function patchServiceWorker() {
+    if (!window.PWAManager || window.PWAManager.__mandatoPatched) return;
+    window.PWAManager.__mandatoPatched = true;
+    window.PWAManager.canRegisterServiceWorker = () => false;
+    window.PWAManager.registerServiceWorker = async () => null;
+  }
+
   function init() {
     patchFetchAuth();
     patchAuth();
     patchNavigation();
+    patchServiceWorker();
     patchInstancePersistence();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
@@ -475,7 +483,6 @@ copyRecursive(
 copyRecursive(path.join(sourceRoot, 'config'), path.join(publicRoot, 'config'));
 copyRecursive(path.join(sourceRoot, 'modelo-planilha.xlsx'), path.join(publicRoot, 'modelo-planilha.xlsx'));
 copyRecursive(path.join(sourceRoot, 'relatorio.html'), path.join(publicRoot, 'relatorio.html'));
-copyRecursive(path.join(sourceRoot, 'service-worker.js'), path.join(publicRoot, 'service-worker.js'));
 
 fs.writeFileSync(path.join(publicRoot, 'index.html'), buildHtml(), 'utf8');
 fs.writeFileSync(path.join(publicRoot, 'mandatopro-embed.js'), buildEmbedScript(), 'utf8');
