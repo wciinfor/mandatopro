@@ -284,6 +284,50 @@ function buildEmbedScript() {
     }
   }
 
+  function resolveMandatoInstance(instanceId) {
+    return (window.AppState?.instances || []).find((instance) => String(instance.id) === String(instanceId)) || null;
+  }
+
+  function patchInstanceManagerActions() {
+    const manager = getInstanceManager();
+    if (!manager || manager.__mandatoActionsPatched) return;
+
+    manager.__mandatoActionsPatched = true;
+
+    const originalCheckConnection = manager.checkConnection?.bind(manager);
+    if (typeof originalCheckConnection === 'function') {
+      manager.checkConnection = function checkMandatoConnection(instanceId) {
+        const instance = resolveMandatoInstance(instanceId);
+        return originalCheckConnection(instance ? instance.id : instanceId);
+      };
+    }
+
+    const originalRemoveInstance = manager.removeInstance?.bind(manager);
+    if (typeof originalRemoveInstance === 'function') {
+      manager.removeInstance = function removeMandatoInstance(instanceId) {
+        const instance = resolveMandatoInstance(instanceId);
+        return originalRemoveInstance(instance ? instance.id : instanceId);
+      };
+    }
+
+    const originalEditInstance = manager.editInstance?.bind(manager);
+    if (typeof originalEditInstance === 'function') {
+      manager.editInstance = function editMandatoInstance(instanceId) {
+        const instance = resolveMandatoInstance(instanceId);
+        return originalEditInstance(instance ? instance.id : instanceId);
+      };
+    }
+
+    const originalUpdateInstancesList = manager.updateInstancesList?.bind(manager);
+    if (typeof originalUpdateInstancesList === 'function') {
+      manager.updateInstancesList = function updateMandatoInstancesList(...args) {
+        const result = originalUpdateInstancesList(...args);
+        setTimeout(updateMandatoInstanceBadges, 0);
+        return result;
+      };
+    }
+  }
+
   function patchUiBadges() {
     if (!window.UI || window.UI.__mandatoBadgesPatched) return;
     const originalUpdateBadges = window.UI.updateBadges?.bind(window.UI);
@@ -299,19 +343,29 @@ function buildEmbedScript() {
     window.__mandatoInstanceActionsBound = true;
 
     document.addEventListener('click', (event) => {
-      const button = event.target.closest?.('.show-qr-btn');
+      const button = event.target.closest?.('.check-connection-btn, .show-qr-btn, .remove-instance-btn, .edit-instance-btn');
       if (!button) return;
 
       const instanceId = button.dataset.instanceId;
       if (!instanceId) return;
 
       const manager = getInstanceManager();
-      if (!manager || typeof manager.showConnectionModal !== 'function') return;
+      if (!manager) return;
 
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      manager.showConnectionModal(instanceId);
+
+      if (button.classList.contains('check-connection-btn') && typeof manager.checkConnection === 'function') {
+        manager.checkConnection(instanceId);
+      } else if (button.classList.contains('show-qr-btn') && typeof manager.showConnectionModal === 'function') {
+        const instance = resolveMandatoInstance(instanceId);
+        manager.showConnectionModal(instance || instanceId);
+      } else if (button.classList.contains('remove-instance-btn') && typeof manager.removeInstance === 'function') {
+        manager.removeInstance(instanceId);
+      } else if (button.classList.contains('edit-instance-btn') && typeof manager.editInstance === 'function') {
+        manager.editInstance(instanceId);
+      }
     }, true);
   }
 
@@ -475,12 +529,16 @@ function buildEmbedScript() {
     patchServiceWorker();
     patchInstancePersistence();
     patchUiBadges();
+    patchInstanceManagerActions();
     bindMandatoInstanceActions();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
+    setTimeout(patchInstanceManagerActions, 500);
     setTimeout(patchUiBadges, 1200);
+    setTimeout(patchInstanceManagerActions, 1200);
     setTimeout(updateMandatoInstanceBadges, 1600);
     setTimeout(updateMandatoInstanceBadges, 3000);
+    setInterval(updateMandatoInstanceBadges, 1000);
     setTimeout(addMandatoContactsButton, 1200);
   }
 
