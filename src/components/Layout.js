@@ -5,6 +5,7 @@ import NotificationBell from './NotificationBell';
 import AIChatWidget from './AIChatWidget';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars, faUserTie } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '@/contexts/AuthContext';
 
 function obterModuloAtivo(path = '') {
   if (path === '/dashboard') return 'Dashboard';
@@ -30,49 +31,34 @@ function obterModuloAtivo(path = '') {
 
 export default function Layout({ children, titulo = 'MandatoPro' }) {
   const router = useRouter();
-  const [usuario, setUsuario] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+  const { user, loading, updateUser } = useAuth();
   const [sidebarAberto, setSidebarAberto] = useState(false);
   const moduloAtivo = obterModuloAtivo(router.pathname);
 
   useEffect(() => {
-    try {
-      const usuarioStr = localStorage.getItem('usuario');
-      setUsuario(usuarioStr ? JSON.parse(usuarioStr) : null);
-    } catch {
-      setUsuario(null);
-    } finally {
-      setAuthReady(true);
-    }
-  }, []);
+    if (loading) return;
 
-  useEffect(() => {
-    if (!authReady) return;
-
-    if (!usuario) {
+    if (!user) {
       if (router.pathname !== '/login') {
         router.push('/login');
       }
       return;
     }
 
-    // Buscar nome atualizado do Supabase — roda apenas uma vez após authReady,
-    // sem depender de `usuario` para evitar loop: setUsuario → usuario muda → fetch → loop.
+    // Buscar nome atualizado do Supabase — roda apenas uma vez quando ha usuario.
     fetch('/api/usuarios/me')
       .then(r => r.ok ? r.json() : null)
       .then(body => {
         if (body?.data?.nome) {
-          setUsuario(prev => {
-            if (prev?.nome === body.data.nome) return prev; // sem mudança, não re-renderiza
-            const atualizado = { ...prev, nome: body.data.nome };
-            localStorage.setItem('usuario', JSON.stringify(atualizado));
-            return atualizado;
-          });
+          const atualizado = { ...user, nome: body.data.nome };
+          if (user?.nome !== body.data.nome) {
+            updateUser(atualizado);
+          }
         }
       })
       .catch(() => {}); // falha silenciosa, exibe o cache
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authReady, router.pathname]);
+  }, [loading, router.pathname, user?.id]);
 
   return (
     <div className="min-h-screen bg-teal-50 flex">
@@ -110,7 +96,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
               <NotificationBell />
               <div className="flex items-center gap-2 bg-teal-100 px-3 py-2 rounded-lg">
                 <FontAwesomeIcon icon={faUserTie} className="text-sm text-teal-700" />
-                <span className="font-semibold text-teal-800 text-sm">{usuario?.nome || 'Admin'}</span>
+                <span className="font-semibold text-teal-800 text-sm">{user?.nome || 'Admin'}</span>
               </div>
             </div>
           </div>
