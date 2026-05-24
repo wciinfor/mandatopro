@@ -158,11 +158,25 @@
 
     window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances() {
       try {
+        const localInstances = window.AppState?.instances?.length
+          ? window.AppState.instances
+          : (window.StorageService?.getLocalJson?.('disparador_instances') || []);
         const response = await fetch('/api/disparos/instancias-runtime');
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar instancias');
 
-        window.AppState.instances = (payload.data || []).map((instance) => ({
+        const remoteInstances = payload.data || [];
+        if (remoteInstances.length === 0 && localInstances.length > 0) {
+          window.AppState.instances = localInstances.map((instance) => ({
+            ...instance,
+            lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
+          }));
+          window.InstanceManager?.updateInstancesList?.();
+          await Promise.allSettled(window.AppState.instances.map((instance) => this.saveInstance(instance)));
+          return;
+        }
+
+        window.AppState.instances = remoteInstances.map((instance) => ({
           ...instance,
           lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
         }));

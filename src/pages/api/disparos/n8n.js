@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterQrCodeInstancia, obterStatusInstancia } from '@/lib/disparos/evolution';
 
 export const runtime = 'nodejs';
 
@@ -104,6 +105,33 @@ function normalizeConnectionPayload(payload) {
   return data;
 }
 
+function hasQrOrOpen(payload) {
+  return payload?.result === 'open' || String(payload?.result || '').startsWith('data:image');
+}
+
+async function getEvolutionConnectionFallback(body = {}) {
+  const instanceName = String(body.instanceName || body.instance || '').trim();
+  if (!instanceName) return null;
+
+  try {
+    const statusPayload = await obterStatusInstancia(instanceName);
+    const normalizedStatus = normalizeConnectionPayload(statusPayload);
+    if (normalizedStatus.result === 'open') return normalizedStatus;
+  } catch (error) {
+    console.warn('Falha ao consultar status direto na Evolution:', error?.message);
+  }
+
+  try {
+    const qrPayload = await obterQrCodeInstancia(instanceName);
+    const normalizedQr = normalizeConnectionPayload(qrPayload);
+    if (hasQrOrOpen(normalizedQr)) return normalizedQr;
+  } catch (error) {
+    console.warn('Falha ao consultar QR direto na Evolution:', error?.message);
+  }
+
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Metodo nao permitido' });
@@ -141,7 +169,17 @@ export default async function handler(req, res) {
     }
 
     if (String(req.body?.action || '') === 'verificar_conexao') {
-      return res.status(200).json(normalizeConnectionPayload(payload));
+      const normalized = normalizeConnectionPayload(payload);
+      if (hasQrOrOpen(normalized)) {
+        return res.status(200).json(normalized);
+      }
+
+      const evolutionFallback = await getEvolutionConnectionFallback(req.body || {});
+      if (evolutionFallback) {
+        return res.status(200).json(evolutionFallback);
+      }
+
+      return res.status(200).json(normalized);
     }
 
     if (typeof payload === 'string') {
