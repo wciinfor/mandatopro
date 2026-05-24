@@ -176,15 +176,10 @@
                         </div>
                     </div>
 
-                    <!-- Segunda Linha: Tema + Perfil + Sair -->
+                    <!-- Segunda Linha: Tema + Sair -->
                     <div class="header-bottom-row">
                         <button id="themeToggle" class="btn btn-outline-light btn-sm">
                             <i class="bi bi-moon-fill me-2" id="themeIcon"></i>Tema
-                        </button>
-                        <button id="profileBtn" class="btn btn-outline-light btn-sm">
-                            <i class="bi bi-person-circle me-1"></i>
-                            <span id="userDisplayName">Perfil</span>
-                            <span id="userPlanBadge" class="badge bg-secondary ms-1">Free</span>
                         </button>
                         <button id="logoutBtn" class="btn btn-outline-danger btn-sm">
                             <i class="bi bi-box-arrow-right me-2"></i>Sair
@@ -1937,40 +1932,6 @@
     <script src="frontend/js/ui.js?v=1779664871766"></script>
     <script src="frontend/js/app.js?v=1779664871766"></script>
     <script src="frontend/js/main.js?v=1779664871766"></script>
-    <!-- Modal Perfil do Usuário -->
-    <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-person-circle me-2"></i>Meu Perfil</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="text-center mb-4">
-                        <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center mb-3" style="width:72px;height:72px">
-                            <i class="bi bi-person-fill text-white" style="font-size:2rem"></i>
-                        </div>
-                        <h5 class="mb-0" id="profileName">—</h5>
-                        <small class="text-muted" id="profileEmail">—</small><br>
-                        <span id="profilePlan" class="badge bg-secondary fs-6 mt-2">Free</span>
-                    </div>
-                    <hr>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Nome de exibição</label>
-                        <input type="text" id="profileNameInput" class="form-control" placeholder="Seu nome completo">
-                    </div>
-                    <div id="profileAlert" class="d-none"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                    <button type="button" id="profileSaveBtn" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-2"></i>Salvar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
 </body>
 
 </html>

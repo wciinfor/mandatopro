@@ -23,9 +23,7 @@
       if (typeof window.SupabaseDataManager?.loadUserInstances === 'function') {
         await window.SupabaseDataManager.loadUserInstances();
       }
-      if (typeof window.ProfileManager?.loadProfile === 'function') {
-        window.ProfileManager.loadProfile();
-      }
+      // Perfil interno removido do embed MandatoPro.
     };
 
     window.AuthManager.requireAuth = () => true;
