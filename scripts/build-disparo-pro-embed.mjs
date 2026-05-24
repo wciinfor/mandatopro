@@ -587,6 +587,27 @@ function buildEnvScript() {
 `;
 }
 
+function patchGeneratedRuntimeScripts() {
+  const instancesPath = path.join(publicRoot, 'frontend', 'js', 'modules', 'instances.js');
+  if (fs.existsSync(instancesPath)) {
+    let instances = fs.readFileSync(instancesPath, 'utf8');
+    instances = instances
+      .replaceAll('inst.id === instanceId', 'String(inst.id) === String(instanceId)')
+      .replaceAll('inst.id !== instanceId', 'String(inst.id) !== String(instanceId)');
+    fs.writeFileSync(instancesPath, instances, 'utf8');
+  }
+
+  const uiPath = path.join(publicRoot, 'frontend', 'js', 'ui.js');
+  if (fs.existsSync(uiPath)) {
+    let ui = fs.readFileSync(uiPath, 'utf8');
+    ui = ui.replace(
+      "const instanceCount = document.getElementById('activeInstancesCount')?.textContent || '0';",
+      "const instanceCount = String(window.AppState?.instances?.length || 0);"
+    );
+    fs.writeFileSync(uiPath, ui, 'utf8');
+  }
+}
+
 fs.mkdirSync(publicRoot, { recursive: true });
 copyRecursive(path.join(sourceRoot, 'frontend', 'css'), path.join(publicRoot, 'frontend', 'css'));
 copyRecursive(path.join(sourceRoot, 'frontend', 'js'), path.join(publicRoot, 'frontend', 'js'), {
@@ -605,6 +626,7 @@ copyRecursive(
 copyRecursive(path.join(sourceRoot, 'config'), path.join(publicRoot, 'config'));
 copyRecursive(path.join(sourceRoot, 'modelo-planilha.xlsx'), path.join(publicRoot, 'modelo-planilha.xlsx'));
 copyRecursive(path.join(sourceRoot, 'relatorio.html'), path.join(publicRoot, 'relatorio.html'));
+patchGeneratedRuntimeScripts();
 
 fs.writeFileSync(path.join(publicRoot, 'index.html'), buildHtml(), 'utf8');
 fs.writeFileSync(path.join(publicRoot, 'mandatopro-embed.js'), buildEmbedScript(), 'utf8');

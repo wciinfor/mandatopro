@@ -578,7 +578,7 @@ const InstanceManager = {
     },
 
     updateInstanceStats(instanceId, success = true) {
-        const instance = AppState.instances.find(inst => inst.id === instanceId);
+        const instance = AppState.instances.find(inst => String(inst.id) === String(instanceId));
         if (!instance) return;
 
         instance.totalSent = (instance.totalSent || 0) + 1;
@@ -803,7 +803,7 @@ const InstanceManager = {
     },
 
     async checkConnection(instanceId) {
-        const instance = AppState.instances.find(inst => inst.id === instanceId);
+        const instance = AppState.instances.find(inst => String(inst.id) === String(instanceId));
         if (!instance) return;
 
         UI.showLoading('Verificando conexão...');
@@ -999,7 +999,7 @@ const InstanceManager = {
     },
 
     removeInstance(instanceId) {
-        const instance = AppState.instances.find(inst => inst.id === instanceId);
+        const instance = AppState.instances.find(inst => String(inst.id) === String(instanceId));
         if (!instance) return;
 
         UI.confirm(
@@ -1012,7 +1012,7 @@ const InstanceManager = {
                     beforeCount: AppState.instances.length
                 });
 
-                AppState.instances = AppState.instances.filter(inst => inst.id !== instanceId);
+                AppState.instances = AppState.instances.filter(inst => String(inst.id) !== String(instanceId));
                 if (typeof SupabaseDataManager !== 'undefined' && instance._supabaseId) {
                     SupabaseDataManager.deleteInstance(instance._supabaseId);
                 }
@@ -1030,10 +1030,10 @@ const InstanceManager = {
                 this.updateInstancesList();
                 this.updateActiveInstances();
 
-                const activeInstance = AppState.activeInstances.find(inst => inst.id === instanceId);
+                const activeInstance = AppState.activeInstances.find(inst => String(inst.id) === String(instanceId));
                 if (activeInstance) {
                     console.warn('⚠️ Instância ainda estava nas ativas, removendo...');
-                    AppState.activeInstances = AppState.activeInstances.filter(inst => inst.id !== instanceId);
+                    AppState.activeInstances = AppState.activeInstances.filter(inst => String(inst.id) !== String(instanceId));
                 }
 
                 UI.showSuccess(`Instância "${instance.name}" removida`);
@@ -1047,7 +1047,7 @@ const InstanceManager = {
     },
 
     editInstance(instanceId) {
-        const instance = AppState.instances.find(inst => inst.id === instanceId);
+        const instance = AppState.instances.find(inst => String(inst.id) === String(instanceId));
         if (!instance) return;
 
         const newName = prompt('Novo nome da instância:', instance.name);
@@ -1365,7 +1365,7 @@ const InstanceContactsExporter = {
 
         this.isExporting = true;
 
-        const instance = AppState.instances.find(inst => inst.id === instanceId);
+        const instance = AppState.instances.find(inst => String(inst.id) === String(instanceId));
         if (!instance) {
             this.isExporting = false;
             UI.showError('Instância não encontrada');

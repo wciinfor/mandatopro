@@ -174,7 +174,7 @@ const UiManager = {
             contactBadge.style.display = 'inline';
         }
 
-        const instanceCount = document.getElementById('activeInstancesCount')?.textContent || '0';
+        const instanceCount = String(window.AppState?.instances?.length || 0);
         const instanceBadge = document.getElementById('instanceCountBadge');
         if (instanceBadge) {
             instanceBadge.textContent = instanceCount;
