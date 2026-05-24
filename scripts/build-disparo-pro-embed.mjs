@@ -121,6 +121,12 @@ function buildHtml() {
     `$1${instanceFormHtml}                <div class="card">`
   );
 
+  const assetVersion = Date.now();
+  html = html.replaceAll(/(<script src="[^"]+\.js)(?:"\s*><\/script>)/g, `$1?v=${assetVersion}"></script>`);
+  html = html.replaceAll(/(<link[^>]+href="[^"]+\.css)(?:"[^>]*>)/g, (match, prefix) => {
+    return match.replace(prefix, `${prefix}?v=${assetVersion}`);
+  });
+
   return html;
 }
 
@@ -593,7 +599,37 @@ function patchGeneratedRuntimeScripts() {
     let instances = fs.readFileSync(instancesPath, 'utf8');
     instances = instances
       .replaceAll('inst.id === instanceId', 'String(inst.id) === String(instanceId)')
-      .replaceAll('inst.id !== instanceId', 'String(inst.id) !== String(instanceId)');
+      .replaceAll('inst.id !== instanceId', 'String(inst.id) !== String(instanceId)')
+      .replaceAll(
+        '<button class="btn btn-outline-primary btn-sm check-connection-btn" ',
+        '<button type="button" class="btn btn-outline-primary btn-sm check-connection-btn" onclick="InstanceManager.checkConnection(this.dataset.instanceId); return false;" '
+      )
+      .replaceAll(
+        '<button class="btn btn-outline-warning btn-sm show-qr-btn" ',
+        '<button type="button" class="btn btn-outline-warning btn-sm show-qr-btn" onclick="InstanceManager.showConnectionModal(this.dataset.instanceId); return false;" '
+      )
+      .replaceAll(
+        '<button class="btn btn-outline-danger btn-sm remove-instance-btn" ',
+        '<button type="button" class="btn btn-outline-danger btn-sm remove-instance-btn" onclick="InstanceManager.removeInstance(this.dataset.instanceId); return false;" '
+      )
+      .replaceAll(
+        '<button class="btn btn-outline-secondary btn-sm disconnect-instance-btn" ',
+        '<button type="button" class="btn btn-outline-secondary btn-sm disconnect-instance-btn" onclick="InstanceManager.disconnectInstance(this.dataset.instanceId); return false;" '
+      )
+      .replaceAll(
+        '<button class="btn btn-outline-success btn-sm export-contacts-btn" ',
+        `<button type="button" class="btn btn-outline-success btn-sm export-contacts-btn" onclick="if (typeof InstanceContactsExporter !== 'undefined') InstanceContactsExporter.exportInstanceContacts(this.dataset.instanceId); return false;" `
+      );
+    if (!instances.includes('window.InstanceManager = InstanceManager;')) {
+      instances += `
+
+window.ConnectionManager = ConnectionManager;
+window.InstanceManager = InstanceManager;
+if (typeof ConnectionManagerWithLicense !== 'undefined') {
+  window.ConnectionManagerWithLicense = ConnectionManagerWithLicense;
+}
+`;
+    }
     fs.writeFileSync(instancesPath, instances, 'utf8');
   }
 

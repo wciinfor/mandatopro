@@ -444,19 +444,19 @@ const InstanceManager = {
                         </div>
                         
                         <div class="instance-actions">
-                            <button class="btn btn-outline-primary btn-sm check-connection-btn" 
+                            <button type="button" class="btn btn-outline-primary btn-sm check-connection-btn" onclick="InstanceManager.checkConnection(this.dataset.instanceId); return false;" 
                                     data-instance-id="${instance.id}"
                                     title="Verificar conexão">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>
                             
                             ${normalizedStatus === 'connected' ? `
-                                <button class="btn btn-outline-secondary btn-sm disconnect-instance-btn" 
+                                <button type="button" class="btn btn-outline-secondary btn-sm disconnect-instance-btn" onclick="InstanceManager.disconnectInstance(this.dataset.instanceId); return false;" 
                                         data-instance-id="${instance.id}"
                                         title="Desconectar">
                                     <i class="bi bi-power"></i>
                                 </button>
-                                <button class="btn btn-outline-success btn-sm export-contacts-btn" 
+                                <button type="button" class="btn btn-outline-success btn-sm export-contacts-btn" onclick="if (typeof InstanceContactsExporter !== 'undefined') InstanceContactsExporter.exportInstanceContacts(this.dataset.instanceId); return false;" 
                                         data-instance-id="${instance.id}"
                                         title="Importar/Exportar contatos WhatsApp">
                                     <i class="bi bi-people"></i>
@@ -464,14 +464,14 @@ const InstanceManager = {
                             ` : ''}
                             
                             ${normalizedStatus === 'disconnected' ? `
-                                <button class="btn btn-outline-warning btn-sm show-qr-btn" 
+                                <button type="button" class="btn btn-outline-warning btn-sm show-qr-btn" onclick="InstanceManager.showConnectionModal(this.dataset.instanceId); return false;" 
                                         data-instance-id="${instance.id}"
                                         title="Conectar">
                                     <i class="bi bi-qr-code"></i>
                                 </button>
                             ` : ''}
                             
-                            <button class="btn btn-outline-danger btn-sm remove-instance-btn" 
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-instance-btn" onclick="InstanceManager.removeInstance(this.dataset.instanceId); return false;" 
                                     data-instance-id="${instance.id}"
                                     title="Remover">
                                 <i class="bi bi-trash"></i>
@@ -2089,19 +2089,19 @@ const updateInstancesListWithExportButton = function () {
                     </div>
                     
                     <div class="instance-actions">
-                        <button class="btn btn-outline-primary btn-sm check-connection-btn" 
+                        <button type="button" class="btn btn-outline-primary btn-sm check-connection-btn" onclick="InstanceManager.checkConnection(this.dataset.instanceId); return false;" 
                                 data-instance-id="${instance.id}"
                                 title="Verificar conexão">
                             <i class="bi bi-arrow-clockwise"></i>
                         </button>
                         
                         ${normalizedStatus === 'connected' ? `
-                            <button class="btn btn-outline-secondary btn-sm disconnect-instance-btn" 
+                            <button type="button" class="btn btn-outline-secondary btn-sm disconnect-instance-btn" onclick="InstanceManager.disconnectInstance(this.dataset.instanceId); return false;" 
                                     data-instance-id="${instance.id}"
                                     title="Desconectar">
                                 <i class="bi bi-power"></i>
                             </button>
-                            <button class="btn btn-outline-success btn-sm export-contacts-btn" 
+                            <button type="button" class="btn btn-outline-success btn-sm export-contacts-btn" onclick="if (typeof InstanceContactsExporter !== 'undefined') InstanceContactsExporter.exportInstanceContacts(this.dataset.instanceId); return false;" 
                                     data-instance-id="${instance.id}"
                                     title="Importar/Exportar contatos WhatsApp">
                                 <i class="bi bi-people"></i>
@@ -2109,14 +2109,14 @@ const updateInstancesListWithExportButton = function () {
                         ` : ''}
                         
                         ${normalizedStatus === 'disconnected' ? `
-                            <button class="btn btn-outline-warning btn-sm show-qr-btn" 
+                            <button type="button" class="btn btn-outline-warning btn-sm show-qr-btn" onclick="InstanceManager.showConnectionModal(this.dataset.instanceId); return false;" 
                                     data-instance-id="${instance.id}"
                                     title="Conectar">
                                 <i class="bi bi-qr-code"></i>
                             </button>
                         ` : ''}
                         
-                        <button class="btn btn-outline-danger btn-sm remove-instance-btn" 
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-instance-btn" onclick="InstanceManager.removeInstance(this.dataset.instanceId); return false;" 
                                 data-instance-id="${instance.id}"
                                 title="Remover">
                             <i class="bi bi-trash"></i>
@@ -2192,3 +2192,10 @@ if (document.readyState === 'loading') {
 }
 
 window.InstanceContactsExporter = InstanceContactsExporter;
+
+
+window.ConnectionManager = ConnectionManager;
+window.InstanceManager = InstanceManager;
+if (typeof ConnectionManagerWithLicense !== 'undefined') {
+  window.ConnectionManagerWithLicense = ConnectionManagerWithLicense;
+}
