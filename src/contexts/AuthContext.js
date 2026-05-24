@@ -40,15 +40,9 @@ export function AuthProvider({ children }) {
               localStorage.setItem('usuario', JSON.stringify(usuario));
             }
           } else {
-            // NÃO limpar localStorage se já há usuário logado localmente
-            const usuarioLocal = localStorage.getItem('usuario');
-            if (!usuarioLocal) {
-              console.log('[AuthContext] Sem sessão Supabase e sem usuário local, limpando...');
-              setUser(null);
-              localStorage.removeItem('usuario');
-            } else {
-              console.log('[AuthContext] Sem sessão Supabase mas usuário local existe, mantendo...');
-            }
+            // Sessão encerrada — limpar estado
+            setUser(null);
+            localStorage.removeItem('usuario');
           }
         }
       );
@@ -112,10 +106,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    // Registrar log (sem bloquear o logout em caso de erro)
     try {
-      const supabase = createClient();
-      
-      // Registrar logout nos logs
       if (user) {
         await registrarLogAuditoria({
           usuario_id: user.id,
@@ -125,18 +117,23 @@ export function AuthProvider({ children }) {
           status: 'SUCESSO'
         });
       }
+    } catch (logError) {
+      console.error('Erro ao registrar log de logout:', logError);
+    }
 
-      // Fazer logout no Supabase (se configurado)
+    // Fazer logout de forma garantida
+    try {
+      const supabase = createClient();
       if (supabase && supabase.auth) {
         await supabase.auth.signOut();
       }
-      
-      localStorage.removeItem('usuario');
-      setUser(null);
-      router.push('/login');
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+    } catch (signOutError) {
+      console.error('Erro ao fazer signOut no Supabase:', signOutError);
     }
+
+    localStorage.removeItem('usuario');
+    setUser(null);
+    router.push('/login');
   };
 
   const updateUser = (userData) => {
