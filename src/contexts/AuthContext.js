@@ -39,11 +39,8 @@ export function AuthProvider({ children }) {
               setUser(usuario);
               localStorage.setItem('usuario', JSON.stringify(usuario));
             }
-          } else if (event === 'SIGNED_OUT') {
-            // Apenas no evento explícito de logout do Supabase
-            setUser(null);
-            localStorage.removeItem('usuario');
           }
+          // Limpeza de sessão é feita explicitamente por logout() — não interferir aqui
         }
       );
 
