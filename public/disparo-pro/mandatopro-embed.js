@@ -151,6 +151,68 @@
     }, true);
   }
 
+  function patchInstancePersistence() {
+    if (!window.SupabaseDataManager || window.SupabaseDataManager.__mandatoPatched) return;
+
+    window.SupabaseDataManager.__mandatoPatched = true;
+
+    window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances() {
+      try {
+        const response = await fetch('/api/disparos/instancias-runtime');
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar instancias');
+
+        window.AppState.instances = (payload.data || []).map((instance) => ({
+          ...instance,
+          lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
+        }));
+
+        window.StorageService?.setLocalJson?.('disparador_instances', window.AppState.instances);
+        window.InstanceManager?.updateInstancesList?.();
+      } catch (error) {
+        console.error('Erro ao carregar instancias do MandatoPro:', error);
+      }
+    };
+
+    window.SupabaseDataManager.saveInstance = async function saveMandatoInstance(instance) {
+      try {
+        const response = await fetch('/api/disparos/instancias-runtime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(instance)
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.message || 'Erro ao salvar instancia');
+
+        if (payload.data) {
+          instance.id = payload.data.id;
+          instance._supabaseId = payload.data._supabaseId;
+          instance.lastCheck = payload.data.lastCheck ? new Date(payload.data.lastCheck) : instance.lastCheck;
+        }
+        return payload.data?._supabaseId || payload.data?.id || null;
+      } catch (error) {
+        console.error('Erro ao salvar instancia no MandatoPro:', error);
+        window.UI?.showError?.(error.message || 'Erro ao salvar instancia');
+        return null;
+      }
+    };
+
+    window.SupabaseDataManager.deleteInstance = async function deleteMandatoInstance(id) {
+      if (!id) return;
+      try {
+        const response = await fetch(`/api/disparos/instancias-runtime?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE'
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.message || 'Erro ao remover instancia');
+        }
+      } catch (error) {
+        console.error('Erro ao remover instancia no MandatoPro:', error);
+      }
+    };
+  }
+
   async function importMandatoContacts() {
     const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
     const cidade = document.getElementById('mandatoCidade')?.value || '';
@@ -203,6 +265,7 @@
     patchFetchAuth();
     patchAuth();
     patchNavigation();
+    patchInstancePersistence();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
     setTimeout(addMandatoContactsButton, 1200);
