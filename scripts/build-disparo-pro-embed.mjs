@@ -433,6 +433,138 @@ function buildEmbedScript() {
     return window.ModeloManager || null;
   }
 
+  function getBatchManager() {
+    try {
+      if (typeof BatchManager !== 'undefined') return BatchManager;
+    } catch {
+      return null;
+    }
+    return window.BatchManager || null;
+  }
+
+  function getBusinessHoursManager() {
+    try {
+      if (typeof BusinessHoursManager !== 'undefined') return BusinessHoursManager;
+    } catch {
+      return null;
+    }
+    return window.BusinessHoursManager || null;
+  }
+
+  function getScheduleManager() {
+    try {
+      if (typeof ScheduleManager !== 'undefined') return ScheduleManager;
+    } catch {
+      return null;
+    }
+    return window.ScheduleManager || null;
+  }
+
+  const MANDATO_SETTINGS_KEY = 'mandatopro_disparo_settings';
+  const MANDATO_SETTINGS_FIELDS = [
+    'minInterval',
+    'maxInterval',
+    'ia',
+    'enableBrazilianValidation',
+    'enableEmailSending',
+    'emailSubject',
+    'enableBatchPause',
+    'batchSize',
+    'batchPauseDuration',
+    'enableBusinessHours',
+    'businessHoursStart',
+    'businessHoursEnd',
+    'enableScheduling',
+    'scheduleDate',
+    'scheduleTime'
+  ];
+
+  function readMandatoField(id) {
+    const element = document.getElementById(id);
+    if (!element) return undefined;
+    if (element.type === 'checkbox') return element.checked;
+    return element.value;
+  }
+
+  function writeMandatoField(id, value) {
+    const element = document.getElementById(id);
+    if (!element || value === undefined || value === null) return;
+
+    if (element.type === 'checkbox') {
+      element.checked = Boolean(value);
+    } else {
+      element.value = String(value);
+    }
+  }
+
+  function collectMandatoSettings() {
+    return MANDATO_SETTINGS_FIELDS.reduce((acc, id) => {
+      const value = readMandatoField(id);
+      if (value !== undefined) acc[id] = value;
+      return acc;
+    }, {});
+  }
+
+  function applyMandatoConfigToggles() {
+    getBatchManager()?.toggleBatchOptions?.();
+    getBusinessHoursManager()?.toggleOptions?.();
+    getScheduleManager()?.toggleSchedulingOptions?.();
+    getTimeEstimator()?.update?.();
+    window.UiManager?.syncFormFields?.();
+  }
+
+  function saveMandatoSettingsState() {
+    try {
+      const settings = collectMandatoSettings();
+      window.StorageService?.setLocalJson?.(MANDATO_SETTINGS_KEY, {
+        settings,
+        savedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Erro ao salvar configuracoes do Disparo PRO:', error);
+    }
+  }
+
+  function restoreMandatoSettingsState() {
+    try {
+      const saved = window.StorageService?.getLocalJson?.(MANDATO_SETTINGS_KEY);
+      if (!saved?.settings) return;
+
+      for (const id of MANDATO_SETTINGS_FIELDS) {
+        writeMandatoField(id, saved.settings[id]);
+      }
+
+      if (window.AppState) {
+        window.AppState.batchPauseEnabled = Boolean(saved.settings.enableBatchPause);
+        window.AppState.batchSize = Number(saved.settings.batchSize || window.AppState.batchSize || 10);
+        window.AppState.batchPauseDuration = Number(saved.settings.batchPauseDuration || window.AppState.batchPauseDuration || 10);
+        window.AppState.businessHoursEnabled = Boolean(saved.settings.enableBusinessHours);
+        window.AppState.businessHoursStart = saved.settings.businessHoursStart || window.AppState.businessHoursStart || '08:00';
+        window.AppState.businessHoursEnd = saved.settings.businessHoursEnd || window.AppState.businessHoursEnd || '18:00';
+      }
+
+      applyMandatoConfigToggles();
+    } catch (error) {
+      console.error('Erro ao restaurar configuracoes do Disparo PRO:', error);
+    }
+  }
+
+  function bindMandatoSettingsPersistence() {
+    for (const id of MANDATO_SETTINGS_FIELDS) {
+      const element = document.getElementById(id);
+      if (!element || element.dataset.mandatoSettingsBound === 'true') continue;
+
+      element.dataset.mandatoSettingsBound = 'true';
+      const eventName = element.type === 'checkbox' || element.tagName === 'SELECT' ? 'change' : 'input';
+      element.addEventListener(eventName, () => {
+        if (id === 'enableBatchPause' || id === 'enableBusinessHours' || id === 'enableScheduling') {
+          setTimeout(applyMandatoConfigToggles, 0);
+        }
+        saveMandatoSettingsState();
+      });
+    }
+  }
+
   function openMandatoContactsDb() {
     return new Promise((resolve, reject) => {
       const request = window.indexedDB.open('mandatopro_disparo', 1);
@@ -846,6 +978,8 @@ function buildEmbedScript() {
     patchUiBadges();
     patchInstanceManagerActions();
     patchMandatoContactsPersistence();
+    restoreMandatoSettingsState();
+    bindMandatoSettingsPersistence();
     bindMandatoInstanceActions();
     bindMandatoContactsActions();
     bindMandatoStartCampaign();
@@ -853,12 +987,16 @@ function buildEmbedScript() {
     setTimeout(bindMandatoInstanceForm, 1800);
     setTimeout(bindMandatoStartCampaign, 500);
     setTimeout(bindMandatoStartCampaign, 1800);
+    setTimeout(restoreMandatoSettingsState, 700);
+    setTimeout(bindMandatoSettingsPersistence, 700);
     setTimeout(patchInstanceManagerActions, 500);
     setTimeout(patchMandatoContactsPersistence, 500);
     setTimeout(loadMandatoContactsState, 900);
     setTimeout(patchUiBadges, 1200);
     setTimeout(patchInstanceManagerActions, 1200);
     setTimeout(patchMandatoContactsPersistence, 1200);
+    setTimeout(restoreMandatoSettingsState, 1800);
+    setTimeout(bindMandatoSettingsPersistence, 1800);
     setTimeout(loadMandatoContactsState, 1800);
     setTimeout(updateMandatoInstanceBadges, 1600);
     setTimeout(updateMandatoInstanceBadges, 3000);
