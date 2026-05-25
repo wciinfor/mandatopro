@@ -51,7 +51,6 @@
       const result = await window.SupabaseClient?.auth?.getSession?.();
       return result?.data?.session?.access_token || '';
     } catch {
-      // Fallback localStorage do Supabase (quando sessao nao foi restaurada ainda).
       try {
         const url = window.APP_ENV?.SUPABASE_URL || '';
         const ref = url.replace(/^https?:\/\//, '').split('.')[0];
@@ -138,6 +137,24 @@
     header?.insertAdjacentElement('afterend', box);
 
     document.getElementById('mandatoImportBtn')?.addEventListener('click', importMandatoContacts);
+  }
+
+  function getContactManager() {
+    try {
+      if (typeof ContactManager !== 'undefined') return ContactManager;
+    } catch {
+      return null;
+    }
+    return window.ContactManager || null;
+  }
+
+  function getTimeEstimator() {
+    try {
+      if (typeof TimeEstimator !== 'undefined') return TimeEstimator;
+    } catch {
+      return null;
+    }
+    return window.TimeEstimator || null;
   }
 
   function getInstanceManager() {
@@ -461,8 +478,8 @@
         sourceId: contact.sourceId
       }));
 
-      window.ContactManager?.updateContactsList?.();
-      window.TimeEstimator?.update?.();
+      getContactManager()?.updateContactsList?.();
+      getTimeEstimator()?.update?.();
       window.UI?.hideLoading?.();
       window.UI?.showSuccess?.(`${window.AppState.contacts.length} contatos importados do MandatoPro`);
     } catch (error) {
@@ -508,6 +525,8 @@
     setTimeout(updateMandatoInstanceBadges, 3000);
     setInterval(updateMandatoInstanceBadges, 1000);
     setTimeout(addMandatoContactsButton, 1200);
+    setTimeout(addMandatoContactsButton, 2500);
+    setInterval(addMandatoContactsButton, 3000);
   }
 
   if (document.readyState === 'loading') {

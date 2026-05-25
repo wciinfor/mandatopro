@@ -186,7 +186,16 @@ function buildEmbedScript() {
       const result = await window.SupabaseClient?.auth?.getSession?.();
       return result?.data?.session?.access_token || '';
     } catch {
-      return '';
+      try {
+        const url = window.APP_ENV?.SUPABASE_URL || '';
+        const ref = url.replace(/^https?:\\/\\//, '').split('.')[0];
+        if (!ref) return '';
+        const raw = window.localStorage.getItem(\`sb-\${ref}-auth-token\`);
+        const parsed = raw ? JSON.parse(raw) : null;
+        return parsed?.access_token || '';
+      } catch {
+        return '';
+      }
     }
   }
 
@@ -262,6 +271,24 @@ function buildEmbedScript() {
     header?.insertAdjacentElement('afterend', box);
 
     document.getElementById('mandatoImportBtn')?.addEventListener('click', importMandatoContacts);
+  }
+
+  function getContactManager() {
+    try {
+      if (typeof ContactManager !== 'undefined') return ContactManager;
+    } catch {
+      return null;
+    }
+    return window.ContactManager || null;
+  }
+
+  function getTimeEstimator() {
+    try {
+      if (typeof TimeEstimator !== 'undefined') return TimeEstimator;
+    } catch {
+      return null;
+    }
+    return window.TimeEstimator || null;
   }
 
   function getInstanceManager() {
@@ -502,8 +529,8 @@ function buildEmbedScript() {
         sourceId: contact.sourceId
       }));
 
-      window.ContactManager?.updateContactsList?.();
-      window.TimeEstimator?.update?.();
+      getContactManager()?.updateContactsList?.();
+      getTimeEstimator()?.update?.();
       window.UI?.hideLoading?.();
       window.UI?.showSuccess?.(\`\${window.AppState.contacts.length} contatos importados do MandatoPro\`);
     } catch (error) {
@@ -546,6 +573,8 @@ function buildEmbedScript() {
     setTimeout(updateMandatoInstanceBadges, 3000);
     setInterval(updateMandatoInstanceBadges, 1000);
     setTimeout(addMandatoContactsButton, 1200);
+    setTimeout(addMandatoContactsButton, 2500);
+    setInterval(addMandatoContactsButton, 3000);
   }
 
   if (document.readyState === 'loading') {
@@ -631,6 +660,32 @@ if (typeof ConnectionManagerWithLicense !== 'undefined') {
 `;
     }
     fs.writeFileSync(instancesPath, instances, 'utf8');
+  }
+
+  const integrationsPath = path.join(publicRoot, 'frontend', 'js', 'modules', 'integrations.js');
+  if (fs.existsSync(integrationsPath)) {
+    let integrations = fs.readFileSync(integrationsPath, 'utf8');
+    if (!integrations.includes('window.PhoneUtils = PhoneUtils;')) {
+      integrations += `
+
+if (typeof PhoneUtils !== 'undefined') window.PhoneUtils = PhoneUtils;
+if (typeof TimeEstimator !== 'undefined') window.TimeEstimator = TimeEstimator;
+`;
+    }
+    fs.writeFileSync(integrationsPath, integrations, 'utf8');
+  }
+
+  const contactsPath = path.join(publicRoot, 'frontend', 'js', 'modules', 'contacts.js');
+  if (fs.existsSync(contactsPath)) {
+    let contacts = fs.readFileSync(contactsPath, 'utf8');
+    if (!contacts.includes('window.ContactManager = ContactManager;')) {
+      contacts += `
+
+window.ContactManager = ContactManager;
+if (typeof PreviewManager !== 'undefined') window.PreviewManager = PreviewManager;
+`;
+    }
+    fs.writeFileSync(contactsPath, contacts, 'utf8');
   }
 
   const uiPath = path.join(publicRoot, 'frontend', 'js', 'ui.js');

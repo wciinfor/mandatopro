@@ -1567,3 +1567,6 @@ if (window.APP_ENV?.MANDATOPRO_EMBED || window.location.hostname === 'localhost'
     window.AppState = AppState;
     window.APP_CONFIG = APP_CONFIG;
 }
+
+if (typeof PhoneUtils !== 'undefined') window.PhoneUtils = PhoneUtils;
+if (typeof TimeEstimator !== 'undefined') window.TimeEstimator = TimeEstimator;

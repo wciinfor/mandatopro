@@ -715,3 +715,6 @@ function validateMediaFile() {
 
     return true;
 }
+
+window.ContactManager = ContactManager;
+if (typeof PreviewManager !== 'undefined') window.PreviewManager = PreviewManager;

@@ -4,17 +4,28 @@ function sanitizeText(value) {
   return String(value || '').trim().replace(/[,()"']/g, '');
 }
 
-function aplicarFiltroCidade(query, cidade) {
+function aplicarFiltroCidade(query, cidade, columns = {}) {
   const value = sanitizeText(cidade);
   if (!value) return query;
-  return query.or(`cidade.ilike.%${value}%,municipio.ilike.%${value}%`);
+
+  const filters = [];
+  if (columns.cidade) filters.push(`${columns.cidade}.ilike.%${value}%`);
+  if (columns.municipio) filters.push(`${columns.municipio}.ilike.%${value}%`);
+
+  if (filters.length === 0) return query;
+  if (filters.length === 1) {
+    const [column] = filters[0].split('.ilike.');
+    return query.ilike(column, `%${value}%`);
+  }
+
+  return query.or(filters.join(','));
 }
 
-function aplicarFiltrosComuns(query, { cidade, bairro, search }) {
-  let next = aplicarFiltroCidade(query, cidade);
+function aplicarFiltrosComuns(query, { cidade, bairro, search }, columns = {}) {
+  let next = aplicarFiltroCidade(query, cidade, columns);
 
   const bairroLimpo = sanitizeText(bairro);
-  if (bairroLimpo) next = next.ilike('bairro', `%${bairroLimpo}%`);
+  if (bairroLimpo && columns.bairro) next = next.ilike(columns.bairro, `%${bairroLimpo}%`);
 
   const termo = sanitizeText(search);
   if (termo) next = next.ilike('nome', `%${termo}%`);
@@ -39,7 +50,11 @@ async function buscarEleitores(supabase, filtros, limit) {
     }
   }
 
-  query = aplicarFiltrosComuns(query, filtros);
+  query = aplicarFiltrosComuns(query, filtros, {
+    cidade: 'cidade',
+    municipio: 'municipio',
+    bairro: 'bairro'
+  });
 
   const { data, error } = await query;
   if (error) throw error;
@@ -49,14 +64,17 @@ async function buscarEleitores(supabase, filtros, limit) {
 async function buscarLiderancas(supabase, filtros, limit) {
   let query = supabase
     .from('liderancas')
-    .select('id, nome, telefone, email, cidade, municipio, bairro, status')
+    .select('id, nome, telefone, email, municipio, bairro, status')
     .limit(limit)
     .order('nome', { ascending: true });
 
   const status = sanitizeText(filtros.status || 'ATIVO');
   if (status) query = query.ilike('status', `%${status}%`);
 
-  query = aplicarFiltrosComuns(query, filtros);
+  query = aplicarFiltrosComuns(query, filtros, {
+    municipio: 'municipio',
+    bairro: 'bairro'
+  });
 
   const { data, error } = await query;
   if (error) throw error;
@@ -66,7 +84,7 @@ async function buscarLiderancas(supabase, filtros, limit) {
 async function buscarFuncionarios(supabase, filtros, limit) {
   let query = supabase
     .from('funcionarios')
-    .select('id, nome, telefone, email, cargo, departamento, status')
+    .select('id, nome, telefone, email, cidade, bairro, cargo, departamento, status')
     .limit(limit)
     .order('nome', { ascending: true });
 
@@ -75,6 +93,10 @@ async function buscarFuncionarios(supabase, filtros, limit) {
 
   const termo = sanitizeText(filtros.search);
   if (termo) query = query.ilike('nome', `%${termo}%`);
+
+  query = aplicarFiltroCidade(query, filtros.cidade, { cidade: 'cidade' });
+  const bairroLimpo = sanitizeText(filtros.bairro);
+  if (bairroLimpo) query = query.ilike('bairro', `%${bairroLimpo}%`);
 
   const { data, error } = await query;
   if (error) throw error;
