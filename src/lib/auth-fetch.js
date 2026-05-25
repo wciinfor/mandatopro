@@ -31,7 +31,22 @@ async function getAccessToken() {
       timeoutPromise
     ]);
 
-    return result?.data?.session?.access_token || '';
+    return result?.data?.session?.access_token || getAccessTokenFromStorage();
+  } catch {
+    return getAccessTokenFromStorage();
+  }
+}
+
+function getAccessTokenFromStorage() {
+  if (typeof window === 'undefined') return '';
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const ref = url.replace(/^https?:\/\//, '').split('.')[0];
+  if (!ref) return '';
+  const key = `sb-${ref}-auth-token`;
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.access_token || '';
   } catch {
     return '';
   }
