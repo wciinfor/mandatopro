@@ -269,6 +269,9 @@ function buildEmbedScript() {
             </button>
           </div>
         </div>
+        <div id="mandatoContactsCount" class="alert alert-light border mt-3 mb-0 py-2">
+          <i class="bi bi-people me-2"></i>Use os filtros para calcular a quantidade de contatos.
+        </div>
         <small class="text-muted d-block mt-2">Importa contatos direto da base do MandatoPro, mantendo o CSV/Excel disponivel.</small>
       </div>
     \`;
@@ -280,7 +283,66 @@ function buildEmbedScript() {
     origemSelect?.addEventListener('change', updateMandatoCampaignFilterState);
     updateMandatoCampaignFilterState();
     loadMandatoCampaigns();
+    bindMandatoFilterPreview();
+    updateMandatoContactsPreview();
     document.getElementById('mandatoImportBtn')?.addEventListener('click', importMandatoContacts);
+  }
+
+  function getMandatoContactParams({ preview = false } = {}) {
+    const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
+    const cidade = document.getElementById('mandatoCidade')?.value || '';
+    const bairro = document.getElementById('mandatoBairro')?.value || '';
+    const search = document.getElementById('mandatoBusca')?.value || '';
+    const limit = preview ? '5000' : document.getElementById('mandatoLimite')?.value || '1000';
+    const campanhaId = origem === 'eleitores'
+      ? document.getElementById('mandatoCampanha')?.value || ''
+      : '';
+
+    return new URLSearchParams({ origem, cidade, bairro, search, limit, campanhaId });
+  }
+
+  function bindMandatoFilterPreview() {
+    const fields = ['mandatoOrigem', 'mandatoCampanha', 'mandatoCidade', 'mandatoBairro', 'mandatoBusca', 'mandatoLimite'];
+    for (const id of fields) {
+      const element = document.getElementById(id);
+      if (!element || element.dataset.mandatoPreviewBound === 'true') continue;
+
+      element.dataset.mandatoPreviewBound = 'true';
+      const eventName = element.tagName === 'SELECT' ? 'change' : 'input';
+      element.addEventListener(eventName, scheduleMandatoContactsPreview);
+    }
+  }
+
+  function scheduleMandatoContactsPreview() {
+    clearTimeout(window.__mandatoContactsPreviewTimer);
+    window.__mandatoContactsPreviewTimer = setTimeout(updateMandatoContactsPreview, 450);
+  }
+
+  async function updateMandatoContactsPreview() {
+    const countBox = document.getElementById('mandatoContactsCount');
+    if (!countBox) return;
+
+    const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
+    const label = origem === 'eleitores' ? 'eleitores' : origem === 'liderancas' ? 'lideranças' : 'funcionários';
+    countBox.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Calculando quantidade...';
+
+    try {
+      const params = getMandatoContactParams({ preview: true });
+      const response = await fetch(\`/api/disparos/contatos/preview?\${params.toString()}\`, {
+        credentials: 'include'
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.message || 'Erro ao calcular contatos');
+
+      const resumo = payload.resumo || {};
+      countBox.innerHTML = \`
+        <i class="bi bi-people me-2"></i>
+        <strong>\${resumo.total || 0}</strong> \${label} encontrados
+        <span class="text-muted ms-2">(\${resumo.validos || 0} com telefone válido)</span>
+      \`;
+    } catch (error) {
+      countBox.innerHTML = \`<i class="bi bi-exclamation-triangle me-2"></i>\${error.message || 'Erro ao calcular contatos'}\`;
+    }
   }
 
   function updateMandatoCampaignFilterState() {
@@ -320,6 +382,7 @@ function buildEmbedScript() {
         campanhaSelect.appendChild(option);
       }
       campanhaSelect.dataset.loaded = 'true';
+      updateMandatoContactsPreview();
     } catch (error) {
       console.error('Erro ao carregar campanhas no filtro MandatoPro:', error);
     }
@@ -341,6 +404,24 @@ function buildEmbedScript() {
       return null;
     }
     return window.TimeEstimator || null;
+  }
+
+  function getDataManager() {
+    try {
+      if (typeof DataManager !== 'undefined') return DataManager;
+    } catch {
+      return null;
+    }
+    return window.DataManager || null;
+  }
+
+  function getModeloManager() {
+    try {
+      if (typeof ModeloManager !== 'undefined') return ModeloManager;
+    } catch {
+      return null;
+    }
+    return window.ModeloManager || null;
   }
 
   function getInstanceManager() {
@@ -473,6 +554,51 @@ function buildEmbedScript() {
     }, true);
   }
 
+  function bindMandatoContactsActions() {
+    if (window.__mandatoContactsActionsBound) return;
+    window.__mandatoContactsActionsBound = true;
+
+    document.addEventListener('click', (event) => {
+      const downloadModelBtn = event.target.closest?.('#downloadModelBtn');
+      const exportContactsBtn = event.target.closest?.('#exportContactsBtn');
+      const clearContactsBtn = event.target.closest?.('#clearContactsBtn');
+      const fileUploadArea = event.target.closest?.('#fileUploadArea');
+
+      if (downloadModelBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        getModeloManager()?.downloadModel?.();
+      } else if (exportContactsBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        getDataManager()?.exportContactsToExcel?.();
+      } else if (clearContactsBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        getContactManager()?.clear?.();
+      } else if (fileUploadArea && event.target.id !== 'excelFile') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        document.getElementById('excelFile')?.click();
+      }
+    }, true);
+
+    document.addEventListener('change', (event) => {
+      if (event.target?.id !== 'excelFile') return;
+
+      const file = event.target.files?.[0];
+      if (file) {
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        getContactManager()?.processExcelFile?.(file);
+      }
+    }, true);
+  }
+
   function patchInstancePersistence() {
     if (!window.SupabaseDataManager || window.SupabaseDataManager.__mandatoPatched) return;
 
@@ -553,16 +679,7 @@ function buildEmbedScript() {
   }
 
   async function importMandatoContacts() {
-    const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
-    const cidade = document.getElementById('mandatoCidade')?.value || '';
-    const bairro = document.getElementById('mandatoBairro')?.value || '';
-    const search = document.getElementById('mandatoBusca')?.value || '';
-    const limit = document.getElementById('mandatoLimite')?.value || '1000';
-    const campanhaId = origem === 'eleitores'
-      ? document.getElementById('mandatoCampanha')?.value || ''
-      : '';
-
-    const params = new URLSearchParams({ origem, cidade, bairro, search, limit, campanhaId });
+    const params = getMandatoContactParams();
     window.UI?.showLoading?.('Importando contatos do MandatoPro...');
 
     try {
@@ -619,6 +736,7 @@ function buildEmbedScript() {
     patchUiBadges();
     patchInstanceManagerActions();
     bindMandatoInstanceActions();
+    bindMandatoContactsActions();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
     setTimeout(patchInstanceManagerActions, 500);
@@ -741,6 +859,18 @@ if (typeof PreviewManager !== 'undefined') window.PreviewManager = PreviewManage
 `;
     }
     fs.writeFileSync(contactsPath, contacts, 'utf8');
+  }
+
+  const settingsPath = path.join(publicRoot, 'frontend', 'js', 'modules', 'settings.js');
+  if (fs.existsSync(settingsPath)) {
+    let settings = fs.readFileSync(settingsPath, 'utf8');
+    if (!settings.includes('window.DataManager = DataManager;')) {
+      settings = settings.replace(
+        '\nfunction startSafeConfiguration()',
+        '\nwindow.DataManager = DataManager;\nwindow.ModeloManager = ModeloManager;\n\nfunction startSafeConfiguration()'
+      );
+    }
+    fs.writeFileSync(settingsPath, settings, 'utf8');
   }
 
   const uiPath = path.join(publicRoot, 'frontend', 'js', 'ui.js');

@@ -21,7 +21,8 @@ export default async function handler(req, res) {
       cidade: req.query.cidade,
       bairro: req.query.bairro,
       status: req.query.status,
-      search: req.query.search
+      search: req.query.search,
+      campanhaId: req.query.campanhaId
     });
 
     return res.status(200).json({

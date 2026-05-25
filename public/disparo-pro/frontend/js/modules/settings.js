@@ -586,6 +586,9 @@ const ModeloManager = {
     }
 };
 
+window.DataManager = DataManager;
+window.ModeloManager = ModeloManager;
+
 function startSafeConfiguration() {
     const minIntervalInput = document.getElementById('minInterval');
     const maxIntervalInput = document.getElementById('maxInterval');
