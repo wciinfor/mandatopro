@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAcessoMandatoConnect, exigirAdministradorOuSupervisorConnect } from '@/lib/api-auth';
 import { INSTANCIA_SELECT, sanitizeNomeInstancia, toPublicInstancia } from '@/lib/disparos/instancias';
 
 export const runtime = 'nodejs';
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
+    exigirAcessoMandatoConnect(usuario);
 
     const id = Number(req.query.id);
     if (!Number.isFinite(id)) {
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
-      exigirAdministrador(usuario);
+      exigirAdministradorOuSupervisorConnect(usuario);
 
       const patch = {
         atualizado_por_id: usuario.id,
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      exigirAdministrador(usuario);
+      exigirAdministradorOuSupervisorConnect(usuario);
 
       const { error } = await supabase
         .from('disparo_instancias')

@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAdministradorOuSupervisorConnect } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
+    exigirAdministradorOuSupervisorConnect(usuario);
 
     const campanhaId = Number(req.query.id);
     if (!Number.isFinite(campanhaId)) {

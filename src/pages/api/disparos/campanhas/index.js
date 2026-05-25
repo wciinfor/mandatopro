@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAcessoMandatoConnect, exigirAdministradorOuSupervisorConnect } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -94,7 +94,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
+    exigirAcessoMandatoConnect(usuario);
 
     if (req.method === 'GET') {
       const { data, error } = await supabase
@@ -118,7 +118,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      exigirAdministrador(usuario);
+      exigirAdministradorOuSupervisorConnect(usuario);
 
       const payload = normalizarCampanha(req.body || {});
       const { data, error } = await supabase

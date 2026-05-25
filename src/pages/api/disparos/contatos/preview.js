@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAcessoMandatoConnect } from '@/lib/api-auth';
 import { buscarContatosMandatoPro, contarContatosMandatoPro } from '@/lib/disparos/mandatopro-contatos';
 
 export const runtime = 'nodejs';
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
+    exigirAcessoMandatoConnect(usuario);
 
     const filtros = {
       origem: req.query.origem || 'eleitores',

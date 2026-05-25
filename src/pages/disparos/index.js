@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
+import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabaseClient';
 
 const SECOES_MANDATO_CONNECT = new Set([
@@ -12,9 +13,7 @@ const SECOES_MANDATO_CONNECT = new Set([
   'progresso',
   'resultados',
   'historico',
-  'backup',
-  'novidades',
-  'seguranca'
+  'backup'
 ]);
 
 function normalizarSecao(section) {
@@ -45,12 +44,28 @@ function getSupabaseTokenFromStorage() {
 
 export default function Disparos() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const iframeRef = useRef(null);
   const [iframeSrc, setIframeSrc] = useState('');
   const activeSection = useMemo(() => normalizarSecao(router.query.section), [router.query.section]);
+  const nivelUsuario = String(user?.nivel || '').toUpperCase();
+  const podeAcessarMandatoConnect = ['ADMINISTRADOR', 'LIDERANCA', 'SUPERVISOR_CONNECT'].includes(nivelUsuario);
 
   useEffect(() => {
-    if (!router.isReady) return undefined;
+    if (loading) return;
+
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
+    if (!podeAcessarMandatoConnect) {
+      router.replace('/atendimento-connect');
+    }
+  }, [loading, podeAcessarMandatoConnect, router, user]);
+
+  useEffect(() => {
+    if (!router.isReady || loading || !podeAcessarMandatoConnect) return undefined;
 
     let active = true;
     const initialSection = normalizarSecao(router.query.section);
@@ -88,14 +103,20 @@ export default function Disparos() {
       active = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady]);
+  }, [loading, podeAcessarMandatoConnect, router.isReady]);
 
   useEffect(() => {
+    if (!podeAcessarMandatoConnect) return;
+
     iframeRef.current?.contentWindow?.postMessage({
       type: 'mandato-connect:navigate',
       section: activeSection
     }, window.location.origin);
-  }, [activeSection, iframeSrc]);
+  }, [activeSection, iframeSrc, podeAcessarMandatoConnect]);
+
+  if (loading || !user || !podeAcessarMandatoConnect) {
+    return null;
+  }
 
   return (
     <Layout titulo="Mandato Connect">

@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAdministradorOuSupervisorConnect } from '@/lib/api-auth';
 import { obterQrCodeInstancia } from '@/lib/disparos/evolution';
 import { extrairQrCode } from '@/lib/disparos/instancias';
 
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
+    exigirAdministradorOuSupervisorConnect(usuario);
 
     const id = Number(req.query.id);
     if (!Number.isFinite(id)) {

@@ -101,3 +101,25 @@ export function exigirAdministrador(usuario) {
     throw err;
   }
 }
+
+export function exigirAdministradorOuSupervisorConnect(usuario) {
+  exigirUsuario(usuario);
+
+  const nivel = String(usuario?.nivel || '').toUpperCase();
+  if (!['ADMINISTRADOR', 'SUPERVISOR_CONNECT'].includes(nivel)) {
+    const err = new Error('Acesso restrito ao administrador ou supervisor do Mandato Connect');
+    err.statusCode = 403;
+    throw err;
+  }
+}
+
+export function exigirAcessoMandatoConnect(usuario) {
+  exigirUsuario(usuario);
+
+  const nivel = String(usuario?.nivel || '').toUpperCase();
+  if (!['ADMINISTRADOR', 'LIDERANCA', 'SUPERVISOR_CONNECT'].includes(nivel)) {
+    const err = new Error('Acesso restrito ao Mandato Connect');
+    err.statusCode = 403;
+    throw err;
+  }
+}

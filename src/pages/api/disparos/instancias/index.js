@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAcessoMandatoConnect, exigirAdministradorOuSupervisorConnect } from '@/lib/api-auth';
 import { criarInstancia } from '@/lib/disparos/evolution';
 import { INSTANCIA_SELECT, sanitizeNomeInstancia, toPublicInstancia } from '@/lib/disparos/instancias';
 
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
+    exigirAcessoMandatoConnect(usuario);
 
     if (req.method === 'GET') {
       const { data, error } = await supabase
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      exigirAdministrador(usuario);
+      exigirAdministradorOuSupervisorConnect(usuario);
 
       const nome = sanitizeNomeInstancia(req.body?.nome);
       const apiKey = String(req.body?.apiKey || '').trim();

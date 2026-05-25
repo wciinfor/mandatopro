@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAcessoMandatoConnect } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
+    exigirAcessoMandatoConnect(usuario);
 
     const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 500);
     const search = String(req.query.search || '').trim();

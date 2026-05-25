@@ -231,7 +231,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
         return ['Atendimento Connect'].includes(modulo.nome);
       }
       if (nivelUsuario === 'SUPERVISOR_CONNECT') {
-        return ['Atendimento Connect'].includes(modulo.nome);
+        return ['Mandato Connect', 'Atendimento Connect'].includes(modulo.nome);
       }
       if (nivelUsuario === 'OPERADOR') {
         return ['Dashboard', 'Cadastros', 'Geolocalização'].includes(modulo.nome);

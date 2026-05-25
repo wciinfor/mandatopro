@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirAdministradorOuSupervisorConnect } from '@/lib/api-auth';
 import { deduplicarContatos, resumoContatos, toDbContato } from '@/lib/disparos/contatos';
 
 export const runtime = 'nodejs';
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirAdministrador(usuario);
+    exigirAdministradorOuSupervisorConnect(usuario);
 
     const campanhaId = Number(req.body?.campanhaId);
     const contatosInput = Array.isArray(req.body?.contatos) ? req.body.contatos : [];
