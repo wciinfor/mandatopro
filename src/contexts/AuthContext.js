@@ -165,11 +165,29 @@ export function useAuth() {
 // Função para obter usuário logado do banco de dados
 async function obterUsuarioLogado(email) {
   try {
-    const response = await fetch('/api/usuarios/me');
-    const result = await response.json();
+    let result = null;
+    let response = null;
 
-    if (!response.ok) {
-      throw new Error(result.message || 'Erro ao obter usuario logado');
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      try {
+        response = await fetch('/api/usuarios/me', { signal: controller.signal });
+        result = await response.json();
+        break;
+      } catch (error) {
+        if (attempt === 1 || (error?.name !== 'AbortError' && error?.name !== 'TypeError')) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+
+    if (!response?.ok) {
+      throw new Error(result?.message || 'Erro ao obter usuario logado');
     }
 
     if (email && result.data?.email && result.data.email !== email) {

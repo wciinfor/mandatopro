@@ -39,7 +39,7 @@ function validateWebhookConfig() {
         return false;
     }
 
-    const urlPattern = /^https?:\/\/.+/;
+    const urlPattern = /^(https?:\/\/|\/).+/;
 
     if (!urlPattern.test(WEBHOOK_URL)) {
         console.error('âŒ URL invÃ¡lida no arquivo integracao.js');
