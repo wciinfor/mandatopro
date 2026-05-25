@@ -312,6 +312,7 @@
           instance.id = payload.data.id;
           instance._supabaseId = payload.data._supabaseId;
           instance.lastCheck = payload.data.lastCheck ? new Date(payload.data.lastCheck) : instance.lastCheck;
+          window.InstanceManager?.updateInstancesList?.();
         }
         updateMandatoInstanceBadges();
         return payload.data?._supabaseId || payload.data?.id || null;
