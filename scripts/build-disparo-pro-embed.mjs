@@ -122,6 +122,12 @@ function buildHtml() {
     html = html.replaceAll(from, to);
   }
 
+  html = html
+    .replace(/\s*<link href="frontend\/css\/inbox\.css[^"]*" rel="stylesheet">\s*/g, '\n')
+    .replace(/\s*<div class="nav-item">\s*<a class="nav-link" data-section="atendimento">[\s\S]*?<\/a>\s*<\/div>/g, '')
+    .replace(/\s*<!-- Atendimento Section \(Inbox Multiatendente\) -->\s*<div class="content-section" id="atendimento-section">[\s\S]*?<\/div>/g, '')
+    .replace(/\s*<!-- Inbox Multiatendente -->\s*(?:<script src="frontend\/js\/modules\/inbox\/[^"]+"><\/script>\s*)+/g, '\n');
+
   const instanceFormHtml = `                <div class="card mb-4" id="instanceForm">
                     <div class="card-header bg-gradient-primary text-white">
                         <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Adicionar Instancia</h5>
