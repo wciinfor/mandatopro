@@ -296,7 +296,9 @@
         const localInstances = window.AppState?.instances?.length
           ? window.AppState.instances
           : storageInstances;
-        const response = await fetch('/api/disparos/instancias-runtime');
+        const response = await fetch('/api/disparos/instancias-runtime', {
+          credentials: 'include'
+        });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar instancias');
 
@@ -355,6 +357,7 @@
         const response = await fetch('/api/disparos/instancias-runtime', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(instance)
         });
         const payload = await response.json();
@@ -379,7 +382,8 @@
       if (!id) return;
       try {
         const response = await fetch(`/api/disparos/instancias-runtime?id=${encodeURIComponent(id)}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          credentials: 'include'
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
