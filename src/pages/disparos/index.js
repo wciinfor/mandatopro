@@ -7,6 +7,21 @@ function buildDisparoProSrc(accessToken = '') {
   return `/disparo-pro/index.html?v=${Date.now()}${hash}`;
 }
 
+function getSupabaseTokenFromStorage() {
+  if (typeof window === 'undefined') return '';
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const ref = url.replace(/^https?:\/\//, '').split('.')[0];
+  if (!ref) return '';
+  const key = `sb-${ref}-auth-token`;
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.access_token || '';
+  } catch {
+    return '';
+  }
+}
+
 export default function Disparos() {
   const [iframeSrc, setIframeSrc] = useState('');
 
@@ -16,7 +31,7 @@ export default function Disparos() {
     async function prepareIframe() {
       const supabase = createClient();
       const { data } = await supabase?.auth?.getSession?.() || {};
-      const accessToken = data?.session?.access_token || '';
+      const accessToken = data?.session?.access_token || getSupabaseTokenFromStorage();
 
       if (active) {
         setIframeSrc(buildDisparoProSrc(accessToken));

@@ -51,7 +51,18 @@
       const result = await window.SupabaseClient?.auth?.getSession?.();
       return result?.data?.session?.access_token || '';
     } catch {
-      return '';
+      // Fallback localStorage do Supabase (quando sessao nao foi restaurada ainda).
+      try {
+        const url = window.APP_ENV?.SUPABASE_URL || '';
+        const ref = url.replace(/^https?:\/\//, '').split('.')[0];
+        if (!ref) return '';
+        const key = `sb-${ref}-auth-token`;
+        const raw = window.localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : null;
+        return parsed?.access_token || '';
+      } catch {
+        return '';
+      }
     }
   }
 
