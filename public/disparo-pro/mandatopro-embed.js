@@ -216,8 +216,18 @@
 
     manager.__mandatoInitPatched = true;
     const originalInitialize = manager.initialize?.bind(manager);
+    const originalLoadInstances = manager.loadInstances?.bind(manager);
 
     if (typeof originalInitialize !== 'function') return;
+
+    if (typeof originalLoadInstances === 'function') {
+      manager.loadInstances = function loadMandatoInstances(...args) {
+        if (window.APP_ENV?.MANDATOPRO_EMBED && window.AppState?.__mandatoLoaded) {
+          return;
+        }
+        return originalLoadInstances(...args);
+      };
+    }
 
     manager.initialize = async function initializeMandatoInstanceManager(...args) {
       const result = await originalInitialize(...args);
@@ -337,6 +347,7 @@
             ...instance,
             lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
           }));
+          window.AppState.__mandatoLoaded = true;
           ensureInstancesRendered();
           await Promise.allSettled(window.AppState.instances.map((instance) => this.saveInstance(instance)));
           return;
@@ -351,6 +362,7 @@
           ...instance,
           lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
         }));
+        window.AppState.__mandatoLoaded = true;
 
         window.StorageService?.setLocalJson?.('disparador_instances', window.AppState.instances);
         ensureInstancesRendered();
@@ -372,6 +384,7 @@
             ...instance,
             lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
           }));
+          window.AppState.__mandatoLoaded = true;
           ensureInstancesRendered();
         }
       }
