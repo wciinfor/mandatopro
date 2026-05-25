@@ -264,7 +264,13 @@
 
     window.SupabaseDataManager.__mandatoPatched = true;
 
-    window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances() {
+    window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances(retryCount = 0) {
+      if (!window.AppState || !Array.isArray(window.AppState.instances)) {
+        if (retryCount < 10) {
+          setTimeout(() => this.loadUserInstances(retryCount + 1), 200);
+        }
+        return;
+      }
       try {
         let storageInstances = [];
         const rawLocal = window.localStorage?.getItem('disparador_instances');
