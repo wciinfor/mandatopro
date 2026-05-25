@@ -1,7 +1,17 @@
 import { contatoFromPessoa, deduplicarContatos, resumoContatos, toDisparoProContact } from './contatos';
 
+const PAGE_SIZE = 1000;
+const MAX_IMPORT_LIMIT = 50000;
+const ID_CHUNK_SIZE = 500;
+
 function sanitizeText(value) {
   return String(value || '').trim().replace(/[,()"']/g, '');
+}
+
+function clampLimit(value, fallback = 1000) {
+  const parsed = Number(value || fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(Math.trunc(parsed), 1), MAX_IMPORT_LIMIT);
 }
 
 function aplicarFiltroCidade(query, cidade, columns = {}) {
@@ -37,30 +47,44 @@ async function buscarEleitoresPorCampanha(supabase, campanhaId, limit) {
   const id = sanitizeText(campanhaId);
   if (!id) return null;
 
-  const { data, error } = await supabase
-    .from('atendimentos')
-    .select('eleitor_id')
-    .eq('campanha_id', id)
-    .not('eleitor_id', 'is', null)
-    .limit(limit);
+  const eleitorIds = [];
+  const vistos = new Set();
 
-  if (error) throw error;
+  for (let from = 0; eleitorIds.length < limit; from += PAGE_SIZE) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('atendimentos')
+      .select('eleitor_id')
+      .eq('campanha_id', id)
+      .not('eleitor_id', 'is', null)
+      .range(from, to);
 
-  return [...new Set((data || []).map((row) => row.eleitor_id).filter(Boolean))];
+    if (error) throw error;
+    if (!data?.length) break;
+
+    for (const row of data) {
+      if (!row.eleitor_id || vistos.has(row.eleitor_id)) continue;
+      vistos.add(row.eleitor_id);
+      eleitorIds.push(row.eleitor_id);
+      if (eleitorIds.length >= limit) break;
+    }
+
+    if (data.length < PAGE_SIZE) break;
+  }
+
+  return eleitorIds;
 }
 
-async function buscarEleitores(supabase, filtros, limit) {
-  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit);
-  if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return [];
-
+function criarQueryEleitores(supabase, filtros, options = {}) {
   let query = supabase
     .from('eleitores')
-    .select('id, nome, telefone, celular, whatsapp, email, cidade, municipio, bairro, status, statusCadastro')
-    .limit(limit)
-    .order('nome', { ascending: true });
+    .select(
+      options.select || 'id, nome, telefone, celular, whatsapp, email, cidade, municipio, bairro, status, statusCadastro',
+      options.selectOptions
+    );
 
-  if (Array.isArray(eleitorIds)) {
-    query = query.in('id', eleitorIds);
+  if (Array.isArray(options.eleitorIds)) {
+    query = query.in('id', options.eleitorIds);
   }
 
   const status = sanitizeText(filtros.status || 'ATIVO');
@@ -79,17 +103,55 @@ async function buscarEleitores(supabase, filtros, limit) {
     bairro: 'bairro'
   });
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map((row) => contatoFromPessoa(row, 'eleitor'));
+  if (options.order !== false) query = query.order('nome', { ascending: true });
+
+  return query;
 }
 
-async function buscarLiderancas(supabase, filtros, limit) {
+async function fetchPaginated(buildQuery, limit) {
+  const rows = [];
+
+  for (let from = 0; rows.length < limit; from += PAGE_SIZE) {
+    const to = Math.min(from + PAGE_SIZE - 1, limit - 1);
+    const { data, error } = await buildQuery().range(from, to);
+
+    if (error) throw error;
+    if (!data?.length) break;
+
+    rows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
+async function buscarEleitores(supabase, filtros, limit) {
+  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit);
+  if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return [];
+
+  let rows = [];
+
+  if (Array.isArray(eleitorIds)) {
+    for (let i = 0; i < eleitorIds.length && rows.length < limit; i += ID_CHUNK_SIZE) {
+      const chunk = eleitorIds.slice(i, i + ID_CHUNK_SIZE);
+      const remaining = limit - rows.length;
+      const data = await fetchPaginated(
+        () => criarQueryEleitores(supabase, filtros, { eleitorIds: chunk }),
+        Math.min(remaining, chunk.length)
+      );
+      rows.push(...data);
+    }
+  } else {
+    rows = await fetchPaginated(() => criarQueryEleitores(supabase, filtros), limit);
+  }
+
+  return rows.map((row) => contatoFromPessoa(row, 'eleitor'));
+}
+
+function criarQueryLiderancas(supabase, filtros, options = {}) {
   let query = supabase
     .from('liderancas')
-    .select('id, nome, telefone, email, municipio, bairro, status')
-    .limit(limit)
-    .order('nome', { ascending: true });
+    .select(options.select || 'id, nome, telefone, email, municipio, bairro, status', options.selectOptions);
 
   const status = sanitizeText(filtros.status || 'ATIVO');
   if (status) query = query.ilike('status', `%${status}%`);
@@ -99,17 +161,20 @@ async function buscarLiderancas(supabase, filtros, limit) {
     bairro: 'bairro'
   });
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map((row) => contatoFromPessoa(row, 'lideranca'));
+  if (options.order !== false) query = query.order('nome', { ascending: true });
+
+  return query;
 }
 
-async function buscarFuncionarios(supabase, filtros, limit) {
+async function buscarLiderancas(supabase, filtros, limit) {
+  const rows = await fetchPaginated(() => criarQueryLiderancas(supabase, filtros), limit);
+  return rows.map((row) => contatoFromPessoa(row, 'lideranca'));
+}
+
+function criarQueryFuncionarios(supabase, filtros, options = {}) {
   let query = supabase
     .from('funcionarios')
-    .select('id, nome, telefone, email, cidade, bairro, cargo, departamento, status')
-    .limit(limit)
-    .order('nome', { ascending: true });
+    .select(options.select || 'id, nome, telefone, email, cidade, bairro, cargo, departamento, status', options.selectOptions);
 
   const status = sanitizeText(filtros.status || 'ATIVO');
   if (status) query = query.ilike('status', `%${status}%`);
@@ -121,14 +186,49 @@ async function buscarFuncionarios(supabase, filtros, limit) {
   const bairroLimpo = sanitizeText(filtros.bairro);
   if (bairroLimpo) query = query.ilike('bairro', `%${bairroLimpo}%`);
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map((row) => contatoFromPessoa(row, 'funcionario'));
+  if (options.order !== false) query = query.order('nome', { ascending: true });
+
+  return query;
 }
 
-export async function buscarContatosMandatoPro(supabase, filtros = {}) {
+async function buscarFuncionarios(supabase, filtros, limit) {
+  const rows = await fetchPaginated(() => criarQueryFuncionarios(supabase, filtros), limit);
+  return rows.map((row) => contatoFromPessoa(row, 'funcionario'));
+}
+
+async function countQuery(query) {
+  const { count, error } = await query;
+  if (error) throw error;
+  return count || 0;
+}
+
+async function contarEleitores(supabase, filtros, limit) {
+  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit);
+  if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return 0;
+
+  if (Array.isArray(eleitorIds)) {
+    let total = 0;
+    for (let i = 0; i < eleitorIds.length; i += ID_CHUNK_SIZE) {
+      const chunk = eleitorIds.slice(i, i + ID_CHUNK_SIZE);
+      total += await countQuery(criarQueryEleitores(supabase, filtros, {
+        eleitorIds: chunk,
+        select: 'id',
+        selectOptions: { count: 'exact', head: true },
+        order: false
+      }));
+    }
+    return total;
+  }
+
+  return countQuery(criarQueryEleitores(supabase, filtros, {
+    select: 'id',
+    selectOptions: { count: 'exact', head: true },
+    order: false
+  }));
+}
+
+function normalizarFiltros(filtros = {}) {
   const origem = String(filtros.origem || 'eleitores');
-  const limit = Math.min(Math.max(Number(filtros.limit || 200), 1), 5000);
   const params = {
     cidade: filtros.cidade,
     bairro: filtros.bairro,
@@ -136,6 +236,42 @@ export async function buscarContatosMandatoPro(supabase, filtros = {}) {
     search: filtros.search,
     campanhaId: filtros.campanhaId
   };
+
+  return { origem, params };
+}
+
+export async function contarContatosMandatoPro(supabase, filtros = {}) {
+  const { origem, params } = normalizarFiltros(filtros);
+  const limit = clampLimit(filtros.limit || MAX_IMPORT_LIMIT, MAX_IMPORT_LIMIT);
+
+  let total;
+  if (origem === 'liderancas') {
+    total = await countQuery(criarQueryLiderancas(supabase, params, {
+      select: 'id',
+      selectOptions: { count: 'exact', head: true },
+      order: false
+    }));
+  } else if (origem === 'funcionarios') {
+    total = await countQuery(criarQueryFuncionarios(supabase, params, {
+      select: 'id',
+      selectOptions: { count: 'exact', head: true },
+      order: false
+    }));
+  } else {
+    total = await contarEleitores(supabase, params, limit);
+  }
+
+  return {
+    total,
+    validos: null,
+    invalidos: null,
+    duplicados: null
+  };
+}
+
+export async function buscarContatosMandatoPro(supabase, filtros = {}) {
+  const { origem, params } = normalizarFiltros(filtros);
+  const limit = clampLimit(filtros.limit || 200, 200);
 
   let contatosRaw;
   if (origem === 'liderancas') {

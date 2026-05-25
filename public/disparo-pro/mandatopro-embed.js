@@ -123,7 +123,7 @@
           </div>
           <div class="col-md-1">
             <label class="form-label">Limite</label>
-            <input id="mandatoLimite" type="number" class="form-control" value="1000" min="1" max="5000">
+            <input id="mandatoLimite" type="number" class="form-control" value="1000" min="1" max="50000">
           </div>
           <div class="col-md-10">
             <label class="form-label">Busca por nome</label>
@@ -159,7 +159,7 @@
     const cidade = document.getElementById('mandatoCidade')?.value || '';
     const bairro = document.getElementById('mandatoBairro')?.value || '';
     const search = document.getElementById('mandatoBusca')?.value || '';
-    const limit = preview ? '5000' : document.getElementById('mandatoLimite')?.value || '1000';
+    const limit = preview ? '50000' : document.getElementById('mandatoLimite')?.value || '1000';
     const campanhaId = origem === 'eleitores'
       ? document.getElementById('mandatoCampanha')?.value || ''
       : '';
@@ -194,6 +194,7 @@
 
     try {
       const params = getMandatoContactParams({ preview: true });
+      params.set('countOnly', 'true');
       const response = await fetch(`/api/disparos/contatos/preview?${params.toString()}`, {
         credentials: 'include'
       });
@@ -201,10 +202,13 @@
       if (!response.ok) throw new Error(payload?.message || 'Erro ao calcular contatos');
 
       const resumo = payload.resumo || {};
+      const validos = Number.isFinite(Number(resumo.validos))
+        ? `<span class="text-muted ms-2">(${resumo.validos} com telefone válido)</span>`
+        : '';
       countBox.innerHTML = `
         <i class="bi bi-people me-2"></i>
-        <strong>${resumo.total || 0}</strong> ${label} encontrados
-        <span class="text-muted ms-2">(${resumo.validos || 0} com telefone válido)</span>
+        <strong>${Number(resumo.total || 0).toLocaleString('pt-BR')}</strong> ${label} encontrados
+        ${validos}
       `;
     } catch (error) {
       countBox.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${error.message || 'Erro ao calcular contatos'}`;
