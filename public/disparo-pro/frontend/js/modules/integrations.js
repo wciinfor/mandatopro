@@ -1562,8 +1562,8 @@ const App = {
     }
 };
 
-// Expor estado para debugging
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// Expor estado quando embed do MandatoPro ou ambiente local
+if (window.APP_ENV?.MANDATOPRO_EMBED || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     window.AppState = AppState;
     window.APP_CONFIG = APP_CONFIG;
 }
