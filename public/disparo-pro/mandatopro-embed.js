@@ -294,6 +294,86 @@
     return window.ModeloManager || null;
   }
 
+  function openMandatoContactsDb() {
+    return new Promise((resolve, reject) => {
+      const request = window.indexedDB.open('mandatopro_disparo', 1);
+
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore('state');
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function saveMandatoContactsState() {
+    if (!window.indexedDB || !window.AppState) return;
+
+    try {
+      const db = await openMandatoContactsDb();
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction('state', 'readwrite');
+        transaction.objectStore('state').put({
+          contacts: window.AppState.contacts || [],
+          savedAt: new Date().toISOString()
+        }, 'contacts');
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      });
+      db.close();
+
+      try {
+        window.StorageService?.setLocalJson?.('mandatopro_disparo_contacts_meta', {
+          contacts: window.AppState.contacts?.length || 0,
+          savedAt: new Date().toISOString()
+        });
+      } catch {
+        // IndexedDB remains the source of truth for large contact lists.
+      }
+    } catch (error) {
+      console.error('Erro ao salvar contatos do Disparo PRO:', error);
+    }
+  }
+
+  async function loadMandatoContactsState() {
+    if (!window.indexedDB || !window.AppState) return;
+    if (Array.isArray(window.AppState.contacts) && window.AppState.contacts.length > 0) return;
+
+    try {
+      const db = await openMandatoContactsDb();
+      const saved = await new Promise((resolve, reject) => {
+        const transaction = db.transaction('state', 'readonly');
+        const request = transaction.objectStore('state').get('contacts');
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+
+      if (!Array.isArray(saved?.contacts) || saved.contacts.length === 0) return;
+
+      window.AppState.contacts = saved.contacts;
+      getContactManager()?.updateContactsList?.();
+      getTimeEstimator()?.update?.();
+    } catch (error) {
+      console.error('Erro ao restaurar contatos do Disparo PRO:', error);
+    }
+  }
+
+  function patchMandatoContactsPersistence() {
+    const manager = getContactManager();
+    if (!manager || manager.__mandatoPersistencePatched) return;
+
+    manager.__mandatoPersistencePatched = true;
+    const originalUpdateContactsList = manager.updateContactsList?.bind(manager);
+    if (typeof originalUpdateContactsList === 'function') {
+      manager.updateContactsList = function updateMandatoContactsList(...args) {
+        const result = originalUpdateContactsList(...args);
+        setTimeout(saveMandatoContactsState, 0);
+        return result;
+      };
+    }
+  }
+
   function getInstanceManager() {
     try {
       if (typeof InstanceManager !== 'undefined') return InstanceManager;
@@ -476,6 +556,7 @@
         event.stopPropagation();
         event.stopImmediatePropagation();
         getContactManager()?.clear?.();
+        setTimeout(saveMandatoContactsState, 300);
       } else if (fileUploadArea && event.target.id !== 'excelFile') {
         event.preventDefault();
         event.stopPropagation();
@@ -492,6 +573,7 @@
         event.stopPropagation();
         event.stopImmediatePropagation();
         getContactManager()?.processExcelFile?.(file);
+        setTimeout(saveMandatoContactsState, 1500);
       }
     }, true);
   }
@@ -674,6 +756,7 @@
 
       getContactManager()?.updateContactsList?.();
       getTimeEstimator()?.update?.();
+      saveMandatoContactsState();
       window.UI?.hideLoading?.();
       window.UI?.showSuccess?.(`${window.AppState.contacts.length} contatos importados do MandatoPro`);
     } catch (error) {
@@ -707,6 +790,7 @@
     patchUiBadges();
     patchInstanceManagerActions();
     patchInstanceManagerInit();
+    patchMandatoContactsPersistence();
     bindMandatoInstanceActions();
     bindMandatoContactsActions();
     bindMandatoStartCampaign();
@@ -716,9 +800,13 @@
     setTimeout(bindMandatoStartCampaign, 1800);
     setTimeout(patchInstanceManagerActions, 500);
     setTimeout(patchInstanceManagerInit, 500);
+    setTimeout(patchMandatoContactsPersistence, 500);
+    setTimeout(loadMandatoContactsState, 900);
     setTimeout(patchUiBadges, 1200);
     setTimeout(patchInstanceManagerActions, 1200);
     setTimeout(patchInstanceManagerInit, 1200);
+    setTimeout(patchMandatoContactsPersistence, 1200);
+    setTimeout(loadMandatoContactsState, 1800);
     setTimeout(updateMandatoInstanceBadges, 1600);
     setTimeout(updateMandatoInstanceBadges, 3000);
     setInterval(updateMandatoInstanceBadges, 1000);
