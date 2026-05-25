@@ -70,9 +70,7 @@ const modulosBase = [
       'Progresso',
       'Resultados',
       'Histórico',
-      'Backup & Restore',
-      'Novidades',
-      'Dicas de Segurança'
+      'Backup & Restore'
     ],
     rota: '/disparos'
   },
@@ -161,9 +159,7 @@ const routeMap = {
   'Mandato Connect - Progresso': '/disparos?section=progresso',
   'Mandato Connect - Resultados': '/disparos?section=resultados',
   'Mandato Connect - Histórico': '/disparos?section=historico',
-  'Mandato Connect - Backup & Restore': '/disparos?section=backup',
-  'Mandato Connect - Novidades': '/disparos?section=novidades',
-  'Mandato Connect - Dicas de Segurança': '/disparos?section=seguranca'
+  'Mandato Connect - Backup & Restore': '/disparos?section=backup'
 };
 
 function obterMenusAbertosIniciais(moduloAtivo) {

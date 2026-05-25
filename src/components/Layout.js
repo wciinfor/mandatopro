@@ -17,9 +17,7 @@ function obterModuloAtivo(path = '') {
     progresso: 'Progresso',
     resultados: 'Resultados',
     historico: 'Histórico',
-    backup: 'Backup & Restore',
-    novidades: 'Novidades',
-    seguranca: 'Dicas de Segurança'
+    backup: 'Backup & Restore'
   };
 
   if (path === '/dashboard') return 'Dashboard';
