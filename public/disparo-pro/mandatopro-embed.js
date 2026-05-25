@@ -392,7 +392,7 @@
         savedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Erro ao salvar configuracoes do Disparo PRO:', error);
+      console.error('Erro ao salvar configuracoes do Mandato Connect:', error);
     }
   }
 
@@ -416,7 +416,7 @@
 
       applyMandatoConfigToggles();
     } catch (error) {
-      console.error('Erro ao restaurar configuracoes do Disparo PRO:', error);
+      console.error('Erro ao restaurar configuracoes do Mandato Connect:', error);
     }
   }
 
@@ -466,7 +466,7 @@
       const state = collectMandatoCampaignState();
       window.StorageService?.setLocalJson?.(MANDATO_CAMPAIGN_KEY, state);
     } catch (error) {
-      console.error('Erro ao salvar campanha do Disparo PRO:', error);
+      console.error('Erro ao salvar campanha do Mandato Connect:', error);
     }
   }
 
@@ -507,7 +507,7 @@
       manager?.updateMainPreview?.('msg1');
       window.AutoSaveManager?.saveSessionData?.();
     } catch (error) {
-      console.error('Erro ao restaurar campanha do Disparo PRO:', error);
+      console.error('Erro ao restaurar campanha do Mandato Connect:', error);
     }
   }
 
@@ -588,7 +588,7 @@
         // IndexedDB remains the source of truth for large contact lists.
       }
     } catch (error) {
-      console.error('Erro ao salvar contatos do Disparo PRO:', error);
+      console.error('Erro ao salvar contatos do Mandato Connect:', error);
     }
   }
 
@@ -612,7 +612,7 @@
       getContactManager()?.updateContactsList?.();
       getTimeEstimator()?.update?.();
     } catch (error) {
-      console.error('Erro ao restaurar contatos do Disparo PRO:', error);
+      console.error('Erro ao restaurar contatos do Mandato Connect:', error);
     }
   }
 
@@ -630,7 +630,7 @@
       });
       db.close();
     } catch (error) {
-      console.error('Erro ao limpar contatos persistidos do Disparo PRO:', error);
+      console.error('Erro ao limpar contatos persistidos do Mandato Connect:', error);
     }
   }
 

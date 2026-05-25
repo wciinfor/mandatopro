@@ -193,17 +193,17 @@ const ConnectionManager = {
                     <h4>📱 WhatsApp Desconectado</h4>
                     <p>Escaneie o QR Code abaixo com seu WhatsApp:</p>
                 </div>
-                
+
                 <div class="qr-code-container mb-3 position-relative">
-                    <img src="${qrCodeBase64}" 
-                         alt="QR Code WhatsApp" 
-                         class="img-fluid border rounded" 
+                    <img src="${qrCodeBase64}"
+                         alt="QR Code WhatsApp"
+                         class="img-fluid border rounded"
                          style="max-width: 300px;">
                     <div class="position-absolute top-0 end-0 badge bg-secondary">
                         ${countdown}s
                     </div>
                 </div>
-                
+
                 <div class="alert alert-info text-start">
                     <h6><i class="bi bi-info-circle me-2"></i>Como conectar:</h6>
                     <ol class="mb-0">
@@ -422,12 +422,12 @@ const InstanceManager = {
                                 ${this.getStatusText(normalizedStatus)}
                             </span>
                         </div>
-                        
+
                         <p class="card-text small text-muted mb-2">
                             <i class="bi bi-key me-1"></i>
                             APIKEY: ••••${instance.apikey.slice(-4)}
                         </p>
-                        
+
                         <div class="row text-center mb-3">
                             <div class="col-4">
                                 <small class="text-muted">Total</small>
@@ -442,42 +442,42 @@ const InstanceManager = {
                                 <div class="fw-bold text-danger">${instance.errorCount || 0}</div>
                             </div>
                         </div>
-                        
+
                         <div class="instance-actions">
-                            <button type="button" class="btn btn-outline-primary btn-sm check-connection-btn" onclick="InstanceManager.checkConnection(this.dataset.instanceId); return false;" 
+                            <button type="button" class="btn btn-outline-primary btn-sm check-connection-btn" onclick="InstanceManager.checkConnection(this.dataset.instanceId); return false;"
                                     data-instance-id="${instance.id}"
                                     title="Verificar conexão">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>
-                            
+
                             ${normalizedStatus === 'connected' ? `
-                                <button type="button" class="btn btn-outline-secondary btn-sm disconnect-instance-btn" onclick="InstanceManager.disconnectInstance(this.dataset.instanceId); return false;" 
+                                <button type="button" class="btn btn-outline-secondary btn-sm disconnect-instance-btn" onclick="InstanceManager.disconnectInstance(this.dataset.instanceId); return false;"
                                         data-instance-id="${instance.id}"
                                         title="Desconectar">
                                     <i class="bi bi-power"></i>
                                 </button>
-                                <button type="button" class="btn btn-outline-success btn-sm export-contacts-btn" onclick="if (typeof InstanceContactsExporter !== 'undefined') InstanceContactsExporter.exportInstanceContacts(this.dataset.instanceId); return false;" 
+                                <button type="button" class="btn btn-outline-success btn-sm export-contacts-btn" onclick="if (typeof InstanceContactsExporter !== 'undefined') InstanceContactsExporter.exportInstanceContacts(this.dataset.instanceId); return false;"
                                         data-instance-id="${instance.id}"
                                         title="Importar/Exportar contatos WhatsApp">
                                     <i class="bi bi-people"></i>
                                 </button>
                             ` : ''}
-                            
+
                             ${normalizedStatus === 'disconnected' ? `
-                                <button type="button" class="btn btn-outline-warning btn-sm show-qr-btn" onclick="InstanceManager.showConnectionModal(this.dataset.instanceId); return false;" 
+                                <button type="button" class="btn btn-outline-warning btn-sm show-qr-btn" onclick="InstanceManager.showConnectionModal(this.dataset.instanceId); return false;"
                                         data-instance-id="${instance.id}"
                                         title="Conectar">
                                     <i class="bi bi-qr-code"></i>
                                 </button>
                             ` : ''}
-                            
-                            <button type="button" class="btn btn-outline-danger btn-sm remove-instance-btn" onclick="InstanceManager.removeInstance(this.dataset.instanceId); return false;" 
+
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-instance-btn" onclick="InstanceManager.removeInstance(this.dataset.instanceId); return false;"
                                     data-instance-id="${instance.id}"
                                     title="Remover">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
-                        
+
                         <small class="text-muted">
                             Última verificação: ${Utils.safeFormatTime(instance.lastCheck)}
                         </small>
@@ -1232,17 +1232,17 @@ const ConnectionManagerWithLicense = {
                 <h4>📱 WhatsApp Desconectado</h4>
                 <p>Escaneie o QR Code abaixo com seu WhatsApp:</p>
             </div>
-            
+
             <div class="qr-code-container mb-3 position-relative">
-                <img src="${qrCodeBase64}" 
-                     alt="QR Code WhatsApp" 
-                     class="img-fluid border rounded" 
+                <img src="${qrCodeBase64}"
+                     alt="QR Code WhatsApp"
+                     class="img-fluid border rounded"
                      style="max-width: 300px;">
                 <div class="position-absolute top-0 end-0 badge bg-secondary">
                     ${countdown}s
                 </div>
             </div>
-            
+
             <div class="alert alert-info text-start">
                 <h6><i class="bi bi-info-circle me-2"></i>Como conectar:</h6>
                 <ol class="mb-0">
@@ -1487,7 +1487,7 @@ const InstanceContactsExporter = {
                                 <strong>${contactsData.length} contatos</strong> encontrados na instância WhatsApp.
                                 Escolha como deseja processar estes contatos:
                             </div>
-                            
+
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="card border-success h-100">
@@ -1495,7 +1495,7 @@ const InstanceContactsExporter = {
                                             <i class="bi bi-list-ul fs-1 text-success mb-3"></i>
                                             <h6 class="card-title">Importar para Lista</h6>
                                             <p class="card-text small">
-                                                Adiciona os contatos diretamente à lista do disparador, 
+                                                Adiciona os contatos diretamente à lista da central de comunica??o,
                                                 aplicando todas as validações e formatações automáticas.
                                             </p>
                                             <button class="btn btn-success w-100" onclick="InstanceContactsExporter.importToContactsList('${instanceName}')">
@@ -1504,14 +1504,14 @@ const InstanceContactsExporter = {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-md-6">
                                     <div class="card border-primary h-100">
                                         <div class="card-body text-center">
                                             <i class="bi bi-file-earmark-excel fs-1 text-primary mb-3"></i>
                                             <h6 class="card-title">Baixar Excel</h6>
                                             <p class="card-text small">
-                                                Gera um arquivo Excel com todos os contatos 
+                                                Gera um arquivo Excel com todos os contatos
                                                 para uso externo ou backup.
                                             </p>
                                             <button class="btn btn-primary w-100" onclick="InstanceContactsExporter.downloadExcel('${instanceName}')">
@@ -1521,7 +1521,7 @@ const InstanceContactsExporter = {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="mt-3">
                                 <div class="alert alert-warning">
                                     <strong><i class="bi bi-exclamation-triangle me-2"></i>Importante:</strong>
@@ -1599,7 +1599,7 @@ const InstanceContactsExporter = {
         }
 
         const contactsData = window.tempContactsData;
-        console.log('📋 Importando contatos para a lista do disparador...');
+        console.log('📋 Importando contatos para a lista da central de comunica??o...');
 
         const modal = bootstrap.Modal.getInstance(document.getElementById('exportOptionsModal'));
         if (modal) {
@@ -1936,10 +1936,10 @@ const InstanceContactsExporter = {
                         </div>
                         <div class="modal-body">
                             <p>Selecione a instância WhatsApp para importar os contatos:</p>
-                            
+
                             <div class="list-group">
                                 ${connectedInstances.map(instance => `
-                                    <a href="#" class="list-group-item list-group-item-action" 
+                                    <a href="#" class="list-group-item list-group-item-action"
                                        onclick="InstanceContactsExporter.selectInstanceForImport(${instance.id})">
                                         <div class="d-flex justify-content-between align-items-center">
                                             <div>
@@ -2067,12 +2067,12 @@ const updateInstancesListWithExportButton = function () {
                             ${InstanceManager.getStatusText(normalizedStatus)}
                         </span>
                     </div>
-                    
+
                     <p class="card-text small text-muted mb-2">
                         <i class="bi bi-key me-1"></i>
                         APIKEY: ••••${instance.apikey.slice(-4)}
                     </p>
-                    
+
                     <div class="row text-center mb-3">
                         <div class="col-4">
                             <small class="text-muted">Total</small>
@@ -2087,42 +2087,42 @@ const updateInstancesListWithExportButton = function () {
                             <div class="fw-bold text-danger">${instance.errorCount || 0}</div>
                         </div>
                     </div>
-                    
+
                     <div class="instance-actions">
-                        <button type="button" class="btn btn-outline-primary btn-sm check-connection-btn" onclick="InstanceManager.checkConnection(this.dataset.instanceId); return false;" 
+                        <button type="button" class="btn btn-outline-primary btn-sm check-connection-btn" onclick="InstanceManager.checkConnection(this.dataset.instanceId); return false;"
                                 data-instance-id="${instance.id}"
                                 title="Verificar conexão">
                             <i class="bi bi-arrow-clockwise"></i>
                         </button>
-                        
+
                         ${normalizedStatus === 'connected' ? `
-                            <button type="button" class="btn btn-outline-secondary btn-sm disconnect-instance-btn" onclick="InstanceManager.disconnectInstance(this.dataset.instanceId); return false;" 
+                            <button type="button" class="btn btn-outline-secondary btn-sm disconnect-instance-btn" onclick="InstanceManager.disconnectInstance(this.dataset.instanceId); return false;"
                                     data-instance-id="${instance.id}"
                                     title="Desconectar">
                                 <i class="bi bi-power"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-success btn-sm export-contacts-btn" onclick="if (typeof InstanceContactsExporter !== 'undefined') InstanceContactsExporter.exportInstanceContacts(this.dataset.instanceId); return false;" 
+                            <button type="button" class="btn btn-outline-success btn-sm export-contacts-btn" onclick="if (typeof InstanceContactsExporter !== 'undefined') InstanceContactsExporter.exportInstanceContacts(this.dataset.instanceId); return false;"
                                     data-instance-id="${instance.id}"
                                     title="Importar/Exportar contatos WhatsApp">
                                 <i class="bi bi-people"></i>
                             </button>
                         ` : ''}
-                        
+
                         ${normalizedStatus === 'disconnected' ? `
-                            <button type="button" class="btn btn-outline-warning btn-sm show-qr-btn" onclick="InstanceManager.showConnectionModal(this.dataset.instanceId); return false;" 
+                            <button type="button" class="btn btn-outline-warning btn-sm show-qr-btn" onclick="InstanceManager.showConnectionModal(this.dataset.instanceId); return false;"
                                     data-instance-id="${instance.id}"
                                     title="Conectar">
                                 <i class="bi bi-qr-code"></i>
                             </button>
                         ` : ''}
-                        
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-instance-btn" onclick="InstanceManager.removeInstance(this.dataset.instanceId); return false;" 
+
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-instance-btn" onclick="InstanceManager.removeInstance(this.dataset.instanceId); return false;"
                                 data-instance-id="${instance.id}"
                                 title="Remover">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
-                    
+
                     <small class="text-muted">
                         Última verificação: ${Utils.safeFormatTime(instance.lastCheck)}
                     </small>

@@ -39,7 +39,7 @@ export default function Disparos() {
     }
 
     prepareIframe().catch((error) => {
-      console.warn('Falha ao preparar sessao do Disparo PRO:', error);
+      console.warn('Falha ao preparar sessao do Mandato Connect:', error);
       if (active) {
         setIframeSrc(buildDisparoProSrc());
       }
@@ -54,7 +54,7 @@ export default function Disparos() {
           .map((registration) => registration.unregister())
       ))
       .catch((error) => {
-        console.warn('Falha ao remover service worker do Disparo PRO:', error);
+        console.warn('Falha ao remover service worker do Mandato Connect:', error);
       });
 
     return () => {
@@ -63,11 +63,11 @@ export default function Disparos() {
   }, []);
 
   return (
-    <Layout title="Disparos">
+    <Layout title="Mandato Connect">
       <div className="min-h-[calc(100vh-64px)] bg-gray-50">
         {iframeSrc ? (
           <iframe
-            title="Disparo PRO"
+            title="Mandato Connect"
             src={iframeSrc}
             className="w-full h-[calc(100vh-64px)] border-0 bg-white"
           />

@@ -251,7 +251,7 @@ const TimerManager = {
         this.currentState = 'idle';
         this.updateDisplay('Aguardando...', 'info', 'secondary');
         this.updateLabel('Status do envio:');
-        this.updateDetails('Configure uma lista de contatos e inicie o disparo');
+        this.updateDetails('Configure uma lista de contatos e inicie o envio');
         this.updateProgress(0, 'secondary');
         this.clear();
     },
@@ -260,7 +260,7 @@ const TimerManager = {
         this.currentState = 'preparing';
         this.updateDisplay('Preparando...', 'info', 'primary');
         this.updateLabel('Preparando envio:');
-        this.updateDetails('Validando dados e iniciando disparo em massa');
+        this.updateDetails('Validando dados e iniciando envio para contatos selecionados');
         this.updateProgress(0, 'primary');
     },
 
@@ -324,7 +324,7 @@ const TimerManager = {
         const successRate = totalTime ? ((successCount / (successCount + errorCount)) * 100).toFixed(1) : 0;
 
         this.updateDisplay('Concluído!', 'success', 'success');
-        this.updateLabel('Disparo finalizado:');
+        this.updateLabel('Envio finalizado:');
         this.updateDetails(`${successCount} sucessos, ${errorCount} erros (${successRate}% sucesso) em ${Utils.formatTime(totalTime)}`);
         this.updateProgress(100, 'success');
 
@@ -340,7 +340,7 @@ const TimerManager = {
         this.clear();
         this.updateDisplay('Interrompido', 'danger', 'danger');
         this.updateLabel('Envio interrompido:');
-        this.updateDetails('O disparo foi interrompido pelo usuário');
+        this.updateDetails('O envio foi interrompido pelo usuário');
         this.updateProgress(0, 'danger');
 
         setTimeout(() => {

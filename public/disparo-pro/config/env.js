@@ -1,4 +1,4 @@
-// Runtime env loader for the MandatoPro embedded Disparo PRO.
+// Runtime env loader for the MandatoPro embedded Mandato Connect.
 (function () {
   var allowedKeys = {
     SUPABASE_URL: true,

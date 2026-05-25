@@ -156,7 +156,7 @@ export default async function handler(req, res) {
 
       return res.status(503).json({
         success: false,
-        message: 'Webhook N8N do Disparo PRO nao configurado'
+        message: 'Webhook N8N do Mandato Connect nao configurado'
       });
     }
 
@@ -199,7 +199,7 @@ export default async function handler(req, res) {
     return res.status(200).json(payload);
   } catch (error) {
     const status = error?.statusCode || 500;
-    console.error('Erro no proxy N8N Disparo PRO:', error);
+    console.error('Erro no proxy N8N Mandato Connect:', error);
     return res.status(status).json({
       success: false,
       message: error?.message || 'Erro ao acionar fluxo N8N'

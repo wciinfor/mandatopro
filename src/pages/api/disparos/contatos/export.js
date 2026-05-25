@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       }
     });
   } catch (error) {
-    console.error('Erro ao exportar contatos para Disparo PRO:', error);
+    console.error('Erro ao exportar contatos para Mandato Connect:', error);
     return res.status(error?.statusCode || 500).json({
       success: false,
       message: error?.message || 'Erro ao exportar contatos'

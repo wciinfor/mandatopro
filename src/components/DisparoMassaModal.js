@@ -41,7 +41,7 @@ export default function DisparoBotao({ onDisparo }) {
     })();
 
     if (!usuarioLocal || String(usuarioLocal.nivel || '').toUpperCase() !== 'ADMINISTRADOR') {
-      alert('Apenas administradores podem fazer disparo em massa');
+      alert('Apenas administradores podem fazer envio para contatos selecionados');
       return;
     }
 

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       data: data || []
     });
   } catch (error) {
-    console.error('Erro ao listar campanhas para Disparo PRO:', error);
+    console.error('Erro ao listar campanhas para Mandato Connect:', error);
     return res.status(error?.statusCode || 500).json({
       success: false,
       message: error?.message || 'Erro ao listar campanhas'

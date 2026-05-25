@@ -38,13 +38,13 @@ const UiManager = {
             const elements = document.querySelectorAll(item.selector);
             elements.forEach(el => {
                 if (item.type === 'text') {
-                    if (el.textContent.includes('Disparo PRO')) {
-                        el.textContent = el.textContent.replace(/Disparo PRO/g, systemName);
+                    if (el.textContent.includes('Mandato Connect')) {
+                        el.textContent = el.textContent.replace(/Mandato Connect/g, systemName);
                     }
                 } else if (item.type === 'attr' && item.attr) {
                     const attrValue = el.getAttribute(item.attr);
-                    if (attrValue && attrValue.includes('Disparo PRO')) {
-                        el.setAttribute(item.attr, attrValue.replace(/Disparo PRO/g, systemName));
+                    if (attrValue && attrValue.includes('Mandato Connect')) {
+                        el.setAttribute(item.attr, attrValue.replace(/Mandato Connect/g, systemName));
                     }
                 }
             });

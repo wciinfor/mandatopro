@@ -52,17 +52,17 @@ const SendingManager = {
         this.switchToProgressSection();
 
         if (AppState.activeInstances.length > 0) {
-            UI.showInfo(`Iniciando disparo com ${AppState.activeInstances.length} instância(s) conectada(s)...`);
+            UI.showInfo(`Iniciando envio com ${AppState.activeInstances.length} instância(s) conectada(s)...`);
         } else {
             const instanceName = document.getElementById('instanceName')?.value || 'Manual';
-            UI.showInfo(`Iniciando disparo no modo manual com instância: ${instanceName}...`);
+            UI.showInfo(`Iniciando envio no modo manual com instância: ${instanceName}...`);
         }
 
         const { instanceName, instanceAPIKEY } = Validators.instanceData();
         const ia = document.getElementById('ia')?.value || '';
         const { min: minInterval, max: maxInterval } = Validators.intervals();
 
-        UI.showInfo('Iniciando disparo em massa...');
+        UI.showInfo('Iniciando envio para contatos selecionados...');
 
         for (let i = 0; i < AppState.contacts.length; i++) {
             if (AppState.stopSending) break;
@@ -987,7 +987,7 @@ const SendingManager = {
 
         const displayName = profile.full_name || profile.email || 'Usuario';
         const messageLines = [
-            'Disparo concluido!',
+            'Envio concluido!',
             `Total: ${sessionData.totalContacts || 0}`,
             `Sucesso: ${sessionData.successCount || 0}`,
             `Erros: ${sessionData.errorCount || 0}`,
@@ -1035,7 +1035,7 @@ const SendingManager = {
 
         const totalDuration = AppState.startTime ? Date.now() - AppState.startTime : 0;
 
-        console.log('⏱️ Disparo finalizado:', {
+        console.log('⏱️ Envio finalizado:', {
             startTime: AppState.startTime ? new Date(AppState.startTime).toLocaleTimeString() : 'N/A',
             endTime: new Date().toLocaleTimeString(),
             duracaoReal: Utils.formatTime(totalDuration),
@@ -1069,7 +1069,7 @@ const SendingManager = {
         if (AppState.stopSending) {
             UI.showWarning('Envio interrompido pelo usuário');
         } else {
-            UI.showSuccess('Disparo concluído!');
+            UI.showSuccess('Envio concluído!');
         }
     }
 };
@@ -1124,7 +1124,7 @@ const ScheduleManager = {
         this.saveScheduledDispatches();
         this.updateScheduledTable();
 
-        UI.showSuccess(`Disparo agendado para ${validation.scheduledDateTime.toLocaleString('pt-BR')}`);
+        UI.showSuccess(`Envio agendado para ${validation.scheduledDateTime.toLocaleString('pt-BR')}`);
 
         const enableSchedulingCheckbox = document.getElementById('enableScheduling');
         if (enableSchedulingCheckbox) {
@@ -1143,7 +1143,7 @@ const ScheduleManager = {
                 const timeUntil = dispatch.scheduledDateTime - now;
 
                 if (timeUntil <= 5 * 60 * 1000 && timeUntil > 4 * 60 * 1000 && !dispatch.warned) {
-                    UI.showInfo('Disparo será executado em 5 minutos');
+                    UI.showInfo('Envio será executado em 5 minutos');
                     dispatch.warned = true;
                     this.saveScheduledDispatches();
                 }
@@ -1159,7 +1159,7 @@ const ScheduleManager = {
 
     async executeScheduledDispatch(scheduledDispatch) {
         if (AppState.sendingInProgress) {
-            UI.showWarning('Outro disparo está em andamento. Reagendando...');
+            UI.showWarning('Outro envio está em andamento. Reagendando...');
             scheduledDispatch.scheduledDateTime = new Date(Date.now() + 5 * 60 * 1000);
             this.saveScheduledDispatches();
             return;
@@ -1189,14 +1189,14 @@ const ScheduleManager = {
             ContactManager.updateContactsList();
         }
 
-        UI.showInfo('Executando disparo agendado...');
+        UI.showInfo('Executando envio agendado...');
 
         try {
             await SendingManager.start();
             scheduledDispatch.status = 'concluído';
         } catch (error) {
             scheduledDispatch.status = 'erro';
-            UI.showError('Erro ao executar disparo agendado: ' + error.message);
+            UI.showError('Erro ao executar envio agendado: ' + error.message);
         }
 
         this.saveScheduledDispatches();
@@ -3351,7 +3351,7 @@ const FormManager = {
     },
 
     showConfirmationDialog() {
-        console.log('🔍 Coletando dados do disparo...');
+        console.log('🔍 Coletando dados do envio...');
 
         const instanceName = document.getElementById('instanceName')?.value || 'Instâncias Múltiplas';
 
@@ -3365,7 +3365,7 @@ const FormManager = {
 
         const confirmText = `
         <div class="text-start">
-            <h6>Confirme os dados do disparo</h6>
+            <h6>Confirme os dados do envio</h6>
             <p><strong>Instância:</strong> ${instanceName}</p>
             <p><strong>Contatos:</strong> ${AppState.contacts.length}</p>
             <p><strong>Mensagens ativas:</strong> ${messageCount}</p>
@@ -3375,10 +3375,10 @@ const FormManager = {
 
         console.log('🔍 Mostrando diálogo de confirmação...');
         UI.confirm(
-            'Confirmar Disparo',
+            'Confirmar Envio',
             confirmText,
             () => {
-                console.log('✅ Usuário confirmou o disparo');
+                console.log('✅ Usuário confirmou o envio');
                 SendingManager.start();
             }
         );

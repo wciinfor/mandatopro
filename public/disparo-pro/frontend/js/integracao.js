@@ -1,8 +1,8 @@
 ﻿/**
- * Disparo PRO - ARQUIVO DE INTEGRAÃ‡ÃƒO
+ * Mandato Connect - ARQUIVO DE INTEGRAÃ‡ÃƒO
  * 
  * INSTRUÃ‡Ã•ES:
- * 1. Coloque este arquivo na pasta raiz do Disparo PRO
+ * 1. Coloque este arquivo na pasta raiz do Mandato Connect
  * 2. Certifique-se de que estÃ¡ no mesmo diretÃ³rio do index.html
  * 3. O arquivo main.js irÃ¡ carregar estas configuraÃ§Ãµes automaticamente
  */
@@ -11,7 +11,7 @@
 // CONFIGURAÃ‡Ã•ES DOS WEBHOOKS
 // ========================================
 
-// Webhook principal para disparo de mensagens
+// Webhook principal para envio de mensagens
 const WEBHOOK_URL = readEnv('N8N_WEBHOOK_DISPARO_PRO');
 
 // ========================================

@@ -90,6 +90,38 @@ function buildHtml() {
     '<button type="button" class="btn btn-whatsapp btn-lg" id="startCampaignBtn">'
   );
 
+  const publicTextReplacements = [
+    ['Disparo PRO', 'Mandato Connect'],
+    ['Relatório de Disparo', 'Relatório de Comunicação'],
+    ['Relatório de Campanha', 'Relatório de Comunicação'],
+    ['Confirmar Disparo', 'Confirmar Envio'],
+    ['Disparo Interrompido Detectado', 'Envio Interrompido Detectado'],
+    ['Novo Disparo', 'Novo Envio'],
+    ['Retomar Disparo', 'Retomar Envio'],
+    ['Disparo concluído', 'Envio concluído'],
+    ['Disparo concluido', 'Envio concluido'],
+    ['Disparo agendado', 'Envio agendado'],
+    ['Disparo será executado', 'Envio será executado'],
+    ['disparo em massa', 'envio para contatos selecionados'],
+    ['envio em massa', 'envio para contatos selecionados'],
+    ['lista do disparador', 'lista da central de comunicação'],
+    ['Sistema de Campanha Inteligente', 'Central de Comunicação Inteligente'],
+    ['uso nos disparos', 'uso nos envios'],
+    ['usar nos disparos', 'usar nos envios'],
+    ['Recuperação de disparo interrompido', 'Recuperação de envio interrompido'],
+    ['Outro disparo está em andamento', 'Outro envio está em andamento'],
+    ['Executando disparo agendado', 'Executando envio agendado'],
+    ['Erro ao executar disparo agendado', 'Erro ao executar envio agendado'],
+    ['dados do disparo', 'dados do envio'],
+    ['confirmou o disparo', 'confirmou o envio'],
+    ['inicie o disparo', 'inicie o envio'],
+    ['O disparo foi interrompido', 'O envio foi interrompido']
+  ];
+
+  for (const [from, to] of publicTextReplacements) {
+    html = html.replaceAll(from, to);
+  }
+
   const instanceFormHtml = `                <div class="card mb-4" id="instanceForm">
                     <div class="card-header bg-gradient-primary text-white">
                         <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Adicionar Instancia</h5>
@@ -110,7 +142,7 @@ function buildHtml() {
                                 </button>
                             </div>
                         </div>
-                        <small class="text-muted d-block mt-2">A instancia deve existir primeiro na Evolution API. Aqui voce vincula o nome e token para uso nos disparos.</small>
+                        <small class="text-muted d-block mt-2">A instancia deve existir primeiro na Evolution API. Aqui voce vincula o nome e token para uso nos envios.</small>
                     </div>
                 </div>
 
@@ -531,7 +563,7 @@ function buildEmbedScript() {
         savedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Erro ao salvar configuracoes do Disparo PRO:', error);
+      console.error('Erro ao salvar configuracoes do Mandato Connect:', error);
     }
   }
 
@@ -555,7 +587,7 @@ function buildEmbedScript() {
 
       applyMandatoConfigToggles();
     } catch (error) {
-      console.error('Erro ao restaurar configuracoes do Disparo PRO:', error);
+      console.error('Erro ao restaurar configuracoes do Mandato Connect:', error);
     }
   }
 
@@ -605,7 +637,7 @@ function buildEmbedScript() {
       const state = collectMandatoCampaignState();
       window.StorageService?.setLocalJson?.(MANDATO_CAMPAIGN_KEY, state);
     } catch (error) {
-      console.error('Erro ao salvar campanha do Disparo PRO:', error);
+      console.error('Erro ao salvar campanha do Mandato Connect:', error);
     }
   }
 
@@ -646,7 +678,7 @@ function buildEmbedScript() {
       manager?.updateMainPreview?.('msg1');
       window.AutoSaveManager?.saveSessionData?.();
     } catch (error) {
-      console.error('Erro ao restaurar campanha do Disparo PRO:', error);
+      console.error('Erro ao restaurar campanha do Mandato Connect:', error);
     }
   }
 
@@ -727,7 +759,7 @@ function buildEmbedScript() {
         // IndexedDB remains the source of truth for large contact lists.
       }
     } catch (error) {
-      console.error('Erro ao salvar contatos do Disparo PRO:', error);
+      console.error('Erro ao salvar contatos do Mandato Connect:', error);
     }
   }
 
@@ -751,7 +783,7 @@ function buildEmbedScript() {
       getContactManager()?.updateContactsList?.();
       getTimeEstimator()?.update?.();
     } catch (error) {
-      console.error('Erro ao restaurar contatos do Disparo PRO:', error);
+      console.error('Erro ao restaurar contatos do Mandato Connect:', error);
     }
   }
 
@@ -769,7 +801,7 @@ function buildEmbedScript() {
       });
       db.close();
     } catch (error) {
-      console.error('Erro ao limpar contatos persistidos do Disparo PRO:', error);
+      console.error('Erro ao limpar contatos persistidos do Mandato Connect:', error);
     }
   }
 
@@ -1238,7 +1270,7 @@ function buildEmbedScript() {
 }
 
 function buildEnvScript() {
-  return `// Runtime env loader for the MandatoPro embedded Disparo PRO.
+  return `// Runtime env loader for the MandatoPro embedded Mandato Connect.
 (function () {
   var allowedKeys = {
     SUPABASE_URL: true,
@@ -1432,4 +1464,4 @@ fs.writeFileSync(path.join(publicRoot, 'index.html'), buildHtml(), 'utf8');
 fs.writeFileSync(path.join(publicRoot, 'mandatopro-embed.js'), buildEmbedScript(), 'utf8');
 fs.writeFileSync(path.join(publicRoot, 'config', 'env.js'), buildEnvScript(), 'utf8');
 
-console.log(`Disparo PRO embed gerado em ${publicRoot}`);
+console.log(`Mandato Connect embed gerado em ${publicRoot}`);

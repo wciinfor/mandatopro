@@ -1832,7 +1832,7 @@ function generatePDF() {
     // Restaurar layout após impressão
     setTimeout(() => {
         restoreNormalLayout();
-        document.title = 'Relatório de Campanha - Disparo PRO';
+        document.title = 'Relatório de Campanha - Mandato Connect';
     }, 1000);
 }
 
@@ -2140,8 +2140,8 @@ O relatório completo em PDF está anexado com todos os detalhes, gráficos e ti
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Atenciosamente,
-Disparo PRO
-🚀 Sistema de Campanha Inteligente`;
+Mandato Connect
+🚀 Central de Comunica??o Inteligente`;
 }
 
 async function processEmailSend() {
@@ -2337,7 +2337,7 @@ function sendEmail() {
 function shareReport() {
     if (navigator.share) {
         navigator.share({
-            title: 'Relatório de Campanha - Disparo PRO',
+            title: 'Relatório de Campanha - Mandato Connect',
             text: `Relatório da campanha ${reportData.instanceName}`,
             url: window.location.href
         });
@@ -2420,7 +2420,7 @@ async function generatePDFBase64() {
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
-    doc.text('Disparo PRO', margin, 25);
+    doc.text('Mandato Connect', margin, 25);
 
     doc.setFontSize(18);
     doc.text('Relatório de Campanha', margin, 35);
@@ -2689,7 +2689,7 @@ async function generatePDFBase64() {
         doc.setTextColor(128, 128, 128);
         doc.text(`Página ${i} de ${pageCount}`, pageWidth - 40, pageHeight - 10);
         doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, margin, pageHeight - 10);
-        doc.text(`Disparo PRO - Sistema de Campanha Inteligente`, margin, pageHeight - 5);
+        doc.text(`Mandato Connect - Central de Comunica??o Inteligente`, margin, pageHeight - 5);
     }
 
     // Converter para base64 e retornar
@@ -2734,7 +2734,7 @@ async function generateOptimizedPDF() {
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
-    doc.text('Disparo PRO', margin, 25);
+    doc.text('Mandato Connect', margin, 25);
 
     doc.setFontSize(18);
     doc.text('Relatório de Campanha', margin, 35);
@@ -3003,7 +3003,7 @@ async function generateOptimizedPDF() {
         doc.setTextColor(128, 128, 128);
         doc.text(`Página ${i} de ${pageCount}`, pageWidth - 40, pageHeight - 10);
         doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, margin, pageHeight - 10);
-        doc.text(`Disparo PRO - Sistema de Campanha Inteligente`, margin, pageHeight - 5);
+        doc.text(`Mandato Connect - Central de Comunica??o Inteligente`, margin, pageHeight - 5);
     }
 
     // Salvar

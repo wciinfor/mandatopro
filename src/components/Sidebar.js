@@ -83,7 +83,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
       rota: '/comunicacao'
     },
     {
-      nome: 'Disparos',
+      nome: 'Mandato Connect',
       icone: faPaperPlane,
       submenu: [],
       rota: '/disparos'

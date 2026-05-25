@@ -196,9 +196,9 @@ const ActiveDispatchManager = {
             };
 
             StorageService.setLocalJson(this.saveKey, state);
-            console.log(`💾 Estado do disparo salvo: índice ${currentIndex}/${AppState.contacts.length}`);
+            console.log(`💾 Estado do envio salvo: índice ${currentIndex}/${AppState.contacts.length}`);
         } catch (error) {
-            console.error('❌ Erro ao salvar estado do disparo:', error);
+            console.error('❌ Erro ao salvar estado do envio:', error);
         }
     },
 
@@ -215,7 +215,7 @@ const ActiveDispatchManager = {
                 return null;
             }
 
-            console.log('📖 Estado de disparo anterior encontrado:', {
+            console.log('📖 Estado de envio anterior encontrado:', {
                 currentIndex: state.currentIndex,
                 totalContacts: state.totalContacts,
                 successCount: state.successCount,
@@ -225,14 +225,14 @@ const ActiveDispatchManager = {
 
             return state;
         } catch (error) {
-            console.error('❌ Erro ao carregar estado do disparo:', error);
+            console.error('❌ Erro ao carregar estado do envio:', error);
             return null;
         }
     },
 
     clearDispatchState() {
         StorageService.removeLocal(this.saveKey);
-        console.log('🗑️ Estado do disparo limpo');
+        console.log('🗑️ Estado do envio limpo');
     },
 
     checkForResumableDispatch() {
@@ -245,7 +245,7 @@ const ActiveDispatchManager = {
         const remainingContacts = state.totalContacts - state.currentIndex;
 
         if (remainingContacts <= 0) {
-            console.log('✅ Disparo anterior já foi concluído');
+            console.log('✅ Envio anterior já foi concluído');
             this.clearDispatchState();
             return null;
         }
@@ -264,13 +264,13 @@ const ActiveDispatchManager = {
                     <div class="modal-content">
                         <div class="modal-header bg-warning text-dark">
                             <h5 class="modal-title">
-                                <i class="bi bi-exclamation-triangle me-2"></i>Disparo Interrompido Detectado
+                                <i class="bi bi-exclamation-triangle me-2"></i>Envio Interrompido Detectado
                             </h5>
                         </div>
                         <div class="modal-body">
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle me-2"></i>
-                                Foi detectado um disparo que foi interrompido há <strong>${hoursSinceLastUpdate}h</strong>.
+                                Foi detectado um envio que foi interrompido há <strong>${hoursSinceLastUpdate}h</strong>.
                             </div>
 
                             <div class="card mb-3">
@@ -310,16 +310,16 @@ const ActiveDispatchManager = {
                                 <strong><i class="bi bi-question-circle me-2"></i>O que deseja fazer?</strong>
                                 <ul class="mb-0 mt-2">
                                     <li><strong>Retomar:</strong> Continua de onde parou (recomendado)</li>
-                                    <li><strong>Novo Disparo:</strong> Descarta o progresso e inicia do zero</li>
+                                    <li><strong>Novo Envio:</strong> Descarta o progresso e inicia do zero</li>
                                 </ul>
                             </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" onclick="ActiveDispatchManager.startFreshDispatch()">
-                                <i class="bi bi-arrow-clockwise me-2"></i>Novo Disparo
+                                <i class="bi bi-arrow-clockwise me-2"></i>Novo Envio
                             </button>
                             <button type="button" class="btn btn-success" onclick="ActiveDispatchManager.resumeDispatch()">
-                                <i class="bi bi-play-circle me-2"></i>Retomar Disparo
+                                <i class="bi bi-play-circle me-2"></i>Retomar Envio
                             </button>
                         </div>
                     </div>
@@ -339,14 +339,14 @@ const ActiveDispatchManager = {
     async resumeDispatch() {
         const state = this.loadDispatchState();
         if (!state) {
-            UI.showError('Estado do disparo não encontrado');
+            UI.showError('Estado do envio não encontrado');
             return;
         }
 
         const modal = bootstrap.Modal.getInstance(document.getElementById('resumeDispatchModal'));
         if (modal) modal.hide();
 
-        UI.showLoading('Restaurando estado do disparo...');
+        UI.showLoading('Restaurando estado do envio...');
 
         try {
             if (state.config) {
@@ -370,10 +370,10 @@ const ActiveDispatchManager = {
                 contact => !processedPhones.has(contact.phone)
             );
 
-            console.log(`📋 Retomando disparo: ${remainingContacts.length} contatos restantes`);
+            console.log(`📋 Retomando envio: ${remainingContacts.length} contatos restantes`);
 
             UI.hideLoading();
-            UI.showSuccess(`Retomando disparo com ${remainingContacts.length} contatos restantes`);
+            UI.showSuccess(`Retomando envio com ${remainingContacts.length} contatos restantes`);
 
             await Utils.sleep(1000);
 
@@ -381,8 +381,8 @@ const ActiveDispatchManager = {
 
         } catch (error) {
             UI.hideLoading();
-            console.error('❌ Erro ao retomar disparo:', error);
-            UI.showError('Erro ao retomar disparo: ' + error.message);
+            console.error('❌ Erro ao retomar envio:', error);
+            UI.showError('Erro ao retomar envio: ' + error.message);
         }
     },
 
@@ -451,7 +451,7 @@ const ActiveDispatchManager = {
         const modal = bootstrap.Modal.getInstance(document.getElementById('resumeDispatchModal'));
         if (modal) modal.hide();
 
-        UI.showSuccess('Disparo anterior descartado. Inicie um novo disparo normalmente.');
+        UI.showSuccess('Envio anterior descartado. Inicie um novo disparo normalmente.');
     }
 };
 
@@ -1423,7 +1423,7 @@ window.SupabaseDataManager = SupabaseDataManager;
 const App = {
     async initialize() {
         try {
-            console.log('🚀 Iniciando Disparo PRO...');
+            console.log('🚀 Iniciando Mandato Connect...');
 
             if (typeof Chart !== 'undefined') {
                 Chart.getChart('resultsChart')?.destroy();
@@ -1505,7 +1505,7 @@ const App = {
                 }
             }, 3000);
 
-            console.log('✅ Disparo PRO inicializado com sucesso!');
+            console.log('✅ Mandato Connect inicializado com sucesso!');
 
             setTimeout(() => {
                 SendingManager.updateStats = originalUpdateStats;
