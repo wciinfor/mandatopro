@@ -6,6 +6,38 @@ function getBearerToken(req) {
   return match?.[1] || '';
 }
 
+function parseCookies(req) {
+  const header = String(req?.headers?.cookie || '');
+  if (!header) return {};
+
+  return header.split(';').reduce((acc, part) => {
+    const [key, ...rest] = part.trim().split('=');
+    if (!key) return acc;
+    acc[key] = rest.join('=');
+    return acc;
+  }, {});
+}
+
+function getAccessTokenFromCookie(req) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const ref = url.replace(/^https?:\/\//, '').split('.')[0];
+  if (!ref) return '';
+
+  const cookieName = `sb-${ref}-auth-token`;
+  const cookies = parseCookies(req);
+  const raw = cookies[cookieName];
+  if (!raw) return '';
+
+  const value = raw.startsWith('base64-') ? raw.slice('base64-'.length) : raw;
+  try {
+    const decoded = Buffer.from(value, 'base64').toString('utf8');
+    const parsed = decoded ? JSON.parse(decoded) : null;
+    return parsed?.access_token || '';
+  } catch {
+    return '';
+  }
+}
+
 function createAuthClient(accessToken) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -28,7 +60,7 @@ function createAuthClient(accessToken) {
 }
 
 export async function obterUsuarioAutenticado(req, supabaseAdmin) {
-  const accessToken = getBearerToken(req);
+  const accessToken = getBearerToken(req) || getAccessTokenFromCookie(req);
 
   if (accessToken) {
     const authClient = createAuthClient(accessToken);
