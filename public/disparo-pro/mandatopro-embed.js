@@ -210,6 +210,24 @@
     }
   }
 
+  function patchInstanceManagerInit() {
+    const manager = getInstanceManager();
+    if (!manager || manager.__mandatoInitPatched) return;
+
+    manager.__mandatoInitPatched = true;
+    const originalInitialize = manager.initialize?.bind(manager);
+
+    if (typeof originalInitialize !== 'function') return;
+
+    manager.initialize = async function initializeMandatoInstanceManager(...args) {
+      const result = await originalInitialize(...args);
+      if (window.SupabaseDataManager?.loadUserInstances) {
+        setTimeout(() => window.SupabaseDataManager.loadUserInstances(), 400);
+      }
+      return result;
+    };
+  }
+
   function patchUiBadges() {
     if (!window.UI || window.UI.__mandatoBadgesPatched) return;
     const originalUpdateBadges = window.UI.updateBadges?.bind(window.UI);
@@ -465,12 +483,15 @@
     patchInstancePersistence();
     patchUiBadges();
     patchInstanceManagerActions();
+    patchInstanceManagerInit();
     bindMandatoInstanceActions();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
     setTimeout(patchInstanceManagerActions, 500);
+    setTimeout(patchInstanceManagerInit, 500);
     setTimeout(patchUiBadges, 1200);
     setTimeout(patchInstanceManagerActions, 1200);
+    setTimeout(patchInstanceManagerInit, 1200);
     setTimeout(updateMandatoInstanceBadges, 1600);
     setTimeout(updateMandatoInstanceBadges, 3000);
     setInterval(updateMandatoInstanceBadges, 1000);
