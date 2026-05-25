@@ -33,12 +33,35 @@ function aplicarFiltrosComuns(query, { cidade, bairro, search }, columns = {}) {
   return next;
 }
 
+async function buscarEleitoresPorCampanha(supabase, campanhaId, limit) {
+  const id = sanitizeText(campanhaId);
+  if (!id) return null;
+
+  const { data, error } = await supabase
+    .from('atendimentos')
+    .select('eleitor_id')
+    .eq('campanha_id', id)
+    .not('eleitor_id', 'is', null)
+    .limit(limit);
+
+  if (error) throw error;
+
+  return [...new Set((data || []).map((row) => row.eleitor_id).filter(Boolean))];
+}
+
 async function buscarEleitores(supabase, filtros, limit) {
+  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit);
+  if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return [];
+
   let query = supabase
     .from('eleitores')
     .select('id, nome, telefone, celular, whatsapp, email, cidade, municipio, bairro, status, statusCadastro')
     .limit(limit)
     .order('nome', { ascending: true });
+
+  if (Array.isArray(eleitorIds)) {
+    query = query.in('id', eleitorIds);
+  }
 
   const status = sanitizeText(filtros.status || 'ATIVO');
   if (status) {
@@ -110,7 +133,8 @@ export async function buscarContatosMandatoPro(supabase, filtros = {}) {
     cidade: filtros.cidade,
     bairro: filtros.bairro,
     status: filtros.status,
-    search: filtros.search
+    search: filtros.search,
+    campanhaId: filtros.campanhaId
   };
 
   let contatosRaw;

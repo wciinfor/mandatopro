@@ -241,6 +241,12 @@ function buildEmbedScript() {
               <option value="funcionarios">Funcionários</option>
             </select>
           </div>
+          <div class="col-md-3">
+            <label class="form-label">Campanha</label>
+            <select id="mandatoCampanha" class="form-control">
+              <option value="">Todas as campanhas</option>
+            </select>
+          </div>
           <div class="col-md-2">
             <label class="form-label">Cidade</label>
             <input id="mandatoCidade" class="form-control" placeholder="Cidade">
@@ -270,7 +276,53 @@ function buildEmbedScript() {
     const header = contactsSection.querySelector('.content-header');
     header?.insertAdjacentElement('afterend', box);
 
+    const origemSelect = document.getElementById('mandatoOrigem');
+    origemSelect?.addEventListener('change', updateMandatoCampaignFilterState);
+    updateMandatoCampaignFilterState();
+    loadMandatoCampaigns();
     document.getElementById('mandatoImportBtn')?.addEventListener('click', importMandatoContacts);
+  }
+
+  function updateMandatoCampaignFilterState() {
+    const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
+    const campanhaSelect = document.getElementById('mandatoCampanha');
+    if (!campanhaSelect) return;
+
+    const enabled = origem === 'eleitores';
+    campanhaSelect.disabled = !enabled;
+    if (!enabled) campanhaSelect.value = '';
+  }
+
+  function formatMandatoCampaignLabel(campaign) {
+    const date = campaign.data_campanha
+      ? new Date(\`\${campaign.data_campanha}T00:00:00\`).toLocaleDateString('pt-BR')
+      : '';
+    const place = campaign.municipio || campaign.local || '';
+    return [campaign.nome, place, date].filter(Boolean).join(' - ');
+  }
+
+  async function loadMandatoCampaigns() {
+    const campanhaSelect = document.getElementById('mandatoCampanha');
+    if (!campanhaSelect || campanhaSelect.dataset.loaded === 'true') return;
+
+    try {
+      const response = await fetch('/api/disparos/contatos/campanhas?limit=200', {
+        credentials: 'include'
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.message || 'Erro ao listar campanhas');
+
+      campanhaSelect.innerHTML = '<option value="">Todas as campanhas</option>';
+      for (const campaign of payload.data || []) {
+        const option = document.createElement('option');
+        option.value = campaign.id;
+        option.textContent = formatMandatoCampaignLabel(campaign);
+        campanhaSelect.appendChild(option);
+      }
+      campanhaSelect.dataset.loaded = 'true';
+    } catch (error) {
+      console.error('Erro ao carregar campanhas no filtro MandatoPro:', error);
+    }
   }
 
   function getContactManager() {
@@ -506,8 +558,11 @@ function buildEmbedScript() {
     const bairro = document.getElementById('mandatoBairro')?.value || '';
     const search = document.getElementById('mandatoBusca')?.value || '';
     const limit = document.getElementById('mandatoLimite')?.value || '1000';
+    const campanhaId = origem === 'eleitores'
+      ? document.getElementById('mandatoCampanha')?.value || ''
+      : '';
 
-    const params = new URLSearchParams({ origem, cidade, bairro, search, limit });
+    const params = new URLSearchParams({ origem, cidade, bairro, search, limit, campanhaId });
     window.UI?.showLoading?.('Importando contatos do MandatoPro...');
 
     try {

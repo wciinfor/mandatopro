@@ -44,7 +44,8 @@ export default async function handler(req, res) {
       cidade: req.query.cidade,
       bairro: req.query.bairro,
       status: req.query.status,
-      search: req.query.search
+      search: req.query.search,
+      campanhaId: req.query.campanhaId
     });
 
     if (String(req.query.format || '').toLowerCase() === 'csv') {
