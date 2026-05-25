@@ -275,6 +275,17 @@
 
     window.SupabaseDataManager.__mandatoPatched = true;
 
+    const ensureInstancesRendered = (attempt = 0) => {
+      if (window.InstanceManager?.updateInstancesList && document.getElementById('instancesList')) {
+        window.InstanceManager.updateInstancesList();
+        updateMandatoInstanceBadges();
+        return;
+      }
+      if (attempt < 15) {
+        setTimeout(() => ensureInstancesRendered(attempt + 1), 200);
+      }
+    };
+
     window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances(retryCount = 0) {
       if (!window.AppState || !Array.isArray(window.AppState.instances)) {
         if (retryCount < 10) {
@@ -308,15 +319,13 @@
             ...instance,
             lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
           }));
-          window.InstanceManager?.updateInstancesList?.();
-          updateMandatoInstanceBadges();
+          ensureInstancesRendered();
           await Promise.allSettled(window.AppState.instances.map((instance) => this.saveInstance(instance)));
           return;
         }
 
         if (remoteInstances.length === 0) {
-          window.InstanceManager?.updateInstancesList?.();
-          updateMandatoInstanceBadges();
+          ensureInstancesRendered();
           return;
         }
 
@@ -326,8 +335,7 @@
         }));
 
         window.StorageService?.setLocalJson?.('disparador_instances', window.AppState.instances);
-        window.InstanceManager?.updateInstancesList?.();
-        updateMandatoInstanceBadges();
+        ensureInstancesRendered();
       } catch (error) {
         console.error('Erro ao carregar instancias do MandatoPro:', error);
 
@@ -346,8 +354,7 @@
             ...instance,
             lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
           }));
-          window.InstanceManager?.updateInstancesList?.();
-          updateMandatoInstanceBadges();
+          ensureInstancesRendered();
         }
       }
     };
