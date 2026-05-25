@@ -8,6 +8,20 @@ import { faBars, faUserTie } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '@/contexts/AuthContext';
 
 function obterModuloAtivo(path = '') {
+  const sectionLabels = {
+    dashboard: 'Dashboard',
+    contatos: 'Contatos',
+    instancias: 'InstÃ¢ncias',
+    configuracoes: 'ConfiguraÃ§Ãµes',
+    campanha: 'Editar Campanha',
+    progresso: 'Progresso',
+    resultados: 'Resultados',
+    historico: 'HistÃ³rico',
+    backup: 'Backup & Restore',
+    novidades: 'Novidades',
+    seguranca: 'Dicas de SeguranÃ§a'
+  };
+
   if (path === '/dashboard') return 'Dashboard';
   if (path.startsWith('/cadastros/eleitores')) return 'Cadastros - Eleitores';
   if (path.startsWith('/cadastros/liderancas')) return 'Cadastros - Lideranças';
@@ -26,7 +40,10 @@ function obterModuloAtivo(path = '') {
   if (path.startsWith('/geolocalizacao')) return 'Geolocalização';
   if (path.startsWith('/comunicacao')) return 'Notificações';
   if (path.startsWith('/configuracoes')) return 'Configurações';
-  if (path.startsWith('/disparos')) return 'Mandato Connect';
+  if (path.startsWith('/disparos')) {
+    const section = new URLSearchParams(path.split('?')[1] || '').get('section') || 'dashboard';
+    return `Mandato Connect - ${sectionLabels[section] || 'Dashboard'}`;
+  }
   if (path.startsWith('/atendimento-connect')) return 'Atendimento Connect';
   return 'Dashboard';
 }
@@ -35,7 +52,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
   const router = useRouter();
   const { user, loading, updateUser } = useAuth();
   const [sidebarAberto, setSidebarAberto] = useState(false);
-  const moduloAtivo = obterModuloAtivo(router.pathname);
+  const moduloAtivo = obterModuloAtivo(router.asPath || router.pathname);
 
   useEffect(() => {
     if (loading) return;

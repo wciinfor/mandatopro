@@ -2,6 +2,8 @@
   const originalInitialize = window.AuthManager?.initialize?.bind(window.AuthManager);
   const originalFetch = window.fetch.bind(window);
 
+  document.body?.classList?.add('mandatopro-embedded');
+
   function getMandatoUser() {
     try {
       return JSON.parse(window.localStorage.getItem('usuario') || 'null');
@@ -1113,11 +1115,44 @@
   }
 
   function patchNavigation() {
-    const originalOnEnter = window.InboxModule?.onEnter;
-    if (window.InboxModule && typeof originalOnEnter === 'function') {
-      window.InboxModule.onEnter = function onEnterMandatoEmbed(...args) {
-        return originalOnEnter.apply(this, args);
-      };
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'mandato-connect:navigate') return;
+      navigateMandatoSection(event.data.section);
+    });
+
+    setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      navigateMandatoSection(params.get('section') || 'dashboard');
+    }, 500);
+  }
+
+  function hideOpenModals() {
+    document.querySelectorAll('.modal.show').forEach((modalElement) => {
+      window.bootstrap?.Modal?.getInstance(modalElement)?.hide();
+    });
+  }
+
+  function navigateMandatoSection(section = 'dashboard') {
+    const normalized = String(section || 'dashboard');
+
+    if (normalized === 'novidades') {
+      hideOpenModals();
+      window.bootstrap?.Modal?.getOrCreateInstance?.(document.getElementById('changelogModal'))?.show();
+      return;
+    }
+
+    if (normalized === 'seguranca') {
+      hideOpenModals();
+      window.bootstrap?.Modal?.getOrCreateInstance?.(document.getElementById('safetyTipsModal'))?.show();
+      return;
+    }
+
+    const selector = `.nav-link[data-section="${CSS.escape(normalized)}"]`;
+    const link = document.querySelector(selector);
+    if (link) {
+      hideOpenModals();
+      link.click();
     }
   }
 

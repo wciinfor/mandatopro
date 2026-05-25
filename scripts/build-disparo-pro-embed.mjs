@@ -86,6 +86,11 @@ function buildHtml() {
   );
 
   html = html.replace(
+    '<body class="bg-light">',
+    '<body class="bg-light mandatopro-embedded">'
+  );
+
+  html = html.replace(
     '<button type="submit" class="btn btn-whatsapp btn-lg" id="startCampaignBtn">',
     '<button type="button" class="btn btn-whatsapp btn-lg" id="startCampaignBtn">'
   );
@@ -177,6 +182,8 @@ function buildEmbedScript() {
   return `(() => {
   const originalInitialize = window.AuthManager?.initialize?.bind(window.AuthManager);
   const originalFetch = window.fetch.bind(window);
+
+  document.body?.classList?.add('mandatopro-embedded');
 
   function getMandatoUser() {
     try {
@@ -1207,11 +1214,44 @@ function buildEmbedScript() {
   }
 
   function patchNavigation() {
-    const originalOnEnter = window.InboxModule?.onEnter;
-    if (window.InboxModule && typeof originalOnEnter === 'function') {
-      window.InboxModule.onEnter = function onEnterMandatoEmbed(...args) {
-        return originalOnEnter.apply(this, args);
-      };
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'mandato-connect:navigate') return;
+      navigateMandatoSection(event.data.section);
+    });
+
+    setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      navigateMandatoSection(params.get('section') || 'dashboard');
+    }, 500);
+  }
+
+  function hideOpenModals() {
+    document.querySelectorAll('.modal.show').forEach((modalElement) => {
+      window.bootstrap?.Modal?.getInstance(modalElement)?.hide();
+    });
+  }
+
+  function navigateMandatoSection(section = 'dashboard') {
+    const normalized = String(section || 'dashboard');
+
+    if (normalized === 'novidades') {
+      hideOpenModals();
+      window.bootstrap?.Modal?.getOrCreateInstance?.(document.getElementById('changelogModal'))?.show();
+      return;
+    }
+
+    if (normalized === 'seguranca') {
+      hideOpenModals();
+      window.bootstrap?.Modal?.getOrCreateInstance?.(document.getElementById('safetyTipsModal'))?.show();
+      return;
+    }
+
+    const selector = \`.nav-link[data-section="\${CSS.escape(normalized)}"]\`;
+    const link = document.querySelector(selector);
+    if (link) {
+      hideOpenModals();
+      link.click();
     }
   }
 
@@ -1716,6 +1756,26 @@ body {
 @media (max-width: 768px) {
     .main-content { margin-left: 0; }
     .content-section { padding: 1rem; }
+}
+`;
+      fs.writeFileSync(layoutPath, layout, 'utf8');
+    }
+
+    const embedMarker = 'MANDATOPRO EMBED MENU OVERRIDES';
+    if (!layout.includes(embedMarker)) {
+      layout += `
+
+/* ${embedMarker} */
+.mandatopro-embedded .sidebar {
+    display: none !important;
+}
+
+.mandatopro-embedded .main-content {
+    margin-left: 0 !important;
+}
+
+.mandatopro-embedded .mobile-toggle {
+    display: none !important;
 }
 `;
       fs.writeFileSync(layoutPath, layout, 'utf8');

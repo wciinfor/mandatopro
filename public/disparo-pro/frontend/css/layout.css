@@ -2498,3 +2498,16 @@ body {
         padding: 1rem;
     }
 }
+
+/* MandatoPro controla o menu lateral quando o Mandato Connect roda no iframe. */
+.mandatopro-embedded .sidebar {
+    display: none !important;
+}
+
+.mandatopro-embedded .main-content {
+    margin-left: 0 !important;
+}
+
+.mandatopro-embedded .mobile-toggle {
+    display: none !important;
+}

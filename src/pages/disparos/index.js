@@ -1,10 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import { createClient } from '@/lib/supabaseClient';
 
-function buildDisparoProSrc(accessToken = '') {
+const SECOES_MANDATO_CONNECT = new Set([
+  'dashboard',
+  'contatos',
+  'instancias',
+  'configuracoes',
+  'campanha',
+  'progresso',
+  'resultados',
+  'historico',
+  'backup',
+  'novidades',
+  'seguranca'
+]);
+
+function normalizarSecao(section) {
+  const value = Array.isArray(section) ? section[0] : section;
+  return SECOES_MANDATO_CONNECT.has(value) ? value : 'dashboard';
+}
+
+function buildDisparoProSrc(accessToken = '', section = 'dashboard') {
   const hash = accessToken ? `#mandato_token=${encodeURIComponent(accessToken)}` : '';
-  return `/disparo-pro/index.html?v=${Date.now()}${hash}`;
+  const params = new URLSearchParams({ v: String(Date.now()), section });
+  return `/disparo-pro/index.html?${params.toString()}${hash}`;
 }
 
 function getSupabaseTokenFromStorage() {
@@ -23,10 +44,16 @@ function getSupabaseTokenFromStorage() {
 }
 
 export default function Disparos() {
+  const router = useRouter();
+  const iframeRef = useRef(null);
   const [iframeSrc, setIframeSrc] = useState('');
+  const activeSection = useMemo(() => normalizarSecao(router.query.section), [router.query.section]);
 
   useEffect(() => {
+    if (!router.isReady) return undefined;
+
     let active = true;
+    const initialSection = normalizarSecao(router.query.section);
 
     async function prepareIframe() {
       const supabase = createClient();
@@ -34,14 +61,14 @@ export default function Disparos() {
       const accessToken = data?.session?.access_token || getSupabaseTokenFromStorage();
 
       if (active) {
-        setIframeSrc(buildDisparoProSrc(accessToken));
+        setIframeSrc(buildDisparoProSrc(accessToken, initialSection));
       }
     }
 
     prepareIframe().catch((error) => {
       console.warn('Falha ao preparar sessao do Mandato Connect:', error);
       if (active) {
-        setIframeSrc(buildDisparoProSrc());
+        setIframeSrc(buildDisparoProSrc('', initialSection));
       }
     });
 
@@ -60,16 +87,31 @@ export default function Disparos() {
     return () => {
       active = false;
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady]);
+
+  useEffect(() => {
+    iframeRef.current?.contentWindow?.postMessage({
+      type: 'mandato-connect:navigate',
+      section: activeSection
+    }, window.location.origin);
+  }, [activeSection, iframeSrc]);
 
   return (
-    <Layout title="Mandato Connect">
-      <div className="min-h-[calc(100vh-64px)] bg-gray-50">
+    <Layout titulo="Mandato Connect">
+      <div className="-m-4 lg:-m-6 min-h-[calc(100vh-64px)] bg-gray-50">
         {iframeSrc ? (
           <iframe
+            ref={iframeRef}
             title="Mandato Connect"
             src={iframeSrc}
-            className="w-full h-[calc(100vh-64px)] border-0 bg-white"
+            onLoad={() => {
+              iframeRef.current?.contentWindow?.postMessage({
+                type: 'mandato-connect:navigate',
+                section: activeSection
+              }, window.location.origin);
+            }}
+            className="w-full h-[calc(100vh-64px)] border-0 bg-white block"
           />
         ) : null}
       </div>

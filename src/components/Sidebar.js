@@ -86,7 +86,19 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     {
       nome: 'Mandato Connect',
       icone: faPaperPlane,
-      submenu: [],
+      submenu: [
+        'Dashboard',
+        'Contatos',
+        'InstÃ¢ncias',
+        'ConfiguraÃ§Ãµes',
+        'Editar Campanha',
+        'Progresso',
+        'Resultados',
+        'HistÃ³rico',
+        'Backup & Restore',
+        'Novidades',
+        'Dicas de SeguranÃ§a'
+      ],
       rota: '/disparos'
     },
     {
@@ -180,7 +192,20 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     
     // Configurações
     'Dados do Sistema': '/configuracoes/sistema#dados',
-    'IA': '/configuracoes/sistema#ia'
+    'IA': '/configuracoes/sistema#ia',
+
+    // Mandato Connect
+    'Mandato Connect - Dashboard': '/disparos?section=dashboard',
+    'Mandato Connect - Contatos': '/disparos?section=contatos',
+    'Mandato Connect - InstÃ¢ncias': '/disparos?section=instancias',
+    'Mandato Connect - ConfiguraÃ§Ãµes': '/disparos?section=configuracoes',
+    'Mandato Connect - Editar Campanha': '/disparos?section=campanha',
+    'Mandato Connect - Progresso': '/disparos?section=progresso',
+    'Mandato Connect - Resultados': '/disparos?section=resultados',
+    'Mandato Connect - HistÃ³rico': '/disparos?section=historico',
+    'Mandato Connect - Backup & Restore': '/disparos?section=backup',
+    'Mandato Connect - Novidades': '/disparos?section=novidades',
+    'Mandato Connect - Dicas de SeguranÃ§a': '/disparos?section=seguranca'
   };
 
   const handleLogout = async () => {
@@ -276,8 +301,12 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                 }
                 return modulo;
               })
-              .map((modulo, idx) => (
+              .map((modulo) => (
               <div key={modulo.nome} className="mb-2">
+                {(() => {
+                  const menuAberto = Boolean(menusAbertos[modulo.nome] || moduloAtivo.startsWith(modulo.nome + ' - '));
+                  return (
+                <>
                 <button
                   type="button"
                   onClick={() => handleModuloClick(modulo)}
@@ -293,9 +322,9 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                   </div>
                   {modulo.submenu.length > 0 && (
                     <FontAwesomeIcon 
-                      icon={menusAbertos[modulo.nome] ? faChevronUp : faChevronDown} 
+                      icon={menuAberto ? faChevronUp : faChevronDown} 
                       className={`text-sm transition-transform duration-200 ${
-                        menusAbertos[modulo.nome] ? 'rotate-180' : 'rotate-0'
+                        menuAberto ? 'rotate-180' : 'rotate-0'
                       }`}
                     />
                   )}
@@ -304,8 +333,8 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                 {/* Submenu */}
                 {modulo.submenu.length > 0 && (
                   <div className={`mt-1 overflow-hidden transition-all duration-300 ease-in-out ${
-                    menusAbertos[modulo.nome] 
-                      ? 'max-h-96 opacity-100 translate-y-0' 
+                    menuAberto
+                      ? 'max-h-[34rem] opacity-100 translate-y-0' 
                       : 'max-h-0 opacity-0 -translate-y-2'
                   }`}>
                     <div className="bg-[#032E35] rounded-lg p-2 space-y-1 border-l-2 border-teal-400 ml-4">
@@ -332,6 +361,9 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                     </div>
                   </div>
                 )}
+                </>
+                  );
+                })()}
               </div>
             ))}
           </nav>
