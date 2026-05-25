@@ -266,9 +266,19 @@
 
     window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances() {
       try {
+        let storageInstances = [];
+        const rawLocal = window.localStorage?.getItem('disparador_instances');
+        const parsedLocal = rawLocal ? JSON.parse(rawLocal) : null;
+        if (Array.isArray(parsedLocal)) {
+          storageInstances = parsedLocal;
+        } else {
+          const parsed = window.StorageService?.getLocalJson?.('disparador_instances');
+          if (Array.isArray(parsed)) storageInstances = parsed;
+        }
+
         const localInstances = window.AppState?.instances?.length
           ? window.AppState.instances
-          : (window.StorageService?.getLocalJson?.('disparador_instances') || []);
+          : storageInstances;
         const response = await fetch('/api/disparos/instancias-runtime');
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar instancias');
@@ -285,6 +295,12 @@
           return;
         }
 
+        if (remoteInstances.length === 0) {
+          window.InstanceManager?.updateInstancesList?.();
+          updateMandatoInstanceBadges();
+          return;
+        }
+
         window.AppState.instances = remoteInstances.map((instance) => ({
           ...instance,
           lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
@@ -296,9 +312,18 @@
       } catch (error) {
         console.error('Erro ao carregar instancias do MandatoPro:', error);
 
-        const localInstances = window.StorageService?.getLocalJson?.('disparador_instances') || [];
-        if (localInstances.length > 0) {
-          window.AppState.instances = localInstances.map((instance) => ({
+        let storageInstances = [];
+        const rawLocal = window.localStorage?.getItem('disparador_instances');
+        const parsedLocal = rawLocal ? JSON.parse(rawLocal) : null;
+        if (Array.isArray(parsedLocal)) {
+          storageInstances = parsedLocal;
+        } else {
+          const parsed = window.StorageService?.getLocalJson?.('disparador_instances');
+          if (Array.isArray(parsed)) storageInstances = parsed;
+        }
+
+        if (storageInstances.length > 0) {
+          window.AppState.instances = storageInstances.map((instance) => ({
             ...instance,
             lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
           }));
