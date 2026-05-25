@@ -85,6 +85,11 @@ function buildHtml() {
     '<div id="mainApp" class="main-app authenticated" style="display:block">'
   );
 
+  html = html.replace(
+    '<button type="submit" class="btn btn-whatsapp btn-lg" id="startCampaignBtn">',
+    '<button type="button" class="btn btn-whatsapp btn-lg" id="startCampaignBtn">'
+  );
+
   const instanceFormHtml = `                <div class="card mb-4" id="instanceForm">
                     <div class="card-header bg-gradient-primary text-white">
                         <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Adicionar Instancia</h5>
@@ -603,6 +608,24 @@ function buildEmbedScript() {
     }, true);
   }
 
+  function bindMandatoStartCampaign() {
+    const button = document.getElementById('startCampaignBtn');
+    const form = document.getElementById('bulkForm');
+    if (!button || !form || button.dataset.mandatoBound === 'true') return;
+
+    button.type = 'button';
+    button.dataset.mandatoBound = 'true';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      window.UiManager?.syncFormFields?.();
+      const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+      form.dispatchEvent(submitEvent);
+    }, true);
+  }
+
   function patchInstancePersistence() {
     if (!window.SupabaseDataManager || window.SupabaseDataManager.__mandatoPatched) return;
 
@@ -741,8 +764,11 @@ function buildEmbedScript() {
     patchInstanceManagerActions();
     bindMandatoInstanceActions();
     bindMandatoContactsActions();
+    bindMandatoStartCampaign();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
+    setTimeout(bindMandatoStartCampaign, 500);
+    setTimeout(bindMandatoStartCampaign, 1800);
     setTimeout(patchInstanceManagerActions, 500);
     setTimeout(patchUiBadges, 1200);
     setTimeout(patchInstanceManagerActions, 1200);
