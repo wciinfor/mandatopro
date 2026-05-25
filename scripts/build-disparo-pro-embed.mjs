@@ -255,13 +255,13 @@ function buildEmbedScript() {
             <label class="form-label">Bairro</label>
             <input id="mandatoBairro" class="form-control" placeholder="Bairro">
           </div>
-          <div class="col-md-2">
-            <label class="form-label">Busca</label>
-            <input id="mandatoBusca" class="form-control" placeholder="Nome">
-          </div>
           <div class="col-md-1">
             <label class="form-label">Limite</label>
             <input id="mandatoLimite" type="number" class="form-control" value="1000" min="1" max="5000">
+          </div>
+          <div class="col-md-10">
+            <label class="form-label">Busca por nome</label>
+            <input id="mandatoBusca" class="form-control" placeholder="Digite o nome do eleitor">
           </div>
           <div class="col-md-2">
             <button id="mandatoImportBtn" type="button" class="btn btn-primary w-100">
