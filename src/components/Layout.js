@@ -27,6 +27,7 @@ function obterModuloAtivo(path = '') {
   if (path.startsWith('/comunicacao')) return 'Notificações';
   if (path.startsWith('/configuracoes')) return 'Configurações';
   if (path.startsWith('/disparos')) return 'Mandato Connect';
+  if (path.startsWith('/atendimento-connect')) return 'Atendimento Connect';
   return 'Dashboard';
 }
 

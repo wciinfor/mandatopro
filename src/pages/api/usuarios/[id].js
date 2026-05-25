@@ -9,7 +9,7 @@ import {
 
 export const runtime = 'nodejs';
 
-const NIVEIS = ['ADMINISTRADOR', 'LIDERANCA', 'OPERADOR'];
+const NIVEIS = ['ADMINISTRADOR', 'LIDERANCA', 'OPERADOR', 'ATENDENTE_CONNECT', 'SUPERVISOR_CONNECT'];
 const STATUS = ['ATIVO', 'INATIVO', 'BLOQUEADO'];
 
 export default async function handler(req, res) {

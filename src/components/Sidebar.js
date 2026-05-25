@@ -20,7 +20,8 @@ import {
   faTimes,
   faCog,
   faShieldAlt,
-  faPaperPlane
+  faPaperPlane,
+  faHeadset
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, setModuloAtivo }) {
@@ -87,6 +88,12 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
       icone: faPaperPlane,
       submenu: [],
       rota: '/disparos'
+    },
+    {
+      nome: 'Atendimento Connect',
+      icone: faHeadset,
+      submenu: [],
+      rota: '/atendimento-connect'
     },
     {
       nome: 'Agenda',
@@ -246,6 +253,12 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
           <nav className="p-4">
             {modulos
               .filter((modulo) => {
+                if (nivelUsuario === 'ATENDENTE_CONNECT') {
+                  return ['Atendimento Connect'].includes(modulo.nome);
+                }
+                if (nivelUsuario === 'SUPERVISOR_CONNECT') {
+                  return ['Atendimento Connect'].includes(modulo.nome);
+                }
                 if (nivelUsuario === 'OPERADOR') {
                   // OPERADOR: apenas Dashboard, Cadastros e Geolocalização
                   return ['Dashboard', 'Cadastros', 'Geolocalização'].includes(modulo.nome);

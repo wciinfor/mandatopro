@@ -55,7 +55,11 @@ export default function Login() {
         console.warn('Erro ao registrar login:', err);
       });
       
-      router.push('/dashboard');
+      const nivel = String(user?.nivel || '').toUpperCase();
+      const destino = ['ATENDENTE_CONNECT', 'SUPERVISOR_CONNECT'].includes(nivel)
+        ? '/atendimento-connect'
+        : '/dashboard';
+      router.push(destino);
     } catch (error) {
       setErro(error.message);
       setLoading(false);

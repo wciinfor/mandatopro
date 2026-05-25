@@ -417,7 +417,7 @@ export default function Usuarios() {
                         {usuario.nivel}
                       </span>
                       <div className="text-xs text-gray-500 mt-1">
-                        {ROLE_DESCRIPTIONS[usuario.nivel]}
+                        {ROLE_DESCRIPTIONS[usuario.nivel] || 'Acesso restrito conforme o modulo selecionado.'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -4,7 +4,9 @@
 export const ROLES = {
   ADMINISTRADOR: 'ADMINISTRADOR',
   LIDERANCA: 'LIDERANCA',
-  OPERADOR: 'OPERADOR'
+  OPERADOR: 'OPERADOR',
+  ATENDENTE_CONNECT: 'ATENDENTE_CONNECT',
+  SUPERVISOR_CONNECT: 'SUPERVISOR_CONNECT'
 };
 
 // Descrições dos níveis
@@ -29,7 +31,8 @@ export const MODULES = {
   SOLICITACOES: 'solicitacoes',
   USUARIOS: 'usuarios',
   JURIDICO: 'juridico',
-  DISPARO_MENSAGENS: 'disparo_mensagens'
+  DISPARO_MENSAGENS: 'disparo_mensagens',
+  ATENDIMENTO_CONNECT: 'atendimento_connect'
 };
 
 // Permissões por módulo
@@ -103,6 +106,13 @@ export const MODULE_PERMISSIONS = {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: false, delete: false, viewAll: false },
     [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+  },
+  [MODULES.ATENDIMENTO_CONNECT]: {
+    [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
+    [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ATENDENTE_CONNECT]: { view: true, create: true, edit: true, delete: false, viewAll: false },
+    [ROLES.SUPERVISOR_CONNECT]: { view: true, create: true, edit: true, delete: false, viewAll: true }
   }
 };
 

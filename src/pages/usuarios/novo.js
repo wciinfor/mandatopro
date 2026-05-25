@@ -395,7 +395,7 @@ export default function NovoUsuario() {
                       {role}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700">{ROLE_DESCRIPTIONS[role]}</p>
+                  <p className="text-sm text-gray-700">{ROLE_DESCRIPTIONS[role] || 'Acesso restrito conforme o modulo selecionado.'}</p>
                 </div>
               </label>
             ))}
