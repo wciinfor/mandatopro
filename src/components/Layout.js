@@ -11,15 +11,15 @@ function obterModuloAtivo(path = '') {
   const sectionLabels = {
     dashboard: 'Dashboard',
     contatos: 'Contatos',
-    instancias: 'InstÃ¢ncias',
-    configuracoes: 'ConfiguraÃ§Ãµes',
+    instancias: 'Instâncias',
+    configuracoes: 'Configurações',
     campanha: 'Editar Campanha',
     progresso: 'Progresso',
     resultados: 'Resultados',
-    historico: 'HistÃ³rico',
+    historico: 'Histórico',
     backup: 'Backup & Restore',
     novidades: 'Novidades',
-    seguranca: 'Dicas de SeguranÃ§a'
+    seguranca: 'Dicas de Segurança'
   };
 
   if (path === '/dashboard') return 'Dashboard';
@@ -27,16 +27,17 @@ function obterModuloAtivo(path = '') {
   if (path.startsWith('/cadastros/liderancas')) return 'Cadastros - Lideranças';
   if (path.startsWith('/cadastros/funcionarios')) return 'Cadastros - Funcionários';
   if (path.startsWith('/cadastros/atendimentos')) return 'Cadastros - Atendimentos';
+  if (path.startsWith('/cadastros/campanhas')) return 'Cadastros - Campanhas';
   if (path.startsWith('/emendas/orgaos')) return 'Emendas - Órgãos';
   if (path.startsWith('/emendas/responsaveis')) return 'Emendas - Responsáveis';
   if (path.startsWith('/emendas/emendas')) return 'Emendas - Emendas';
   if (path.startsWith('/emendas/repasses')) return 'Emendas - Repasses';
-  if (path.startsWith('/financeiro/lancamentos')) return 'Financeiro - Lancamentos';
+  if (path.startsWith('/financeiro/lancamentos')) return 'Financeiro - Lançamentos';
   if (path.startsWith('/financeiro/receitas')) return 'Financeiro - Receitas';
   if (path.startsWith('/financeiro/despesas')) return 'Financeiro - Despesas';
   if (path.startsWith('/financeiro/caixa')) return 'Financeiro - Caixa / Saldo';
   if (path.startsWith('/financeiro/doadores')) return 'Financeiro - Doadores / Parceiros';
-  if (path.startsWith('/financeiro/relatorios')) return 'Financeiro - Relatórios Financeiros';
+  if (path.startsWith('/financeiro/relatorios')) return 'Financeiro - Relatórios';
   if (path.startsWith('/geolocalizacao')) return 'Geolocalização';
   if (path.startsWith('/comunicacao')) return 'Notificações';
   if (path.startsWith('/configuracoes')) return 'Configurações';
@@ -64,7 +65,6 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
       return;
     }
 
-    // Buscar nome atualizado do Supabase — roda apenas uma vez quando ha usuario.
     fetch('/api/usuarios/me')
       .then(r => r.ok ? r.json() : null)
       .then(body => {
@@ -75,27 +75,23 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
           }
         }
       })
-      .catch(() => {}); // falha silenciosa, exibe o cache
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, router.pathname, user?.id]);
 
   return (
     <div className="min-h-screen bg-teal-50 flex">
-      {/* Sidebar Component */}
-      <Sidebar 
+      <Sidebar
         sidebarAberto={sidebarAberto}
         setSidebarAberto={setSidebarAberto}
         moduloAtivo={moduloAtivo}
         setModuloAtivo={() => {}}
       />
 
-      {/* Main Content */}
       <main className="flex-1 transition-all duration-300 ease-in-out lg:ml-0">
-        {/* Header */}
         <div className="bg-white shadow-sm p-3 lg:p-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              {/* Botão hambúrguer para mobile */}
               <button
                 onClick={() => setSidebarAberto(true)}
                 className="lg:hidden text-teal-700 hover:text-teal-900 p-2"
@@ -121,7 +117,6 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
           </div>
         </div>
 
-        {/* Page Content */}
         <div className="p-4 lg:p-6">
           {children}
         </div>
