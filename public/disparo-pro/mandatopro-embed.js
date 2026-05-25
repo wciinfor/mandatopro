@@ -339,6 +339,7 @@
     'scheduleDate',
     'scheduleTime'
   ];
+  const MANDATO_CAMPAIGN_KEY = 'mandatopro_disparo_campaign';
 
   function readMandatoField(id) {
     const element = document.getElementById(id);
@@ -423,6 +424,121 @@
         }
         saveMandatoSettingsState();
       });
+    }
+  }
+
+  function getMultipleMessagesManager() {
+    try {
+      if (typeof MultipleMessagesManager !== 'undefined') return MultipleMessagesManager;
+    } catch {
+      return null;
+    }
+    return window.MultipleMessagesManager || null;
+  }
+
+  function collectMandatoCampaignState() {
+    const messagesConfig = {};
+    for (const msgId of ['msg1', 'msg2', 'msg3']) {
+      messagesConfig[msgId] = {
+        ...(window.AppState?.messagesConfig?.[msgId] || {}),
+        enabled: Boolean(document.getElementById(`${msgId}-enabled`)?.checked),
+        text: document.getElementById(`${msgId}-text`)?.value || ''
+      };
+    }
+
+    return {
+      messagesConfig,
+      savedAt: new Date().toISOString()
+    };
+  }
+
+  function saveMandatoCampaignState() {
+    try {
+      const state = collectMandatoCampaignState();
+      window.StorageService?.setLocalJson?.(MANDATO_CAMPAIGN_KEY, state);
+    } catch (error) {
+      console.error('Erro ao salvar campanha do Disparo PRO:', error);
+    }
+  }
+
+  function restoreMandatoCampaignState() {
+    try {
+      const saved = window.StorageService?.getLocalJson?.(MANDATO_CAMPAIGN_KEY);
+      if (!saved?.messagesConfig || !window.AppState) return;
+
+      window.AppState.multipleMessagesEnabled = true;
+      for (const msgId of ['msg1', 'msg2', 'msg3']) {
+        const config = saved.messagesConfig[msgId] || {};
+        window.AppState.messagesConfig[msgId] = {
+          ...(window.AppState.messagesConfig[msgId] || {}),
+          ...config,
+          enabled: Boolean(config.enabled),
+          text: config.text || ''
+        };
+
+        const enabled = document.getElementById(`${msgId}-enabled`);
+        const text = document.getElementById(`${msgId}-text`);
+        if (enabled) enabled.checked = Boolean(config.enabled);
+        if (text) {
+          text.value = config.text || '';
+          text.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        const media = window.AppState.messagesConfig[msgId].media;
+        if (media?.filename && media?.data) {
+          const manager = getMultipleMessagesManager();
+          if (manager?.restoreMessageMedia) {
+            manager.restoreMessageMedia(msgId, media);
+          }
+        }
+      }
+
+      const manager = getMultipleMessagesManager();
+      manager?.updateActiveMessagesInfo?.();
+      manager?.updateMainPreview?.('msg1');
+      window.AutoSaveManager?.saveSessionData?.();
+    } catch (error) {
+      console.error('Erro ao restaurar campanha do Disparo PRO:', error);
+    }
+  }
+
+  function bindMandatoCampaignPersistence() {
+    for (const msgId of ['msg1', 'msg2', 'msg3']) {
+      const enabled = document.getElementById(`${msgId}-enabled`);
+      const text = document.getElementById(`${msgId}-text`);
+      const media = document.getElementById(`${msgId}-media`);
+
+      if (enabled && enabled.dataset.mandatoCampaignBound !== 'true') {
+        enabled.dataset.mandatoCampaignBound = 'true';
+        enabled.addEventListener('change', () => setTimeout(saveMandatoCampaignState, 50));
+      }
+
+      if (text && text.dataset.mandatoCampaignBound !== 'true') {
+        text.dataset.mandatoCampaignBound = 'true';
+        text.addEventListener('input', () => {
+          clearTimeout(window.__mandatoCampaignSaveTimer);
+          window.__mandatoCampaignSaveTimer = setTimeout(saveMandatoCampaignState, 300);
+        });
+      }
+
+      if (media && media.dataset.mandatoCampaignBound !== 'true') {
+        media.dataset.mandatoCampaignBound = 'true';
+        media.addEventListener('change', () => setTimeout(saveMandatoCampaignState, 900));
+      }
+    }
+
+    const manager = getMultipleMessagesManager();
+    if (manager && !manager.__mandatoCampaignPatched) {
+      manager.__mandatoCampaignPatched = true;
+      for (const method of ['updateActiveMessagesInfo', 'clearMedia']) {
+        const original = manager[method]?.bind(manager);
+        if (typeof original !== 'function') continue;
+        manager[method] = function patchedMandatoCampaignMethod(...args) {
+          const result = original(...args);
+          setTimeout(saveMandatoCampaignState, 0);
+          return result;
+        };
+      }
     }
   }
 
@@ -925,6 +1041,7 @@
     patchMandatoContactsPersistence();
     restoreMandatoSettingsState();
     bindMandatoSettingsPersistence();
+    bindMandatoCampaignPersistence();
     bindMandatoInstanceActions();
     bindMandatoContactsActions();
     bindMandatoStartCampaign();
@@ -934,6 +1051,8 @@
     setTimeout(bindMandatoStartCampaign, 1800);
     setTimeout(restoreMandatoSettingsState, 700);
     setTimeout(bindMandatoSettingsPersistence, 700);
+    setTimeout(restoreMandatoCampaignState, 900);
+    setTimeout(bindMandatoCampaignPersistence, 900);
     setTimeout(patchInstanceManagerActions, 500);
     setTimeout(patchInstanceManagerInit, 500);
     setTimeout(patchMandatoContactsPersistence, 500);
@@ -944,6 +1063,8 @@
     setTimeout(patchMandatoContactsPersistence, 1200);
     setTimeout(restoreMandatoSettingsState, 1800);
     setTimeout(bindMandatoSettingsPersistence, 1800);
+    setTimeout(restoreMandatoCampaignState, 2000);
+    setTimeout(bindMandatoCampaignPersistence, 2000);
     setTimeout(loadMandatoContactsState, 1800);
     setTimeout(updateMandatoInstanceBadges, 1600);
     setTimeout(updateMandatoInstanceBadges, 3000);
