@@ -212,6 +212,17 @@ const UiManager = {
     },
 
     startSafeConfiguration() {
+        const configLink = document.querySelector('.nav-link[data-section="configuracoes"]');
+        if (configLink) {
+            configLink.click();
+        }
+
+        const modalElement = document.getElementById('safetyTipsModal');
+        const modal = modalElement && window.bootstrap?.Modal?.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+
         const minInterval = document.getElementById('minInterval');
         const maxInterval = document.getElementById('maxInterval');
         const enableBatchPause = document.getElementById('enableBatchPause');
@@ -227,7 +238,12 @@ const UiManager = {
         if (batchSize) batchSize.value = 10;
         if (batchPauseDuration) batchPauseDuration.value = 10;
 
-        NotificationService.success('Configuracoes seguras aplicadas!');
+        setTimeout(() => {
+            minInterval?.focus();
+            minInterval?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 250);
+
+        NotificationService.success('Aba Configuracoes aberta e intervalos seguros aplicados!');
     },
 
     validateScheduleDate() {

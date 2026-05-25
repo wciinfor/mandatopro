@@ -1442,6 +1442,32 @@ if (typeof PreviewManager !== 'undefined') window.PreviewManager = PreviewManage
       "const instanceCount = document.getElementById('activeInstancesCount')?.textContent || '0';",
       "const instanceCount = String(window.AppState?.instances?.length || 0);"
     );
+    ui = ui.replace(
+      `    startSafeConfiguration() {
+        const minInterval = document.getElementById('minInterval');`,
+      `    startSafeConfiguration() {
+        const configLink = document.querySelector('.nav-link[data-section="configuracoes"]');
+        if (configLink) {
+            configLink.click();
+        }
+
+        const modalElement = document.getElementById('safetyTipsModal');
+        const modal = modalElement && window.bootstrap?.Modal?.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+
+        const minInterval = document.getElementById('minInterval');`
+    );
+    ui = ui.replace(
+      `        NotificationService.success('Configuracoes seguras aplicadas!');`,
+      `        setTimeout(() => {
+            minInterval?.focus();
+            minInterval?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 250);
+
+        NotificationService.success('Aba Configuracoes aberta e intervalos seguros aplicados!');`
+    );
     fs.writeFileSync(uiPath, ui, 'utf8');
   }
 
