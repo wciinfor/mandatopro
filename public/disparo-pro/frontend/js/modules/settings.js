@@ -95,9 +95,11 @@ const DataManager = {
             exportDate: new Date().toISOString(),
             history: AppState.sendingHistory,
             contacts: AppState.contacts,
-            instances: AppState.instances.map(instance => ({
+            instances: (AppState.instances || []).map(instance => ({
                 ...instance,
-                lastCheck: instance.lastCheck.toISOString()
+                lastCheck: instance.lastCheck
+                    ? new Date(instance.lastCheck).toISOString()
+                    : null
             })),
             settings: {
                 instanceName: document.getElementById('instanceName')?.value || '',
@@ -127,10 +129,14 @@ const DataManager = {
                     }
                 }
             },
-            scheduledDispatches: AppState.scheduledDispatches.map(dispatch => ({
+            scheduledDispatches: (AppState.scheduledDispatches || []).map(dispatch => ({
                 ...dispatch,
-                scheduledDateTime: dispatch.scheduledDateTime.toISOString(),
-                createdAt: dispatch.createdAt.toISOString()
+                scheduledDateTime: dispatch.scheduledDateTime
+                    ? new Date(dispatch.scheduledDateTime).toISOString()
+                    : null,
+                createdAt: dispatch.createdAt
+                    ? new Date(dispatch.createdAt).toISOString()
+                    : null
             }))
         };
 
@@ -159,6 +165,7 @@ const DataManager = {
 
         input.onchange = (e) => {
             const file = e.target.files[0];
+            input.remove();
             if (!file) return;
 
             const reader = new FileReader();
@@ -189,6 +196,8 @@ const DataManager = {
             reader.readAsText(file);
         };
 
+        input.style.display = 'none';
+        document.body.appendChild(input);
         input.click();
     },
 
@@ -454,6 +463,8 @@ const SettingsManager = {
     }
 };
 
+window.SettingsManager = SettingsManager;
+
 SettingsManager.clearSessionData = function () {
     UI.confirm(
         'Limpar Dados da Sessão',
@@ -466,6 +477,9 @@ SettingsManager.clearSessionData = function () {
         '<small class="text-warning">Esta ação não pode ser desfeita!</small>',
         () => {
             AutoSaveManager.clearSessionData();
+            StorageService.removeLocal('mandatopro_disparo_settings');
+            StorageService.removeLocal('mandatopro_disparo_campaign');
+            StorageService.removeLocal('mandatopro_disparo_contacts_meta');
 
             AppState.contacts = [];
             AppState.results = { success: 0, error: 0 };

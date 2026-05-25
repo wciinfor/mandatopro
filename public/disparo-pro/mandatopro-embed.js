@@ -294,6 +294,15 @@
     return window.ModeloManager || null;
   }
 
+  function getSettingsManager() {
+    try {
+      if (typeof SettingsManager !== 'undefined') return SettingsManager;
+    } catch {
+      return null;
+    }
+    return window.SettingsManager || null;
+  }
+
   function getBatchManager() {
     try {
       if (typeof BatchManager !== 'undefined') return BatchManager;
@@ -607,6 +616,24 @@
     }
   }
 
+  async function clearMandatoContactsState() {
+    try {
+      window.StorageService?.removeLocal?.('mandatopro_disparo_contacts_meta');
+
+      if (!window.indexedDB) return;
+      const db = await openMandatoContactsDb();
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction('state', 'readwrite');
+        transaction.objectStore('state').delete('contacts');
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      });
+      db.close();
+    } catch (error) {
+      console.error('Erro ao limpar contatos persistidos do Disparo PRO:', error);
+    }
+  }
+
   function patchMandatoContactsPersistence() {
     const manager = getContactManager();
     if (!manager || manager.__mandatoPersistencePatched) return;
@@ -822,6 +849,36 @@
         event.stopImmediatePropagation();
         getContactManager()?.processExcelFile?.(file);
         setTimeout(saveMandatoContactsState, 1500);
+      }
+    }, true);
+  }
+
+  function bindMandatoBackupActions() {
+    if (window.__mandatoBackupActionsBound) return;
+    window.__mandatoBackupActionsBound = true;
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest?.(
+        '#exportBackupBtn, #importBackupBtn, #showStorageInfoBtn, #clearSessionDataBtn, #clearSettingsBtn'
+      );
+      if (!button) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      if (button.id === 'exportBackupBtn') {
+        getDataManager()?.exportBackupData?.();
+      } else if (button.id === 'importBackupBtn') {
+        getDataManager()?.importBackupData?.();
+      } else if (button.id === 'showStorageInfoBtn') {
+        window.showStorageInfo?.();
+      } else if (button.id === 'clearSessionDataBtn') {
+        getSettingsManager()?.clearSessionData?.();
+        setTimeout(clearMandatoContactsState, 300);
+      } else if (button.id === 'clearSettingsBtn') {
+        getSettingsManager()?.clearSavedSettings?.();
+        setTimeout(clearMandatoContactsState, 300);
       }
     }, true);
   }
@@ -1044,6 +1101,7 @@
     bindMandatoCampaignPersistence();
     bindMandatoInstanceActions();
     bindMandatoContactsActions();
+    bindMandatoBackupActions();
     bindMandatoStartCampaign();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);

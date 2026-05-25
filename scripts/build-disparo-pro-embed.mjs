@@ -433,6 +433,15 @@ function buildEmbedScript() {
     return window.ModeloManager || null;
   }
 
+  function getSettingsManager() {
+    try {
+      if (typeof SettingsManager !== 'undefined') return SettingsManager;
+    } catch {
+      return null;
+    }
+    return window.SettingsManager || null;
+  }
+
   function getBatchManager() {
     try {
       if (typeof BatchManager !== 'undefined') return BatchManager;
@@ -746,6 +755,24 @@ function buildEmbedScript() {
     }
   }
 
+  async function clearMandatoContactsState() {
+    try {
+      window.StorageService?.removeLocal?.('mandatopro_disparo_contacts_meta');
+
+      if (!window.indexedDB) return;
+      const db = await openMandatoContactsDb();
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction('state', 'readwrite');
+        transaction.objectStore('state').delete('contacts');
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      });
+      db.close();
+    } catch (error) {
+      console.error('Erro ao limpar contatos persistidos do Disparo PRO:', error);
+    }
+  }
+
   function patchMandatoContactsPersistence() {
     const manager = getContactManager();
     if (!manager || manager.__mandatoPersistencePatched) return;
@@ -938,6 +965,36 @@ function buildEmbedScript() {
     }, true);
   }
 
+  function bindMandatoBackupActions() {
+    if (window.__mandatoBackupActionsBound) return;
+    window.__mandatoBackupActionsBound = true;
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest?.(
+        '#exportBackupBtn, #importBackupBtn, #showStorageInfoBtn, #clearSessionDataBtn, #clearSettingsBtn'
+      );
+      if (!button) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      if (button.id === 'exportBackupBtn') {
+        getDataManager()?.exportBackupData?.();
+      } else if (button.id === 'importBackupBtn') {
+        getDataManager()?.importBackupData?.();
+      } else if (button.id === 'showStorageInfoBtn') {
+        window.showStorageInfo?.();
+      } else if (button.id === 'clearSessionDataBtn') {
+        getSettingsManager()?.clearSessionData?.();
+        setTimeout(clearMandatoContactsState, 300);
+      } else if (button.id === 'clearSettingsBtn') {
+        getSettingsManager()?.clearSavedSettings?.();
+        setTimeout(clearMandatoContactsState, 300);
+      }
+    }, true);
+  }
+
   function bindMandatoStartCampaign() {
     const button = document.getElementById('startCampaignBtn');
     const form = document.getElementById('bulkForm');
@@ -1099,6 +1156,7 @@ function buildEmbedScript() {
     bindMandatoCampaignPersistence();
     bindMandatoInstanceActions();
     bindMandatoContactsActions();
+    bindMandatoBackupActions();
     bindMandatoStartCampaign();
     setTimeout(bindMandatoInstanceForm, 500);
     setTimeout(bindMandatoInstanceForm, 1800);
@@ -1241,10 +1299,57 @@ if (typeof PreviewManager !== 'undefined') window.PreviewManager = PreviewManage
   const settingsPath = path.join(publicRoot, 'frontend', 'js', 'modules', 'settings.js');
   if (fs.existsSync(settingsPath)) {
     let settings = fs.readFileSync(settingsPath, 'utf8');
+    settings = settings
+      .replace(
+        'instances: AppState.instances.map(instance => ({\n                ...instance,\n                lastCheck: instance.lastCheck.toISOString()\n            })),',
+        `instances: (AppState.instances || []).map(instance => ({
+                ...instance,
+                lastCheck: instance.lastCheck
+                    ? new Date(instance.lastCheck).toISOString()
+                    : null
+            })),`
+      )
+      .replace(
+        'scheduledDispatches: AppState.scheduledDispatches.map(dispatch => ({\n                ...dispatch,\n                scheduledDateTime: dispatch.scheduledDateTime.toISOString(),\n                createdAt: dispatch.createdAt.toISOString()\n            }))',
+        `scheduledDispatches: (AppState.scheduledDispatches || []).map(dispatch => ({
+                ...dispatch,
+                scheduledDateTime: dispatch.scheduledDateTime
+                    ? new Date(dispatch.scheduledDateTime).toISOString()
+                    : null,
+                createdAt: dispatch.createdAt
+                    ? new Date(dispatch.createdAt).toISOString()
+                    : null
+            }))`
+      )
+      .replace(
+        'input.onchange = (e) => {\n            const file = e.target.files[0];',
+        `input.onchange = (e) => {
+            const file = e.target.files[0];
+            input.remove();`
+      )
+      .replace(
+        '\n        input.click();',
+        '\n        input.style.display = \'none\';\n        document.body.appendChild(input);\n        input.click();'
+      )
+      .replace(
+        'AutoSaveManager.clearSessionData();\n\n            AppState.contacts = [];',
+        `AutoSaveManager.clearSessionData();
+            StorageService.removeLocal('mandatopro_disparo_settings');
+            StorageService.removeLocal('mandatopro_disparo_campaign');
+            StorageService.removeLocal('mandatopro_disparo_contacts_meta');
+
+            AppState.contacts = [];`
+      );
     if (!settings.includes('window.DataManager = DataManager;')) {
       settings = settings.replace(
         '\nfunction startSafeConfiguration()',
         '\nwindow.DataManager = DataManager;\nwindow.ModeloManager = ModeloManager;\n\nfunction startSafeConfiguration()'
+      );
+    }
+    if (!settings.includes('window.SettingsManager = SettingsManager;')) {
+      settings = settings.replace(
+        '\nSettingsManager.clearSessionData = function ()',
+        '\nwindow.SettingsManager = SettingsManager;\n\nSettingsManager.clearSessionData = function ()'
       );
     }
     fs.writeFileSync(settingsPath, settings, 'utf8');
