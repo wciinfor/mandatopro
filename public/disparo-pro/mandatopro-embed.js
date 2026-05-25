@@ -151,8 +151,7 @@
 
   function updateMandatoInstanceBadges() {
     const total = window.AppState?.instances?.length || 0;
-    const active = window.AppState?.activeInstances?.length
-      || (window.AppState?.instances || []).filter((instance) => instance.status === 'connected').length;
+    const active = total;
 
     const instanceBadge = document.getElementById('instanceCountBadge');
     if (instanceBadge) {
