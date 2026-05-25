@@ -708,6 +708,46 @@
       };
     }
 
+    manager.disconnectInstance = function disconnectMandatoInstance(instanceId) {
+      const instance = resolveMandatoInstance(instanceId);
+      if (!instance) return;
+
+      window.UI?.confirm?.(
+        'Desconectar instancia',
+        `Deseja desconectar a instancia "${instance.name}"?`,
+        async () => {
+          window.UI?.showLoading?.('Desconectando instancia...');
+
+          try {
+            const response = await fetch('/api/disparos/instancias-runtime/logout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ id: instance.id })
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(payload?.message || 'Erro ao desconectar instancia');
+            }
+
+            instance.status = 'disconnected';
+            instance.qrCode = null;
+            instance.lastCheck = new Date();
+            window.StorageService?.setLocalJson?.('disparador_instances', window.AppState.instances);
+            manager.updateInstancesList?.();
+            manager.updateActiveInstances?.();
+            updateMandatoInstanceBadges();
+            window.UI?.showSuccess?.(`Instancia "${instance.name}" desconectada`);
+          } catch (error) {
+            console.error('Erro ao desconectar instancia do MandatoPro:', error);
+            window.UI?.showError?.(error.message || 'Erro ao desconectar instancia');
+          } finally {
+            window.UI?.hideLoading?.();
+          }
+        }
+      );
+    };
+
     const originalUpdateInstancesList = manager.updateInstancesList?.bind(manager);
     if (typeof originalUpdateInstancesList === 'function') {
       manager.updateInstancesList = function updateMandatoInstancesList(...args) {
@@ -761,7 +801,7 @@
     window.__mandatoInstanceActionsBound = true;
 
     document.addEventListener('click', (event) => {
-      const button = event.target.closest?.('.check-connection-btn, .show-qr-btn, .remove-instance-btn, .edit-instance-btn');
+      const button = event.target.closest?.('.check-connection-btn, .show-qr-btn, .disconnect-instance-btn, .remove-instance-btn, .edit-instance-btn');
       if (!button) return;
 
       const instanceId = button.dataset.instanceId;
@@ -779,6 +819,8 @@
       } else if (button.classList.contains('show-qr-btn') && typeof manager.showConnectionModal === 'function') {
         const instance = resolveMandatoInstance(instanceId);
         manager.showConnectionModal(instance || instanceId);
+      } else if (button.classList.contains('disconnect-instance-btn') && typeof manager.disconnectInstance === 'function') {
+        manager.disconnectInstance(instanceId);
       } else if (button.classList.contains('remove-instance-btn') && typeof manager.removeInstance === 'function') {
         manager.removeInstance(instanceId);
       } else if (button.classList.contains('edit-instance-btn') && typeof manager.editInstance === 'function') {

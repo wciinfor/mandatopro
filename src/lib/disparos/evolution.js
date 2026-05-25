@@ -96,8 +96,8 @@ export function obterQrCodeInstancia(nome, apiKey) {
   return request('GET', `/instance/connect/${encodeURIComponent(nome)}`, undefined, { apiKey });
 }
 
-export function desconectarInstancia(nome) {
-  return request('DELETE', `/instance/logout/${encodeURIComponent(nome)}`);
+export function desconectarInstancia(nome, apiKey) {
+  return request('DELETE', `/instance/logout/${encodeURIComponent(nome)}`, undefined, { apiKey });
 }
 
 export function excluirInstanciaEvolution(nome) {
