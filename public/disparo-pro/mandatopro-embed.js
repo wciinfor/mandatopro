@@ -295,6 +295,16 @@
         updateMandatoInstanceBadges();
       } catch (error) {
         console.error('Erro ao carregar instancias do MandatoPro:', error);
+
+        const localInstances = window.StorageService?.getLocalJson?.('disparador_instances') || [];
+        if (localInstances.length > 0) {
+          window.AppState.instances = localInstances.map((instance) => ({
+            ...instance,
+            lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
+          }));
+          window.InstanceManager?.updateInstancesList?.();
+          updateMandatoInstanceBadges();
+        }
       }
     };
 
