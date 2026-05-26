@@ -939,10 +939,56 @@
       event.stopPropagation();
       event.stopImmediatePropagation();
 
-      window.UiManager?.syncFormFields?.();
+      startMandatoCampaign(form);
+    }, true);
+  }
+
+  function startMandatoCampaign(form) {
+    window.UiManager?.syncFormFields?.();
+
+    try {
+      if (typeof EventManager !== 'undefined' && typeof EventManager.handleFormSubmit === 'function') {
+        EventManager.handleFormSubmit({
+          target: form,
+          preventDefault() {},
+          stopPropagation() {},
+          stopImmediatePropagation() {}
+        });
+        return;
+      }
+
+      if (typeof SendingManager !== 'undefined' && typeof FormManager !== 'undefined') {
+        if (window.AppState?.sendingInProgress) {
+          if (typeof UI !== 'undefined') UI.showWarning('Envio ja esta em andamento');
+          return;
+        }
+
+        const validation = SendingManager.validateBeforeSending?.();
+        if (!validation?.valid) {
+          if (typeof UI !== 'undefined') UI.showError(validation?.error || 'Nao foi possivel iniciar a campanha');
+          return;
+        }
+
+        const isScheduled = document.getElementById('enableScheduling')?.checked;
+        if (isScheduled && typeof ScheduleManager !== 'undefined') {
+          const dispatchData = FormManager.collectDispatchData();
+          ScheduleManager.scheduleDispatch(dispatchData);
+        } else {
+          FormManager.showConfirmationDialog();
+        }
+        return;
+      }
+
       const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
       form.dispatchEvent(submitEvent);
-    }, true);
+    } catch (error) {
+      console.error('Erro ao iniciar campanha no Mandato Connect:', error);
+      if (typeof UI !== 'undefined') {
+        UI.showError(error?.message || 'Erro ao iniciar campanha');
+      } else {
+        alert(error?.message || 'Erro ao iniciar campanha');
+      }
+    }
   }
 
   function patchInstancePersistence() {
