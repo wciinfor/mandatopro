@@ -31,6 +31,11 @@ export default function AIChatWidget() {
   const [messages, setMessages] = useState(initialMessages);
   const hasUserMessages = messages.some(msg => msg.role === 'user');
 
+  const normalizeAiProvider = (value) => {
+    const provider = String(value || 'openai').toLowerCase().trim();
+    return provider === 'grok' ? 'groq' : provider;
+  };
+
   useEffect(() => {
     const carregarStatus = async () => {
       try {
@@ -38,7 +43,7 @@ export default function AIChatWidget() {
         if (!response.ok) return;
         const { data } = await response.json();
         if (data?.openai?.enabled) {
-          const provider = data.openai.provider || 'openai';
+          const provider = normalizeAiProvider(data.openai.provider);
           const hasKey = provider === 'groq' ? data.openai.hasGroqKey : data.openai.hasKey;
           setEnabled(Boolean(hasKey));
         } else {

@@ -13,7 +13,7 @@ const allowedTables = {
     searchField: 'nome'
   },
   campanhas: {
-    fields: 'id, nome, data_campanha, status, local, municipio',
+    fields: 'id, nome, data_campanha, hora_inicio, hora_fim, status, local, municipio',
     dateField: 'data_campanha',
     searchField: 'nome'
   },
@@ -388,7 +388,7 @@ function resolveFollowup(question, lastContext) {
 }
 
 function getProviderConfig(config) {
-  const provider = String(config.openai?.provider || 'openai').toLowerCase();
+  const provider = normalizeAiProvider(config.openai?.provider || 'openai');
   if (provider === 'groq') {
     return {
       provider: 'groq',
@@ -441,6 +441,11 @@ async function callChatCompletion(provider, payload) {
 function formatDate(value) {
   if (!value) return '-';
   try {
+    const dateOnlyMatch = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      const [, year, month, day] = dateOnlyMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString('pt-BR');
+    }
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
     return date.toLocaleDateString('pt-BR');
@@ -2433,6 +2438,67 @@ function detectAgendaBriefing(message) {
     && /(hoje|amanha|semana|proximos|proximas|aqui|cidade)/.test(normalized);
 }
 
+function normalizeAiProvider(value) {
+  const provider = String(value || 'openai').toLowerCase().trim();
+  return provider === 'grok' ? 'groq' : provider;
+}
+
+function configBoolean(value) {
+  return ['1', 'true', 'sim', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
+
+async function loadAiConfig(supabase) {
+  const config = lerConfiguracoes();
+  try {
+    const { data, error } = await supabase
+      .from('configuracoes_sistema')
+      .select('chave, valor')
+      .in('chave', [
+        'openai_provider',
+        'openai_api_key',
+        'openai_model',
+        'groq_api_key',
+        'groq_model',
+        'openai_enabled'
+      ]);
+
+    if (error) throw error;
+
+    const map = {};
+    (data || []).forEach((row) => {
+      map[row.chave] = row.valor;
+    });
+
+    return {
+      ...config,
+      openai: {
+        ...config.openai,
+        provider: normalizeAiProvider(map.openai_provider || config.openai?.provider || 'openai'),
+        apiKey: map.openai_api_key || config.openai?.apiKey || '',
+        model: map.openai_model || config.openai?.model || 'gpt-4o-mini',
+        groqApiKey: map.groq_api_key || config.openai?.groqApiKey || '',
+        groqModel: map.groq_model || config.openai?.groqModel || 'llama-3.1-8b-instant',
+        enabled: map.openai_enabled !== undefined ? configBoolean(map.openai_enabled) : (config.openai?.enabled ?? false)
+      }
+    };
+  } catch (error) {
+    console.error('[AI] Erro ao carregar configuracoes do banco, usando fallback local:', error);
+    return {
+      ...config,
+      openai: {
+        ...config.openai,
+        provider: normalizeAiProvider(config.openai?.provider || 'openai')
+      }
+    };
+  }
+}
+
+function detectCampaignsBriefing(message) {
+  const normalized = normalizeForMatch(message);
+  return /(campanha|campanhas|acao|acoes)/.test(normalized)
+    && /(hoje|amanha|semana|proximos|proximas|mes|periodo|agenda|quais|listar|liste|temos|quantas)/.test(normalized);
+}
+
 function detectOpenRequestsBriefing(message) {
   const normalized = normalizeForMatch(message);
   return /(solicitacao|solicitacoes|demanda|demandas|pedido|pedidos)/.test(normalized)
@@ -2546,6 +2612,45 @@ async function buildAgendaBriefing(supabase, message, city = '') {
     ...lines,
     total.count > rowsResult.rows.length ? `Mostrei ${rowsResult.rows.length} de ${total.count}.` : '',
     'Posso detalhar um compromisso ou filtrar por cidade/data.'
+  ].filter(Boolean).join('\n');
+}
+
+async function buildCampaignsBriefing(supabase, message, city = '') {
+  const range = getRequestedDateRange(message);
+  const cityLabel = city ? cleanCityName(city) : '';
+  const [total, rowsResult] = await Promise.all([
+    countRows(supabase, 'campanhas', {
+      city: cityLabel,
+      dateField: 'data_campanha',
+      from: range.from,
+      to: range.to
+    }),
+    fetchRows(supabase, 'campanhas', {
+      city: cityLabel,
+      from: range.from,
+      to: range.to,
+      limit: 5,
+      ascending: true
+    })
+  ]);
+
+  const scope = cityLabel ? ` em ${cityLabel}` : '';
+  const periodo = `${formatDate(range.from)} a ${formatDate(range.to)}`;
+  const lines = rowsResult.rows.map((row) => {
+    const hora = row.hora_inicio ? ` as ${String(row.hora_inicio).slice(0, 5)}` : '';
+    const lugar = row.municipio || row.local || '-';
+    return `- ${formatDate(row.data_campanha)}${hora}: ${row.nome || 'Sem nome'} (${lugar}) | ${row.status || '-'}`;
+  });
+
+  if (total.error || rowsResult.error) {
+    return 'Nao consegui consultar as campanhas agora porque houve erro ao acessar os dados. Tente novamente em instantes.';
+  }
+
+  return [
+    `Temos ${total.count} campanha(s)${scope} no periodo de ${periodo}.`,
+    ...lines,
+    total.count > rowsResult.rows.length ? `Mostrei ${rowsResult.rows.length} de ${total.count}. Quer que eu continue a lista?` : '',
+    total.count === 0 ? 'Nao encontrei campanhas nesse periodo.' : 'Posso detalhar uma campanha, separar por cidade ou listar contatos relacionados.'
   ].filter(Boolean).join('\n');
 }
 
@@ -3069,6 +3174,17 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, reply, traceId });
     }
 
+    if (detectCampaignsBriefing(message)) {
+      const reply = await buildCampaignsBriefing(supabase, message, contextualCity || '');
+      logPhase('answer', {
+        traceId,
+        mode: 'campaigns_briefing',
+        city: contextualCity || '',
+        durationMs: Date.now() - startedAt
+      });
+      return res.status(200).json({ success: true, reply, traceId });
+    }
+
     if (detectOpenRequestsBriefing(message)) {
       const reply = await buildOpenRequestsBriefing(supabase, contextualCity || '');
       logPhase('answer', {
@@ -3573,8 +3689,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, reply, data: rows, traceId });
   } catch (error) {
     const raw = `${error?.message || ''} ${error?.code || ''} ${error?.raw || ''}`.toLowerCase();
-    const config = lerConfiguracoes();
-    const provider = String(config.openai?.provider || 'openai').toLowerCase();
+    const config = await loadAiConfig(supabase);
+    const provider = normalizeAiProvider(config.openai?.provider || 'openai');
     if (provider === 'openai' && (raw.includes('insufficient_quota') || raw.includes('exceeded your current quota'))) {
       config.openai = {
         ...config.openai,

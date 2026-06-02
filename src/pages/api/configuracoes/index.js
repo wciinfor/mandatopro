@@ -19,6 +19,11 @@ function valorBooleano(value) {
   return ['1', 'true', 'sim', 'yes', 'on'].includes(String(value || '').toLowerCase());
 }
 
+function normalizarProviderIa(value) {
+  const provider = String(value || 'openai').toLowerCase().trim();
+  return provider === 'grok' ? 'groq' : provider;
+}
+
 function rowsToMap(rows) {
   const map = {};
   for (const row of (rows || [])) {
@@ -56,7 +61,7 @@ function aplicarOpenAiDoBanco(configPrivado, rows) {
     ...configPrivado,
     openai: {
       ...configPrivado.openai,
-      provider: map.openai_provider || configPrivado.openai?.provider || 'openai',
+      provider: normalizarProviderIa(map.openai_provider || configPrivado.openai?.provider || 'openai'),
       apiKey: map.openai_api_key || configPrivado.openai?.apiKey || '',
       model: map.openai_model || configPrivado.openai?.model || 'gpt-4o-mini',
       groqApiKey: map.groq_api_key || configPrivado.openai?.groqApiKey || '',
@@ -90,7 +95,7 @@ export default async function handler(req, res) {
           ...config,
           openai: {
             enabled: privado.openai?.enabled ?? false,
-            provider: privado.openai?.provider || 'openai',
+            provider: normalizarProviderIa(privado.openai?.provider || 'openai'),
             model: privado.openai?.model || 'gpt-4o-mini',
             groqModel: privado.openai?.groqModel || 'llama-3.1-8b-instant',
             hasKey: Boolean(privado.openai?.apiKey),
@@ -170,7 +175,7 @@ export default async function handler(req, res) {
         if (readError) throw readError;
 
         const configPrivado = aplicarOpenAiDoBanco(lerConfiguracoes(), rowsOpenAi);
-        const provider = dados.provider || configPrivado.openai?.provider || 'openai';
+        const provider = normalizarProviderIa(dados.provider || configPrivado.openai?.provider || 'openai');
         const apiKey = dados.apiKey ?? configPrivado.openai?.apiKey ?? '';
         const model = dados.model || configPrivado.openai?.model || 'gpt-4o-mini';
         const groqApiKey = dados.groqApiKey ?? configPrivado.openai?.groqApiKey ?? '';

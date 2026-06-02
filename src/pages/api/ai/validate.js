@@ -17,6 +17,11 @@ function valorBooleanoConfig(value) {
   return ['1', 'true', 'sim', 'yes', 'on'].includes(String(value || '').toLowerCase());
 }
 
+function normalizarProviderIa(value) {
+  const provider = String(value || 'openai').toLowerCase().trim();
+  return provider === 'grok' ? 'groq' : provider;
+}
+
 async function carregarConfigIa() {
   const config = lerConfiguracoes();
   try {
@@ -43,7 +48,7 @@ async function carregarConfigIa() {
       ...config,
       openai: {
         ...config.openai,
-        provider: map.openai_provider || config.openai?.provider || 'openai',
+        provider: normalizarProviderIa(map.openai_provider || config.openai?.provider || 'openai'),
         apiKey: map.openai_api_key || config.openai?.apiKey || '',
         model: map.openai_model || config.openai?.model || 'gpt-4o-mini',
         groqApiKey: map.groq_api_key || config.openai?.groqApiKey || '',
@@ -70,7 +75,7 @@ export default async function handler(req, res) {
 
     const { apiKey, model, provider, dryRunPlanner, plannerQuestion } = req.body || {};
     const config = await carregarConfigIa();
-    const selectedProvider = String(provider || config.openai?.provider || 'openai').toLowerCase();
+    const selectedProvider = normalizarProviderIa(provider || config.openai?.provider || 'openai');
     const token = apiKey || (selectedProvider === 'groq' ? config.openai?.groqApiKey : config.openai?.apiKey);
     const modelo = model || (selectedProvider === 'groq'
       ? (config.openai?.groqModel || 'llama-3.1-8b-instant')
