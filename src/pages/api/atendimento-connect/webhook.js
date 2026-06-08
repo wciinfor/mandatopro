@@ -7,19 +7,38 @@ function getSecret(req) {
   return req.headers['x-mandato-connect-secret'] || req.query.secret || '';
 }
 
+function pickFirst(...values) {
+  return values.find((value) => value !== null && value !== undefined && String(value).trim() !== '') || '';
+}
+
+function extractMessageText(data = {}, body = {}) {
+  const message = data.message && typeof data.message === 'object' ? data.message : {};
+  return String(pickFirst(
+    data.text,
+    data.body,
+    data.conversation,
+    data.caption,
+    message.conversation,
+    message.extendedTextMessage?.text,
+    message.imageMessage?.caption,
+    message.videoMessage?.caption,
+    message.documentMessage?.caption,
+    body.mensagem
+  )).trim();
+}
+
 function parsePayload(body = {}) {
   const data = body.data || body.message || body;
   const contatoTelefone = normalizarTelefone(
-    data.remoteJid || data.from || data.phone || data.telefone || data.sender || ''
+    data.key?.remoteJid || data.remoteJid || data.from || data.phone || data.telefone || data.sender || ''
   );
-  const contatoNome = String(data.pushName || data.name || data.nome || body.nome || '').trim();
-  const mensagem = String(
-    data.text || data.body || data.message || data.conversation || data.caption || body.mensagem || ''
-  ).trim();
-  const instanciaNome = String(body.instance || data.instance || data.instanceName || '').trim();
-  const providerMessageId = String(data.id || data.messageId || body.messageId || '').trim();
+  const contatoNome = String(data.pushName || data.name || data.nome || body.nome || body.pushName || '').trim();
+  const mensagem = extractMessageText(data, body);
+  const instanciaNome = String(body.instance || data.instance || data.instanceName || body.instanceName || '').trim();
+  const providerMessageId = String(data.key?.id || data.id || data.messageId || body.messageId || '').trim();
+  const fromMe = Boolean(data.key?.fromMe || data.fromMe);
 
-  return { contatoTelefone, contatoNome, mensagem, instanciaNome, providerMessageId, raw: body };
+  return { contatoTelefone, contatoNome, mensagem, instanciaNome, providerMessageId, fromMe, raw: body };
 }
 
 export default async function handler(req, res) {
@@ -31,13 +50,14 @@ export default async function handler(req, res) {
   if (expectedSecret && String(getSecret(req)) !== expectedSecret) {
     return res.status(401).json({ success: false, message: 'Webhook nao autorizado' });
   }
-  if (!expectedSecret && process.env.NODE_ENV === 'production') {
-    return res.status(503).json({ success: false, message: 'MANDATO_CONNECT_WEBHOOK_SECRET nao configurado' });
-  }
 
   try {
     const supabase = createServerClient();
     const parsed = parsePayload(req.body || {});
+
+    if (parsed.fromMe) {
+      return res.status(200).json({ success: true, ignored: true, reason: 'fromMe' });
+    }
 
     if (!parsed.contatoTelefone || !parsed.mensagem) {
       return res.status(400).json({ success: false, message: 'Payload sem telefone ou mensagem' });

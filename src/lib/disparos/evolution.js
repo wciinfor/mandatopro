@@ -107,6 +107,18 @@ export function enviarMidiaInstancia(nome, apiKey, payload) {
   return request('POST', `/message/sendMedia/${encodeURIComponent(nome)}`, payload, { apiKey });
 }
 
+export function configurarWebhookInstancia(nome, apiKey, webhookUrl) {
+  return request('POST', `/webhook/set/${encodeURIComponent(nome)}`, {
+    url: webhookUrl,
+    events: [
+      'MESSAGES_UPSERT',
+      'MESSAGE_UPDATE',
+      'CONNECTION_UPDATE',
+      'SEND_MESSAGE'
+    ]
+  }, { apiKey });
+}
+
 export function desconectarInstancia(nome, apiKey) {
   return request('DELETE', `/instance/logout/${encodeURIComponent(nome)}`, undefined, { apiKey });
 }

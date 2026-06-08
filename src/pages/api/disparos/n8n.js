@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAcessoMandatoConnect } from '@/lib/api-auth';
 import {
+  configurarWebhookInstancia,
   enviarMidiaInstancia,
   enviarTextoInstancia,
   obterQrCodeInstancia,
@@ -58,6 +59,25 @@ function normalizePhone(value) {
   if (digits.startsWith('55')) return digits;
   if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
   return digits;
+}
+
+function getRequestBaseUrl(req) {
+  const configured = String(process.env.MANDATO_CONNECT_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
+  const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL || '';
+  const proto = req.headers['x-forwarded-proto'] || (String(host).includes('localhost') ? 'http' : 'https');
+  return host ? `${proto}://${host}`.replace(/\/+$/, '') : '';
+}
+
+function buildAtendimentoWebhookUrl(req) {
+  const baseUrl = getRequestBaseUrl(req);
+  if (!baseUrl) return '';
+
+  const url = new URL('/api/atendimento-connect/webhook', baseUrl);
+  const secret = String(process.env.MANDATO_CONNECT_WEBHOOK_SECRET || '').trim();
+  if (secret) url.searchParams.set('secret', secret);
+  return url.toString();
 }
 
 function normalizeConnectionPayload(payload) {
@@ -173,7 +193,19 @@ function buildEvolutionMediaPayload(body, number) {
   };
 }
 
-async function sendEvolutionMessageFallback(body = {}) {
+async function ensureAtendimentoWebhook(instanceName, instanceApiKey, req) {
+  const webhookUrl = buildAtendimentoWebhookUrl(req);
+  if (!webhookUrl) return null;
+
+  try {
+    return await configurarWebhookInstancia(instanceName, instanceApiKey, webhookUrl);
+  } catch (error) {
+    console.warn('Falha ao configurar webhook de retorno da Evolution:', error?.message);
+    return null;
+  }
+}
+
+async function sendEvolutionMessageFallback(body = {}, req) {
   const instanceName = String(body.instanceName || body.instance || '').trim();
   const instanceApiKey = String(body.instanceAPIKEY || body.apikey || body.instanceKey || '').trim();
   const number = normalizePhone(body.contact?.phone || body.phone || body.number);
@@ -226,6 +258,14 @@ export default async function handler(req, res) {
     const isSendMessage = String(req.body?.action || '') === 'enviar_mensagem';
     const webhookUrl = getWebhookUrl();
 
+    if (isSendMessage) {
+      const instanceName = String(req.body?.instanceName || req.body?.instance || '').trim();
+      const instanceApiKey = String(req.body?.instanceAPIKEY || req.body?.apikey || req.body?.instanceKey || '').trim();
+      if (instanceName && instanceApiKey) {
+        await ensureAtendimentoWebhook(instanceName, instanceApiKey, req);
+      }
+    }
+
     if (!webhookUrl) {
       if (isConnectionCheck) {
         const evolutionFallback = await getEvolutionConnectionFallback(req.body || {});
@@ -235,7 +275,7 @@ export default async function handler(req, res) {
       }
 
       if (isSendMessage) {
-        const directSend = await sendEvolutionMessageFallback(req.body || {});
+        const directSend = await sendEvolutionMessageFallback(req.body || {}, req);
         return res.status(directSend.status).json(directSend.payload);
       }
 
