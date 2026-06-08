@@ -22,14 +22,14 @@ export default async function handler(req, res) {
 
     const { data: instancia, error } = await supabase
       .from('disparo_instancias')
-      .select('id, nome')
+      .select('id, nome, api_key')
       .eq('id', id)
       .maybeSingle();
 
     if (error) throw error;
     if (!instancia) return res.status(404).json({ success: false, message: 'Instancia nao encontrada' });
 
-    await desconectarInstancia(instancia.nome);
+    await desconectarInstancia(instancia.nome, instancia.api_key || undefined);
 
     await supabase
       .from('disparo_instancias')

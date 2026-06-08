@@ -96,6 +96,17 @@ export function obterQrCodeInstancia(nome, apiKey) {
   return request('GET', `/instance/connect/${encodeURIComponent(nome)}`, undefined, { apiKey });
 }
 
+export function enviarTextoInstancia(nome, apiKey, numero, texto) {
+  return request('POST', `/message/sendText/${encodeURIComponent(nome)}`, {
+    number: numero,
+    text: texto
+  }, { apiKey });
+}
+
+export function enviarMidiaInstancia(nome, apiKey, payload) {
+  return request('POST', `/message/sendMedia/${encodeURIComponent(nome)}`, payload, { apiKey });
+}
+
 export function desconectarInstancia(nome, apiKey) {
   return request('DELETE', `/instance/logout/${encodeURIComponent(nome)}`, undefined, { apiKey });
 }

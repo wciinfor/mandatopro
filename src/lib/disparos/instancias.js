@@ -35,14 +35,24 @@ export function extrairQrCode(payload) {
   const candidates = [
     payload?.base64,
     payload?.qrcode,
+    payload?.qrCode,
     payload?.qr,
     payload?.code,
     payload?.pairingCode,
     payload?.instance?.qrcode,
+    payload?.instance?.qrCode,
     payload?.instance?.qr,
+    payload?.instance?.code,
     payload?.data?.base64,
     payload?.data?.qrcode,
-    payload?.data?.qr
+    payload?.data?.qrCode,
+    payload?.data?.qr,
+    payload?.data?.code,
+    payload?.data?.pairingCode,
+    payload?.data?.instance?.qrcode,
+    payload?.data?.instance?.qrCode,
+    payload?.data?.instance?.qr,
+    payload?.data?.instance?.code
   ].filter(Boolean);
 
   const value = String(candidates[0] || '');

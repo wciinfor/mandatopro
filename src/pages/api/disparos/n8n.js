@@ -1,6 +1,11 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAcessoMandatoConnect } from '@/lib/api-auth';
-import { obterQrCodeInstancia, obterStatusInstancia } from '@/lib/disparos/evolution';
+import {
+  enviarMidiaInstancia,
+  enviarTextoInstancia,
+  obterQrCodeInstancia,
+  obterStatusInstancia
+} from '@/lib/disparos/evolution';
 
 export const runtime = 'nodejs';
 
@@ -45,6 +50,14 @@ function toImageDataUrl(value) {
     return `data:image/png;base64,${text}`;
   }
   return '';
+}
+
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('55')) return digits;
+  if (digits.length >= 10 && digits.length <= 11) return `55${digits}`;
+  return digits;
 }
 
 function normalizeConnectionPayload(payload) {
@@ -133,6 +146,72 @@ async function getEvolutionConnectionFallback(body = {}) {
   return null;
 }
 
+function buildEvolutionMediaPayload(body, number) {
+  const media = body?.media || {};
+  if (!media || typeof media !== 'object') return null;
+
+  const rawType = String(media.type || media.mediaType || media.mediatype || '').toLowerCase();
+  const mimetype = String(media.mimetype || media.mimeType || '').trim();
+  const mediaValue = media.url || media.data || media.media || media.base64 || '';
+  if (!mediaValue) return null;
+
+  const inferredType = rawType === 'url'
+    ? (mimetype.split('/')[0] || 'document')
+    : (mimetype.split('/')[0] || rawType || 'document');
+
+  const mediatype = ['image', 'video', 'audio', 'document'].includes(inferredType)
+    ? inferredType
+    : 'document';
+
+  return {
+    number,
+    mediatype,
+    mimetype: mimetype || undefined,
+    caption: body.message || '',
+    media: mediaValue,
+    fileName: media.filename || media.fileName || undefined
+  };
+}
+
+async function sendEvolutionMessageFallback(body = {}) {
+  const instanceName = String(body.instanceName || body.instance || '').trim();
+  const instanceApiKey = String(body.instanceAPIKEY || body.apikey || body.instanceKey || '').trim();
+  const number = normalizePhone(body.contact?.phone || body.phone || body.number);
+  const text = String(body.message || '').trim();
+
+  if (!instanceName) {
+    return { status: 400, payload: { success: false, message: 'Instancia nao informada' } };
+  }
+  if (!instanceApiKey) {
+    return { status: 400, payload: { success: false, message: 'API key da instancia nao informada' } };
+  }
+  if (!number) {
+    return { status: 400, payload: { success: false, message: 'Telefone do contato nao informado' } };
+  }
+
+  const mediaPayload = buildEvolutionMediaPayload(body, number);
+  if (!mediaPayload && !text) {
+    return { status: 400, payload: { success: false, message: 'Mensagem ou midia obrigatoria' } };
+  }
+
+  const data = mediaPayload
+    ? await enviarMidiaInstancia(instanceName, instanceApiKey, mediaPayload)
+    : await enviarTextoInstancia(instanceName, instanceApiKey, number, text);
+
+  return {
+    status: 200,
+    payload: {
+      success: true,
+      provider: 'evolution',
+      direct: true,
+      instanceName,
+      number,
+      messageId: body.messageId || null,
+      data
+    }
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Metodo nao permitido' });
@@ -144,6 +223,7 @@ export default async function handler(req, res) {
     exigirAcessoMandatoConnect(usuario);
 
     const isConnectionCheck = String(req.body?.action || '') === 'verificar_conexao';
+    const isSendMessage = String(req.body?.action || '') === 'enviar_mensagem';
     const webhookUrl = getWebhookUrl();
 
     if (!webhookUrl) {
@@ -152,6 +232,11 @@ export default async function handler(req, res) {
         if (evolutionFallback) {
           return res.status(200).json(evolutionFallback);
         }
+      }
+
+      if (isSendMessage) {
+        const directSend = await sendEvolutionMessageFallback(req.body || {});
+        return res.status(directSend.status).json(directSend.payload);
       }
 
       return res.status(503).json({
