@@ -7,7 +7,7 @@ export class EvolutionApiError extends Error {
   }
 }
 
-const DEFAULT_EVOLUTION_API_URL = 'https://api.insystens.online';
+const DEFAULT_EVOLUTION_API_URL = 'https://api.insystens.site';
 
 function getConfig(options = {}) {
   const apiKey = options.apiKey || process.env.EVOLUTION_API_KEY;
