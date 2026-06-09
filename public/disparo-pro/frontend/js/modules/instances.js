@@ -92,8 +92,9 @@ const ConnectionManager = {
             // Não conectado: buscar QR Code
             const qrData = await ApiService.getInstanceQrCode(instanceId);
             // Evolution API retorna { base64, code, pairingCode }
-            const base64 = qrData?.base64 || qrData?.qrcode?.base64
-                         || qrData?.qrCode || qrData?.code || null;
+            const rawQrCode = qrData?.qrCode;
+            const base64 = qrData?.qrCode?.value || qrData?.base64 || qrData?.qrcode?.base64
+                         || qrData?.qrCode?.base64 || (typeof rawQrCode === 'string' ? rawQrCode : null);
 
             if (!base64) return { result: null }; // sem QR — exibir desconectado
             return { result: base64 };

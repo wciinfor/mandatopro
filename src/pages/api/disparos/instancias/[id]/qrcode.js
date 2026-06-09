@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministradorOuSupervisorConnect } from '@/lib/api-auth';
 import { obterQrCodeInstancia } from '@/lib/disparos/evolution';
 import { extrairQrCode } from '@/lib/disparos/instancias';
+import QRCode from 'qrcode';
 
 export const runtime = 'nodejs';
 
@@ -32,6 +33,10 @@ export default async function handler(req, res) {
 
     const payload = await obterQrCodeInstancia(instancia.nome, instancia.api_key || undefined);
     const qrCode = extrairQrCode(payload);
+    if (qrCode.type === 'text') {
+      qrCode.type = 'image';
+      qrCode.value = await QRCode.toDataURL(qrCode.value, { margin: 2, width: 320 });
+    }
 
     await supabase
       .from('disparo_instancias')

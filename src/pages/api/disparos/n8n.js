@@ -7,6 +7,8 @@ import {
   obterQrCodeInstancia,
   obterStatusInstancia
 } from '@/lib/disparos/evolution';
+import { extrairQrCode } from '@/lib/disparos/instancias';
+import QRCode from 'qrcode';
 
 export const runtime = 'nodejs';
 
@@ -103,27 +105,31 @@ function normalizeConnectionPayload(payload) {
   const qrValue = getNestedValue(data, [
     'result',
     'base64',
+    'qrcode.base64',
+    'qrCode.base64',
+    'qr.base64',
+    'instance.qrcode.base64',
+    'instance.qrCode.base64',
+    'instance.qr.base64',
+    'data.base64',
+    'data.qrcode.base64',
+    'data.qrCode.base64',
+    'data.qr.base64',
+    'data.instance.qrcode.base64',
+    'data.instance.qrCode.base64',
+    'data.instance.qr.base64',
     'qrcode',
     'qrCode',
     'qr',
-    'code',
-    'pairingCode',
-    'qrcode.base64',
-    'qrCode.base64',
     'instance.qrcode',
     'instance.qrCode',
     'instance.qr',
-    'instance.code',
-    'data.base64',
     'data.qrcode',
     'data.qrCode',
     'data.qr',
-    'data.code',
-    'data.pairingCode',
     'data.instance.qrcode',
     'data.instance.qrCode',
-    'data.instance.qr',
-    'data.instance.code'
+    'data.instance.qr'
   ]);
 
   const imageQr = toImageDataUrl(qrValue);
@@ -159,6 +165,17 @@ async function getEvolutionConnectionFallback(body = {}) {
     const qrPayload = await obterQrCodeInstancia(instanceName, instanceApiKey || undefined);
     const normalizedQr = normalizeConnectionPayload(qrPayload);
     if (hasQrOrOpen(normalizedQr)) return normalizedQr;
+
+    const extractedQr = extrairQrCode(qrPayload);
+    if (extractedQr.type === 'image' && extractedQr.value) {
+      return { ...normalizedQr, result: extractedQr.value };
+    }
+    if (extractedQr.type === 'text' && extractedQr.value) {
+      return {
+        ...normalizedQr,
+        result: await QRCode.toDataURL(extractedQr.value, { margin: 2, width: 320 })
+      };
+    }
   } catch (error) {
     console.warn('Falha ao consultar QR direto na Evolution:', error?.message);
   }

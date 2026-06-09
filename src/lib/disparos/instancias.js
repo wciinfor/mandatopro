@@ -32,28 +32,58 @@ export function toPublicInstancia(row) {
 }
 
 export function extrairQrCode(payload) {
+  const unwrapValue = (candidate) => {
+    if (!candidate) return '';
+    if (typeof candidate !== 'object') return candidate;
+
+    return [
+      candidate.value,
+      candidate.base64,
+      candidate.qrcode?.base64,
+      candidate.qrCode?.base64,
+      candidate.qr?.base64,
+      candidate.qrcode,
+      candidate.qrCode,
+      candidate.qr,
+      candidate.code,
+      candidate.pairingCode
+    ].map(unwrapValue).find(Boolean) || '';
+  };
+
   const candidates = [
     payload?.base64,
+    payload?.qrcode?.base64,
+    payload?.qrCode?.base64,
+    payload?.qr?.base64,
     payload?.qrcode,
     payload?.qrCode,
     payload?.qr,
-    payload?.code,
-    payload?.pairingCode,
+    payload?.instance?.qrcode?.base64,
+    payload?.instance?.qrCode?.base64,
+    payload?.instance?.qr?.base64,
     payload?.instance?.qrcode,
     payload?.instance?.qrCode,
     payload?.instance?.qr,
-    payload?.instance?.code,
     payload?.data?.base64,
+    payload?.data?.qrcode?.base64,
+    payload?.data?.qrCode?.base64,
+    payload?.data?.qr?.base64,
     payload?.data?.qrcode,
     payload?.data?.qrCode,
     payload?.data?.qr,
-    payload?.data?.code,
-    payload?.data?.pairingCode,
+    payload?.data?.instance?.qrcode?.base64,
+    payload?.data?.instance?.qrCode?.base64,
+    payload?.data?.instance?.qr?.base64,
     payload?.data?.instance?.qrcode,
     payload?.data?.instance?.qrCode,
     payload?.data?.instance?.qr,
+    payload?.code,
+    payload?.pairingCode,
+    payload?.instance?.code,
+    payload?.data?.code,
+    payload?.data?.pairingCode,
     payload?.data?.instance?.code
-  ].filter(Boolean);
+  ].map(unwrapValue).filter(Boolean);
 
   const value = String(candidates[0] || '');
   if (!value) return { type: 'empty', value: '' };
