@@ -109,7 +109,10 @@ export function enviarMidiaInstancia(nome, apiKey, payload) {
 
 export function configurarWebhookInstancia(nome, apiKey, webhookUrl) {
   return request('POST', `/webhook/set/${encodeURIComponent(nome)}`, {
+    enabled: true,
     url: webhookUrl,
+    webhook_by_events: false,
+    webhookByEvents: false,
     events: [
       'MESSAGES_UPSERT',
       'MESSAGE_UPDATE',
