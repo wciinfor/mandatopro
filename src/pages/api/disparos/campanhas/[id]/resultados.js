@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     const { data: campanha, error: campanhaError } = await supabase
       .from('disparo_campanhas')
-      .select('id, titulo, status, total_contatos, total_validos, total_invalidos, total_enviados, total_falhas')
+      .select('id, titulo, status, total_contatos, total_validos, total_invalidos, total_enviados, total_falhas, created_at, updated_at')
       .eq('id', campanhaId)
       .maybeSingle();
 
@@ -39,6 +39,9 @@ export default async function handler(req, res) {
     const enviados = (envios || []).filter((envio) => envio.status === 'enviado').length;
     const falhas = (envios || []).filter((envio) => envio.status === 'falhou').length;
     const pendentes = (envios || []).filter((envio) => envio.status === 'pendente').length;
+    const processando = (envios || []).filter((envio) => envio.status === 'processando').length;
+    const cancelados = (envios || []).filter((envio) => envio.status === 'cancelado').length;
+    const concluidos = enviados + falhas + cancelados;
     const taxaSucesso = totalEnvios > 0 ? Math.round((enviados / totalEnvios) * 100) : 0;
 
     const erros = (envios || []).reduce((acc, envio) => {
@@ -56,13 +59,20 @@ export default async function handler(req, res) {
         status: campanha.status,
         totalContatos: campanha.total_contatos || 0,
         totalValidos: campanha.total_validos || 0,
-        totalInvalidos: campanha.total_invalidos || 0
+        totalInvalidos: campanha.total_invalidos || 0,
+        totalEnviados: campanha.total_enviados || 0,
+        totalFalhas: campanha.total_falhas || 0,
+        createdAt: campanha.created_at || null,
+        updatedAt: campanha.updated_at || null
       },
       resultados: {
         totalEnvios,
         enviados,
         falhas,
         pendentes,
+        processando,
+        cancelados,
+        concluidos,
         taxaSucesso,
         erros
       }

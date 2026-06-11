@@ -1496,6 +1496,9 @@ const App = {
                 if (typeof ChartManager !== 'undefined') {
                     ChartManager.initializeResultsSection();
                 }
+                if (typeof ResultsManager !== 'undefined') {
+                    ResultsManager.initialize();
+                }
             }, 1500);
 
             setTimeout(() => {

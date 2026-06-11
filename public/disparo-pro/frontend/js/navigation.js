@@ -26,6 +26,9 @@ const NavigationManager = {
                 onEnter: () => window.InboxModule?.onEnter(),
                 onLeave: () => window.InboxModule?.onLeave(),
             },
+            resultados: {
+                onEnter: () => window.ResultsManager?.initialize(),
+            },
         };
 
         if (navLinks.length && contentSections.length) {

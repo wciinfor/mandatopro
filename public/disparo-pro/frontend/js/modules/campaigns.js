@@ -108,7 +108,7 @@ const SendingManager = {
 
                 TimerManager.startCountdown(delay, i + 1, AppState.contacts.length);
 
-                await Utils.sleep(delay);
+                await this.waitInterruptible(delay);
 
                 TimerManager.hide();
             }
@@ -761,11 +761,36 @@ const SendingManager = {
         }
     },
 
+    async waitInterruptible(durationMs, stepMs = 250) {
+        const startedAt = Date.now();
+        while (!AppState.stopSending && Date.now() - startedAt < durationMs) {
+            await this.waitWhilePaused();
+            if (AppState.stopSending) break;
+            const remaining = durationMs - (Date.now() - startedAt);
+            await Utils.sleep(Math.min(stepMs, Math.max(0, remaining)));
+        }
+    },
+
     stop() {
+        if (!AppState.sendingInProgress && !AppState.isPaused && !AppState.batchPauseActive) {
+            UI.showInfo('Nenhum envio em andamento para interromper');
+            return;
+        }
+
         AppState.stopSending = true;
         AppState.isPaused = false;
+        AppState.batchPauseActive = false;
+        BatchManager.hideBatchStatus();
         TimerManager.showStopped();
         ActiveDispatchManager.clearDispatchState();
+        this.updatePauseButton();
+
+        const stopButton = document.getElementById('stopButton');
+        if (stopButton) {
+            stopButton.disabled = true;
+            stopButton.innerHTML = '<i class="bi bi-stop-circle me-2"></i>Parando...';
+        }
+
         UI.showWarning('Parando envio...');
     },
 
@@ -1032,6 +1057,11 @@ const SendingManager = {
     finishSending() {
         AppState.isPaused = false;
         document.getElementById('pauseButton').style.display = 'none';
+        const stopButton = document.getElementById('stopButton');
+        if (stopButton) {
+            stopButton.disabled = false;
+            stopButton.innerHTML = '<i class="bi bi-stop-circle me-2"></i>Parar Envio';
+        }
 
         const totalDuration = AppState.startTime ? Date.now() - AppState.startTime : 0;
 
@@ -1418,6 +1448,30 @@ const BatchManager = {
         this.showBatchStatus(pauseMs);
         UI.showWarning(`Pausa entre lotes ativa: ${pauseDuration} minutos`);
 
+        return new Promise((resolve) => {
+            const startedAt = Date.now();
+
+            AppState.batchTimer = setInterval(() => {
+                const elapsed = Date.now() - startedAt;
+                if (AppState.stopSending || elapsed >= pauseMs) {
+                    clearInterval(AppState.batchTimer);
+                    AppState.batchTimer = null;
+                    AppState.batchPauseActive = false;
+                    this.hideBatchStatus();
+
+                    if (!AppState.stopSending) {
+                        UI.showInfo('Pausa entre lotes finalizada - continuando envio...');
+                        console.log('â–¶ï¸ Pausa entre lotes finalizada');
+                    }
+
+                    resolve();
+                }
+            }, 250);
+        });
+    },
+
+    _legacyStartBatchPauseDisabled() {
+        return Promise.resolve();
         return new Promise((resolve) => {
             AppState.batchTimer = setTimeout(() => {
                 AppState.batchPauseActive = false;

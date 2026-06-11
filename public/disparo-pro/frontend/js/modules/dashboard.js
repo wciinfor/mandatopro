@@ -113,6 +113,8 @@ const ChartManager = {
     },
 
     updateResultsChart() {
+        if (window.ResultsManager?.isShowingCampaignResults) return;
+
         const resultsCtx = document.getElementById('resultsChartResults')?.getContext('2d');
         if (!resultsCtx) {
             console.log('⚠️ Canvas resultsChartResults não encontrado');
@@ -507,6 +509,8 @@ const TimerManager = {
 // SINCRONIZAR DADOS ENTRE DASHBOARD E RESULTADOS
 // ========================================
 function updateResultsSection() {
+    if (window.ResultsManager?.isShowingCampaignResults) return;
+
     const totalSent = document.getElementById('totalSent')?.textContent || '0';
     const successCount = document.getElementById('successCount')?.textContent || '0';
     const errorCount = document.getElementById('errorCount')?.textContent || '0';
@@ -529,3 +533,230 @@ function updateResultsSection() {
 }
 
 setInterval(updateResultsSection, 2000);
+
+const ResultsManager = {
+    campaigns: [],
+    currentResult: null,
+    isShowingCampaignResults: false,
+
+    initialize() {
+        const select = document.getElementById('resultsCampaignSelect');
+        const refreshBtn = document.getElementById('refreshResultsBtn');
+        const exportBtn = document.getElementById('exportResultsCsvBtn');
+
+        if (!select || select.dataset.resultsReady === 'true') return;
+        select.dataset.resultsReady = 'true';
+
+        select.addEventListener('change', () => this.loadSelectedCampaignResults());
+        refreshBtn?.addEventListener('click', () => this.refresh());
+        exportBtn?.addEventListener('click', () => this.exportCsv());
+
+        this.refresh();
+    },
+
+    async refresh() {
+        await this.loadCampaigns();
+        await this.loadSelectedCampaignResults();
+    },
+
+    async loadCampaigns() {
+        const select = document.getElementById('resultsCampaignSelect');
+        if (!select) return;
+
+        const previousValue = select.value;
+        try {
+            const response = await fetch('/api/disparos/campanhas');
+            const payload = await response.json();
+            if (!response.ok || payload.success === false) {
+                throw new Error(payload.message || 'Erro ao carregar campanhas');
+            }
+
+            this.campaigns = Array.isArray(payload.data) ? payload.data : [];
+            select.innerHTML = '<option value="">Sessao atual</option>' + this.campaigns.map((campaign) => {
+                const date = campaign.createdAt ? new Date(campaign.createdAt).toLocaleDateString('pt-BR') : '';
+                return `<option value="${campaign.id}">${this.escapeHtml(campaign.titulo || 'Campanha')} ${date ? '- ' + date : ''}</option>`;
+            }).join('');
+
+            if (previousValue && this.campaigns.some((campaign) => String(campaign.id) === String(previousValue))) {
+                select.value = previousValue;
+            } else if (!previousValue && this.campaigns.length > 0) {
+                select.value = String(this.campaigns[0].id);
+            }
+        } catch (error) {
+            console.warn('Falha ao carregar campanhas para resultados:', error);
+            this.setSourceInfo('Nao foi possivel carregar campanhas do banco. Exibindo sessao atual.');
+        }
+    },
+
+    async loadSelectedCampaignResults() {
+        const select = document.getElementById('resultsCampaignSelect');
+        const campaignId = select?.value || '';
+
+        if (!campaignId) {
+            this.isShowingCampaignResults = false;
+            this.currentResult = null;
+            this.setStatus('-');
+            this.setSourceInfo('Exibindo resultados da sessao atual neste navegador.');
+            this.renderErrors({});
+            if (typeof SendingManager !== 'undefined') SendingManager.updateStats();
+            if (typeof ChartManager !== 'undefined') ChartManager.updateResultsChart();
+            return;
+        }
+
+        try {
+            this.setSourceInfo('Carregando resultados da campanha...');
+            const response = await fetch(`/api/disparos/campanhas/${campaignId}/resultados`);
+            const payload = await response.json();
+            if (!response.ok || payload.success === false) {
+                throw new Error(payload.message || 'Erro ao carregar resultados');
+            }
+
+            this.currentResult = payload;
+            this.isShowingCampaignResults = true;
+            this.renderCampaignResults(payload);
+        } catch (error) {
+            console.error('Erro ao carregar resultados da campanha:', error);
+            this.setSourceInfo(error.message || 'Erro ao carregar resultados da campanha.');
+            if (typeof UI !== 'undefined') UI.showError(error.message || 'Erro ao carregar resultados');
+        }
+    },
+
+    renderCampaignResults(payload) {
+        const campanha = payload.campanha || {};
+        const result = payload.resultados || {};
+        const total = Number(result.totalEnvios || 0);
+        const sent = Number(result.enviados || 0);
+        const failed = Number(result.falhas || 0);
+        const pending = Number(result.pendentes || 0);
+        const processing = Number(result.processando || 0);
+        const canceled = Number(result.cancelados || 0);
+        const successRate = Number(result.taxaSucesso || 0);
+        const processed = sent + failed + canceled;
+        const efficiency = total > 0 ? Math.round((processed / total) * 100) : 0;
+        const listQuality = total > 0 ? Math.round(((total - failed) / total) * 100) : 0;
+
+        this.setText('totalSentResults', processed);
+        this.setText('successRate', `${successRate}%`);
+        this.setText('avgTime', pending + processing > 0 ? `${pending + processing} pend.` : '0 pend.');
+        this.setText('todayDispatches', total);
+        this.setText('messagesPerHour', sent);
+        this.setText('efficiency', `${efficiency}%`);
+        this.setText('listQuality', `${listQuality}%`);
+        this.setBar('hourlyProgress', total > 0 ? Math.round((sent / total) * 100) : 0);
+        this.setBar('efficiencyProgress', efficiency);
+        this.setBar('qualityProgress', listQuality);
+        this.setStatus(campanha.status || '-');
+        this.setSourceInfo(`Resultados consolidados: ${campanha.titulo || 'Campanha selecionada'}`);
+        this.renderErrors(result.erros || {});
+        this.renderChart(sent, failed, pending + processing + canceled);
+    },
+
+    renderChart(sent, failed, pending) {
+        const ctx = document.getElementById('resultsChartResults')?.getContext('2d');
+        if (!ctx || !window.Chart) return;
+        if (window.resultsChart) window.resultsChart.destroy();
+        window.resultsChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Enviados', 'Falhas', 'Pendentes'],
+                datasets: [{
+                    data: [sent, failed, pending],
+                    backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                cutout: '60%'
+            }
+        });
+    },
+
+    renderErrors(errors) {
+        const entries = Object.entries(errors || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
+        const empty = document.getElementById('resultsErrorsEmpty');
+        const wrap = document.getElementById('resultsErrorsTableWrap');
+        const body = document.getElementById('resultsErrorsTableBody');
+        if (!empty || !wrap || !body) return;
+
+        if (!entries.length) {
+            empty.style.display = 'block';
+            wrap.style.display = 'none';
+            body.innerHTML = '';
+            return;
+        }
+
+        empty.style.display = 'none';
+        wrap.style.display = 'block';
+        body.innerHTML = entries.slice(0, 10).map(([message, count]) => `
+            <tr>
+                <td>${this.escapeHtml(message)}</td>
+                <td class="text-end fw-bold">${count}</td>
+            </tr>
+        `).join('');
+    },
+
+    exportCsv() {
+        if (!this.currentResult?.resultados) {
+            if (typeof UI !== 'undefined') UI.showWarning('Selecione uma campanha para exportar resultados.');
+            return;
+        }
+
+        const campaign = this.currentResult.campanha || {};
+        const result = this.currentResult.resultados || {};
+        const rows = [
+            ['Campanha', campaign.titulo || ''],
+            ['Status', campaign.status || ''],
+            ['Total', result.totalEnvios || 0],
+            ['Enviados', result.enviados || 0],
+            ['Falhas', result.falhas || 0],
+            ['Pendentes', result.pendentes || 0],
+            ['Taxa de sucesso', `${result.taxaSucesso || 0}%`],
+            [],
+            ['Ocorrencia', 'Quantidade'],
+            ...Object.entries(result.erros || {})
+        ];
+
+        const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `resultados-campanha-${campaign.id || 'export'}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    },
+
+    setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    },
+
+    setBar(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.style.width = `${Math.max(0, Math.min(100, Number(value) || 0))}%`;
+    },
+
+    setStatus(value) {
+        this.setText('resultsCampaignStatus', value);
+    },
+
+    setSourceInfo(value) {
+        this.setText('resultsSourceInfo', value);
+    },
+
+    escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char]));
+    }
+};
+
+window.ResultsManager = ResultsManager;

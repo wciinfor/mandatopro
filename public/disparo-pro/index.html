@@ -58,6 +58,7 @@
                 <div class="mt-2">
                     <small class="text-white-50">Versão 3.0</small>
                 </div>
+
             </div>
 
             <div class="sidebar-nav">
@@ -174,6 +175,7 @@
                         </button>
                     </div>
                 </div>
+
             </div>
 
             <!-- Dashboard Section -->
@@ -1288,6 +1290,34 @@
                     <p>Visualize estatísticas e métricas detalhadas dos seus envios</p>
                 </div>
 
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-lg-6">
+                                <label class="form-label">Campanha</label>
+                                <select id="resultsCampaignSelect" class="form-control">
+                                    <option value="">Sessao atual</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-3">
+                                <label class="form-label">Status</label>
+                                <div id="resultsCampaignStatus" class="form-control bg-light">-</div>
+                            </div>
+                            <div class="col-lg-3 d-grid gap-2 d-lg-flex">
+                                <button type="button" class="btn btn-primary flex-fill" id="refreshResultsBtn">
+                                    <i class="bi bi-arrow-clockwise me-2"></i>Atualizar
+                                </button>
+                                <button type="button" class="btn btn-outline-success flex-fill" id="exportResultsCsvBtn">
+                                    <i class="bi bi-download me-2"></i>CSV
+                                </button>
+                            </div>
+                        </div>
+                        <small id="resultsSourceInfo" class="text-muted d-block mt-2">
+                            Selecione uma campanha para consultar resultados consolidados do banco.
+                        </small>
+                    </div>
+                </div>
+
                 <div class="row">
                     <!-- Métricas Principais -->
                     <div class="col-lg-2 col-md-6 mb-4">
@@ -1376,6 +1406,28 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-gradient-primary text-white">
+                        <h5 class="m-2"><i class="bi bi-exclamation-triangle me-2"></i>Principais Ocorrencias</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultsErrorsEmpty" class="text-muted text-center py-3">
+                            Nenhuma falha registrada para a campanha selecionada.
+                        </div>
+                        <div class="table-responsive" id="resultsErrorsTableWrap" style="display: none;">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Ocorrencia</th>
+                                        <th class="text-end">Quantidade</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="resultsErrorsTableBody"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1889,17 +1941,17 @@
     <script src="frontend/js/services/n8n.service.js?v=1779664871766"></script>
     <script src="frontend/js/services/supabase.service.js?v=1779664871766"></script>
     <script src="frontend/js/services/api.service.js?v=1779664871766"></script>
-    <script src="frontend/js/modules/integrations.js?v=1779664871766"></script>
-    <script src="frontend/js/modules/dashboard.js?v=1779664871766"></script>
+    <script src="frontend/js/modules/integrations.js?v=20260611-results-panel"></script>
+    <script src="frontend/js/modules/dashboard.js?v=20260611-results-panel"></script>
     <script src="frontend/js/modules/contacts.js?v=1779664871766"></script>
     <script src="frontend/js/modules/reports.js?v=1779664871766"></script>
     <script src="frontend/js/modules/profile.js?v=1779664871766"></script>
     <script src="frontend/js/modules/settings.js?v=1779664871766"></script>
     <script src="frontend/js/modules/instances.js?v=20260608-qrcode-fix"></script>
-    <script src="frontend/js/modules/campaigns.js?v=1779664871766"></script>
+    <script src="frontend/js/modules/campaigns.js?v=20260611-stop-button"></script>
     <script src="frontend/js/auth.js?v=1779664871766"></script>
     <script src="mandatopro-embed.js?v=mandatopro-20260526-start-campaign"></script>
-    <script src="frontend/js/navigation.js?v=1779664871766"></script>
+    <script src="frontend/js/navigation.js?v=20260611-results-panel"></script>
     <script src="frontend/js/ui.js?v=mandatopro-20260525-safe-config"></script>
     <script src="frontend/js/app.js?v=1779664871766"></script>
     <script src="frontend/js/main.js?v=1779664871766"></script>
