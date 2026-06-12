@@ -12,8 +12,7 @@ const SECOES_MANDATO_CONNECT = new Set([
   'campanha',
   'progresso',
   'resultados',
-  'historico',
-  'backup'
+  'historico'
 ]);
 
 function normalizarSecao(section) {

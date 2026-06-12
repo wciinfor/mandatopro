@@ -16,8 +16,7 @@ function obterModuloAtivo(path = '') {
     campanha: 'Editar Campanha',
     progresso: 'Progresso',
     resultados: 'Resultados',
-    historico: 'Histórico',
-    backup: 'Backup & Restore'
+    historico: 'Histórico'
   };
 
   if (path === '/dashboard') return 'Dashboard';

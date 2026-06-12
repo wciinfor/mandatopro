@@ -69,8 +69,7 @@ const modulosBase = [
       'Editar Campanha',
       'Progresso',
       'Resultados',
-      'Histórico',
-      'Backup & Restore'
+      'Histórico'
     ],
     rota: '/disparos'
   },
@@ -158,8 +157,7 @@ const routeMap = {
   'Mandato Connect - Editar Campanha': '/disparos?section=campanha',
   'Mandato Connect - Progresso': '/disparos?section=progresso',
   'Mandato Connect - Resultados': '/disparos?section=resultados',
-  'Mandato Connect - Histórico': '/disparos?section=historico',
-  'Mandato Connect - Backup & Restore': '/disparos?section=backup'
+  'Mandato Connect - Histórico': '/disparos?section=historico'
 };
 
 function obterMenusAbertosIniciais(moduloAtivo) {
