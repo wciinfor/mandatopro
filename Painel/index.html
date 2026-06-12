@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - Disparo PRO</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Disparo PRO">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#00D95F">
+    <meta name="msapplication-TileColor" content="#2f3349">
+
+    <!-- Manifest -->
+    <link rel="manifest" href="config/manifest.json">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="frontend/assets/img/icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="frontend/assets/img/icon-16.png">
+    <link rel="apple-touch-icon" href="frontend/assets/img/icon-192.png">
+
+    <!-- Splash Screen -->
+    <meta name="apple-mobile-web-app-title" content="Disparo PRO">
+    <link rel="apple-touch-startup-image" href="frontend/assets/img/splash-2048x2732.png"
+        media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css"
+        rel="stylesheet">
+
+    <link href="frontend/css/layout.css?v=123" rel="stylesheet">
+    <link href="frontend/css/inbox.css?v=1" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+    <!-- SheetJS para Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-light">
+
+    <!-- Tela de Login (mantém a mesma estrutura) -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-container">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-md-5">
+                        <div class="login-card p-5 text-center">
+                            <!-- <img src="frontend/assets/img/logo.png" alt="Disparo PRO" class="login-logo img-fluid mb-4"> -->
+                            <h1>Disparo PRO</h1>
+
+                            <h2 class="mb-3 text-dark">Bem-vindo!</h2>
+                            <p class="text-muted mb-4">Entre com sua conta para acessar o painel</p>
+
+                            <!-- ALERTA DE ERRO -->
+                            <div id="loginAlert" class="alert alert-danger d-none mb-3" role="alert">
+                                <i class="bi bi-exclamation-circle me-2"></i>
+                                <span id="loginAlertMsg"></span>
+                            </div>
+
+                            <form id="loginForm" class="text-start">
+                                <div class="mb-3">
+                                    <label for="loginEmail" class="form-label">
+                                        <i class="bi bi-envelope me-2"></i>E-mail
+                                    </label>
+                                    <input type="email" class="form-control" id="loginEmail"
+                                        placeholder="Digite seu e-mail" required autocomplete="email">
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="loginPassword" class="form-label">
+                                        <i class="bi bi-lock me-2"></i>Senha
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="loginPassword"
+                                            placeholder="Digite sua senha" required autocomplete="current-password">
+                                        <button class="btn btn-outline-secondary" type="button" id="togglePassword"
+                                            tabindex="-1">
+                                            <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="rememberCredentials" checked>
+                                        <label class="form-check-label" for="rememberCredentials">Lembrar</label>
+                                    </div>
+                                    <a href="#" id="forgotPasswordLink" class="text-muted small">
+                                        <i class="bi bi-key me-1"></i>Esqueci a senha
+                                    </a>
+                                </div>
+
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-login text-white" id="loginBtn">
+                                        <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- PAINEL RECUPERAÇÃO DE SENHA (oculto por padrão) -->
+                            <div id="resetPasswordPanel" class="d-none mt-3">
+                                <hr>
+                                <p class="text-muted small mb-2">Digite seu e-mail para receber o link de redefinição:</p>
+                                <div class="input-group mb-2">
+                                    <input type="email" class="form-control form-control-sm" id="resetEmail"
+                                        placeholder="Seu e-mail">
+                                    <button class="btn btn-sm btn-outline-secondary" id="sendResetBtn">
+                                        Enviar
+                                    </button>
+                                </div>
+                                <a href="#" id="backToLoginLink" class="text-muted small">
+                                    <i class="bi bi-arrow-left me-1"></i>Voltar ao login
+                                </a>
+                            </div>
+
+                            <div class="mt-4">
+                                <small class="text-muted">
+                                    <i class="bi bi-shield-check me-1"></i>
+                                    Suas credenciais são verificadas de forma segura
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aplicação Principal com Sidebar -->
+    <div id="mainApp" class="main-app">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <!-- <img src="frontend/assets/img/logo.png" alt="Disparo PRO" class="img-fluid"> -->
+                <h3>Disparo PRO</h3>
+                <div class="mt-2">
+                    <small class="text-white-50">Versão 3.0</small>
+                </div>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-item">
+                    <a class="nav-link active" data-section="dashboard">
+                        <i class="bi bi-speedometer2"></i>
+                        Dashboard
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="contatos">
+                        <i class="bi bi-people"></i>
+                        Contatos
+                        <span id="contactCountBadge" class="badge-counter" style="display: none;">0</span>
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="instancias">
+                        <i class="bi bi-server"></i>
+                        Instâncias
+                        <span id="instanceCountBadge" class="badge-counter">0</span>
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="configuracoes">
+                        <i class="bi bi-gear"></i>
+                        Configurações
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="campanha">
+                        <i class="bi bi-pencil-square"></i>
+                        Editar Campanha
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="progresso">
+                        <i class="bi bi-hourglass-split"></i>
+                        Progresso
+                        <span id="progressBadge" class="badge-counter" style="display: none;">0%</span>
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="resultados">
+                        <i class="bi bi-graph-up"></i>
+                        Resultados
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="historico">
+                        <i class="bi bi-clock-history"></i>
+                        Histórico
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="atendimento">
+                        <i class="bi bi-headset"></i>
+                        Atendimento
+                    </a>
+                </div>
+
+                <div class="nav-item">
+                    <a class="nav-link" data-section="backup">
+                        <i class="bi bi-shield-check"></i>
+                        Backup & Restore
+                    </a>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="nav-item">
+                    <a class="nav-link" data-bs-toggle="modal" data-bs-target="#changelogModal">
+                        <i class="bi bi-journal-text"></i>
+                        Novidades
+                        <span class="badge bg-success ms-auto">v3.0</span>
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a class="nav-link" data-bs-toggle="modal" data-bs-target="#safetyTipsModal">
+                        <i class="bi bi-shield-check"></i>
+                        Dicas de Segurança
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Conteúdo Principal -->
+        <div class="main-content" id="mainContent">
+            <!-- Header Superior -->
+
+            <div class="top-header">
+                <div class="d-flex">
+                    <!-- Primeira Linha: Menu + Dashboard + Instâncias -->
+                    <div class="header-top-row">
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-outline-light btn-sm mobile-toggle me-3" id="sidebarToggle">
+                                <i class="bi bi-list"></i>
+                            </button>
+                            <h4 class="mb-0 text-white" id="pageTitle">Dashboard</h4>
+                        </div>
+
+                        <div class="d-flex align-items-center text-white">
+                            <i class="bi bi-server me-2"></i>
+                            <span class="me-2">Instâncias Ativas:</span>
+                            <span id="activeInstancesCount" class="badge bg-success">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Segunda Linha: Tema + Perfil + Sair -->
+                    <div class="header-bottom-row">
+                        <button id="themeToggle" class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-moon-fill me-2" id="themeIcon"></i>Tema
+                        </button>
+                        <button id="profileBtn" class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-person-circle me-1"></i>
+                            <span id="userDisplayName">Perfil</span>
+                            <span id="userPlanBadge" class="badge bg-secondary ms-1">Free</span>
+                        </button>
+                        <button id="logoutBtn" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-box-arrow-right me-2"></i>Sair
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Section -->
+            <div class="content-section active" id="dashboard-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
+                    <p>Visão geral do sistema e estatísticas principais</p>
+                </div>
+
+                <div class="row">
+                    <!-- Cards de Estatísticas -->
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-people fs-1 text-primary mb-2"></i>
+                                <h3 id="totalContacts" class="mb-0">0</h3>
+                                <small>Total de Contatos</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-send fs-1 text-success mb-2"></i>
+                                <h3 id="totalSent" class="mb-0">0</h3>
+                                <small>Mensagens Enviadas</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-check-circle fs-1 text-success mb-2"></i>
+                                <h3 id="successCount" class="mb-0">0</h3>
+                                <small>Sucessos</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-x-circle fs-1 text-danger mb-2"></i>
+                                <h3 id="errorCount" class="mb-0">0</h3>
+                                <small>Erros</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contatos Section -->
+            <div class="content-section" id="contatos-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-people me-2"></i>Gerenciar Contatos</h2>
+                    <p>Importe e gerencie sua lista de contatos para envio</p>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Importar Contatos
+                                </h5>
+                            </div>
+                            <div class="card-body">
+
+
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>Configurações de
+                                            Validação & E-mail</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="enableBrazilianValidation" checked>
+                                                    <label class="form-check-label" for="enableBrazilianValidation">
+                                                        <strong>Validação de números brasileiros</strong><br>
+                                                        <small class="text-muted">Quando ativado, valida DDD e formato
+                                                            brasileiro. Desative para números internacionais.</small>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="alert alert-info mb-0">
+                                                    <i class="bi bi-info-circle me-2"></i>
+                                                    <strong>Números internacionais:</strong><br>
+                                                    <small>Desative a validação brasileira para aceitar números de
+                                                        outros países. Ex: +1234567890, +44123456789, etc.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <hr>
+
+                                        <div class="row">
+                                            <div class="col-md-12 mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="enableEmailSending">
+                                                    <label class="form-check-label" for="enableEmailSending">
+                                                        <i class="bi bi-envelope me-1"></i>
+                                                        Enviar também por E-mail
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">Envia a mensagem e E-mail (quando
+                                                    disponível)</small>
+
+                                                <div id="emailSubjectContainer" class="mt-3" style="display: none;">
+                                                    <label for="emailSubject" class="form-label">
+                                                        <i class="bi bi-tag me-1"></i>Assunto do E-mail
+                                                    </label>
+                                                    <input type="text" class="form-control" id="emailSubject"
+                                                        placeholder="Digite o assunto do e-mail (ex: Mensagem importante)"
+                                                        maxlength="100">
+                                                    <div class="form-text">
+                                                        <i class="bi bi-info-circle me-1"></i>
+                                                        Você pode usar as tags <strong>{nome}</strong> e
+                                                        <strong>{saudacao}</strong> no assunto
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <label class="form-label mb-0">
+                                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Arquivo Excel
+                                    </label>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="downloadModelBtn">
+                                        <i class="bi bi-download me-1"></i>Baixar Modelo
+                                    </button>
+                                </div>
+
+                                <div class="file-upload-area" id="fileUploadArea">
+                                    <i class="bi bi-cloud-upload fs-2 text-muted"></i>
+                                    <p class="mt-2 mb-2">Arraste o arquivo Excel aqui ou clique para selecionar</p>
+                                    <small class="text-muted">Arquivo deve conter colunas: <strong>Nome</strong>,
+                                        <strong>Telefone</strong> e <strong>E-mail</strong></small>
+                                    <input type="file" id="excelFile" accept=".xlsx,.xls" style="display: none;">
+                                </div>
+
+                                <div id="fileInfo" class="mt-2" style="display: none;">
+                                    <span class="badge bg-success">Arquivo carregado com sucesso!</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="m-2"><i class="bi bi-people me-2"></i>Lista de Contatos</h5>
+                                    <span id="contactCount" class="badge bg-light text-dark">0 contatos</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-end mb-2">
+                                    <button type="button" class="btn btn-outline-success btn-sm me-1"
+                                        id="exportContactsBtn" title="Exportar contatos" style="display: none;">
+                                        <i class="bi bi-file-earmark-excel me-1"></i>Exportar
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearContactsBtn"
+                                        title="Limpar lista" style="display: none;">
+                                        <i class="bi bi-trash me-1"></i>Limpar
+                                    </button>
+                                </div>
+                                <div id="contactsList" class="border rounded p-3"
+                                    style="height: 520px; overflow-y: auto; background: #fafafa;">
+                                    <p class="text-muted text-center mb-0">Importe um arquivo Excel para visualizar os
+                                        contatos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instâncias Section -->
+            <div class="content-section" id="instancias-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-server me-2"></i>Gerenciar Instâncias</h2>
+                    <p>Configure e monitore suas instâncias</p>
+                </div>
+
+                <div class="card">
+                    <div
+                        class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-server me-2"></i>Instâncias</h5>
+                        <small class="text-white-50">Instâncias são cadastradas pelo administrador</small>
+                    </div>
+
+                    <!-- Lista de instâncias cadastradas -->
+                    <div class="card-body">
+                        <div id="instancesList">
+                            <div class="text-center text-muted py-4">
+                                <i class="bi bi-server fs-3 d-block mb-2"></i>
+                                Nenhuma instância cadastrada
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configurações Section -->
+            <div class="content-section" id="configuracoes-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-gear me-2"></i>Configurações de Campanha</h2>
+                    <p>Configure intervalos, validação e parâmetros técnicos do envio</p>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-sliders me-2"></i>Parâmetros Técnicos</h5>
+                            </div>
+                            <div class="card-body">
+
+                                <!-- Intervalos e IA -->
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Intervalos e Inteligência
+                                            Artificial</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <label for="minInterval" class="form-label">
+                                                    <i class="bi bi-clock me-1"></i>Intervalo Mínimo (segundos)
+                                                </label>
+                                                <input type="number" class="form-control" id="minInterval" value="30"
+                                                    min="30" required>
+                                                <small class="text-muted">Tempo mínimo entre envios</small>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="maxInterval" class="form-label">
+                                                    <i class="bi bi-clock-history me-1"></i>Intervalo Máximo (segundos)
+                                                </label>
+                                                <input type="number" class="form-control" id="maxInterval" value="50"
+                                                    min="50" required>
+
+
+
+
+
+                                                <small class="text-muted">Tempo máximo entre envios</small>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="ia" class="form-label">
+                                                    <i class="bi bi-robot me-1"></i>Usar IA para Variações?
+                                                </label>
+                                                <select class="form-control" id="ia">
+                                                    <option value="1">Sim</option>
+                                                    <option value="0">Não</option>
+                                                </select>
+                                                <small class="text-muted">IA criará variações do texto</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="alert alert-warning mt-3">
+                                            <i class="bi bi-exclamation-triangle me-2"></i>
+                                            <strong>Recomendação:</strong> Use intervalos de 60-120 segundos para evitar
+                                            bloqueios. Intervalos muito baixos podem resultar em banimento da conta.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Controles Avançados -->
+                                <div class="row">
+                                    <div class="col-md-6 mb-4">
+                                        <div class="card">
+                                            <div class="card-header bg-warning text-dark">
+                                                <h6 class="mb-0"><i class="bi bi-pause-circle me-2"></i>Controle de
+                                                    Lotes</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="form-check mb-3">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="enableBatchPause">
+                                                    <label class="form-check-label" for="enableBatchPause">
+                                                        <strong>Ativar pausas automáticas em lotes</strong>
+                                                    </label>
+                                                </div>
+
+                                                <div id="batchPauseOptions" style="display: none;">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <label for="batchSize" class="form-label">Mensagens por
+                                                                lote</label>
+                                                            <input type="number" class="form-control" id="batchSize"
+                                                                value="10" min="1">
+                                                            <small class="text-muted">Quantidade por grupo</small>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="batchPauseDuration" class="form-label">Pausa
+                                                                (minutos)</label>
+                                                            <input type="number" class="form-control"
+                                                                id="batchPauseDuration" value="10" min="1">
+                                                            <small class="text-muted">Tempo de espera</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- NOVO: Controle de Horário Comercial -->
+                                    <div class="col-md-6 mb-4">
+                                        <div class="card">
+                                            <div class="card-header bg-info text-white">
+                                                <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Horário Comercial</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="form-check mb-3">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="enableBusinessHours">
+                                                    <label class="form-check-label" for="enableBusinessHours">
+                                                        <strong>Respeitar horário comercial</strong>
+                                                    </label>
+                                                </div>
+
+                                                <div id="businessHoursOptions" style="display: none;">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <label for="businessHoursStart" class="form-label">
+                                                                <i class="bi bi-sunrise me-1"></i>Início
+                                                            </label>
+                                                            <input type="time" class="form-control"
+                                                                id="businessHoursStart" value="08:00">
+                                                            <small class="text-muted">Horário inicial</small>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="businessHoursEnd" class="form-label">
+                                                                <i class="bi bi-sunset me-1"></i>Término
+                                                            </label>
+                                                            <input type="time" class="form-control"
+                                                                id="businessHoursEnd" value="18:00">
+                                                            <small class="text-muted">Horário final</small>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="alert alert-info mt-3 mb-0">
+                                                        <i class="bi bi-info-circle me-2"></i>
+                                                        <small>
+                                                            O sistema verificará o horário antes de cada envio.
+                                                            Se estiver fora do período, aguardará automaticamente.
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-header bg-secondary text-white">
+                                                <h6 class="mb-0"><i class="bi bi-calendar-event me-2"></i>Agendamento
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="form-check mb-3">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="enableScheduling">
+                                                    <label class="form-check-label" for="enableScheduling">
+                                                        <strong>Agendar este envio</strong>
+                                                    </label>
+                                                </div>
+
+                                                <div id="schedulingOptions" style="display: none;">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <label for="scheduleDate" class="form-label">
+                                                                <i class="bi bi-calendar me-1"></i>Data
+                                                            </label>
+                                                            <input type="date" class="form-control" id="scheduleDate">
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label for="scheduleTime" class="form-label">
+                                                                <i class="bi bi-clock me-1"></i>Horário
+                                                            </label>
+                                                            <input type="time" class="form-control" id="scheduleTime">
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-3">
+                                                        <div class="alert alert-info">
+                                                            <i class="bi bi-info-circle me-2"></i>
+                                                            <strong>Importante:</strong> Mantenha esta aba do navegador
+                                                            aberta até o horário do envio.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+
+                        <!-- Estimativa de Tempo -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-stopwatch me-2"></i>Estimativa de Tempo</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="timeEstimate">
+                                    <div class="text-center text-muted">
+                                        <small>Importe contatos para ver estimativa</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dicas de Configuração -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-lightbulb me-2"></i>Dicas de Configuração</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <h6><i class="bi bi-shield-check text-success me-2"></i>Segurança</h6>
+                                    <ul class="small">
+                                        <li>Use intervalos de 60-120 segundos</li>
+                                        <li>Máximo 50-100 mensagens por dia</li>
+                                        <li>Ative pausas em lotes para grandes volumes</li>
+                                    </ul>
+                                </div>
+
+                                <div class="mb-3">
+                                    <h6><i class="bi bi-clock text-warning me-2"></i>Agendamento</h6>
+                                    <ul class="small">
+                                        <li>Evite horários noturnos (22h-7h)</li>
+                                        <li>Prefira horário comercial (9h-18h)</li>
+                                        <li>Evite fins de semana para negócios</li>
+                                    </ul>
+                                </div>
+
+                                <div class="mb-3">
+                                    <h6><i class="bi bi-robot text-primary me-2"></i>Inteligência Artificial</h6>
+                                    <ul class="small">
+                                        <li>IA cria variações automaticamente</li>
+                                        <li>Reduz detecção de spam</li>
+                                        <li>Melhora taxa de entrega</li>
+                                    </ul>
+                                </div>
+
+                                <button type="button" class="btn btn-outline-info btn-sm w-100" data-bs-toggle="modal"
+                                    data-bs-target="#safetyTipsModal">
+                                    <i class="bi bi-info-circle me-2"></i>Ver Todas as Dicas
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editar Campanha Section -->
+            <div class="content-section" id="campanha-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-pencil-square me-2"></i>Editar Campanha</h2>
+                    <p>Crie e personalize suas mensagens com mídia, formatação e tags dinâmicas</p>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-chat-square-text me-2"></i>Editor de Mensagens</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Modo Múltiplas Mensagens -->
+                                <div id="multipleMessagesMode">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Modo Múltiplas Mensagens:</strong> Configure até 3 mensagens diferentes.
+                                        Durante o envio, uma mensagem será escolhida aleatoriamente para cada contato.
+                                    </div>
+
+                                    <!-- Navegação por abas -->
+                                    <ul class="nav nav-tabs" id="messagesTabs" role="tablist">
+                                        <li class="nav-item m-0" role="presentation">
+                                            <button class="nav-link active" id="msg1-tab" data-bs-toggle="tab"
+                                                data-bs-target="#msg1-pane" type="button" role="tab">
+                                                <i class="bi bi-1-circle me-1"></i>Mensagem 1
+                                                <span class="badge bg-danger ms-2" id="msg1-status"
+                                                    style="display: none;">!</span>
+                                            </button>
+                                        </li>
+                                        <li class="nav-item m-0" role="presentation">
+                                            <button class="nav-link" id="msg2-tab" data-bs-toggle="tab"
+                                                data-bs-target="#msg2-pane" type="button" role="tab">
+                                                <i class="bi bi-2-circle me-1"></i>Mensagem 2
+                                                <span class="badge bg-danger ms-2" id="msg2-status"
+                                                    style="display: none;">!</span>
+                                            </button>
+                                        </li>
+                                        <li class="nav-item m-0" role="presentation">
+                                            <button class="nav-link" id="msg3-tab" data-bs-toggle="tab"
+                                                data-bs-target="#msg3-pane" type="button" role="tab">
+                                                <i class="bi bi-3-circle me-1"></i>Mensagem 3
+                                                <span class="badge bg-danger ms-2" id="msg3-status"
+                                                    style="display: none;">!</span>
+                                            </button>
+                                        </li>
+                                    </ul>
+
+                                    <!-- Conteúdo das abas -->
+                                    <div class="tab-content" id="messagesTabContent">
+                                        <!-- Mensagem 1 -->
+                                        <div class="tab-pane fade show active" id="msg1-pane" role="tabpanel">
+                                            <div class="card border-0">
+                                                <div class="card-body">
+                                                    <div class="form-check mb-3">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            id="msg1-enabled" checked>
+                                                        <label class="form-check-label fw-bold" for="msg1-enabled">
+                                                            Ativar Mensagem 1
+                                                        </label>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="msg1-media" class="form-label">
+                                                            <i class="bi bi-paperclip me-1"></i>Arquivo/Mídia (Opcional)
+                                                        </label>
+                                                        <input type="file" class="form-control msg-media-input"
+                                                            id="msg1-media" accept="image/*,video/*,.pdf">
+                                                        <div class="msg-file-preview" id="msg1-media-preview"
+                                                            style="display: none;"></div>
+                                                        <small class="text-muted">Suporte: Imagens (JPG, PNG), Vídeos
+                                                            (MP4) e PDFs até 16MB</small>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="msg1-text" class="form-label">
+                                                            <i class="bi bi-chat-text me-1"></i>Texto da Mensagem
+                                                        </label>
+
+                                                        <!-- Editor Rico para Mensagem 1 -->
+                                                        <div class="rich-text-toolbar">
+                                                            <button type="button" class="toolbar-btn" id="msg1BoldBtn"
+                                                                title="Negrito (*texto*)">
+                                                                <i class="bi bi-type-bold"></i>
+                                                                <span>Negrito</span>
+                                                            </button>
+                                                            <button type="button" class="toolbar-btn" id="msg1ItalicBtn"
+                                                                title="Itálico (_texto_)">
+                                                                <i class="bi bi-type-italic"></i>
+                                                                <span>Itálico</span>
+                                                            </button>
+                                                            <button type="button" class="toolbar-btn"
+                                                                id="msg1ClearFormatBtn" title="Limpar formatação">
+                                                                <i class="bi bi-eraser"></i>
+                                                                <span>Limpar</span>
+                                                            </button>
+                                                            <div
+                                                                style="width: 1px; height: 20px; background-color: #dee2e6; margin: 0 4px;">
+                                                            </div>
+
+                                                            <!-- Tags Básicas -->
+                                                            <button type="button" class="toolbar-btn toolbar-tag-btn"
+                                                                id="msg1NameBtn" title="Inserir tag {nome}">
+                                                                <i class="bi bi-person"></i>
+                                                                <span>{nome}</span>
+                                                            </button>
+                                                            <button type="button" class="toolbar-btn toolbar-tag-btn"
+                                                                id="msg1GreetingBtn" title="Inserir tag {saudacao}">
+                                                                <i class="bi bi-sun"></i>
+                                                                <span>{saudacao}</span>
+                                                            </button>
+
+                                                            <!-- NOVAS TAGS COM VARIAÇÕES -->
+                                                            <button type="button" class="toolbar-btn toolbar-tag-btn"
+                                                                id="msg1HelloBtn" title="Inserir saudação variada {oi}">
+                                                                <i class="bi bi-chat-heart"></i>
+                                                                <span>{oi}</span>
+                                                            </button>
+                                                            <button type="button" class="toolbar-btn toolbar-tag-btn"
+                                                                id="msg1ThanksBtn"
+                                                                title="Inserir agradecimento variado {obrigado}">
+                                                                <i class="bi bi-hand-thumbs-up"></i>
+                                                                <span>{obrigado}</span>
+                                                            </button>
+                                                            <button type="button" class="toolbar-btn toolbar-tag-btn"
+                                                                id="msg1ByeBtn"
+                                                                title="Inserir despedida variada {tchau}">
+                                                                <i class="bi bi-hand-index"></i>
+                                                                <span>{tchau}</span>
+                                                            </button>
+                                                        </div>
+
+                                                        <!-- Área de texto -->
+                                                        <textarea class="rich-text-area" id="msg1-text"
+                                                            placeholder="Digite a primeira mensagem... Use {nome} para personalizar com o nome do contato e {saudacao} para saudação automática.&#10;&#10;Dicas:&#10;• Selecione texto e clique em Negrito ou Itálico&#10;• Ou digite diretamente: *negrito* e _itálico_"
+                                                            maxlength="4096"></textarea>
+
+                                                        <!-- Contador de caracteres -->
+                                                        <div class="char-counter" id="msg1CharCounter">0/4096</div>
+
+                                                        <!-- Informações sobre formatação -->
+                                                        <div class="format-info">
+                                                            <strong><i class="bi bi-info-circle me-1"></i>Tags
+                                                                Disponíveis:</strong>
+                                                            Use <strong>{nome}</strong> para personalizar,
+                                                            <strong>{saudacao}</strong> para saudação automática,
+                                                            <strong>{oi}</strong>, <strong>{obrigado}</strong> e
+                                                            <strong>{tchau}</strong> para variações.<br>
+                                                            <strong><i class="bi bi-info-circle me-1"></i>Formatação
+                                                                Padrão:</strong>
+                                                            Use *texto* para <strong>negrito</strong> e _texto_ para
+                                                            <em>itálico</em>.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Mensagem 2 -->
+                                        <div class="tab-pane fade" id="msg2-pane" role="tabpanel">
+                                            <div class="card border-0">
+                                                <div class="card-body">
+                                                    <div class="form-check mb-3">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            id="msg2-enabled">
+                                                        <label class="form-check-label fw-bold" for="msg2-enabled">
+                                                            Ativar Mensagem 2
+                                                        </label>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="msg2-media" class="form-label">
+                                                            <i class="bi bi-paperclip me-1"></i>Arquivo/Mídia (Opcional)
+                                                        </label>
+                                                        <input type="file" class="form-control msg-media-input"
+                                                            id="msg2-media" accept="image/*,video/*,.pdf">
+                                                        <div class="msg-file-preview" id="msg2-media-preview"
+                                                            style="display: none;"></div>
+                                                        <small class="text-muted">Suporte: Imagens (JPG, PNG), Vídeos
+                                                            (MP4) e PDFs até 16MB</small>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="msg2-text" class="form-label">
+                                                            <i class="bi bi-chat-text me-1"></i>Texto da Mensagem
+                                                        </label>
+
+                                                        <!-- Editor Rico para Mensagem 2 -->
+                                                        <div class="rich-text-editor" id="msg2TextEditor">
+                                                            <!-- Toolbar -->
+                                                            <div class="rich-text-toolbar">
+                                                                <button type="button" class="toolbar-btn"
+                                                                    id="msg2BoldBtn" title="Negrito (*texto*)">
+                                                                    <i class="bi bi-type-bold"></i>
+                                                                    <span>Negrito</span>
+                                                                </button>
+                                                                <button type="button" class="toolbar-btn"
+                                                                    id="msg2ItalicBtn" title="Itálico (_texto_)">
+                                                                    <i class="bi bi-type-italic"></i>
+                                                                    <span>Itálico</span>
+                                                                </button>
+                                                                <button type="button" class="toolbar-btn"
+                                                                    id="msg2ClearFormatBtn" title="Limpar formatação">
+                                                                    <i class="bi bi-eraser"></i>
+                                                                    <span>Limpar</span>
+                                                                </button>
+                                                                <div
+                                                                    style="width: 1px; height: 20px; background-color: #dee2e6; margin: 0 4px;">
+                                                                </div>
+
+                                                                <!-- Tags Básicas -->
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn" id="msg2NameBtn"
+                                                                    title="Inserir tag {nome}">
+                                                                    <i class="bi bi-person"></i>
+                                                                    <span>{nome}</span>
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn"
+                                                                    id="msg2GreetingBtn" title="Inserir tag {saudacao}">
+                                                                    <i class="bi bi-sun"></i>
+                                                                    <span>{saudacao}</span>
+                                                                </button>
+
+                                                                <!-- NOVAS TAGS COM VARIAÇÕES -->
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn"
+                                                                    id="msg2HelloBtn"
+                                                                    title="Inserir saudação variada {oi}">
+                                                                    <i class="bi bi-chat-heart"></i>
+                                                                    <span>{oi}</span>
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn"
+                                                                    id="msg2ThanksBtn"
+                                                                    title="Inserir agradecimento variado {obrigado}">
+                                                                    <i class="bi bi-hand-thumbs-up"></i>
+                                                                    <span>{obrigado}</span>
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn" id="msg2ByeBtn"
+                                                                    title="Inserir despedida variada {tchau}">
+                                                                    <i class="bi bi-hand-index"></i>
+                                                                    <span>{tchau}</span>
+                                                                </button>
+                                                            </div>
+
+                                                            <!-- Área de texto -->
+                                                            <textarea class="rich-text-area" id="msg2-text"
+                                                                placeholder="Digite a segunda mensagem..."
+                                                                maxlength="4096"></textarea>
+
+                                                            <!-- Contador de caracteres -->
+                                                            <div class="char-counter" id="msg2CharCounter">0/4096</div>
+                                                        </div>
+
+                                                        <!-- Informações sobre formatação -->
+                                                        <div class="format-info">
+                                                            <strong><i class="bi bi-info-circle me-1"></i>Tags
+                                                                Disponíveis:</strong>
+                                                            Use <strong>{nome}</strong> para personalizar,
+                                                            <strong>{saudacao}</strong> para saudação automática,
+                                                            <strong>{oi}</strong>, <strong>{obrigado}</strong> e
+                                                            <strong>{tchau}</strong> para variações.<br>
+                                                            <strong><i class="bi bi-info-circle me-1"></i>Formatação
+                                                                Padrão:</strong>
+                                                            Use *texto* para <strong>negrito</strong> e _texto_ para
+                                                            <em>itálico</em>.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Mensagem 3 -->
+                                        <div class="tab-pane fade" id="msg3-pane" role="tabpanel">
+                                            <div class="card border-0">
+                                                <div class="card-body">
+                                                    <div class="form-check mb-3">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            id="msg3-enabled">
+                                                        <label class="form-check-label fw-bold" for="msg3-enabled">
+                                                            Ativar Mensagem 3
+                                                        </label>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="msg3-media" class="form-label">
+                                                            <i class="bi bi-paperclip me-1"></i>Arquivo/Mídia (Opcional)
+                                                        </label>
+                                                        <input type="file" class="form-control msg-media-input"
+                                                            id="msg3-media" accept="image/*,video/*,.pdf">
+                                                        <div class="msg-file-preview" id="msg3-media-preview"
+                                                            style="display: none;"></div>
+                                                        <small class="text-muted">Suporte: Imagens (JPG, PNG), Vídeos
+                                                            (MP4) e PDFs até 16MB</small>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label for="msg3-text" class="form-label">
+                                                            <i class="bi bi-chat-text me-1"></i>Texto da Mensagem
+                                                        </label>
+
+                                                        <!-- Editor Rico para Mensagem 3 -->
+                                                        <div class="rich-text-editor" id="msg3TextEditor">
+                                                            <!-- Toolbar -->
+                                                            <div class="rich-text-toolbar">
+                                                                <button type="button" class="toolbar-btn"
+                                                                    id="msg3BoldBtn" title="Negrito (*texto*)">
+                                                                    <i class="bi bi-type-bold"></i>
+                                                                    <span>Negrito</span>
+                                                                </button>
+                                                                <button type="button" class="toolbar-btn"
+                                                                    id="msg3ItalicBtn" title="Itálico (_texto_)">
+                                                                    <i class="bi bi-type-italic"></i>
+                                                                    <span>Itálico</span>
+                                                                </button>
+                                                                <button type="button" class="toolbar-btn"
+                                                                    id="msg3ClearFormatBtn" title="Limpar formatação">
+                                                                    <i class="bi bi-eraser"></i>
+                                                                    <span>Limpar</span>
+                                                                </button>
+                                                                <div
+                                                                    style="width: 1px; height: 20px; background-color: #dee2e6; margin: 0 4px;">
+                                                                </div>
+
+                                                                <!-- Tags Básicas -->
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn" id="msg3NameBtn"
+                                                                    title="Inserir tag {nome}">
+                                                                    <i class="bi bi-person"></i>
+                                                                    <span>{nome}</span>
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn"
+                                                                    id="msg3GreetingBtn" title="Inserir tag {saudacao}">
+                                                                    <i class="bi bi-sun"></i>
+                                                                    <span>{saudacao}</span>
+                                                                </button>
+
+                                                                <!-- NOVAS TAGS COM VARIAÇÕES -->
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn"
+                                                                    id="msg3HelloBtn"
+                                                                    title="Inserir saudação variada {oi}">
+                                                                    <i class="bi bi-chat-heart"></i>
+                                                                    <span>{oi}</span>
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn"
+                                                                    id="msg3ThanksBtn"
+                                                                    title="Inserir agradecimento variado {obrigado}">
+                                                                    <i class="bi bi-hand-thumbs-up"></i>
+                                                                    <span>{obrigado}</span>
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="toolbar-btn toolbar-tag-btn" id="msg3ByeBtn"
+                                                                    title="Inserir despedida variada {tchau}">
+                                                                    <i class="bi bi-hand-index"></i>
+                                                                    <span>{tchau}</span>
+                                                                </button>
+                                                            </div>
+
+                                                            <!-- Área de texto -->
+                                                            <textarea class="rich-text-area" id="msg3-text"
+                                                                placeholder="Digite a terceira mensagem..."
+                                                                maxlength="4096"></textarea>
+
+                                                            <!-- Contador de caracteres -->
+                                                            <div class="char-counter" id="msg3CharCounter">0/4096</div>
+                                                        </div>
+
+                                                        <!-- Informações sobre formatação -->
+                                                        <div class="format-info">
+                                                            <strong><i class="bi bi-info-circle me-1"></i>Tags
+                                                                Disponíveis:</strong>
+                                                            Use <strong>{nome}</strong> para personalizar,
+                                                            <strong>{saudacao}</strong> para saudação automática,
+                                                            <strong>{oi}</strong>, <strong>{obrigado}</strong> e
+                                                            <strong>{tchau}</strong> para variações.<br>
+                                                            <strong><i class="bi bi-info-circle me-1"></i>Formatação
+                                                                Padrão:</strong>
+                                                            Use *texto* para <strong>negrito</strong> e _texto_ para
+                                                            <em>itálico</em>.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Resumo das mensagens ativas -->
+                                    <div class="alert alert-success mt-3" id="activeMessagesInfo">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        <span id="activeMessagesCount">1 mensagem ativa</span>
+                                    </div>
+                                </div>
+
+                                <!-- Botão de Envio -->
+                                <div class="d-grid mt-4">
+                                    <button type="submit" class="btn btn-whatsapp btn-lg" id="startCampaignBtn">
+                                        <i class="bi bi-send me-2"></i>Iniciar Campanha
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <!-- Preview da Mensagem -->
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-eye me-2"></i>Preview da Mensagem</h5>
+                            </div>
+                            <div class="card-body p-3">
+                                <div class="whatsapp-preview" id="previewContainer">
+                                    <div class="whatsapp-header">
+                                        <div class="whatsapp-avatar" id="previewAvatar">J</div>
+                                        <div class="whatsapp-contact-info">
+                                            <h6 id="previewContactName">João Silva</h6>
+                                            <small>online</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-2 text-center">
+                                        <small class="badge bg-info" id="currentPreviewMessage">Mensagem 1</small>
+                                    </div>
+
+                                    <div id="previewContent">
+                                        <div class="preview-placeholder">
+                                            <i class="bi bi-chat-dots fs-3 mb-2 d-block"></i>
+                                            Configure mensagens nas abas para visualizar
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Guia de Tags -->
+                        <div class="card mt-3">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0"><i class="bi bi-tags me-2"></i>Guia de Tags Dinâmicas</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <span class="badge bg-primary me-2">{nome}</span>
+                                    <small>Nome do contato</small>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="badge bg-warning me-2">{saudacao}</span>
+                                    <small>Bom dia/tarde/noite automático</small>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="badge bg-info me-2">{oi}</span>
+                                    <small>Oi, Olá, E aí (variado)</small>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="badge bg-success me-2">{obrigado}</span>
+                                    <small>Obrigado, Valeu, Grato (variado)</small>
+                                </div>
+                                <div class="mb-0">
+                                    <span class="badge bg-secondary me-2">{tchau}</span>
+                                    <small>Tchau, Até logo, Abraços (variado)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulário oculto para manter compatibilidade com JavaScript -->
+            <form id="bulkForm" style="display: none;">
+                <!-- Todos os campos originais mantidos para compatibilidade -->
+                <input type="hidden" id="hiddenMinInterval">
+                <input type="hidden" id="hiddenMaxInterval">
+                <input type="hidden" id="hiddenIA">
+                <input type="hidden" id="hiddenEnableBrazilianValidation">
+                <input type="hidden" id="hiddenEnableEmailSending">
+                <input type="hidden" id="hiddenEmailSubject">
+                <input type="hidden" id="hiddenEnableBatchPause">
+                <input type="hidden" id="hiddenBatchSize">
+                <input type="hidden" id="hiddenBatchPauseDuration">
+                <input type="hidden" id="hiddenEnableScheduling">
+                <input type="hidden" id="hiddenScheduleDate">
+                <input type="hidden" id="hiddenScheduleTime">
+
+                <!-- Botão original mantido -->
+                <button type="submit" style="display: none;">Disparar Mensagens</button>
+            </form>
+
+            <!-- Progresso Section -->
+            <div class="content-section" id="progresso-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-hourglass-split me-2"></i>Progresso do Envio</h2>
+                    <p>Acompanhe o andamento dos envios em tempo real</p>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-hourglass-split me-2"></i>Status do Envio</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="currentSettingsInfo" class="mb-3">
+                                    <!-- Configurações ativas serão exibidas aqui -->
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold">Status:</span>
+                                    <span id="progressText" class="badge bg-primary">0/0</span>
+                                </div>
+                                <div class="progress mb-3" style="height: 12px;">
+                                    <div class="progress-bar bg-success progress-bar-striped" id="progressBar"
+                                        role="progressbar" style="width: 0%"></div>
+                                </div>
+
+                                <div id="nextSendTimer" class="alert alert-info">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-clock me-2"></i>
+                                            <strong>Próximo envio em:</strong>
+                                        </div>
+                                        <div>
+                                            <span id="timerCountdown" class="badge bg-primary fs-6">00:00</span>
+                                        </div>
+                                    </div>
+                                    <div class="progress mt-2" style="height: 10px;">
+                                        <div id="timerProgress" class="progress-bar bg-primary" style="width: 0%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    <button type="button" class="btn btn-warning" id="pauseButton"
+                                        style="display: none;">
+                                        <i class="bi bi-pause-circle me-2"></i>Pausar Envio
+                                    </button>
+                                    <button type="button" class="btn btn-danger" id="stopButton">
+                                        <i class="bi bi-stop-circle me-2"></i>Parar Envio
+                                    </button>
+                                    <button type="button" class="btn btn-info" id="reportButton" style="display: none;">
+                                        <i class="bi bi-bar-chart me-2"></i>Ver Relatório
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <!-- Estatísticas em Tempo Real -->
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <i class="bi bi-send fs-1 text-primary mb-2"></i>
+                                        <h3 id="totalSentProgress" class="mb-0">0</h3>
+                                        <small>Total Enviado</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <i class="bi bi-check-circle fs-2 text-success mb-1"></i>
+                                        <h4 id="successCountProgress" class="mb-0">0</h4>
+                                        <small>Sucessos</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <i class="bi bi-x-circle fs-2 text-danger mb-1"></i>
+                                        <h4 id="errorCountProgress" class="mb-0">0</h4>
+                                        <small>Erros</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agendamentos Ativos -->
+                <div class="row mt-4" id="scheduledSection" style="display: none;">
+                    <div class="col-12">
+                        <div class="card">
+                            <div
+                                class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+                                <h5 class="m-2"><i class="bi bi-calendar-check me-2"></i>Agendamentos Ativos</h5>
+                                <span id="scheduledCount" class="badge bg-light text-dark">0</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Data/Hora Agendada</th>
+                                                <th>Instância</th>
+                                                <th>Contatos</th>
+                                                <th>Tempo Restante</th>
+                                                <th>Status</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="scheduledTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resultados Section -->
+            <div class="content-section" id="resultados-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-graph-up me-2"></i>Análise de Resultados</h2>
+                    <p>Visualize estatísticas e métricas detalhadas dos seus envios</p>
+                </div>
+
+                <div class="row">
+                    <!-- Métricas Principais -->
+                    <div class="col-lg-2 col-md-6 mb-4">
+                        <div class="card mb-4">
+                            <div class="card-body text-center">
+                                <i class="bi bi-send-check fs-1 text-success mb-2"></i>
+                                <h3 id="totalSentResults" class="mb-0">0</h3>
+                                <small>Total Enviado</small>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-body text-center">
+                                <i class="bi bi-percent fs-1 text-info mb-2"></i>
+                                <h3 id="successRate" class="mb-0">0%</h3>
+                                <small>Taxa de Sucesso</small>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-body text-center">
+                                <i class="bi bi-clock fs-1 text-warning mb-2"></i>
+                                <h3 id="avgTime" class="mb-0">0s</h3>
+                                <small>Tempo Médio</small>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-body text-center">
+                                <i class="bi bi-calendar-day fs-1 text-primary mb-2"></i>
+                                <h3 id="todayDispatches" class="mb-0">0</h3>
+                                <small>Campanhas Hoje</small>
+                            </div>
+                        </div>
+
+
+                    </div>
+
+                    <div class="col-lg-6 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-pie-chart me-2"></i>Distribuição de Resultados</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="resultsChartResults" width="400" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header bg-gradient-primary text-white">
+                                <h5 class="m-2"><i class="bi bi-bar-chart me-2"></i>Performance</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Mensagens/Hora</span>
+                                        <span id="messagesPerHour" class="fw-bold">0</span>
+                                    </div>
+                                    <div class="progress mt-1">
+                                        <div class="progress-bar bg-success" style="width: 0%" id="hourlyProgress">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Eficiência</span>
+                                        <span id="efficiency" class="fw-bold">0%</span>
+                                    </div>
+                                    <div class="progress mt-1">
+                                        <div class="progress-bar bg-info" style="width: 0%" id="efficiencyProgress">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Qualidade da Lista</span>
+                                        <span id="listQuality" class="fw-bold">0%</span>
+                                    </div>
+                                    <div class="progress mt-1">
+                                        <div class="progress-bar bg-warning" style="width: 0%" id="qualityProgress">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histórico Section -->
+            <div class="content-section" id="historico-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-clock-history me-2"></i>Histórico de Envios</h2>
+                    <p>Consulte todos os envios realizados anteriormente</p>
+                </div>
+
+                <div class="card">
+                    <div
+                        class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="m-2"><i class="bi bi-clock-history me-2"></i>Histórico Completo</h5>
+                        <div>
+                            <button type="button" class="btn btn-outline-light btn-sm me-2" id="exportHistoryBtn"
+                                style="display: none;">
+                                <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+                            </button>
+                            <button type="button" class="btn btn-outline-light btn-sm" id="clearHistoryButton">
+                                <i class="bi bi-trash me-1"></i>Limpar Histórico
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0" id="historyTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Instância</th>
+                                        <th>Total Contatos</th>
+                                        <th>Sucessos</th>
+                                        <th>Erros</th>
+                                        <th>Taxa Sucesso</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                            Nenhum envio realizado ainda
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Atendimento Section (Inbox Multiatendente) -->
+            <div class="content-section" id="atendimento-section">
+                <!-- Montado dinamicamente por InboxModule.onEnter() -->
+            </div>
+
+            <!-- Backup Section -->
+            <div class="content-section" id="backup-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-shield-check me-2"></i>Backup & Restore</h2>
+                    <p>Faça backup de seus dados e restaure configurações anteriores</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-gradient-primary text-white">
+                        <h5 class="m-2"><i class="bi bi-shield-check me-2"></i>Gerenciamento de Dados</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>O backup inclui:</strong> Histórico completo, lista de contatos, configurações da
+                            instância, mensagens e arquivos de mídia.
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-download fs-1 text-primary mb-3"></i>
+                                        <h6>Fazer Backup</h6>
+                                        <p class="text-muted small">
+                                            Exporte todos os seus dados em um arquivo seguro
+                                            para restaurar posteriormente.
+                                        </p>
+                                        <button type="button" class="btn btn-primary" id="exportBackupBtn">
+                                            <i class="bi bi-download me-2"></i>Fazer Backup Completo
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-upload fs-1 text-secondary mb-3"></i>
+                                        <h6>Restaurar Backup</h6>
+                                        <p class="text-muted small">
+                                            Importe um backup anterior para restaurar todos os
+                                            seus dados e configurações.
+                                        </p>
+                                        <button type="button" class="btn btn-secondary" id="importBackupBtn">
+                                            <i class="bi bi-upload me-2"></i>Restaurar Backup
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- NOVO CARD PARA GERENCIAR DADOS DA SESSÃO -->
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-save fs-1 text-success mb-3"></i>
+                                        <h6>Dados da Sessão</h6>
+                                        <p class="text-muted small">
+                                            Gerencie os dados salvos automaticamente durante
+                                            o uso da aplicação.
+                                        </p>
+                                        <div class="d-grid gap-2">
+                                            <button type="button" class="btn btn-outline-info btn-sm" id="showStorageInfoBtn">
+                                                <i class="bi bi-info-circle me-1"></i>Ver Info
+                                            </button>
+                                            <button type="button" class="btn btn-outline-warning btn-sm" id="clearSessionDataBtn">
+                                                <i class="bi bi-trash3 me-1"></i>Limpar Dados
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-trash fs-1 text-warning mb-3"></i>
+                                        <h6>Limpar Cache</h6>
+                                        <p class="text-muted small">
+                                            Remove dados temporários e cache do navegador para
+                                            melhorar a performance. Resetar completamente o sistema.
+                                        </p>
+                                        <button type="button" class="btn btn-outline-warning" id="clearSettingsBtn">
+                                            <i class="bi bi-trash me-2"></i>Limpar Cache
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal de Verificação de Conexão -->
+    <div class="modal fade" id="connectionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-whatsapp me-2"></i>Status da Conexão
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="connectionStatus">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Verificando...</span>
+                        </div>
+                        <p class="mt-2">Verificando status da conexão...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" id="recheckConnection" style="display: none;">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Verificar Novamente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Changelog -->
+    <div class="modal fade" id="changelogModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-rocket-takeoff me-2"></i>Disparo PRO - Novidades
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <!-- Versão 3.0 (Histórico) -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-success fs-6 me-3">v3.0</span>
+                            <small class="text-muted">Versão Atual - Outubro 2025</small>
+                        </div>
+
+                        <h6 class="text-secondary mb-2">Versão Atualizada</h6>
+                        <ul class="list-unstyled ms-3">
+                            <li>• Recuperação de disparo interrompido - Continue de onde parou caso a página seja
+                                fechada</li>
+                            <li>• Menu lateral moderno e responsivo</li>
+                            <li>• Navegação aprimorada entre seções</li>
+                            <li>• Interface reorganizada para melhor usabilidade</li>
+                            <li>• Separação entre Configurações e Edição de Campanha</li>
+                            <li>• Salvando dados da sessão</li>
+                            <li>• Configuração de horário comercial</li>
+                            <li>• Melhorias no Workflow do n8n</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <!-- Versão 2.5 (Histórico) -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary fs-6 me-3">v2.5</span>
+                            <small class="text-muted">Julho 2025</small>
+                        </div>
+
+                        <ul class="list-unstyled ms-3">
+                            <li>• Exportação de Contatos da Instância</li>
+                            <li>• Painel mostrando as configurações atuais na parte de Progresso de Envio</li>
+                            <li>• Adicição de novas Tag {ola}, {obrigado} e {tchau}. O sistema gera de forma aleatório
+                                estas saudações ajudando no processo de modificar sempre uma mensagem para cada cliente.
+                            </li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <!-- Versão 2.4 (Histórico) -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary fs-6 me-3">v2.4</span>
+                            <small class="text-muted">Junho 2025</small>
+                        </div>
+
+                        <ul class="list-unstyled ms-3">
+                            <li>• Tela de login, autenticação pela instância e APIKEY</li>
+                            <li>• Configuração de Validação de Números</li>
+                            <li>• Melhoria no Resumo de Processamento da lista</li>
+                            <li>• Verificação do tamanho da mídia</li>
+                            <li>• Botão para adicionar a Tag {nome} e {saudação}</li>
+                            <li>• Temporizador para o próximo envio</li>
+                            <li>• Melhorias no gráfico do relatório</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <!-- Versão 2.3 (Histórico) -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary fs-6 me-3">v2.3</span>
+                            <small class="text-muted">Junho 2025</small>
+                        </div>
+
+                        <ul class="list-unstyled ms-3">
+                            <li>• Instalador fácil do Disparo PRO</li>
+                            <li>• Controle de lotes e pausas longas</li>
+                            <li>• Pode confirgurar 3 mensagens diferentes (multiplas mensagens)</li>
+                            <li>• Personalização de mensagem (negrito e itálico)</li>
+                            <li>• Download de modelo de planilha</li>
+                            <li>• Dicas de segurança e configuração de intervalo seguro</li>
+                            <li>• Melhorias na página de relatório</li>
+                            <li>• Melhorias no layout</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+
+                    <!-- Versão 2.2 (Histórico) -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary fs-6 me-3">v2.2</span>
+                            <small class="text-muted">Junho 2025</small>
+                        </div>
+
+                        <ul class="list-unstyled ms-3">
+                            <li>• Gerenciamento de Instâncias</li>
+                            <li>• Adição de E-mail para lista de envio</li>
+                            <li>• Aceita mídia em formato de imagem, vídeo e PDF</li>
+                            <li>• Botão para limpar cache do navegador</li>
+                            <li>• Adição das novas funcionalidades no backup e restore</li>
+                            <li>• Ajuste no relatório para as novas funcionalidades.</li>
+                            <li>• Organização das funções para melhor manutenção</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <!-- Versão 2.1 (Histórico) -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-secondary fs-6 me-3">v2.1</span>
+                            <small class="text-muted">Junho 2025</small>
+                        </div>
+
+                        <ul class="list-unstyled ms-3">
+                            <li>• Fazer e restaurar backup de envio</li>
+                            <li>• Auto Save das configurações</li>
+                            <li>• Melhoria visual do relatório</li>
+                            <li>• Envio de relatório por e-mail</li>
+                            <li>• Exporta lista de contato ajustada</li>
+                            <li>• Exporta histórico de envio para excel</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <!-- Versão 2.0 -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="badge bg-secondary fs-6 me-3">v2.0</span>
+                            <small class="text-muted">Maio 2025</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-calendar-check text-primary me-2"></i>Agendamento</h6>
+                                <ul class="list-unstyled ms-3 mb-3">
+                                    <li>• Agendar envios para data/hora específica</li>
+                                    <li>• Timer visual com tempo restante</li>
+                                    <li>• Múltiplos agendamentos simultâneos</li>
+                                    <li>• Notificação 5 minutos antes do envio</li>
+                                </ul>
+
+                                <h6><i class="bi bi-play-btn text-warning me-2"></i>Controle de Envio</h6>
+                                <ul class="list-unstyled ms-3 mb-3">
+                                    <li>• Pausar e retomar envios</li>
+                                    <li>• Parar envio a qualquer momento</li>
+                                    <li>• Status visual em tempo real</li>
+                                </ul>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-telephone text-success me-2"></i>Validação Avançada</h6>
+                                <ul class="list-unstyled ms-3 mb-3">
+                                    <li>• Formatação automática de telefones</li>
+                                    <li>• Validação de DDDs brasileiros</li>
+                                    <li>• Detecção de números inválidos</li>
+                                    <li>• Remoção automática de números repetidos</li>
+                                </ul>
+
+                                <h6><i class="bi bi-clock-history text-info me-2"></i>Analytics</h6>
+                                <ul class="list-unstyled ms-3 mb-3">
+                                    <li>• Histórico completo de envios</li>
+                                    <li>• Estimativa de tempo em tempo real</li>
+                                    <li>• Relatórios PDF detalhados</li>
+                                    <li>• Gráficos de performance</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-wifi text-primary me-2"></i>Conectividade</h6>
+                                <ul class="list-unstyled ms-3 mb-3">
+                                    <li>• Verificação de status Conexão</li>
+                                    <li>• QR Code com auto-refresh (30s)</li>
+                                    <li>• Instruções de conexão integradas</li>
+                                </ul>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-phone text-secondary me-2"></i>PWA</h6>
+                                <ul class="list-unstyled ms-3 mb-3">
+                                    <li>• Instalável como app nativo</li>
+                                    <li>• Atualizações automáticas</li>
+                                    <li>• Interface mobile otimizada</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Outras versões podem ser adicionadas conforme necessário -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Dicas de Segurança -->
+    <div class="modal fade" id="safetyTipsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-shield-check me-2"></i>Dicas de Segurança para Envios
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Guia completo para usar a ferramenta com responsabilidade e eficiência</strong>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Limites e
+                                        Restrições
+                                        Críticas</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled mb-0">
+                                        <li class="mb-2"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Máximo
+                                                50-100
+                                                mensagens por dia</strong> por número para evitar bloqueio</li>
+                                        <li class="mb-2"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Intervalo
+                                                mínimo de 60-120 segundos</strong> entre cada envio</li>
+                                        <li class="mb-2"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Nunca envie
+                                                SPAM</strong> - apenas para contatos que consentiram</li>
+                                        <li class="mb-2"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Evite
+                                                horários
+                                                inadequados</strong> - respeite 8h às 20h</li>
+                                        <li class="mb-0"><i class="bi bi-check-circle text-success me-2"></i><strong>Use
+                                                múltiplos números</strong> para distribuir a carga</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Configurações de Agendamento
+                                        Inteligente</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled mb-0">
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i><strong>Use
+                                                o agendamento</strong> para distribuir envios ao longo do dia</li>
+                                        <li class="mb-2"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Configure
+                                                pausa
+                                                automática</strong> a cada 10 envios aguardar 10 minutos</li>
+                                        <li class="mb-2"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Agende para
+                                                horários comerciais</strong> (9h-18h)</li>
+                                        <li class="mb-2"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Evite
+                                                feriados
+                                                e fins de semana</strong> para mensagens comerciais</li>
+                                        <li class="mb-0"><i
+                                                class="bi bi-check-circle text-success me-2"></i><strong>Teste com
+                                                pequenos grupos</strong> antes do envio em massa</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-shield-exclamation me-2"></i>Importante</h6>
+                        <p class="mb-0">Estas são recomendações baseadas nas melhores práticas para uso seguro do
+                            Aplicativo. O sistema já implementa muitas dessas funcionalidades automaticamente, mas é
+                            importante que você entenda e siga essas diretrizes para evitar bloqueios.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x me-2"></i>Fechar
+                    </button>
+                    <button type="button" class="btn btn-success" id="safeConfigBtn">
+                        <i class="bi bi-gear me-2"></i>Configurar Intervalos Seguros
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- jsPDF para geração de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- Notiflix JS -->
+    <script src="frontend/assets/notiflix/dist/notiflix-aio-3.2.8.min.js"></script>
+
+    <script>
+      window.APP_ENV = {
+        SUPABASE_URL:    "https://zjwfymxknibxndaglyuo.supabase.co",
+        SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpqd2Z5bXhrbmlieG5kYWdseXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODE4MjIsImV4cCI6MjA5MzY1NzgyMn0.RS_Vd_a2JbozS8iE4Uph6dbU9mqfDwian_1Y6tlT9y0",
+        API_BASE_URL:    "http://localhost:3001"
+      };
+    </script>
+    <script src="config/env.js"></script>
+    <script src="frontend/js/supabase.js"></script>
+    <script src="frontend/js/integracao.js"></script>
+    <script src="frontend/js/services/notification.service.js"></script>
+    <script src="frontend/js/services/storage.service.js"></script>
+    <script src="frontend/js/services/http.service.js"></script>
+    <script src="frontend/js/services/n8n.service.js"></script>
+    <script src="frontend/js/services/supabase.service.js"></script>
+    <script src="frontend/js/services/api.service.js"></script>
+    <script src="frontend/js/modules/integrations.js"></script>
+    <script src="frontend/js/modules/dashboard.js"></script>
+    <script src="frontend/js/modules/contacts.js"></script>
+    <script src="frontend/js/modules/reports.js"></script>
+    <script src="frontend/js/modules/profile.js"></script>
+    <script src="frontend/js/modules/settings.js"></script>
+    <script src="frontend/js/modules/instances.js"></script>
+    <script src="frontend/js/modules/campaigns.js"></script>
+    <!-- Inbox Multiatendente -->
+    <script src="frontend/js/modules/inbox/inbox-api.js"></script>
+    <script src="frontend/js/modules/inbox/inbox-ws.js"></script>
+    <script src="frontend/js/modules/inbox/inbox-realtime.js"></script>
+    <script src="frontend/js/modules/inbox/conversation-list.js"></script>
+    <script src="frontend/js/modules/inbox/message-composer.js"></script>
+    <script src="frontend/js/modules/inbox/quick-reply-picker.js"></script>
+    <script src="frontend/js/modules/inbox/conversation-view.js"></script>
+    <script src="frontend/js/modules/inbox/agent-status.js"></script>
+    <script src="frontend/js/modules/inbox/inbox-dashboard.js"></script>
+    <script src="frontend/js/modules/inbox/inbox-ai-panel.js"></script>
+    <script src="frontend/js/modules/inbox/inbox.js"></script>
+    <script src="frontend/js/auth.js"></script>
+    <script src="frontend/js/navigation.js"></script>
+    <script src="frontend/js/ui.js"></script>
+    <script src="frontend/js/app.js"></script>
+    <script src="frontend/js/main.js"></script>
+    <!-- Modal Perfil do Usuário -->
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-circle me-2"></i>Meu Perfil</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center mb-3" style="width:72px;height:72px">
+                            <i class="bi bi-person-fill text-white" style="font-size:2rem"></i>
+                        </div>
+                        <h5 class="mb-0" id="profileName">—</h5>
+                        <small class="text-muted" id="profileEmail">—</small><br>
+                        <span id="profilePlan" class="badge bg-secondary fs-6 mt-2">Free</span>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nome de exibição</label>
+                        <input type="text" id="profileNameInput" class="form-control" placeholder="Seu nome completo">
+                    </div>
+                    <div id="profileAlert" class="d-none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" id="profileSaveBtn" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

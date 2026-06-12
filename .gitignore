@@ -41,6 +41,7 @@ debug-output.txt
 configuracoes.private.json
 data/logs/*.json
 supabase/.temp/
+**/supabase/.temp/
 
 # vercel
 .vercel

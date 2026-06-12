@@ -1,0 +1,42 @@
+# ============================================================
+# Caddyfile — Reverse proxy para Disparo Pro API
+# HTTPS automático via Let's Encrypt
+# ============================================================
+#
+# Variável substituída pelo docker-compose: {$API_DOMAIN}
+# Preencha API_DOMAIN no .env ou exporte antes de subir
+# ============================================================
+
+{$API_DOMAIN} {
+    # Encaminhar para a API interna
+    reverse_proxy api:3001 {
+        # Repassar IP real do cliente
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # Health check passivo
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 30s
+        }
+    }
+
+    # Cabeçalhos de segurança adicionais ao nível do proxy
+    header {
+        # HSTS: 1 ano
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Evitar MIME sniffing
+        X-Content-Type-Options "nosniff"
+        # Não expor versão do servidor
+        -Server
+        # Evitar embedding em frames de outros domínios
+        X-Frame-Options "DENY"
+    }
+
+    # Logs estruturados
+    log {
+        format json
+        output stdout
+    }
+}

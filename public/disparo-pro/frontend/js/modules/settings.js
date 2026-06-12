@@ -3,6 +3,12 @@
 // ========================================
 const DataManager = {
     exportHistoryToExcel() {
+        if (typeof HistoryManager !== 'undefined' && HistoryManager.isShowingCampaignHistory) {
+            HistoryManager.exportCampaignHistoryCsv();
+            UI.showSuccess('HistÃ³rico de campanhas exportado com sucesso!');
+            return;
+        }
+
         if (AppState.sendingHistory.length === 0) {
             UI.showWarning('Não há histórico para exportar');
             return;

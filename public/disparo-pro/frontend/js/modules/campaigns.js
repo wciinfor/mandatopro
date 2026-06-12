@@ -3090,9 +3090,6 @@ const EventManager = {
         const events = [
             { id: 'exportHistoryBtn', handler: () => DataManager.exportHistoryToExcel() },
             { id: 'exportContactsBtn', handler: () => DataManager.exportContactsToExcel() },
-            { id: 'exportBackupBtn', handler: () => DataManager.exportBackupData() },
-            { id: 'importBackupBtn', handler: () => DataManager.importBackupData() },
-            { id: 'clearSettingsBtn', handler: () => SettingsManager.clearSavedSettings() },
             { id: 'downloadModelBtn', handler: () => ModeloManager.downloadModel() }
         ];
 
@@ -3180,8 +3177,18 @@ const EventManager = {
                 const viewBtn = e.target.closest('.view-details-btn');
                 const reportBtn = e.target.closest('.generate-report-btn');
                 const deleteBtn = e.target.closest('.delete-entry-btn');
+                const resultsBtn = e.target.closest('.history-results-btn');
+                const exportBtn = e.target.closest('.history-export-btn');
 
-                if (viewBtn) {
+                if (resultsBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    HistoryManager.openCampaignResults(resultsBtn.dataset.campaignId);
+                } else if (exportBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    HistoryManager.exportCampaignCsv(exportBtn.dataset.campaignId);
+                } else if (viewBtn) {
                     e.preventDefault();
                     e.stopPropagation();
                     const entryId = parseInt(viewBtn.dataset.entryId);

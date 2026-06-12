@@ -1499,6 +1499,9 @@ const App = {
                 if (typeof ResultsManager !== 'undefined') {
                     ResultsManager.initialize();
                 }
+                if (typeof HistoryManager !== 'undefined') {
+                    HistoryManager.initialize();
+                }
             }, 1500);
 
             setTimeout(() => {

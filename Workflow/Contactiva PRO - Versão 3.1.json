@@ -1,0 +1,2500 @@
+{
+  "name": "Contactiva PRO - Versão 3.1",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"results\": \"success\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        2304,
+        944
+      ],
+      "id": "a2ef221d-a307-4bd1-97df-29d4f0bf7911",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"results\": \"error\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        2304,
+        1136
+      ],
+      "id": "aabdc691-e75c-4b26-a97d-a06b30a3c8fc",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Switch').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "=Reescreva o texto abaixo melhorando apenas a clareza e fluidez, mantendo exatamente o mesmo sentido, intenção e formatação.\n\nINSTRUÇÕES OBRIGATÓRIAS:\n\nPreserve integralmente o significado original.\nNão adicione explicações, comentários, nem introduções.\nResponda apenas com o texto reescrito.\nMantenha EXATAMENTE a formatação do WhatsApp:\n*texto* = negrito (um asterisco antes e depois)\n_texto_ = itálico (um underscore antes e depois)\n\nNão use aspas, colchetes, tags HTML ou qualquer outro tipo de marcação.\n\nTexto:\n{{ $('Switch').item.json.chatInput }}\n\nSaída esperada: apenas o texto reescrito, sem qualquer explicação, comentário ou texto adicional."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        608,
+        1040
+      ],
+      "id": "d013d8a8-0871-4059-8015-ecdc2a9c5552",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c5bce875-d761-403f-b827-37bf6ab3d901",
+              "leftValue": "={{ $('Webhook Principal').item.json.body.media.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        1040
+      ],
+      "id": "31ef3622-4304-4162-981e-b946de84d7cb",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Dados Evolution API\"].json[\"baseUrl\"] }}message/sendText/{{ $node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Principal').item.json.body.contact.phone }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $item(\"0\").$node[\"AI Agent\"].json[\"output\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "23d793b4-1de1-4c2f-8f33-1d4498b09f0a",
+      "name": "Envio Texto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        1184
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"baseUrl\"] }}message/sendMedia/{{ $node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Principal').item.json.body.contact.phone }}"
+            },
+            {
+              "name": "mimetype",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"mimetype\"] }}"
+            },
+            {
+              "name": "media",
+              "value": "={{ $('Webhook Principal').item.json.body.media.data ||  $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"url\"] }}"
+            },
+            {
+              "name": "fileName",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"filename\"] }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $item(\"0\").$node[\"AI Agent\"].json[\"output\"] }}"
+            },
+            {
+              "name": "mediatype",
+              "value": "={{ $item(\"0\").$node[\"mediatype\"].json[\"mediatype\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "03650fd0-e492-447c-b6c1-373e062fc9f5",
+      "name": "Envio Mídia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        896
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2f8a50e7-9398-482b-9838-79e849275656",
+              "leftValue": "={{ $('Webhook Principal').item.json.body.ia }}",
+              "rightValue": "1",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        384,
+        1352
+      ],
+      "id": "774d2193-72a8-4fae-8292-eb2b404a8470",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"results\": \"success\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        2080,
+        1544
+      ],
+      "id": "974fc09a-e918-4e3f-b9a2-52352b64d541",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"results\": \"error\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        2080,
+        1736
+      ],
+      "id": "d694ca11-16be-4303-8837-8f3dc951e6eb",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c5bce875-d761-403f-b827-37bf6ab3d901",
+              "leftValue": "={{ $('Webhook Principal').item.json.body.media.data }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        1640
+      ],
+      "id": "3b91f5e0-2b6a-4253-850e-8ff77ee4f5d2",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Dados Evolution API\"].json[\"baseUrl\"] }}message/sendText/{{ $node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Principal').item.json.body.contact.phone }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"message\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0cd7b7c7-99fc-4509-9218-8eee70c8d3b0",
+      "name": "Envio Texto2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1856,
+        1784
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Dados Evolution API\"].json[\"baseUrl\"] }}message/sendMedia/{{ $node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Principal').item.json.body.contact.phone }}"
+            },
+            {
+              "name": "mimetype",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"mimetype\"] }}"
+            },
+            {
+              "name": "media",
+              "value": "={{ $('Webhook Principal').item.json.body.media.data }}"
+            },
+            {
+              "name": "fileName",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"filename\"] }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"message\"] }}"
+            },
+            {
+              "name": "mediatype",
+              "value": "={{ $item(\"0\").$node[\"mediatype\"].json[\"mediatype\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1ec2bb8c-f714-4102-a9a6-ade27cfd2afb",
+      "name": "Envio Mídia1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1856,
+        1496
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"baseUrl\"] }}instance/connect/{{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -288,
+        96
+      ],
+      "id": "d43b9583-317c-4d07-af81-601d168188b6",
+      "name": "Verifica Instancia",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"result\": \"{{ $json.base64 || $json.instance.state }}\"\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "4ae3e1c6-97c5-4c57-8087-29fb15c22cd9",
+      "name": "Resposta Instancia"
+    },
+    {
+      "parameters": {
+        "fromEmail": "contato@zapplify.app.br",
+        "toEmail": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailData\"][\"to\"] }}",
+        "subject": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailData\"][\"subject\"] }}",
+        "emailFormat": "text",
+        "text": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailData\"][\"message\"] }}",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -288,
+        1056
+      ],
+      "id": "f82fefed-22e4-40f2-bf03-ef08862ae66c",
+      "name": "Send Email",
+      "webhookId": "3776c2d8-ee86-4fdf-bfd0-b3a883fa86c7",
+      "credentials": {
+        "smtp": {
+          "id": "c2dzGgdxo3zZDtIe",
+          "name": "SMTP Gmail Contato SA Digital"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "=arquivo",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        1056
+      ],
+      "id": "ccb56ded-2409-40ad-8dd1-00c93c9985db",
+      "name": "Convert to File",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Email enviado com sucesso!\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        960
+      ],
+      "id": "16f8263f-ca87-4935-925e-fa338ef56533",
+      "name": "Respond to Webhook4"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"message\": \"Erro ao enviar email: descrição do erro\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        1152
+      ],
+      "id": "166ed86e-7308-4e1b-a85e-8fd68e2d31cc",
+      "name": "Respond to Webhook5"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"result\": \"error\"\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        288
+      ],
+      "id": "2bd86e5b-a62f-4b37-9f6c-1c5def4900d2",
+      "name": "Resposta Instancia1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "351f12ce-dc4e-4378-8891-4cc89d543074",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e550ac2e-d505-40fc-b2a4-2cad24454eee",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"sendEmail\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1184,
+        896
+      ],
+      "id": "1ab1529d-f3c6-4a39-894f-297bfbcedc27",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "body.media.data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1632,
+        824
+      ],
+      "id": "2c979cd8-a9a8-4554-9e45-9b4835f100a2",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "03cff066-0c36-4aa7-b3fc-093c0bed2a43",
+              "name": "body.media.data",
+              "value": "={{ $('Webhook Principal').item.json.body.media.data }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1408,
+        824
+      ],
+      "id": "98d7cfe0-0035-4152-9b03-915b7327a2ba",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "351f12ce-dc4e-4378-8891-4cc89d543074",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "8fa8485a-b16d-4b3c-a26c-4dc0ea575b82",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"sendEmail\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        1496
+      ],
+      "id": "ad72c157-9b96-47ef-b3cb-769adfec4df5",
+      "name": "If4"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "body.media.data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1408,
+        1424
+      ],
+      "id": "8787c2b5-e3aa-479f-a9a2-66c92bfc40ae",
+      "name": "Convert to File2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "03cff066-0c36-4aa7-b3fc-093c0bed2a43",
+              "name": "body.media.data",
+              "value": "={{ $('Webhook Principal').item.json.body.media.data }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1184,
+        1424
+      ],
+      "id": "38ae9420-2883-489b-9cac-99af97a02d8f",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "351f12ce-dc4e-4378-8891-4cc89d543074",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "545593e1-3816-4fd2-a840-18db749983b2",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"sendEmail\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1408,
+        1784
+      ],
+      "id": "4b07f92d-6548-4a23-9646-307e0c65b1fa",
+      "name": "If5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "351f12ce-dc4e-4378-8891-4cc89d543074",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "09b6ec12-e5f4-4914-9799-a375e9c4068c",
+              "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"sendEmail\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        1184
+      ],
+      "id": "abcefba9-f953-44f0-82ec-71e452e0169b",
+      "name": "If6"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"mimetype\"] }}",
+                    "rightValue": "application/pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9b8b78ae-8c3a-42d0-b29a-ce03cf159964"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d9c2cc75-5d07-4271-a848-b434321a0dcf",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"mimetype\"] }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5a8736bd-d835-4aa8-bce5-853f2e466e92",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"mimetype\"] }}",
+                    "rightValue": "video",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Video"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "fb02262b-8ffe-40cc-b12c-6ed84476d094",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"][\"mimetype\"] }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cf3a7d24-558c-4cac-b9fd-bb360e8eadc8",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"media\"] }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "empty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Texto"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -736,
+        1632
+      ],
+      "id": "a36a425d-4628-444b-9d95-8d7d3e876bc8",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "da946c5f-e5cd-4a4c-8ea0-0a3584940162",
+              "name": "mediatype",
+              "value": "document",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        1368
+      ],
+      "id": "299f4bad-bb8d-4bec-b9a1-06a7b279a7ed",
+      "name": "Document"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "da946c5f-e5cd-4a4c-8ea0-0a3584940162",
+              "name": "mediatype",
+              "value": "image",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        1688
+      ],
+      "id": "b3330a5c-6b0d-403f-8b60-32ad95591ab7",
+      "name": "Image"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "da946c5f-e5cd-4a4c-8ea0-0a3584940162",
+              "name": "mediatype",
+              "value": "video",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        1880
+      ],
+      "id": "6dd99dfe-4de1-4c11-b0e5-86a1a51dd0a8",
+      "name": "Video"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "da946c5f-e5cd-4a4c-8ea0-0a3584940162",
+              "name": "mediatype",
+              "value": "audio",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -512,
+        2072
+      ],
+      "id": "422fc11b-75bf-4ffe-a857-9370077388f0",
+      "name": "Audio"
+    },
+    {
+      "parameters": {
+        "content": "## Alterar",
+        "height": 232,
+        "width": 164,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -322,
+        984
+      ],
+      "typeVersion": 1,
+      "id": "8ea6f157-f690-4477-a2b0-56a7c7e3bcce",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Alterar",
+        "height": 512,
+        "width": 164,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1822,
+        760
+      ],
+      "typeVersion": 1,
+      "id": "a77ef7a6-390d-41a2-875f-0f781ce283b3",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## Alterar",
+        "height": 528,
+        "width": 164,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1598,
+        1344
+      ],
+      "typeVersion": 1,
+      "id": "00fa6c7b-36c8-4d08-959c-ad90564e2955",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "## CONTACTIVA PRO - VERSÃO 3.0\n\nDeixei em vermelho os locais que você precisa alterar no workflow. \n\nVerifique se o link da instancia tem a barra no final e se configurou todos os nós.\n\nVeja as suas informações do smtp para configurar de forma correta e assim enviar o relatório para seus clientes.\n\nQualquer dúvida entra no grupo do WhatsApp, link no primeiro vídeo.",
+        "height": 272,
+        "width": 556,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2080,
+        864
+      ],
+      "typeVersion": 1,
+      "id": "4dc8a50a-d6e5-4ba8-b37d-cf20e39ecc83",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "contactiva_pro",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        960
+      ],
+      "id": "4eb675ff-c0f0-4ad1-8a62-c2c54b6fad13",
+      "name": "Webhook Principal",
+      "webhookId": "f24c3d76-eb34-4980-b9ce-d0d7e075e34f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "81f67622-3f24-438e-8002-30b5df680787",
+              "leftValue": "={{ $json.remoteJid }}",
+              "rightValue": "@g.us",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -512,
+        768
+      ],
+      "id": "9a30f538-5679-4299-bbd8-ae4639b2cccf",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "70321b4d-dda1-49a4-807c-c23a760cc311",
+              "name": "nome",
+              "value": "={{ $json.pushName || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "498e5b70-27f2-4f9b-ab4b-eec00f459e7d",
+              "name": "telefone",
+              "value": "={{ $json.remoteJid.replace('@s.whatsapp.net','') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -288,
+        768
+      ],
+      "id": "667788b9-44d0-43f7-9a29-a760d3b9e134",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -64,
+        768
+      ],
+      "id": "f70261b7-208b-4e2b-812d-8db7796f36e8",
+      "name": "Respond to Webhook6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"baseUrl\"] }}chat/findContacts/{{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -736,
+        768
+      ],
+      "id": "ea944b64-fa7f-4f87-a813-272a58dcbae2",
+      "name": "find chats1"
+    },
+    {
+      "parameters": {
+        "content": "## Alterar",
+        "height": 232,
+        "width": 168,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1220,
+        888
+      ],
+      "typeVersion": 1,
+      "id": "194cabc8-e4fd-486a-b35b-149aa1d1c48c",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "fromEmail": "contato@zapplify.app.br",
+        "toEmail": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+        "subject": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailSubject\"] }}",
+        "emailFormat": "text",
+        "text": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"message\"] }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1856,
+        1112
+      ],
+      "id": "0d94aae3-3564-46b2-bef7-0ea4d7caaf87",
+      "name": "Send email",
+      "webhookId": "81d6f8cb-66c5-40ef-89a3-694a676558fa",
+      "credentials": {
+        "smtp": {
+          "id": "c2dzGgdxo3zZDtIe",
+          "name": "SMTP Gmail Contato SA Digital"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e6d21522-53d2-4f97-8397-4e40ecab65df",
+              "leftValue": "={{ $item(\"0\").$node[\"Validação\"].json[\"result\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -512,
+        192
+      ],
+      "id": "a28e36cb-ade0-4b78-acaf-6e9041eb6bfd",
+      "name": "If7",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"result\": \"{{ $item(\"0\").$node[\"Validação\"].json[\"result\"] }}\"\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -288,
+        384
+      ],
+      "id": "b4712b5f-ce71-40e6-837b-957af13155c8",
+      "name": "Resposta Instancia2"
+    },
+    {
+      "parameters": {
+        "url": "https://webhook.typebotdescomplicado.com.br/webhook/verificaLicenca",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "licenseEmail",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"licenseEmail\"] }}"
+            },
+            {
+              "name": "licenseKey",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"licenseKey\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -736,
+        192
+      ],
+      "id": "3a7497fb-c7ef-4fb1-abeb-5fd6cdfba523",
+      "name": "Validação"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        680,
+        1264
+      ],
+      "id": "402083a6-acc0-48dd-b41e-ca21c3253bf8",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "LawOmmLb5ihUO0zm",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "contato@zapplify.app.br",
+        "toEmail": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+        "subject": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailSubject\"] }}",
+        "emailFormat": "text",
+        "text": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"message\"] }}",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1856,
+        824
+      ],
+      "id": "4521b47d-3b28-4e23-a4dc-80dfeec8a628",
+      "name": "Send email1",
+      "webhookId": "6739af80-7c91-42be-824b-7e753e586f73",
+      "credentials": {
+        "smtp": {
+          "id": "c2dzGgdxo3zZDtIe",
+          "name": "SMTP Gmail Contato SA Digital"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "contato@zapplify.app.br",
+        "toEmail": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+        "subject": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailSubject\"] }}",
+        "emailFormat": "text",
+        "text": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"message\"] }}",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1632,
+        1424
+      ],
+      "id": "9fb79180-cf0d-4b67-a718-bcff1ec55609",
+      "name": "Send email2",
+      "webhookId": "8818241a-a851-42b8-8bea-0ee35d9471ee",
+      "credentials": {
+        "smtp": {
+          "id": "c2dzGgdxo3zZDtIe",
+          "name": "SMTP Gmail Contato SA Digital"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "contato@zapplify.app.br",
+        "toEmail": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"contact\"][\"email\"] }}",
+        "subject": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailSubject\"] }}",
+        "emailFormat": "text",
+        "text": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"message\"] }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1632,
+        1712
+      ],
+      "id": "6e83dd69-d5e7-45c5-819f-865f214f0676",
+      "name": "Send email3",
+      "webhookId": "6819db5b-1b63-4534-ae66-4bc19f81a9b6",
+      "credentials": {
+        "smtp": {
+          "id": "c2dzGgdxo3zZDtIe",
+          "name": "SMTP Gmail Contato SA Digital"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"action\"] }}",
+                    "rightValue": "login",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7d563dda-8a86-4b04-9845-23f9a49bedd0"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "login"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1609ad94-2c20-44fc-8899-0d359a7a03e5",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"action\"] }}",
+                    "rightValue": "verificar_conexao",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "verificar_conexao"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "62647d33-bcdd-4933-93b0-9e6dff251a15",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"action\"] }}",
+                    "rightValue": "exportar_contatos",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "exportar_contatos"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a2380599-91c0-48f3-b003-35b2be191d7e",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"action\"] }}",
+                    "rightValue": "relatorio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "relatorio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4a196d93-9951-46b8-ba98-79997359ed1a",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"action\"] }}",
+                    "rightValue": "enviar_mensagem",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "enviar_mensagem"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "abb96302-69b5-4209-9641-6e929845a87d",
+                    "leftValue": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"action\"] }}",
+                    "rightValue": "test_connection",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "test_connection"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -960,
+        896
+      ],
+      "id": "03fa86fd-8dde-4ee1-becc-e5c7ad0335a5",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"baseUrl\"] }}instance/connect/{{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $item(\"0\").$node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -736,
+        480
+      ],
+      "id": "60cdb0a6-003e-416b-9c74-b536bbb62da3",
+      "name": "Verifica Instancia1",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"result\": \"{{ $json.base64 || $json.instance.state }}\"\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -512,
+        384
+      ],
+      "id": "60f6848b-c8a5-48b0-b700-e38b7c942332",
+      "name": "Resposta Instancia3"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"result\": \"error\"\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -512,
+        576
+      ],
+      "id": "d790505a-df02-4cfb-9cb5-687729c08cc5",
+      "name": "Resposta Instancia4"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b6520e7e-fc14-40bd-bfc1-ccab2bda8b8f",
+              "name": "baseUrl",
+              "value": "https://evo.zapplify.app.br/",
+              "type": "string"
+            },
+            {
+              "id": "04a9c7b9-b67b-495a-b64c-f8ff2bd18b28",
+              "name": "instance",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"instanceName\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "69b27f58-242e-486c-8421-8f20c6e7c745",
+              "name": "apikey",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"instanceAPIKEY\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "2fbe3337-8f64-4649-866e-bfb58c21e1a2",
+              "name": "chatInput",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"message\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "51ca3fa3-3d59-4f85-8a38-97bd33e1c199",
+              "name": "mediatype",
+              "value": "={{ $json.mediatype }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "83e74eba-41b3-4390-84c8-d17887c4ecb8",
+      "name": "Dados Evolution API",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1184,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -736,
+        1384
+      ],
+      "id": "76c203d7-19a1-4e06-b273-0e5f1248bca8",
+      "name": "Respond to Webhook7"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0635899f-7d1f-43cc-9287-13aff902db03",
+              "name": "arquivo",
+              "value": "={{ $item(\"0\").$node[\"Webhook Principal\"].json[\"body\"][\"emailData\"][\"attachment\"][\"content\"] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -736,
+        1056
+      ],
+      "id": "fb683e68-7887-4a3b-875e-3d43a3744980",
+      "name": "Base64 anexo"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Dados Evolution API\"].json[\"baseUrl\"] }}chat/whatsappNumbers/{{ $node[\"Dados Evolution API\"].json[\"instance\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $node[\"Dados Evolution API\"].json[\"apikey\"] }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"numbers\": [\n    \"{{ $('Webhook Principal').item.json.body.contact.phone }}\"\n  ]\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -64,
+        1448
+      ],
+      "id": "7a7e9dd1-49c9-4c21-99ac-4803ebfa7cac",
+      "name": "HTTP Request1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"whatsapp\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        384,
+        1544
+      ],
+      "id": "f1d24bb5-9049-40ff-b909-2317d1d182ef",
+      "name": "Respond to Webhook8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e0e5f0ce-0688-45aa-8b3b-bd5a596b047c",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        1448
+      ],
+      "id": "ebdf1692-b4bb-4a5f-9500-44faf905eacc",
+      "name": "Verificar se é whatsapp"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -288,
+        1328
+      ],
+      "id": "7aa591bd-5e2a-40b3-bde9-c04596e1c673",
+      "name": "mediatype"
+    }
+  ],
+  "pinData": {
+    "Webhook Principal": [
+      {
+        "json": {
+          "headers": {
+            "host": "webhook.zapplify.app.br",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "content-length": "380",
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "content-type": "application/json",
+            "origin": "null",
+            "priority": "u=1, i",
+            "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "sec-gpc": "1",
+            "x-forwarded-for": "186.240.167.14",
+            "x-forwarded-host": "webhook.zapplify.app.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "0f85ab127ead",
+            "x-real-ip": "186.240.167.14"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "action": "enviar_mensagem",
+            "instanceName": "SA Digital",
+            "instanceAPIKEY": "226A27074FEA-4316-AFA0-D83566BBE37C",
+            "ia": "1",
+            "contact": {
+              "name": "sidnei andrade",
+              "phone": "557199961039",
+              "email": null
+            },
+            "message": "testando mensagem de envio para verificar se está funcionando a opção de validação de número.",
+            "media": null,
+            "sendEmail": false,
+            "emailSubject": "Mensagem",
+            "messageId": "msg1"
+          },
+          "webhookUrl": "https://webhook.zapplify.app.br/webhook/contactiva_pro",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio Texto": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio Mídia": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "If4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio Texto2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio Mídia1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica Instancia": {
+      "main": [
+        [
+          {
+            "node": "Resposta Instancia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resposta Instancia1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Envio Mídia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "Send email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If4": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Envio Mídia1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File2": {
+      "main": [
+        [
+          {
+            "node": "Send email2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If5": {
+      "main": [
+        [
+          {
+            "node": "Send email3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Envio Texto2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If6": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Envio Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Document",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document": {
+      "main": [
+        [
+          {
+            "node": "mediatype",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image": {
+      "main": [
+        [
+          {
+            "node": "mediatype",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Video": {
+      "main": [
+        [
+          {
+            "node": "mediatype",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Audio": {
+      "main": [
+        [
+          {
+            "node": "mediatype",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Webhook Principal": {
+      "main": [
+        [
+          {
+            "node": "Dados Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "find chats1": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email": {
+      "main": [
+        [
+          {
+            "node": "Envio Texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If7": {
+      "main": [
+        [
+          {
+            "node": "Verifica Instancia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resposta Instancia2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validação": {
+      "main": [
+        [
+          {
+            "node": "If7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email1": {
+      "main": [
+        [
+          {
+            "node": "Envio Mídia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email2": {
+      "main": [
+        [
+          {
+            "node": "Envio Mídia1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email3": {
+      "main": [
+        [
+          {
+            "node": "Envio Texto2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Validação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Verifica Instancia1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "find chats1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Base64 anexo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica Instancia1": {
+      "main": [
+        [
+          {
+            "node": "Resposta Instancia3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resposta Instancia4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados Evolution API": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Base64 anexo": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Verificar se é whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar se é whatsapp": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mediatype": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "50f70a9a-3088-49dc-bb1c-a97d431f47ee",
+  "meta": {
+    "instanceId": "dcde2d1c7084facb50886e5a617bb75f5c5201283a9dde593f54fa2281522102"
+  },
+  "id": "urimftcvlV7VuX7b",
+  "tags": [
+    {
+      "updatedAt": "2025-10-27T18:24:27.425Z",
+      "createdAt": "2025-10-27T18:24:27.425Z",
+      "id": "yUsX5yLQ5P26yTCo",
+      "name": "@sadigital.automacoes"
+    }
+  ]
+}

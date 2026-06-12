@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disparo PRO — Admin</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="frontend/css/admin.css">
+</head>
+<body class="bg-light">
+
+<!-- ── LOGIN ─────────────────────────────────────────────── -->
+<div id="adminLoginScreen" class="d-flex align-items-center justify-content-center min-vh-100">
+    <div class="card shadow-lg" style="width:380px">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <div class="bg-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                     style="width:60px;height:60px">
+                    <i class="bi bi-shield-lock-fill text-white fs-3"></i>
+                </div>
+                <h4 class="fw-bold mb-0">Admin Panel</h4>
+                <small class="text-muted">Disparo PRO</small>
+            </div>
+
+            <div id="adminLoginAlert" class="alert alert-danger d-none py-2"></div>
+
+            <form id="adminLoginForm" novalidate>
+                <div class="mb-3">
+                    <label class="form-label">E-mail</label>
+                    <input type="email" id="adminEmail" class="form-control" placeholder="admin@dominio.com" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Senha</label>
+                    <input type="password" id="adminPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" id="adminLoginBtn" class="btn btn-danger w-100 fw-semibold">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ── PAINEL PRINCIPAL ───────────────────────────────────── -->
+<div id="adminPanel" class="d-none">
+
+    <!-- Sidebar -->
+    <nav id="adminSidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <i class="bi bi-shield-fill-check text-white"></i>
+            </div>
+            <span>Admin Panel</span>
+        </div>
+        <div class="sidebar-nav">
+            <div class="sidebar-section-label">Menu</div>
+            <a class="nav-link admin-nav active" href="#" data-section="overview">
+                <i class="bi bi-speedometer2"></i><span>Visão Geral</span>
+            </a>
+            <a class="nav-link admin-nav" href="#" data-section="users">
+                <i class="bi bi-people"></i><span>Usuários</span>
+            </a>
+            <a class="nav-link admin-nav" href="#" data-section="payments">
+                <i class="bi bi-cash-stack"></i><span>Financeiro</span>
+            </a>
+        </div>
+        <div class="sidebar-footer">
+            <a class="nav-link" href="#" id="adminLogoutLink">
+                <i class="bi bi-box-arrow-right"></i><span>Sair</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Conteúdo -->
+    <div id="adminContent">
+
+        <!-- Header -->
+        <div class="admin-header">
+            <h5 id="adminPageTitle">Visão Geral</h5>
+            <div class="header-meta">
+                <span>Logado como <strong id="adminUserEmail"></strong></span>
+                <div class="header-avatar"><i class="bi bi-person-fill"></i></div>
+            </div>
+        </div>
+
+        <!-- ── VISÃO GERAL ── -->
+        <section id="section-overview" class="admin-section active">
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+                        <div>
+                            <div class="stat-label">Total Usuários</div>
+                            <div class="stat-value" id="statTotalUsers">—</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i class="bi bi-person-check-fill"></i></div>
+                        <div>
+                            <div class="stat-label">Ativos</div>
+                            <div class="stat-value" id="statActiveUsers">—</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon orange"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                        <div>
+                            <div class="stat-label">Inadimplentes</div>
+                            <div class="stat-value" id="statOverdue">—</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon purple"><i class="bi bi-currency-dollar"></i></div>
+                        <div>
+                            <div class="stat-label">Receita (mês)</div>
+                            <div class="stat-value" id="statRevenue">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela recentes -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white fw-semibold">Usuários Recentes</div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Plano</th>
+                                <th>Status</th>
+                                <th>Cadastro</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overviewRecentUsers">
+                            <tr><td colspan="5" class="text-center text-muted py-4">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── USUÁRIOS ── -->
+        <section id="section-users" class="admin-section d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">Gerenciar Usuários</h6>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                    <i class="bi bi-person-plus me-1"></i>Novo Usuário
+                </button>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <input type="text" id="userSearchInput" class="form-control form-control-sm"
+                           placeholder="Buscar por nome ou e-mail...">
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Status</th>
+                                <th class="text-center">Instâncias</th>
+                                <th>Vencimento</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr><td colspan="6" class="text-center text-muted py-4">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── FINANCEIRO ── -->
+        <section id="section-payments" class="admin-section d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">Controle Financeiro</h6>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                    <i class="bi bi-plus-lg me-1"></i>Registrar Pagamento
+                </button>
+            </div>
+
+            <!-- Filtros -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-2">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <select id="filterPaymentStatus" class="form-select form-select-sm">
+                                <option value="">Todos os status</option>
+                                <option value="paid">Pago</option>
+                                <option value="pending">Pendente</option>
+                                <option value="overdue">Inadimplente</option>
+                                <option value="cancelled">Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="filterPaymentPlan" class="form-select form-select-sm">
+                                <option value="">Todos os planos</option>
+                                <option value="free">Free</option>
+                                <option value="pro">Pro</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-outline-secondary btn-sm" id="paymentsRefreshBtn">
+                                <i class="bi bi-arrow-clockwise"></i> Atualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Plano</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th>Vencimento</th>
+                                <th>Pago em</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentsTableBody">
+                            <tr><td colspan="7" class="text-center text-muted py-4">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </div><!-- /adminContent -->
+</div><!-- /adminPanel -->
+
+<!-- ── MODAIS ─────────────────────────────────────────────── -->
+
+<!-- Criar Usuário -->
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <!-- Header com gradiente -->
+            <div class="modal-header border-0 pb-0" style="background: linear-gradient(135deg,#0f1117,#1a1d23); border-radius: 16px 16px 0 0;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:40px;height:40px;background:rgba(220,53,69,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-person-plus-fill text-danger fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0">Novo Usuário</h5>
+                        <small class="text-secondary">Preencha os dados do cliente</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body pt-4">
+
+                <!-- Nome + E-mail lado a lado -->
+                <div class="row g-3 mb-3">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="bi bi-person me-1"></i>Nome completo
+                        </label>
+                        <input type="text" id="newUserName" class="form-control" placeholder="João Silva">
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="bi bi-envelope me-1"></i>E-mail
+                        </label>
+                        <input type="email" id="newUserEmail" class="form-control" placeholder="joao@email.com">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="bi bi-whatsapp me-1 text-success"></i>WhatsApp
+                        </label>
+                        <input type="tel" id="newUserWhatsapp" class="form-control" placeholder="(11) 99999-9999" maxlength="15">
+                    </div>
+                </div>
+
+                <!-- CPF + Senha -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="bi bi-card-text me-1"></i>CPF
+                        </label>
+                        <input type="text" id="newUserCpf" class="form-control" placeholder="000.000.000-00" maxlength="14">
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="bi bi-lock me-1"></i>Senha temporária
+                        </label>
+                        <input type="text" id="newUserPassword" class="form-control" placeholder="Mín. 6 caracteres">
+                    </div>
+                </div>
+
+                <!-- Instâncias -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                        <i class="bi bi-phone me-1"></i>Instâncias
+                    </label>
+                          <input type="number" id="newUserInstances" class="form-control" min="0" value="1">
+                </div>
+
+                <!-- Card resumo financeiro -->
+                <div style="background:linear-gradient(135deg,#e8f0fe,#f0f4ff);border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border:1px solid #c7d7f9;">
+                    <div>
+                        <div style="font-size:.75rem;color:#5f6b7c;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Total da cobrança</div>
+                        <div style="font-size:1.4rem;font-weight:800;color:#1a73e8;" id="newUserTotal">R$ 99,00</div>
+                    </div>
+                    <div style="text-align:right;font-size:.8rem;color:#6c757d;">
+                        <div><i class="bi bi-check-circle-fill text-success me-1"></i>PIX disponível</div>
+                        <div><i class="bi bi-check-circle-fill text-success me-1"></i>Boleto disponível</div>
+                    </div>
+                </div>
+
+                <div id="createUserAlert" class="mt-3 d-none"></div>
+            </div>
+
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" id="createUserBtn" class="btn btn-primary px-4">
+                    <i class="bi bi-person-plus me-1"></i>Criar e Gerar Cobrança
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Editar Usuário -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#1a1d23,#2d3748);border-radius:16px 16px 0 0;">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:40px;height:40px;background:rgba(26,115,232,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-pencil-fill text-primary fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0">Editar Usuário</h5>
+                        <small class="text-secondary" id="editUserSubtitle">carregando...</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body pt-4">
+                <input type="hidden" id="editUserId">
+
+                <!-- Nome -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                        <i class="bi bi-person me-1"></i>Nome completo
+                    </label>
+                    <input type="text" id="editUserName" class="form-control" placeholder="Nome do usuário">
+                </div>
+
+                <!-- WhatsApp + CPF -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="bi bi-whatsapp me-1 text-success"></i>WhatsApp
+                        </label>
+                        <input type="tel" id="editUserPhone" class="form-control" placeholder="(11) 99999-9999" maxlength="15">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                            <i class="bi bi-card-text me-1"></i>CPF
+                        </label>
+                        <input type="text" id="editUserCpf" class="form-control" placeholder="000.000.000-00" maxlength="14">
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                        <i class="bi bi-toggle-on me-1"></i>Status da conta
+                    </label>
+                    <select id="editUserActive" class="form-select">
+                        <option value="true">✅ Ativo</option>
+                        <option value="false">❌ Desativado</option>
+                    </select>
+                </div>
+
+                <!-- Upgrade de Instâncias -->
+                <hr class="my-3" style="border-color:#e9ecef;">
+                <div class="mb-2 d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                        <i class="bi bi-phone me-1"></i>Instâncias cadastradas
+                    </span>
+                    <span id="editUserCurrentInstances" class="badge bg-primary fs-6">0</span>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                        <i class="bi bi-arrow-up-circle me-1 text-success"></i>Cobrar por X instâncias
+                    </label>
+                          <input type="number" id="editUserInstances" class="form-control" min="1" value="1">
+                </div>
+
+                <!-- Resumo financeiro -->
+                <div style="background:linear-gradient(135deg,#e8f0fe,#f0f4ff);border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border:1px solid #c7d7f9;">
+                    <div>
+                        <div style="font-size:.75rem;color:#5f6b7c;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Total da cobrança</div>
+                        <div style="font-size:1.4rem;font-weight:800;color:#1a73e8;" id="editUserTotal">R$ 99,00</div>
+                    </div>
+                    <div style="text-align:right;font-size:.8rem;color:#6c757d;">
+                        <div><i class="bi bi-check-circle-fill text-success me-1"></i>PIX disponível</div>
+                        <div><i class="bi bi-check-circle-fill text-success me-1"></i>Boleto disponível</div>
+                    </div>
+                </div>
+
+                <!-- Instâncias cadastradas -->
+                <hr class="my-3" style="border-color:#e9ecef;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold text-secondary" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;">
+                        <i class="bi bi-hdd-network me-1"></i>Instâncias cadastradas
+                    </span>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="addInstanceRowBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Adicionar instância
+                    </button>
+                </div>
+                <div id="editUserInstancesList" class="mt-2"></div>
+                <small class="text-muted d-block mt-1">Somente instâncias com Apikey preenchida aparecem para o cliente.</small>
+
+                <div id="editUserAlert" class="d-none mt-3"></div>
+            </div>
+
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="editUserSaveBtn" class="btn btn-outline-primary px-3">
+                    <i class="bi bi-check-lg me-1"></i>Salvar alterações
+                </button>
+                <button type="button" id="editUserBillingBtn" class="btn btn-success px-3">
+                    <i class="bi bi-receipt me-1"></i>Gerar Cobrança
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Exclusão -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="border:none;border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-0 pb-0" style="background:linear-gradient(135deg,#1a1d23,#2d3748);">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:40px;height:40px;background:rgba(220,53,69,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-trash-fill text-danger fs-5"></i>
+                    </div>
+                    <h5 class="modal-title text-white mb-0">Deletar usuário</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-4 pb-2 text-center">
+                <p class="mb-1 text-muted" style="font-size:.9rem;">Você está prestes a deletar</p>
+                <p class="fw-bold fs-6 mb-3" id="deleteUserName">—</p>
+                <div style="background:#fff3f3;border:1px solid #f5c2c7;border-radius:10px;padding:10px 14px;font-size:.82rem;color:#842029;">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    Pagamentos e instâncias vinculados também serão removidos. Esta ação não pode ser desfeita.
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-3 d-flex gap-2">
+                <button type="button" class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="deleteUserConfirmBtn" class="btn btn-danger flex-fill">
+                    <i class="bi bi-trash me-1"></i>Deletar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Registrar Pagamento -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cash-stack me-2"></i>Registrar Pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Usuário</label>
+                    <select id="paymentUserId" class="form-select">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Plano</label>
+                    <select id="paymentPlan" class="form-select">
+                        <option value="free">Free</option>
+                        <option value="pro">Pro</option>
+                        <option value="enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col">
+                        <label class="form-label">Valor (R$)</label>
+                        <input type="number" id="paymentAmount" class="form-control" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="col">
+                        <label class="form-label">Status</label>
+                        <select id="paymentStatus" class="form-select">
+                            <option value="paid">Pago</option>
+                            <option value="pending">Pendente</option>
+                            <option value="overdue">Inadimplente</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Vencimento</label>
+                    <input type="date" id="paymentDueDate" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Observações</label>
+                    <textarea id="paymentNotes" class="form-control" rows="2" placeholder="Opcional..."></textarea>
+                </div>
+                <div id="addPaymentAlert" class="d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="addPaymentBtn">
+                    <i class="bi bi-check-lg me-1"></i>Registrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Modal Cobrança Asaas -->
+    <div class="modal fade" id="billingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="billingModalTitle">
+                        <i class="bi bi-check-circle me-2"></i>Cobrança Gerada
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <div class="bg-light rounded p-2 text-center">
+                                <small class="text-muted d-block">Valor</small>
+                                <strong id="billingAmount" class="fs-5">R$ 0,00</strong>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="bg-light rounded p-2 text-center">
+                                <small class="text-muted d-block">Vencimento</small>
+                                <strong id="billingDueDate">-</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info py-2 small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <span id="billingInstances">1 instância × R$99</span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Link de Pagamento <small class="text-muted">(PIX + Boleto)</small></label>
+                        <div class="input-group">
+                            <input type="text" id="billingPaymentLinkInput" class="form-control form-control-sm" readonly>
+                            <button class="btn btn-outline-secondary btn-sm" id="billingCopyLinkBtn" title="Copiar">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                            <a id="billingPaymentLinkOpen" href="#" target="_blank" class="btn btn-success btn-sm">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </div>
+                        <small class="text-muted">Envie este link ao cliente para pagamento via PIX ou Boleto</small>
+                    </div>
+                    <div id="billingBoletoSection" class="d-none">
+                        <label class="form-label fw-semibold">Boleto</label>
+                        <div class="input-group">
+                            <input type="text" id="billingBoletoUrl" class="form-control form-control-sm" readonly>
+                            <a id="billingBoletoOpen" href="#" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-file-earmark-text"></i> Abrir
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="frontend/assets/notiflix/build/notiflix-aio.js"></script>
+<script>
+      window.APP_ENV = {
+        SUPABASE_URL:    "https://zjwfymxknibxndaglyuo.supabase.co",
+        SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpqd2Z5bXhrbmlieG5kYWdseXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwODE4MjIsImV4cCI6MjA5MzY1NzgyMn0.RS_Vd_a2JbozS8iE4Uph6dbU9mqfDwian_1Y6tlT9y0",
+        API_BASE_URL:    "http://localhost:3001"
+      };
+    </script>
+<script src="config/env.js"></script>
+<script src="frontend/js/supabase.js"></script>
+<script src="frontend/js/services/notification.service.js"></script>
+<script src="frontend/js/services/n8n.service.js"></script>
+<script src="frontend/js/services/api.service.js"></script>
+<script src="frontend/js/admin.js"></script>
+<script src="frontend/js/modules/admin/users.js"></script>
+<script src="frontend/js/modules/admin/payments.js"></script>
+<script src="frontend/js/modules/admin/billing.js"></script>
+</body>
+</html>

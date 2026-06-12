@@ -1,0 +1,268 @@
+{
+  "name": "Asaas Webhook - Callbacks de Pagamento",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asaas-webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook Asaas",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "asaas-webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value2": "PAYMENT_RECEIVED",
+              "operation": "equal"
+            },
+            {
+              "value2": "PAYMENT_CONFIRMED",
+              "operation": "equal"
+            },
+            {
+              "value2": "PAYMENT_OVERDUE",
+              "operation": "equal"
+            }
+          ]
+        },
+        "dataType": "string",
+        "value1": "={{ $json.body.event }}",
+        "fallbackOutput": "extra"
+      },
+      "id": "node-switch",
+      "name": "Tipo de Evento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + \"/rest/v1/payments?asaas_payment_id=eq.\" + $json.body.payment.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"status\": \"paid\",\n  \"paid_at\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "node-update-payment-paid",
+      "name": "Marcar Pagamento como Pago",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [700, 160]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + \"/rest/v1/profiles?id=eq.\" + $json[0].user_id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "{\"is_active\": true}",
+        "options": {}
+      },
+      "id": "node-activate-user",
+      "name": "Ativar Usuario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [960, 160]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + \"/rest/v1/payments?asaas_payment_id=eq.\" + $('Webhook Asaas').item.json.body.payment.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "{\"status\": \"overdue\"}",
+        "options": {}
+      },
+      "id": "node-update-payment-overdue",
+      "name": "Marcar Pagamento como Vencido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [700, 440]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + \"/rest/v1/profiles?id=eq.\" + $json[0].user_id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ \"Bearer \" + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "{\"is_active\": false}",
+        "options": {}
+      },
+      "id": "node-deactivate-user",
+      "name": "Desativar Usuario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [960, 440]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-ok-paid",
+      "name": "Responder 200 (Pago)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-ok-overdue",
+      "name": "Responder 200 (Vencido)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 440]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-ok-other",
+      "name": "Responder 200 (Outros)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [700, 620]
+    }
+  ],
+  "connections": {
+    "Webhook Asaas": {
+      "main": [
+        [{ "node": "Tipo de Evento", "type": "main", "index": 0 }]
+      ]
+    },
+    "Tipo de Evento": {
+      "main": [
+        [{ "node": "Marcar Pagamento como Pago", "type": "main", "index": 0 }],
+        [{ "node": "Marcar Pagamento como Pago", "type": "main", "index": 0 }],
+        [{ "node": "Marcar Pagamento como Vencido", "type": "main", "index": 0 }],
+        [{ "node": "Responder 200 (Outros)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Marcar Pagamento como Pago": {
+      "main": [
+        [{ "node": "Ativar Usuario", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ativar Usuario": {
+      "main": [
+        [{ "node": "Responder 200 (Pago)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Marcar Pagamento como Vencido": {
+      "main": [
+        [{ "node": "Desativar Usuario", "type": "main", "index": 0 }]
+      ]
+    },
+    "Desativar Usuario": {
+      "main": [
+        [{ "node": "Responder 200 (Vencido)", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

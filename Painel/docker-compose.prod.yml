@@ -1,0 +1,147 @@
+# ============================================================
+# DOCKER COMPOSE — PRODUÇÃO — Disparo Pro
+# ============================================================
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Serviços:
+#   api     → Fastify API (NODE_ENV=production)
+#   workers → BullMQ workers (processo separado)
+#   redis   → Redis 7 com persistência AOF
+#   caddy   → Reverse proxy + HTTPS automático (Let's Encrypt)
+#
+# Pré-requisitos:
+#   - Criar arquivo .env a partir de backend/.env.example
+#   - Supabase hospedado externamente (não containerizado)
+#   - Evolution API hospedada externamente
+#
+# Segurança:
+#   - API e workers não expõem portas ao host
+#   - Redis acessível apenas internamente (rede docker)
+#   - Secrets injetados via variáveis de ambiente
+#   - Logs em JSON (pino production)
+#
+# ============================================================
+
+services:
+  # ── API ──────────────────────────────────────────────────────
+  api:
+    image: node:20-alpine
+    working_dir: /app
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./backend:/app:ro
+      - /app/node_modules
+    command: ["node", "dist/server.js"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+        reservations:
+          memory: 128m
+
+  # ── Workers BullMQ ───────────────────────────────────────────
+  workers:
+    image: node:20-alpine
+    working_dir: /app
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./backend:/app:ro
+      - /app/node_modules
+    command: ["node", "dist/jobs/workers/index.js"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+  # ── Redis ─────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Persistência AOF + RDB para zero perda de dados
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --save 60 1000
+      --save 300 100
+      --save 900 1
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --protected-mode yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 300m
+
+  # ── Reverse Proxy (Caddy com HTTPS automático) ───────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Substituir pelo domínio real
+      API_DOMAIN: ${API_DOMAIN:-api.yourdomain.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  internal:
+    driver: bridge
+    # Isolar da rede padrão do Docker
+    internal: false
+
+volumes:
+  redis_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local

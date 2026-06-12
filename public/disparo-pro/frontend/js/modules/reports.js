@@ -2,6 +2,237 @@
 // 14. GERENCIAMENTO DE HISTORICO
 // ========================================
 const HistoryManager = {
+    campaigns: [],
+    filteredCampaigns: [],
+    isShowingCampaignHistory: false,
+    initialized: false,
+
+    initialize() {
+        if (this.initialized) {
+            this.loadCampaignHistory();
+            return;
+        }
+
+        this.initialized = true;
+        document.getElementById('refreshHistoryBtn')?.addEventListener('click', () => this.loadCampaignHistory());
+        document.getElementById('historySearchInput')?.addEventListener('input', () => this.renderCampaignHistory());
+        document.getElementById('historyStatusFilter')?.addEventListener('change', () => this.renderCampaignHistory());
+        document.getElementById('historyPeriodFilter')?.addEventListener('change', () => this.renderCampaignHistory());
+
+        this.loadCampaignHistory();
+    },
+
+    async loadCampaignHistory() {
+        const tbody = document.getElementById('historyTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Carregando historico de campanhas...
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
+            const response = await fetch('/api/disparos/campanhas');
+            const payload = await response.json();
+            if (!response.ok || payload.success === false) {
+                throw new Error(payload.message || 'Erro ao carregar campanhas');
+            }
+
+            this.campaigns = Array.isArray(payload.data) ? payload.data : [];
+            this.isShowingCampaignHistory = this.campaigns.length > 0;
+
+            if (this.isShowingCampaignHistory) {
+                this.setSourceInfo('Historico consolidado carregado do banco.');
+                this.renderCampaignHistory();
+            } else {
+                this.setSourceInfo('Nenhuma campanha encontrada no banco. Exibindo historico local.');
+                this.updateLocalTable();
+            }
+        } catch (error) {
+            console.warn('Falha ao carregar historico consolidado:', error);
+            this.isShowingCampaignHistory = false;
+            this.setSourceInfo('Nao foi possivel carregar o banco. Exibindo historico local.');
+            this.updateLocalTable();
+        }
+    },
+
+    getFilteredCampaigns() {
+        const search = String(document.getElementById('historySearchInput')?.value || '').trim().toLowerCase();
+        const status = String(document.getElementById('historyStatusFilter')?.value || '').trim();
+        const period = String(document.getElementById('historyPeriodFilter')?.value || '').trim();
+        const now = new Date();
+
+        return this.campaigns.filter((campaign) => {
+            if (search && !String(campaign.titulo || '').toLowerCase().includes(search)) return false;
+            if (status && campaign.status !== status) return false;
+            if (!period || !campaign.createdAt) return true;
+
+            const createdAt = new Date(campaign.createdAt);
+            if (Number.isNaN(createdAt.getTime())) return true;
+            if (period === 'today') {
+                return createdAt.toDateString() === now.toDateString();
+            }
+
+            const days = Number(period);
+            if (!Number.isFinite(days)) return true;
+            return createdAt >= new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+        });
+    },
+
+    renderCampaignHistory() {
+        const tbody = document.getElementById('historyTableBody');
+        const exportBtn = document.getElementById('exportHistoryBtn');
+        if (!tbody) return;
+
+        this.filteredCampaigns = this.getFilteredCampaigns();
+        this.isShowingCampaignHistory = true;
+
+        if (exportBtn) {
+            exportBtn.style.display = this.filteredCampaigns.length > 0 ? 'inline-block' : 'none';
+        }
+
+        if (this.filteredCampaigns.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                        Nenhuma campanha encontrada para os filtros atuais
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = this.filteredCampaigns.map((campaign) => {
+            const total = Number(campaign.totalContatos || 0);
+            const sent = Number(campaign.totalEnviados || 0);
+            const failed = Number(campaign.totalFalhas || 0);
+            const rate = total > 0 ? Math.round((sent / total) * 100) : 0;
+            const rateClass = rate >= 80 ? 'bg-success' : rate >= 50 ? 'bg-warning' : 'bg-danger';
+            const statusClass = this.getStatusClass(campaign.status);
+            const date = campaign.createdAt ? Utils.safeFormatDate(campaign.createdAt) : '-';
+
+            return `
+                <tr>
+                    <td>${date}</td>
+                    <td>
+                        <div class="fw-semibold">${this.escapeHtml(campaign.titulo || 'Campanha sem titulo')}</div>
+                        <small class="text-muted">${this.escapeHtml(campaign.instancia?.nome || 'Sem instancia')}</small>
+                    </td>
+                    <td>${total}</td>
+                    <td><span class="text-success fw-bold">${sent}</span></td>
+                    <td><span class="text-danger fw-bold">${failed}</span></td>
+                    <td><span class="badge ${rateClass}">${rate}%</span></td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-outline-primary btn-sm history-results-btn" data-campaign-id="${campaign.id}" title="Ver resultados">
+                                <i class="bi bi-graph-up"></i>
+                            </button>
+                            <button class="btn btn-outline-success btn-sm history-export-btn" data-campaign-id="${campaign.id}" title="Exportar CSV">
+                                <i class="bi bi-download"></i>
+                            </button>
+                            <span class="btn btn-sm ${statusClass}" title="Status">${this.escapeHtml(campaign.status || '-')}</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    updateLocalTable() {
+        this.isShowingCampaignHistory = false;
+        this.updateTable();
+    },
+
+    openCampaignResults(campaignId) {
+        const nav = document.querySelector('.nav-link[data-section="resultados"]');
+        nav?.click();
+
+        setTimeout(async () => {
+            await window.ResultsManager?.initialize?.();
+            const select = document.getElementById('resultsCampaignSelect');
+            if (select) select.value = String(campaignId);
+            await window.ResultsManager?.loadSelectedCampaignResults?.();
+        }, 250);
+    },
+
+    async exportCampaignCsv(campaignId) {
+        await window.ResultsManager?.initialize?.();
+        const previousResult = window.ResultsManager?.currentResult || null;
+        try {
+            const response = await fetch(`/api/disparos/campanhas/${campaignId}/resultados`);
+            const payload = await response.json();
+            if (!response.ok || payload.success === false) {
+                throw new Error(payload.message || 'Erro ao carregar resultados');
+            }
+            window.ResultsManager.currentResult = payload;
+            window.ResultsManager.exportCsv();
+        } catch (error) {
+            UI.showError(error.message || 'Erro ao exportar campanha');
+        } finally {
+            if (window.ResultsManager) window.ResultsManager.currentResult = previousResult;
+        }
+    },
+
+    exportCampaignHistoryCsv() {
+        const rows = [
+            ['Data/Hora', 'Campanha', 'Status', 'Instancia', 'Total', 'Enviados', 'Falhas', 'Taxa Sucesso (%)'],
+            ...this.filteredCampaigns.map((campaign) => {
+                const total = Number(campaign.totalContatos || 0);
+                const sent = Number(campaign.totalEnviados || 0);
+                const failed = Number(campaign.totalFalhas || 0);
+                const rate = total > 0 ? Math.round((sent / total) * 100) : 0;
+                return [
+                    campaign.createdAt ? new Date(campaign.createdAt).toLocaleString('pt-BR') : '',
+                    campaign.titulo || '',
+                    campaign.status || '',
+                    campaign.instancia?.nome || '',
+                    total,
+                    sent,
+                    failed,
+                    rate
+                ];
+            })
+        ];
+
+        const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'historico-campanhas.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+    },
+
+    getStatusClass(status) {
+        const normalized = String(status || '').toLowerCase();
+        if (['concluida', 'completed', 'finalizada'].includes(normalized)) return 'btn-success';
+        if (['em_andamento', 'processando'].includes(normalized)) return 'btn-warning';
+        if (['cancelada', 'falhou'].includes(normalized)) return 'btn-danger';
+        if (['pausada'].includes(normalized)) return 'btn-secondary';
+        return 'btn-outline-secondary';
+    },
+
+    setSourceInfo(message) {
+        const info = document.getElementById('historySourceInfo');
+        if (info) info.textContent = message;
+    },
+
+    escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char]));
+    },
+
     saveToHistory(sessionData) {
         const safeDetails = Array.isArray(sessionData.details) ? sessionData.details : [];
 
@@ -84,6 +315,11 @@ const HistoryManager = {
     },
 
     updateTable() {
+        if (this.isShowingCampaignHistory) {
+            this.renderCampaignHistory();
+            return;
+        }
+
         const tbody = document.getElementById('historyTableBody');
         const exportBtn = document.getElementById('exportHistoryBtn');
 
@@ -283,6 +519,11 @@ const HistoryManager = {
     },
 
     clear() {
+        if (this.isShowingCampaignHistory) {
+            UI.showInfo('O historico consolidado vem do banco e nao e apagado por aqui. Use filtros para localizar campanhas.');
+            return;
+        }
+
         UI.confirm(
             'Limpar Histórico',
             'Tem certeza que deseja limpar todo o histórico de envios?',

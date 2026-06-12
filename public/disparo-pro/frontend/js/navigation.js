@@ -29,6 +29,9 @@ const NavigationManager = {
             resultados: {
                 onEnter: () => window.ResultsManager?.initialize(),
             },
+            historico: {
+                onEnter: () => window.HistoryManager?.initialize(),
+            },
         };
 
         if (navLinks.length && contentSections.length) {

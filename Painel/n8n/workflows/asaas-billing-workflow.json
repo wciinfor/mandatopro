@@ -1,0 +1,78 @@
+{
+  "name": "Asaas Billing - Gerar Cobranca",
+  "nodes": [
+    {
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "asaas-billing",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asaas-billing",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-process",
+      "name": "Processar Asaas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const raw = $json.body ?? $json;\nlet body = raw;\nif (typeof raw === 'string') {\n  try { body = JSON.parse(raw); } catch (_) {}\n}\n\nconst action = body.action || 'criar_cobranca';\nconst apiKey = this.getEnv('ASAAS_API_KEY');\nconst headers = { 'access_token': apiKey, 'Content-Type': 'application/json' };\nconst base = this.getEnv('ASAAS_BASE_URL') || 'https://api.asaas.com/v3';\n\nasync function req(method, url, body) {\n  const opts = { method, url, headers, json: true };\n  if (body) opts.body = body;\n  return await this.helpers.httpRequest(opts);\n}\n\nfunction addDaysISO(days) {\n  const d = new Date();\n  d.setDate(d.getDate() + days);\n  return d.toISOString().slice(0, 10);\n}\n\nfunction errInfo(err) {\n  return {\n    status: err?.statusCode || err?.response?.status || err?.response?.statusCode || err?.cause?.status,\n    message: err?.message || String(err),\n    data: err?.response?.data\n  };\n}\n\nif (action === 'cancelar_por_usuario') {\n  if (!body.userId) return [{ json: { success: false, error: 'userId ausente' } }];\n\n  let payments = [];\n  const listByRef = await req('GET', base + '/payments?externalReference=' + body.userId + '&limit=100');\n  payments = listByRef.data || [];\n\n  if (!payments.length) {\n    const customers = await req('GET', base + '/customers?externalReference=' + body.userId);\n    const customerId = customers?.data?.[0]?.id;\n    if (customerId) {\n      const listByCustomer = await req('GET', base + '/payments?customer=' + customerId + '&limit=100');\n      payments = listByCustomer.data || [];\n    }\n  }\n\n  const pending = payments.filter(p => ['PENDING','OVERDUE'].includes(p.status));\n  let cancelled = 0;\n  const failed = [];\n\n  for (const p of pending) {\n    try {\n      await req('POST', base + '/payments/' + p.id + '/cancel');\n      cancelled++;\n      continue;\n    } catch (err) {\n      // Tenta DELETE como fallback\n      try {\n        await req('DELETE', base + '/payments/' + p.id);\n        cancelled++;\n        continue;\n      } catch (err2) {\n        failed.push({ id: p.id, cancel: errInfo(err), del: errInfo(err2) });\n      }\n    }\n  }\n\n  return [{ json: { success: true, cancelled, totalFound: payments.length, failed } }];\n}\n\nif (action === 'criar_cobranca') {\n  if (!body.userId) return [{ json: { success: false, error: 'userId ausente' } }];\n\n  const instanceCount = Number(body.instanceCount || body.instances || 0);\n  const price = Number(body.pricePerInstance || 99);\n  const amount = Number(body.amount || 0) || (instanceCount * price);\n  if (!amount || amount <= 0) {\n    return [{ json: { success: false, error: 'Valor invalido para cobranca' } }];\n  }\n\n  const dueDate = body.dueDate || addDaysISO(5);\n  const description = body.description || 'Disparo PRO - ' + (instanceCount || 1) + ' instancia(s) x R$ ' + price;\n\n  const searchRes = await req('GET', base + '/customers?externalReference=' + body.userId);\n  let customerId;\n\n  if (searchRes.totalCount > 0) {\n    customerId = searchRes.data[0].id;\n    const upd = { name: body.userName, mobilePhone: body.userPhone };\n    if (body.userCpf) upd.cpfCnpj = body.userCpf;\n    try { await req('PUT', base + '/customers/' + customerId, upd); } catch (_) {}\n  } else {\n    const newCustomer = await req('POST', base + '/customers', {\n      name: body.userName,\n      mobilePhone: body.userPhone,\n      cpfCnpj: body.userCpf,\n      externalReference: body.userId,\n      notificationDisabled: false\n    });\n    if (!newCustomer.id) {\n      return [{ json: { success: false, error: 'Falha ao criar cliente: ' + JSON.stringify(newCustomer) } }];\n    }\n    customerId = newCustomer.id;\n  }\n\n  const payment = await req('POST', base + '/payments', {\n    customer: customerId,\n    billingType: 'UNDEFINED',\n    value: amount,\n    dueDate,\n    description,\n    externalReference: body.userId\n  });\n\n  if (!payment.id) {\n    const errMsg = payment.errors?.[0]?.description || payment.description || JSON.stringify(payment);\n    return [{ json: { success: false, error: errMsg } }];\n  }\n\n  let extRef = body.userId;\n  try {\n    const paymentDetails = await req('GET', base + '/payments/' + payment.id);\n    if (paymentDetails?.externalReference) extRef = paymentDetails.externalReference;\n  } catch (_) {}\n\n  return [{ json: {\n    success: true,\n    paymentId: payment.id,\n    customerId: payment.customer,\n    status: payment.status,\n    invoiceUrl: payment.invoiceUrl || null,\n    bankSlipUrl: payment.bankSlipUrl || null,\n    dueDate: payment.dueDate,\n    value: payment.value,\n    externalReference: extRef,\n    sentExternalReference: body.userId\n  } }];\n}\n\nreturn [{ json: { success: false, error: 'acao invalida: ' + action } }];"
+      }
+    },
+    {
+      "id": "node-respond",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        780,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Processar Asaas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Asaas": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

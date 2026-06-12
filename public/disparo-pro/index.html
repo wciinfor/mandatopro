@@ -121,12 +121,6 @@
                     </a>
                 </div>
 
-                <div class="nav-item">
-                    <a class="nav-link" data-section="backup">
-                        <i class="bi bi-shield-check"></i>
-                        Backup & Restore
-                    </a>
-                </div>
             </div>
 
             <div class="sidebar-footer">
@@ -1440,6 +1434,47 @@
                     <p>Consulte todos os envios realizados anteriormente</p>
                 </div>
 
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-lg-4">
+                                <label class="form-label">Buscar campanha</label>
+                                <input type="text" class="form-control" id="historySearchInput"
+                                    placeholder="Nome da campanha">
+                            </div>
+                            <div class="col-lg-3">
+                                <label class="form-label">Status</label>
+                                <select id="historyStatusFilter" class="form-control">
+                                    <option value="">Todos</option>
+                                    <option value="rascunho">Rascunho</option>
+                                    <option value="preparada">Preparada</option>
+                                    <option value="em_andamento">Em andamento</option>
+                                    <option value="concluida">Concluida</option>
+                                    <option value="pausada">Pausada</option>
+                                    <option value="cancelada">Cancelada</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-2">
+                                <label class="form-label">Periodo</label>
+                                <select id="historyPeriodFilter" class="form-control">
+                                    <option value="">Tudo</option>
+                                    <option value="today">Hoje</option>
+                                    <option value="7">7 dias</option>
+                                    <option value="30">30 dias</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-3 d-grid">
+                                <button type="button" class="btn btn-primary" id="refreshHistoryBtn">
+                                    <i class="bi bi-arrow-clockwise me-2"></i>Atualizar Historico
+                                </button>
+                            </div>
+                        </div>
+                        <small id="historySourceInfo" class="text-muted d-block mt-2">
+                            O historico consolidado usa campanhas registradas no banco.
+                        </small>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div
                         class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
@@ -1460,12 +1495,12 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Data/Hora</th>
-                                        <th>Instância</th>
+                                        <th>Campanha</th>
                                         <th>Total Contatos</th>
-                                        <th>Sucessos</th>
-                                        <th>Erros</th>
+                                        <th>Enviados</th>
+                                        <th>Falhas</th>
                                         <th>Taxa Sucesso</th>
-                                        <th>Ações</th>
+                                        <th>Acoes</th>
                                     </tr>
                                 </thead>
                                 <tbody id="historyTableBody">
@@ -1477,99 +1512,6 @@
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Backup Section -->
-            <div class="content-section" id="backup-section">
-                <div class="content-header">
-                    <h2><i class="bi bi-shield-check me-2"></i>Backup & Restore</h2>
-                    <p>Faça backup de seus dados e restaure configurações anteriores</p>
-                </div>
-
-                <div class="card">
-                    <div class="card-header bg-gradient-primary text-white">
-                        <h5 class="m-2"><i class="bi bi-shield-check me-2"></i>Gerenciamento de Dados</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            <strong>O backup inclui:</strong> Histórico completo, lista de contatos, configurações da
-                            instância, mensagens e arquivos de mídia.
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="card h-100">
-                                    <div class="card-body text-center">
-                                        <i class="bi bi-download fs-1 text-primary mb-3"></i>
-                                        <h6>Fazer Backup</h6>
-                                        <p class="text-muted small">
-                                            Exporte todos os seus dados em um arquivo seguro
-                                            para restaurar posteriormente.
-                                        </p>
-                                        <button type="button" class="btn btn-primary" id="exportBackupBtn">
-                                            <i class="bi bi-download me-2"></i>Fazer Backup Completo
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-3">
-                                <div class="card h-100">
-                                    <div class="card-body text-center">
-                                        <i class="bi bi-upload fs-1 text-secondary mb-3"></i>
-                                        <h6>Restaurar Backup</h6>
-                                        <p class="text-muted small">
-                                            Importe um backup anterior para restaurar todos os
-                                            seus dados e configurações.
-                                        </p>
-                                        <button type="button" class="btn btn-secondary" id="importBackupBtn">
-                                            <i class="bi bi-upload me-2"></i>Restaurar Backup
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- NOVO CARD PARA GERENCIAR DADOS DA SESSÃO -->
-                            <div class="col-md-3">
-                                <div class="card h-100">
-                                    <div class="card-body text-center">
-                                        <i class="bi bi-save fs-1 text-success mb-3"></i>
-                                        <h6>Dados da Sessão</h6>
-                                        <p class="text-muted small">
-                                            Gerencie os dados salvos automaticamente durante
-                                            o uso da aplicação.
-                                        </p>
-                                        <div class="d-grid gap-2">
-                                            <button type="button" class="btn btn-outline-info btn-sm" id="showStorageInfoBtn">
-                                                <i class="bi bi-info-circle me-1"></i>Ver Info
-                                            </button>
-                                            <button type="button" class="btn btn-outline-warning btn-sm" id="clearSessionDataBtn">
-                                                <i class="bi bi-trash3 me-1"></i>Limpar Dados
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-3">
-                                <div class="card h-100">
-                                    <div class="card-body text-center">
-                                        <i class="bi bi-trash fs-1 text-warning mb-3"></i>
-                                        <h6>Limpar Cache</h6>
-                                        <p class="text-muted small">
-                                            Remove dados temporários e cache do navegador para
-                                            melhorar a performance. Resetar completamente o sistema.
-                                        </p>
-                                        <button type="button" class="btn btn-outline-warning" id="clearSettingsBtn">
-                                            <i class="bi bi-trash me-2"></i>Limpar Cache
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1941,17 +1883,17 @@
     <script src="frontend/js/services/n8n.service.js?v=1779664871766"></script>
     <script src="frontend/js/services/supabase.service.js?v=1779664871766"></script>
     <script src="frontend/js/services/api.service.js?v=1779664871766"></script>
-    <script src="frontend/js/modules/integrations.js?v=20260611-results-panel"></script>
+    <script src="frontend/js/modules/integrations.js?v=20260611-history-panel"></script>
     <script src="frontend/js/modules/dashboard.js?v=20260611-results-panel"></script>
     <script src="frontend/js/modules/contacts.js?v=1779664871766"></script>
-    <script src="frontend/js/modules/reports.js?v=1779664871766"></script>
+    <script src="frontend/js/modules/reports.js?v=20260611-history-panel"></script>
     <script src="frontend/js/modules/profile.js?v=1779664871766"></script>
-    <script src="frontend/js/modules/settings.js?v=1779664871766"></script>
+    <script src="frontend/js/modules/settings.js?v=20260611-history-panel"></script>
     <script src="frontend/js/modules/instances.js?v=20260608-qrcode-fix"></script>
-    <script src="frontend/js/modules/campaigns.js?v=20260611-stop-button"></script>
+    <script src="frontend/js/modules/campaigns.js?v=20260611-history-panel"></script>
     <script src="frontend/js/auth.js?v=1779664871766"></script>
     <script src="mandatopro-embed.js?v=mandatopro-20260526-start-campaign"></script>
-    <script src="frontend/js/navigation.js?v=20260611-results-panel"></script>
+    <script src="frontend/js/navigation.js?v=20260611-history-panel"></script>
     <script src="frontend/js/ui.js?v=mandatopro-20260525-safe-config"></script>
     <script src="frontend/js/app.js?v=1779664871766"></script>
     <script src="frontend/js/main.js?v=1779664871766"></script>

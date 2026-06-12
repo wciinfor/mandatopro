@@ -1,0 +1,2201 @@
+/* ========================================
+   DISPARO PRO - LAYOUT CSS ORGANIZADO COM SIDEBAR
+   ======================================== */
+
+/* ========================================
+   1. VARIÁVEIS CSS
+   ======================================== */
+:root {
+    --bg-primary: linear-gradient(135deg, #3679b5 0%, #832ddb 100%);
+    --bg-body: #f8f9fa;
+    --bg-card: #ffffff;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    --instance-card-bg: #ffffff;
+    --instance-card-border: #e6e8ec;
+    --instance-card-sheen: rgba(26, 115, 232, 0.06);
+    --instance-card-shadow: 0 10px 24px rgba(20, 35, 60, 0.08);
+    --contact-bg: #ffffff;
+    --contact-list: #e7e7e7;
+    --contact-border: #25D366;
+    --upload-border: #dee2e6;
+    --upload-hover: #f8f9fa;
+    --upload-dragover: #e8f5e8;
+    --sidebar-bg: #2c3e50;
+    --sidebar-hover: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] {
+    --bg-body: #1a1a1a;
+    --bg-card: #2d2d30;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --border-color: #444444;
+    --instance-card-bg: #2b2e34;
+    --instance-card-border: #3a3f45;
+    --instance-card-sheen: rgba(255, 255, 255, 0.04);
+    --instance-card-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    --contact-bg: #2d2d30;
+    --contact-list: #3d3d3d;
+    --contact-border: #25D366;
+    --upload-border: #444444;
+    --upload-hover: #3c3c3f;
+    --upload-dragover: #2d4a2d;
+    --sidebar-bg: #08081d;
+}
+
+/* ========================================
+   2. ELEMENTOS BASE
+   ======================================== */
+body {
+    background-color: var(--bg-body);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: 'Poppins', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar-dark {
+    background: var(--bg-primary) !important;
+}
+
+.bg-gradient-primary {
+    background: var(--bg-primary);
+}
+
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
+.bg-light {
+    background-color: var(--upload-hover) !important;
+}
+
+/* ========================================
+   3. SIDEBAR
+   ======================================== */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    background: linear-gradient(180deg, var(--sidebar-bg) 0%, #34495e 100%);
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Tema Dark (padrão) */
+.sidebar-header h3 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    margin: 0;
+    color: #ffffff;
+}
+
+/* Tema Light */
+[data-theme="light"] .sidebar-header h3 {
+    color: #98cbff;
+}
+
+.sidebar.collapsed {
+    transform: translateX(-100%);
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-header img {
+    border-radius: 10px;
+    max-width: 100%;
+    filter: brightness(1.2);
+}
+
+.sidebar-nav {
+    padding: 1rem 0;
+}
+
+.nav-item {
+    margin: 0.2rem 1rem;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.nav-link:hover {
+    background: var(--sidebar-hover);
+    color: #fff;
+    transform: translateX(5px);
+}
+
+.nav-link.active {
+    background: var(--bg-primary);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(54, 121, 181, 0.3);
+}
+
+.nav-link i {
+    margin-right: 0.75rem;
+    width: 20px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+.sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.badge-counter {
+    background: #dc3545;
+    color: white;
+    border-radius: 10px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    margin-left: auto;
+    min-width: 18px;
+    text-align: center;
+}
+
+/* ========================================
+   4. MAIN CONTENT
+   ======================================== */
+.main-content {
+    margin-left: 280px;
+    transition: margin-left 0.3s ease;
+    min-height: 100vh;
+    background-color: var(--bg-body);
+}
+
+.main-content.expanded {
+    margin-left: 0;
+}
+
+.top-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 0.75rem 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Container flex em coluna para duas linhas */
+.top-header>.d-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Primeira linha: Menu + Dashboard + Instâncias */
+.top-header .header-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+/* Segunda linha: Tema + Sair */
+.top-header .header-bottom-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.top-header h4 {
+    font-size: 1.1rem;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.content-section {
+    display: none;
+    padding: 2rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.content-section.active {
+    display: block;
+}
+
+.content-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.content-header h2 {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+.content-header p {
+    color: var(--text-secondary);
+    margin: 0.5rem 0 0 0;
+    font-size: 1rem;
+}
+
+.mobile-toggle {
+    display: none;
+}
+
+/* ========================================
+   5. CARDS E FORMULÁRIOS
+   ======================================== */
+.card {
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+}
+
+.card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.form-control,
+.form-select {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--bg-card);
+    border-color: #25D366;
+    color: var(--text-primary);
+    box-shadow: 0 0 0 0.2rem rgba(37, 211, 102, 0.25);
+}
+
+.form-control::placeholder {
+    color: var(--text-secondary);
+}
+
+/* ========================================
+   6. BOTÕES
+   ======================================== */
+.btn-whatsapp {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    border: none;
+    color: white;
+    border-radius: 10px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-whatsapp:hover {
+    background: linear-gradient(135deg, #128C7E 0%, #075E54 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+}
+
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn-outline-light:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ========================================
+   7. UPLOAD DE ARQUIVOS
+   ======================================== */
+.file-upload-area {
+    border: 2px dashed var(--upload-border);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.file-upload-area:hover {
+    border-color: #25D366;
+    background-color: var(--upload-hover);
+    transform: translateY(-2px);
+}
+
+.file-upload-area.dragover {
+    border-color: #25D366;
+    background-color: var(--upload-dragover);
+    transform: scale(1.02);
+}
+
+/* ========================================
+   8. CONTATOS
+   ======================================== */
+.contact-item {
+    background: var(--contact-list);
+    border-radius: 8px;
+    margin-bottom: 5px;
+    padding: 8px 12px;
+    border-left: 4px solid var(--contact-border);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.contact-item:hover {
+    background: var(--contact-border);
+    color: white;
+    transform: translateX(5px);
+}
+
+#contactsList {
+    background-color: var(--contact-bg) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary);
+    border-radius: 8px;
+}
+
+/* ========================================
+   9. PREVIEW WHATSAPP - BASE
+   ======================================== */
+.whatsapp-preview {
+    background-image: url('../assets/img/black.jpg');
+    background-size: cover;
+    background-repeat: repeat;
+    background-position: center;
+    border-radius: 20px;
+    padding: 20px;
+    margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+[data-theme="light"] .whatsapp-preview {
+    background-image: url('../assets/img/green.jpg');
+}
+
+.whatsapp-preview::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.01), transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.01), transparent 50%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Garantir que o conteúdo fique acima do overlay */
+.whatsapp-header,
+.whatsapp-message,
+.preview-placeholder {
+    position: relative;
+    z-index: 1;
+}
+
+/* ========================================
+   10. HEADER DO WHATSAPP
+   ======================================== */
+.whatsapp-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    color: white;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(135deg, rgba(7, 94, 84, 0.95), rgb(22 77 56));
+    border-radius: 15px 15px 0 0;
+    margin: -20px -20px 20px -20px;
+    position: relative;
+    z-index: 2;
+    backdrop-filter: blur(10px);
+}
+
+.whatsapp-avatar {
+    width: 40px;
+    height: 40px;
+    background: #25D366;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-weight: bold;
+    color: white;
+}
+
+.whatsapp-contact-info h6 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.whatsapp-contact-info small {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+}
+
+/* ========================================
+   11. MENSAGEM DO WHATSAPP
+   ======================================== */
+.whatsapp-message {
+    background: #144d37;
+    border-radius: 18px 0px 18px 18px;
+    padding: 12px 16px;
+    margin-left: auto;
+    max-width: 85%;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    color: white;
+    line-height: 1.4;
+}
+
+.whatsapp-message::after {
+    content: '';
+    position: absolute;
+    top: 0px;
+    right: -11px;
+    width: 0;
+    height: 0;
+    border-top: 14px solid #144d37;
+    border-right: 14px solid transparent;
+}
+
+.whatsapp-time {
+    font-size: 11px;
+    color: #667781;
+    text-align: right;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.whatsapp-time i {
+    color: #4fc3f7;
+}
+
+/* ========================================
+   12. MÍDIA NO WHATSAPP
+   ======================================== */
+.whatsapp-media {
+    border-radius: 12px;
+    max-width: 100%;
+    margin-bottom: 8px;
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+/* Vídeo específico */
+video.whatsapp-media {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 300px !important;
+    border-radius: 10px !important;
+    background: #000 !important;
+}
+
+/* ========================================
+   13. PREVIEW MÚLTIPLAS MENSAGENS
+   ======================================== */
+#multiplePreviewContent .whatsapp-preview {
+    background-image: url('../assets/img/black.jpg');
+    background-size: cover;
+    background-repeat: repeat;
+    background-position: center;
+    border-radius: 20px;
+    padding: 20px;
+    margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+[data-theme="light"] #multiplePreviewContent .whatsapp-preview {
+    background-image: url('../assets/img/green.jpg');
+}
+
+#multiplePreviewContent .whatsapp-preview::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.01), transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.01), transparent 50%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+#multiplePreviewContent .whatsapp-header,
+#multiplePreviewContent .whatsapp-message,
+#multiplePreviewContent .preview-placeholder,
+#multiplePreviewContent .badge {
+    position: relative;
+    z-index: 1;
+}
+
+#multiplePreviewContent .whatsapp-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    color: white;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(135deg, rgba(7, 94, 84, 0.95), rgb(22 77 56));
+    border-radius: 15px 15px 0 0;
+    margin: -20px -20px 20px -20px;
+    backdrop-filter: blur(10px);
+}
+
+#multiplePreviewContent .whatsapp-avatar {
+    width: 40px;
+    height: 40px;
+    background: #25D366;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-weight: bold;
+    color: white;
+}
+
+#multiplePreviewContent .whatsapp-contact-info h6 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+#multiplePreviewContent .whatsapp-contact-info small {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+}
+
+#multiplePreviewContent .whatsapp-message {
+    background: #144d37;
+    border-radius: 18px 0px 18px 18px;
+    padding: 12px 16px;
+    margin-left: auto;
+    max-width: 85%;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    color: white;
+    line-height: 1.4;
+}
+
+#multiplePreviewContent .whatsapp-message::after {
+    content: '';
+    position: absolute;
+    top: 0px;
+    right: -11px;
+    width: 0;
+    height: 0;
+    border-top: 14px solid #144d37;
+    border-right: 14px solid transparent;
+}
+
+#multiplePreviewContent .whatsapp-media {
+    border-radius: 12px;
+    max-width: 100%;
+    margin-bottom: 8px;
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+#multiplePreviewContent video.whatsapp-media {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 300px !important;
+    border-radius: 10px !important;
+    background: #000 !important;
+}
+
+#multiplePreviewContent .whatsapp-time {
+    font-size: 11px;
+    color: #667781;
+    text-align: right;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+#multiplePreviewContent .whatsapp-time i {
+    color: #4fc3f7;
+}
+
+#multiplePreviewContent .preview-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
+}
+
+#multiplePreviewContent .badge {
+    margin-bottom: 10px;
+}
+
+.preview-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
+}
+
+/* ========================================
+   14. PREVIEW DE MÍDIA LATERAL
+   ======================================== */
+.msg-file-preview {
+    background: var(--upload-hover);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--border-color);
+}
+
+.msg-file-preview img,
+.msg-file-preview video {
+    max-width: 100px;
+    max-height: 100px;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+}
+
+.media-preview-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+
+[data-theme="dark"] .media-preview-icon {
+    background: #343a40;
+}
+
+#mediaPreview {
+    transition: all 0.3s ease;
+}
+
+#mediaPreview .border {
+    border: 2px dashed #dee2e6 !important;
+    transition: border-color 0.3s ease;
+}
+
+#mediaPreview .border:hover {
+    border-color: #00D95F !important;
+}
+
+#mediaPreviewContent img {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#clearMediaBtn {
+    transition: all 0.3s ease;
+}
+
+#clearMediaBtn:hover {
+    transform: scale(1.1);
+}
+
+/* ========================================
+   15. NAVEGAÇÃO POR ABAS
+   ======================================== */
+.nav-tabs .nav-link {
+    position: relative;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.3s ease;
+    color: #9E9E9E;
+    border-color: #9E9E9E;
+}
+
+.nav-tabs .nav-link:hover {
+    transform: translateY(-2px);
+}
+
+.nav-tabs .nav-link .badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    font-size: 0.6rem;
+    z-index: 9;
+}
+
+[data-theme="dark"] .nav-tabs .nav-link {
+    color: var(--text-secondary);
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link.active {
+    color: #25D366;
+    background-color: var(--bg-card);
+    border-color: #25D366 #25D366 var(--bg-card);
+}
+
+[data-theme="dark"] .tab-content {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+/* ========================================
+   16. INSTÂNCIAS
+   ======================================== */
+.instance-card {
+    border-radius: 10px;
+    border: 1px solid var(--instance-card-border);
+    background: linear-gradient(160deg, var(--instance-card-bg) 0%, var(--bg-card) 100%);
+    box-shadow: var(--instance-card-shadow);
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+}
+
+.instance-card::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2d7ef7 0%, #7b61ff 100%);
+    opacity: 0.35;
+}
+
+.instance-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--instance-card-sheen);
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+.instance-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+}
+
+.instance-card.connected {
+    border-color: #28a745;
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+}
+
+.instance-card.connected::after {
+    background: linear-gradient(90deg, #28a745 0%, #00b894 100%);
+    opacity: 0.6;
+}
+
+.instance-card.disconnected {
+    border-color: #dc3545;
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.3);
+}
+
+.instance-card.disconnected::after {
+    background: linear-gradient(90deg, #dc3545 0%, #ff6b6b 100%);
+    opacity: 0.6;
+}
+
+.instance-card.connecting {
+    border-color: #ffc107;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+.instance-card.connecting::after {
+    background: linear-gradient(90deg, #ffc107 0%, #ff9f1a 100%);
+    opacity: 0.6;
+}
+
+.status-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.instance-actions {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end;
+    pointer-events: auto;
+}
+
+.instance-card button,
+.instance-actions button {
+    pointer-events: auto;
+    z-index: 10;
+    position: relative;
+}
+
+.connecting .status-badge {
+    animation: pulse-connecting 2s infinite;
+}
+
+/* ========================================
+   17. EDITOR DE TEXTO RICO
+   ======================================== */
+.rich-text-editor {
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    background-color: white;
+    position: relative;
+}
+
+.rich-text-toolbar {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 8px 12px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.toolbar-btn {
+    background: none;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: #495057;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+
+.toolbar-btn:hover {
+    background-color: #e9ecef;
+    color: #212529;
+    transform: scale(1.05);
+}
+
+.toolbar-btn.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.toolbar-btn.clicked {
+    animation: buttonPulse 0.3s ease;
+}
+
+.rich-text-area {
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 12px;
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    width: 100%;
+    border-radius: 0 0 8px 8px;
+}
+
+.char-counter {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 11px;
+    color: #6c757d;
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.format-info {
+    background-color: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 8px;
+    padding: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #1976d2;
+}
+
+/* Editor - Tema escuro */
+[data-theme="dark"] .rich-text-editor {
+    border-color: #495057;
+    background-color: #343a40;
+}
+
+[data-theme="dark"] .rich-text-toolbar {
+    background-color: #495057;
+    border-bottom-color: #6c757d;
+}
+
+[data-theme="dark"] .toolbar-btn {
+    border-color: #6c757d;
+    color: #f8f9fa;
+}
+
+[data-theme="dark"] .toolbar-btn:hover {
+    background-color: #6c757d;
+    color: white;
+}
+
+[data-theme="dark"] .rich-text-area {
+    background-color: #343a40;
+    color: #f8f9fa;
+}
+
+[data-theme="dark"] .char-counter {
+    color: #adb5bd;
+    background-color: rgba(52, 58, 64, 0.9);
+}
+
+/* ========================================
+   18. MODAIS
+   ======================================== */
+.modal-content {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    border-radius: 15px 15px 0 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.qr-code-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-body .alert {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+.modal-body .alert ol li {
+    margin-bottom: 0.5rem;
+}
+
+#connectionModal .modal-dialog {
+    max-width: 600px;
+}
+
+#changelogModal .modal-dialog {
+    max-width: 800px;
+}
+
+#changelogModal .badge {
+    min-width: 45px;
+}
+
+#changelogModal ul li {
+    margin-bottom: 0.25rem;
+    color: var(--text-secondary);
+}
+
+#changelogModal h6 {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.qr-code-container .badge {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+}
+
+.navbar .badge {
+    font-size: 0.8rem;
+}
+
+[data-theme="dark"] .modal-content {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+
+/* ========================================
+   19. TEMPORIZADOR DE PRÓXIMO ENVIO
+   ======================================== */
+#nextSendTimer {
+    margin-bottom: 1rem;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    border-radius: 12px;
+}
+
+#timerCountdown {
+    font-family: 'Courier New', monospace;
+    min-width: 80px;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 20px !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.9rem !important;
+}
+
+#timerProgress {
+    transition: width 0.1s linear;
+    border-radius: 10px;
+}
+
+[data-theme="dark"] #nextSendTimer {
+    background: linear-gradient(135deg, #3977b3 0%, #7f31d5 100%);
+    color: #ffffff;
+}
+
+/* Estados específicos dos badges */
+#timerCountdown.bg-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+#timerCountdown.bg-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+#timerCountdown.bg-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
+    color: #212529 !important;
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+}
+
+#timerCountdown.bg-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #bd2130 100%) !important;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+#timerCountdown.bg-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%) !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+/* ========================================
+   20. LOGIN
+   ======================================== */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+.login-card {
+    background: rgb(8 8 26);
+    backdrop-filter: blur(15px);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.login-logo {
+    max-width: 90%;
+    margin-bottom: 2rem;
+    filter: brightness(1.1);
+}
+
+.login-card h2 {
+    color: #ffffff !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.login-card .text-muted {
+    color: #b3b3b3 !important;
+}
+
+.login-card .form-control {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    border-radius: 10px;
+    padding: 12px 15px;
+    backdrop-filter: blur(10px);
+}
+
+.login-card .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.login-card .form-control:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #667eea;
+    color: #ffffff;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.login-card .form-label {
+    color: #e0e0e0;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.login-card .form-check-label {
+    color: #d0d0d0;
+}
+
+.login-card .form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.main-app {
+    display: none;
+}
+
+.main-app.authenticated {
+    display: block;
+}
+
+.login-screen {
+    display: block;
+}
+
+.login-screen.hidden {
+    display: none;
+}
+
+.btn-login {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 12px 30px;
+    font-weight: 600;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+.login-card small {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* ========================================
+   21. ANIMAÇÕES
+   ======================================== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse-connecting {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes buttonPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ========================================
+   22. RESPONSIVIDADE
+   ======================================== */
+@media (display-mode: standalone) {
+    body {
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .container-fluid {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        width: 260px;
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .mobile-toggle {
+        display: inline-block;
+    }
+
+    .content-section {
+        padding: 1rem;
+    }
+
+    .content-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .top-header {
+        padding: 0.5rem;
+    }
+
+    .top-header h4 {
+        font-size: 0.95rem;
+    }
+
+    .top-header .btn-sm {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.85rem;
+    }
+
+    .top-header .badge {
+        font-size: 0.75rem;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+
+    .toolbar-btn {
+        padding: 4px 6px;
+        font-size: 11px;
+    }
+
+    .toolbar-btn span {
+        display: none;
+    }
+
+    .rich-text-toolbar {
+        gap: 4px;
+    }
+
+    .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .sidebar {
+        width: 100%;
+    }
+
+    .content-header {
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .content-header h2 {
+        font-size: 1.3rem;
+    }
+
+    .top-header h4 {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 375px) {
+    .top-header h4 {
+        font-size: 0.85rem;
+    }
+
+    .top-header .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+}
+
+/* ========================================
+   23. SCROLL PERSONALIZADO
+   ======================================== */
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* ========================================
+   24. BADGES E ELEMENTOS DIVERSOS
+   ======================================== */
+.badge {
+    transition: all 0.3s ease;
+    border-radius: 8px;
+}
+
+.stats-card {
+    background: var(--bg-primary);
+    color: white;
+}
+
+[data-theme="dark"] .progress {
+    background-color: #444444;
+}
+
+[data-theme="dark"] .border {
+    border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: var(--upload-hover) !important;
+}
+
+[data-theme="dark"] .table {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .table-light {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+
+/* ========================================
+   25. FORÇAR ESCONDER/MOSTRAR ELEMENTOS
+   ======================================== */
+.main-app:not(.authenticated) {
+    display: none !important;
+}
+
+.login-screen.hidden {
+    display: none !important;
+}
+
+.login-screen:not(.hidden) {
+    display: block !important;
+}
+
+/* Esconder elementos de envio durante login */
+.login-screen~.main-app .progress-container,
+.login-screen~.main-app #nextSendTimer {
+    display: none !important;
+}
+
+/* Mostrar apenas quando autenticado */
+.main-app.authenticated .progress-container,
+.main-app.authenticated #nextSendTimer {
+    display: block !important;
+}
+
+#multipleMessagesMode,
+#previewContainer {
+    display: block !important;
+}
+
+/* CSS para o novo ID previewContent */
+#previewContent .whatsapp-preview {
+    background-image: url('../assets/img/black.jpg');
+    background-size: cover;
+    background-repeat: repeat;
+    background-position: center;
+    border-radius: 20px;
+    padding: 20px;
+    margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+[data-theme="light"] #previewContent .whatsapp-preview {
+    background-image: url('../assets/img/green.jpg');
+}
+
+#previewContent .whatsapp-preview::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.01), transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.01), transparent 50%);
+    z-index: 0;
+    pointer-events: none;
+}
+
+#previewContent .whatsapp-header,
+#previewContent .whatsapp-message,
+#previewContent .preview-placeholder,
+#previewContent .badge {
+    position: relative;
+    z-index: 1;
+}
+
+/* Garantir que sempre seja visível */
+#multipleMessagesMode {
+    display: block !important;
+}
+
+#previewContainer {
+    display: block !important;
+}
+
+/* ========================================
+   26. TAGS DOS BOTÕES
+   ======================================== */
+.toolbar-tag-btn {
+    background: none !important;
+    border: 1px solid #dee2e6 !important;
+    color: #495057 !important;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.toolbar-tag-btn:hover {
+    background-color: #e9ecef !important;
+    color: #212529 !important;
+    border-color: #dee2e6 !important;
+}
+
+.toolbar-tag-btn.active {
+    background-color: #007bff !important;
+    color: white !important;
+    border-color: #007bff !important;
+}
+
+.toolbar-tag-btn span {
+    font-weight: normal;
+}
+
+.toolbar-tag-btn i {
+    color: inherit !important;
+}
+
+/* Tema escuro */
+[data-theme="dark"] .toolbar-tag-btn {
+    border-color: #6c757d !important;
+    color: #f8f9fa !important;
+}
+
+[data-theme="dark"] .toolbar-tag-btn:hover {
+    background-color: #6c757d !important;
+    color: white !important;
+}
+
+/* Animação simples para inserção de tag */
+.toolbar-tag-btn.clicked {
+    animation: buttonPulse 0.3s ease;
+}
+
+/* ========================================
+   27. MELHORIAS VISUAIS ADICIONAIS
+   ======================================== */
+.card-header.bg-gradient-primary {
+    background: var(--bg-primary) !important;
+    border-radius: 10px 10px 0 0;
+}
+
+.progress {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    border-radius: 10px;
+}
+
+.alert {
+    border-radius: 10px;
+    border: none;
+}
+
+.table {
+    border-radius: 0px 0px 10px 10px;
+    overflow: hidden;
+}
+
+/* Sticky positioning para preview */
+.position-sticky {
+    position: sticky !important;
+    top: 120px;
+}
+
+/* Melhorias nos cards de estatísticas */
+.card.text-center:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.card.text-center i {
+    transition: all 0.3s ease;
+}
+
+.card.text-center:hover i {
+    transform: scale(1.1);
+}
+
+/* ========================================
+   28. UPDATES BANNER
+   ======================================== */
+#updateBanner {
+    animation: slideDown 0.5s ease-out;
+}
+
+#updateBanner .btn {
+    transition: all 0.2s ease;
+}
+
+#updateBanner .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   29. THEME TOGGLE
+   ======================================== */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.btn-install {
+    animation: pulse 2s infinite;
+}
+
+/* ========================================
+   30. PROGRESS CONTAINER
+   ======================================== */
+.progress-container {
+    transition: all 0.3s ease;
+}
+
+/* ========================================
+   31. FINAL FIXES E COMPATIBILIDADE
+   ======================================== */
+/* Garantir compatibilidade com tema escuro em todos os elementos */
+[data-theme="dark"] .form-check-input {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .form-check-input:checked {
+    background-color: #25D366;
+    border-color: #25D366;
+}
+
+[data-theme="dark"] .navbar .badge {
+    background-color: #25D366 !important;
+    color: #fff !important;
+}
+
+/* Melhorar visibilidade do texto em cards escuros */
+[data-theme="dark"] .card-body small {
+    color: var(--text-secondary) !important;
+}
+
+/* Ajustes finais para preview */
+.whatsapp-preview .badge {
+    background-color: rgba(0, 123, 255, 0.8) !important;
+    color: white !important;
+}
+
+/* Fixes para elementos que podem não estar aparecendo corretamente */
+.nav-link[data-section] {
+    display: flex !important;
+}
+
+.content-section {
+    width: 100%;
+}
+
+/* Garantir que o sidebar seja sempre visível no desktop */
+@media (min-width: 769px) {
+    .sidebar {
+        transform: translateX(0) !important;
+    }
+}
+
+/* ========================================
+   32. AJUSTES ESPECÍFICOS DO SIDEBAR
+   ======================================== */
+[data-theme="dark"] .sidebar {
+    background: linear-gradient(180deg, #08081d 0%, #2d2d30 100%);
+}
+
+.sidebar-header img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 10px;
+}
+
+/* ========================================
+   33. MELHORIAS FINAIS
+   ======================================== */
+/* Ajustes para melhor aparência */
+.card-header {
+    font-weight: 600;
+}
+
+.nav-tabs {
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Melhorias no formato dos inputs */
+.form-control,
+.form-select {
+    font-size: 0.95rem;
+    padding: 0.6rem 0.75rem;
+}
+
+/* Ajustes nos botões */
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+/* Melhor espaçamento nos cards */
+.card-body {
+    padding: 1.25rem;
+}
+
+/* Ajustes na tipografia */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 600;
+}
+
+small {
+    font-size: 0.85rem;
+}
+
+/* Melhorias na acessibilidade */
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(37, 211, 102, 0.25);
+}
+
+/* Estilos para elementos desabilitados */
+.btn:disabled,
+.form-control:disabled,
+.form-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Ajustes finais para garantir boa aparência em todos os navegadores */
+* {
+    box-sizing: border-box;
+}
+
+/* Suavizar transições globais */
+* {
+    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Melhorar contraste em modo escuro */
+[data-theme="dark"] .text-dark {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .bg-white {
+    background-color: var(--bg-card) !important;
+}
+
+/* Garantir que texto seja sempre legível */
+[data-theme="dark"] .card-text,
+[data-theme="dark"] .list-group-item,
+[data-theme="dark"] .dropdown-item {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .list-group {
+    background-color: #2d2d30 !important;
+    --bs-list-group-bg: #2d2d30 !important;
+}
+
+[data-theme="dark"] .list-group-item:hover {
+    color: #2d2d30 !important;
+    --bs-list-group-color: #2d2d30 !important;
+}
+
+/* Finalização - garantir que todos os elementos funcionem corretamente */
+.fade {
+    transition: opacity 0.15s linear;
+}
+
+.collapse {
+    transition: height 0.35s ease;
+}
+
+/* ========================================
+   ESTILOS PARA SEÇÃO DE PERFORMANCE E RESULTADOS
+   ======================================== */
+
+/* Cards de estatísticas com animação */
+.card.text-center {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card.text-center:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.card.text-center i {
+    transition: all 0.3s ease;
+}
+
+.card.text-center:hover i {
+    transform: scale(1.1);
+}
+
+/* Animação dos números */
+.card.text-center h3,
+.card.text-center h4 {
+    animation: countUp 0.8s ease-out;
+    font-weight: 700;
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Barras de progresso animadas */
+.progress {
+    height: 8px;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #e9ecef;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+    border-radius: 10px;
+    background: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
+    /* animation: progress-bar-stripes 1s linear infinite; */
+}
+
+@keyframes progress-bar-stripes {
+    0% {
+        background-position: 1rem 0;
+    }
+
+    100% {
+        background-position: 0 0;
+    }
+}
+
+/* Cores específicas para diferentes tipos de progresso */
+.progress-bar.bg-success {
+    background: linear-gradient(45deg, #28a745, #20c997);
+}
+
+.progress-bar.bg-info {
+    background: linear-gradient(45deg, #17a2b8, #6f42c1);
+}
+
+.progress-bar.bg-warning {
+    background: linear-gradient(45deg, #ffc107, #fd7e14);
+}
+
+.progress-bar.bg-primary {
+    background: linear-gradient(45deg, #007bff, #6610f2);
+}
+
+/* Performance cards específicos */
+.performance-card {
+    border-left: 4px solid;
+    transition: all 0.3s ease;
+}
+
+.performance-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.performance-card.messages-per-hour {
+    border-left-color: #28a745;
+}
+
+.performance-card.efficiency {
+    border-left-color: #17a2b8;
+}
+
+.performance-card.quality {
+    border-left-color: #ffc107;
+}
+
+/* Indicadores visuais baseados em valores */
+.stat-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: 8px;
+    animation: pulse 2s infinite;
+}
+
+.stat-indicator.good {
+    background-color: #28a745;
+}
+
+.stat-indicator.average {
+    background-color: #ffc107;
+}
+
+.stat-indicator.poor {
+    background-color: #dc3545;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+/* Gráfico responsivo */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .progress {
+    background-color: #495057;
+}
+
+[data-theme="dark"] .card.text-center:hover {
+    box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .performance-card:hover {
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card.text-center {
+        margin-bottom: 1rem;
+    }
+
+    .card.text-center h3,
+    .card.text-center h4 {
+        font-size: 1.5rem;
+    }
+
+    .performance-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Estados específicos das estatísticas */
+.stats-excellent {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.stats-good {
+    color: #17a2b8;
+    font-weight: bold;
+}
+
+.stats-average {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.stats-poor {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* Efeito de loading para números */
+.loading-number {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+    color: transparent;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+[data-theme="dark"] .loading-number {
+    background: linear-gradient(90deg, #495057 25%, #6c757d 50%, #495057 75%);
+    background-size: 200% 100%;
+}
+
+.media-input-container {
+    transition: all 0.3s ease;
+}
+
+.url-preview-image {
+    max-width: 100px;
+    max-height: 100px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+
+.url-preview-video {
+    max-width: 150px;
+    max-height: 100px;
+    border-radius: 5px;
+}
+
+.url-preview-icon {
+    font-size: 2rem;
+    margin-right: 10px;
+}
+
+.btn-group .btn-check:checked+.btn {
+    background-color: var(--bs-primary);
+    color: white;
+}
+
+.media-type-info {
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 8px;
+    padding: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #1976d2;
+}
+
+[data-theme="dark"] .media-type-info {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+    color: #dbeafe;
+}
+
+.url-validation-success {
+    color: #28a745;
+    font-size: 12px;
+}
+
+.url-validation-error {
+    color: #dc3545;
+    font-size: 12px;
+}
+
+/* Estilos para o indicador de storage */
+/* #storage-indicator-card {
+    transition: all 0.3s ease;
+}
+
+#storage-indicator-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); */
+/* } */
+
+/* #storage-indicator-card .card {
+    border-left: 4px solid #17a2b8;
+} */
+
+/* Animação para dados restaurados */
+.session-restored {
+    animation: highlightRestore 2s ease-in-out;
+}
+
+@keyframes highlightRestore {
+    0% {
+        background-color: rgba(23, 162, 184, 0.1);
+        transform: scale(1);
+    }
+
+    50% {
+        background-color: rgba(23, 162, 184, 0.2);
+        transform: scale(1.02);
+    }
+
+    100% {
+        background-color: transparent;
+        transform: scale(1);
+    }
+}
+
+/* Badge para indicar dados restaurados */
+.restored-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: pulse 2s infinite;
+}
