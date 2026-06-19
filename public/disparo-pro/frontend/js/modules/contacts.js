@@ -78,20 +78,32 @@ const ContactManager = {
         return cleanText;
     },
 
+    normalizeDuplicateName(name) {
+        return this.cleanText(name)
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    },
+
     removeDuplicates(contacts) {
-        const seenPhones = new Map();
+        const seenNames = new Map();
         const uniqueContacts = [];
         const duplicates = [];
 
         contacts.forEach(contact => {
-            if (seenPhones.has(contact.phone)) {
+            const duplicateKey = this.normalizeDuplicateName(contact.name);
+
+            if (seenNames.has(duplicateKey)) {
                 duplicates.push({
                     duplicate: contact,
-                    original: seenPhones.get(contact.phone),
+                    original: seenNames.get(duplicateKey),
+                    name: contact.name,
                     phone: contact.phone
                 });
             } else {
-                seenPhones.set(contact.phone, contact);
+                seenNames.set(duplicateKey, contact);
                 uniqueContacts.push(contact);
             }
         });
