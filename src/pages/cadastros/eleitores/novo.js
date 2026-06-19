@@ -336,7 +336,8 @@ export default function NovoEleitor() {
       let latitude = formData.latitude ? parseFloat(formData.latitude) : null;
       let longitude = formData.longitude ? parseFloat(formData.longitude) : null;
 
-      // Geocodificar endereco se coordenadas estiverem vazias
+      // Geocodificar endereco se coordenadas estiverem vazias.
+      // Falha de geocodificacao nao deve bloquear o cadastro do eleitor.
       if (!latitude || !longitude) {
         const enderecoPartes = [
           formData.logradouro,
@@ -347,26 +348,27 @@ export default function NovoEleitor() {
           formData.cep
         ].filter(Boolean);
 
-        if (enderecoPartes.length < 3) {
-          showWarning('Preencha endereco completo para gerar as coordenadas.');
-          return;
+        if (enderecoPartes.length >= 3) {
+          try {
+            const endereco = enderecoPartes.join(', ');
+            const geoResponse = await fetch('/api/geolocalizacao/geocodificar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: endereco })
+            });
+
+            if (geoResponse.ok) {
+              const geoData = await geoResponse.json();
+              latitude = geoData.latitude;
+              longitude = geoData.longitude;
+            } else {
+              const geoError = await geoResponse.json().catch(() => ({}));
+              console.warn('Geocodificacao ignorada no cadastro:', geoError.error || geoResponse.statusText);
+            }
+          } catch (geoError) {
+            console.warn('Geocodificacao ignorada no cadastro:', geoError);
+          }
         }
-
-        const endereco = enderecoPartes.join(', ');
-        const geoResponse = await fetch('/api/geolocalizacao/geocodificar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: endereco })
-        });
-
-        if (!geoResponse.ok) {
-          const geoError = await geoResponse.json();
-          throw new Error(geoError.error || 'Erro ao gerar coordenadas');
-        }
-
-        const geoData = await geoResponse.json();
-        latitude = geoData.latitude;
-        longitude = geoData.longitude;
       }
 
       // Normalizar campos numericos
