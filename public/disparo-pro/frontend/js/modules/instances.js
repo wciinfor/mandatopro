@@ -601,7 +601,7 @@ const InstanceManager = {
         try {
             const dataToSave = AppState.instances.map(instance => ({
                 ...instance,
-                lastCheck: instance.lastCheck.toISOString()
+                lastCheck: instance.lastCheck ? new Date(instance.lastCheck).toISOString() : null
             }));
 
             console.log('💾 Salvando instâncias:', {
@@ -623,6 +623,48 @@ const InstanceManager = {
             console.error('❌ Erro ao salvar instâncias:', error);
             UI.showError('Erro ao salvar alterações das instâncias');
         }
+    },
+
+    async forceCheckAllInstancesOnLogin() {
+        if (!Array.isArray(AppState.instances) || AppState.instances.length === 0) {
+            this.updateInstancesList();
+            this.updateActiveInstances();
+            return;
+        }
+
+        console.log('Forcando verificacao das instancias no login...');
+
+        for (const instance of AppState.instances) {
+            try {
+                if (!instance.name || !instance.apikey) {
+                    instance.status = 'error';
+                    instance.lastCheck = new Date();
+                    continue;
+                }
+
+                const connectionStatus = await this.checkInstanceConnectionWithLicense(instance.name, instance.apikey);
+                instance.status = connectionStatus.status;
+                instance.qrCode = connectionStatus.qrCode || null;
+                instance.lastCheck = new Date();
+
+                if (typeof SupabaseDataManager !== 'undefined' && instance._supabaseId) {
+                    SupabaseDataManager.saveInstance(instance);
+                }
+            } catch (error) {
+                console.warn(`Erro ao verificar instancia ${instance.name} no login:`, error);
+                instance.status = 'error';
+                instance.lastCheck = new Date();
+            }
+
+            this.updateInstancesList();
+            this.updateActiveInstances();
+            await Utils.sleep(700);
+        }
+
+        this.saveInstances();
+        this.updateInstancesList();
+        this.updateActiveInstances();
+        console.log(`Verificacao de entrada concluida: ${AppState.instances.length} instancia(s)`);
     },
 
     getStatusBadgeClass(status) {

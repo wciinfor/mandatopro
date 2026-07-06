@@ -1228,10 +1228,20 @@ const SupabaseDataManager = {
             console.log(`✅ ${AppState.instances.length} instâncias carregadas do Supabase`);
 
             if (typeof InstanceManager !== 'undefined') {
+                InstanceManager.saveInstances();
                 InstanceManager.updateInstancesList();
+                InstanceManager.updateActiveInstances();
             }
         } catch (err) {
             console.error('❌ Erro ao carregar instâncias:', err);
+        }
+    },
+
+    async bootstrapUserInstances() {
+        await this.loadUserInstances();
+
+        if (typeof InstanceManager !== 'undefined') {
+            await InstanceManager.forceCheckAllInstancesOnLogin();
         }
     },
 
@@ -1387,6 +1397,24 @@ const SupabaseDataManager = {
             console.log(`✅ ${rows.length} contatos sincronizados no Supabase`);
         } catch (err) {
             console.error('❌ Erro ao salvar contatos:', err);
+        }
+    },
+
+    async deleteContact(phone) {
+        try {
+            const userId = AuthManager.currentUser?.id;
+            if (!userId || !phone) return;
+
+            const { error } = await SupabaseClient
+                .from('contacts')
+                .delete()
+                .eq('user_id', userId)
+                .eq('phone', String(phone));
+
+            if (error) throw error;
+            console.log('Contato removido do Supabase:', phone);
+        } catch (err) {
+            console.error('Erro ao remover contato do Supabase:', err);
         }
     },
 

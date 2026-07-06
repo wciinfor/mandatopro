@@ -19,7 +19,7 @@ const AuthManager = {
                 this.isAuthenticated = true;
                 this.showMainApp();
                 await App.initializeApp();
-                await SupabaseDataManager.loadUserInstances();
+                await SupabaseDataManager.bootstrapUserInstances();
                 if (typeof ProfileManager !== 'undefined') ProfileManager.loadProfile();
             } else {
                 this.showLoginScreen();
@@ -73,7 +73,7 @@ const AuthManager = {
             this.isAuthenticated = true;
             this.showMainApp();
             await App.initializeApp();
-            await SupabaseDataManager.loadUserInstances();
+            await SupabaseDataManager.bootstrapUserInstances();
             if (typeof ProfileManager !== 'undefined') ProfileManager.loadProfile();
 
         } catch (err) {

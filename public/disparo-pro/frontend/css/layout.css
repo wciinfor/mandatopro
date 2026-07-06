@@ -385,6 +385,24 @@ body {
     transform: translateX(5px);
 }
 
+.contact-item .remove-contact-btn {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
+
+.contact-item:hover .text-muted,
+.contact-item:hover .contact-index {
+    color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.contact-item:hover .remove-contact-btn {
+    background: #fff;
+    border-color: #fff;
+    color: #dc3545;
+}
+
 #contactsList {
     background-color: var(--contact-bg) !important;
     border-color: var(--border-color) !important;

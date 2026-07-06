@@ -172,6 +172,9 @@ const ContactManager = {
             contactsList.innerHTML = '<p class="text-muted text-center mb-0">Importe um arquivo Excel para visualizar os contatos</p>';
             if (clearContactsBtn) clearContactsBtn.style.display = 'none';
             if (exportContactsBtn) exportContactsBtn.style.display = 'none';
+            if (typeof AutoSaveManager !== 'undefined' && !AutoSaveManager.isLoading) {
+                AutoSaveManager.saveSessionData();
+            }
             return;
         }
 
@@ -180,20 +183,74 @@ const ContactManager = {
 
         contactsList.innerHTML = AppState.contacts.map((contact, index) =>
             `<div class="contact-item">
-            <div class="d-flex justify-content-between align-items-center">
-                <small class="text-muted">#${index + 1}</small>
-                <div>
-                    <strong>${contact.name}</strong> - ${PhoneUtils.displayFormattedPhone(contact.phone)}
-                    ${contact.email ? `<br><small class="text-muted"><i class="bi bi-envelope me-1"></i>${contact.email}</small>` : ''}
-                    ${!contact.isValid ? '<span class="badge bg-warning ms-2">Verificar</span>' : ''}
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <div class="d-flex gap-2">
+                    <small class="text-muted contact-index">#${index + 1}</small>
+                    <div>
+                        <strong>${this.escapeHtml(contact.name)}</strong> - ${this.escapeHtml(PhoneUtils.displayFormattedPhone(contact.phone))}
+                        ${contact.email ? `<br><small class="text-muted"><i class="bi bi-envelope me-1"></i>${this.escapeHtml(contact.email)}</small>` : ''}
+                        ${!contact.isValid ? '<span class="badge bg-warning ms-2">Verificar</span>' : ''}
+                    </div>
                 </div>
+                <button type="button" class="btn btn-outline-danger btn-sm remove-contact-btn"
+                    data-contact-index="${index}" title="Remover contato">
+                    <i class="bi bi-trash"></i>
+                </button>
             </div>
         </div>`
         ).join('');
 
+        this.bindRemoveContactEvents();
+
         if (typeof AutoSaveManager !== 'undefined' && !AutoSaveManager.isLoading) {
             AutoSaveManager.saveSessionData();
         }
+    },
+
+    escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char]));
+    },
+
+    bindRemoveContactEvents() {
+        const contactsList = document.getElementById('contactsList');
+        if (!contactsList || contactsList.dataset.removeHandlerBound === 'true') return;
+
+        contactsList.dataset.removeHandlerBound = 'true';
+        contactsList.addEventListener('click', (event) => {
+            const button = event.target.closest('.remove-contact-btn');
+            if (!button) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const index = Number(button.dataset.contactIndex);
+            this.removeContact(index);
+        });
+    },
+
+    async removeContact(index) {
+        if (!Number.isInteger(index) || index < 0 || index >= AppState.contacts.length) return;
+
+        const [removedContact] = AppState.contacts.splice(index, 1);
+        this.updateContactsList();
+        TimeEstimator.update();
+
+        if (AppState.contacts.length === 0) {
+            const fileInfo = document.getElementById('fileInfo');
+            if (fileInfo) fileInfo.style.display = 'none';
+        }
+
+        if (typeof SupabaseDataManager !== 'undefined' && removedContact?.phone) {
+            SupabaseDataManager.deleteContact?.(removedContact.phone);
+        }
+
+        UI.showSuccess(`Contato ${removedContact?.name || ''} removido da lista`);
     },
 
     updateDashboardContactCount() {
