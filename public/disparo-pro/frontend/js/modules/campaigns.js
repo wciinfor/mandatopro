@@ -210,6 +210,7 @@ const SendingManager = {
             }
 
             console.log('📝 Validando mensagens (única chamada)...');
+            if (typeof Validators !== 'undefined') Validators._lastValidation = null;
             const messagesValidation = Validators.messages();
             if (!messagesValidation.valid) {
                 return {
@@ -2081,6 +2082,7 @@ const MultipleMessagesManager = {
             if (enabledCheckbox) {
                 enabledCheckbox.addEventListener('change', (e) => {
                     AppState.messagesConfig[msgId].enabled = e.target.checked;
+                    if (typeof Validators !== 'undefined') Validators._lastValidation = null;
                     debouncedUpdate();
                     this.updateMessageStatus(msgId);
                     this.updateMainPreview(msgId);
@@ -2091,6 +2093,7 @@ const MultipleMessagesManager = {
             if (textInput) {
                 textInput.addEventListener('input', (e) => {
                     AppState.messagesConfig[msgId].text = e.target.value;
+                    if (typeof Validators !== 'undefined') Validators._lastValidation = null;
                     debouncedUpdate();
                     this.updateMainPreview(msgId);
                     this.updateMessageStatus(msgId);
@@ -2442,7 +2445,28 @@ const MultipleMessagesManager = {
         }
     },
 
+    syncMessagesConfigFromUI() {
+        ['msg1', 'msg2', 'msg3'].forEach(msgId => {
+            if (!AppState.messagesConfig[msgId]) {
+                AppState.messagesConfig[msgId] = { enabled: false, text: '', media: null };
+            }
+
+            const enabledCheckbox = document.getElementById(`${msgId}-enabled`);
+            const textInput = document.getElementById(`${msgId}-text`);
+
+            if (enabledCheckbox) {
+                AppState.messagesConfig[msgId].enabled = enabledCheckbox.checked;
+            }
+
+            if (textInput) {
+                AppState.messagesConfig[msgId].text = textInput.value || '';
+            }
+        });
+    },
+
     updateActiveMessagesInfo() {
+        this.syncMessagesConfigFromUI();
+
         if (this._isUpdatingCount) {
             console.log('🔄 Verificação já em andamento, pulando...');
             return;
@@ -2497,6 +2521,8 @@ const MultipleMessagesManager = {
     },
 
     getRandomActiveMessage() {
+        this.syncMessagesConfigFromUI();
+
         const activeMessages = Object.entries(AppState.messagesConfig)
             .filter(([id, config]) => config.enabled && (config.text.trim() || config.media));
 
@@ -2554,6 +2580,8 @@ const MultipleMessagesManager = {
     },
 
     validateMessages() {
+        this.syncMessagesConfigFromUI();
+
         const activeMessages = Object.values(AppState.messagesConfig)
             .filter(config => config.enabled);
 
@@ -2863,6 +2891,8 @@ const MultipleMessagesManager = {
     },
 
     getRandomActiveMessage() {
+        this.syncMessagesConfigFromUI();
+
         const activeMessages = Object.entries(AppState.messagesConfig)
             .filter(([id, config]) => config.enabled && (config.text.trim() || config.media));
 
