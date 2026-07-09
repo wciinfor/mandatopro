@@ -43,21 +43,37 @@ function aplicarFiltrosComuns(query, { cidade, bairro, search }, columns = {}) {
   return next;
 }
 
-async function buscarEleitoresPorCampanha(supabase, campanhaId, limit) {
+function normalizarPresencaCampanha(value) {
+  const presenca = sanitizeText(value).toLowerCase();
+  if (presenca === 'presentes' || presenca === 'presente') return 'presentes';
+  if (presenca === 'ausentes' || presenca === 'ausente') return 'ausentes';
+  return '';
+}
+
+async function buscarEleitoresPorCampanha(supabase, campanhaId, limit, presencaCampanha = '') {
   const id = sanitizeText(campanhaId);
   if (!id) return null;
 
   const eleitorIds = [];
   const vistos = new Set();
+  const presenca = normalizarPresencaCampanha(presencaCampanha);
 
   for (let from = 0; eleitorIds.length < limit; from += PAGE_SIZE) {
     const to = from + PAGE_SIZE - 1;
-    const { data, error } = await supabase
+    let query = supabase
       .from('atendimentos')
       .select('eleitor_id')
       .eq('campanha_id', id)
       .not('eleitor_id', 'is', null)
       .range(from, to);
+
+    if (presenca === 'presentes') {
+      query = query.eq('ausente_acao_campanha', false);
+    } else if (presenca === 'ausentes') {
+      query = query.eq('ausente_acao_campanha', true);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     if (!data?.length) break;
@@ -126,7 +142,7 @@ async function fetchPaginated(buildQuery, limit) {
 }
 
 async function buscarEleitores(supabase, filtros, limit) {
-  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit);
+  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit, filtros.presencaCampanha);
   if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return [];
 
   let rows = [];
@@ -203,7 +219,7 @@ async function countQuery(query) {
 }
 
 async function contarEleitores(supabase, filtros, limit) {
-  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit);
+  const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit, filtros.presencaCampanha);
   if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return 0;
 
   if (Array.isArray(eleitorIds)) {
@@ -234,7 +250,8 @@ function normalizarFiltros(filtros = {}) {
     bairro: filtros.bairro,
     status: filtros.status,
     search: filtros.search,
-    campanhaId: filtros.campanhaId
+    campanhaId: filtros.campanhaId,
+    presencaCampanha: filtros.presencaCampanha
   };
 
   return { origem, params };

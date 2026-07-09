@@ -116,6 +116,14 @@
             </select>
           </div>
           <div class="col-md-2">
+            <label class="form-label">Presen&ccedil;a</label>
+            <select id="mandatoPresencaCampanha" class="form-control">
+              <option value="">Todos</option>
+              <option value="presentes">Presentes na campanha</option>
+              <option value="ausentes">Ausentes na campanha</option>
+            </select>
+          </div>
+          <div class="col-md-2">
             <label class="form-label">Cidade</label>
             <input id="mandatoCidade" class="form-control" placeholder="Cidade">
           </div>
@@ -165,12 +173,15 @@
     const campanhaId = origem === 'eleitores'
       ? document.getElementById('mandatoCampanha')?.value || ''
       : '';
+    const presencaCampanha = origem === 'eleitores' && campanhaId
+      ? document.getElementById('mandatoPresencaCampanha')?.value || ''
+      : '';
 
-    return new URLSearchParams({ origem, cidade, bairro, search, limit, campanhaId });
+    return new URLSearchParams({ origem, cidade, bairro, search, limit, campanhaId, presencaCampanha });
   }
 
   function bindMandatoFilterPreview() {
-    const fields = ['mandatoOrigem', 'mandatoCampanha', 'mandatoCidade', 'mandatoBairro', 'mandatoBusca', 'mandatoLimite'];
+    const fields = ['mandatoOrigem', 'mandatoCampanha', 'mandatoPresencaCampanha', 'mandatoCidade', 'mandatoBairro', 'mandatoBusca', 'mandatoLimite'];
     for (const id of fields) {
       const element = document.getElementById(id);
       if (!element || element.dataset.mandatoPreviewBound === 'true') continue;
@@ -178,6 +189,9 @@
       element.dataset.mandatoPreviewBound = 'true';
       const eventName = element.tagName === 'SELECT' ? 'change' : 'input';
       element.addEventListener(eventName, scheduleMandatoContactsPreview);
+      if (id === 'mandatoCampanha') {
+        element.addEventListener('change', updateMandatoCampaignFilterState);
+      }
     }
   }
 
@@ -220,11 +234,18 @@
   function updateMandatoCampaignFilterState() {
     const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
     const campanhaSelect = document.getElementById('mandatoCampanha');
+    const presencaSelect = document.getElementById('mandatoPresencaCampanha');
     if (!campanhaSelect) return;
 
     const enabled = origem === 'eleitores';
     campanhaSelect.disabled = !enabled;
     if (!enabled) campanhaSelect.value = '';
+
+    if (presencaSelect) {
+      const presencaEnabled = enabled && Boolean(campanhaSelect.value);
+      presencaSelect.disabled = !presencaEnabled;
+      if (!presencaEnabled) presencaSelect.value = '';
+    }
   }
 
   function formatMandatoCampaignLabel(campaign) {

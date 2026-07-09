@@ -45,7 +45,8 @@ export default async function handler(req, res) {
       bairro: req.query.bairro,
       status: req.query.status,
       search: req.query.search,
-      campanhaId: req.query.campanhaId
+      campanhaId: req.query.campanhaId,
+      presencaCampanha: req.query.presencaCampanha
     });
 
     if (String(req.query.format || '').toLowerCase() === 'csv') {
