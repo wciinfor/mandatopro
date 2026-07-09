@@ -1,0 +1,2 @@
+ALTER TABLE public.eleitores
+  ALTER COLUMN cpf DROP NOT NULL;

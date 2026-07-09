@@ -321,11 +321,6 @@ export default function NovoEleitor() {
         return;
       }
 
-      if (!formData.cpf.trim()) {
-        showWarning('CPF é obrigatório');
-        return;
-      }
-
       if (formData.tituloEleitoral && formData.tituloEleitoral.length > 12) {
         showWarning('Nº Título deve ter no máximo 12 caracteres');
         return;
@@ -538,7 +533,7 @@ export default function NovoEleitor() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">CPF *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">CPF</label>
                 <input
                   type="text"
                   name="cpf"
@@ -548,7 +543,6 @@ export default function NovoEleitor() {
                   placeholder="000.000.000-00"
                   maxLength="14"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  required
                 />
               </div>
 
