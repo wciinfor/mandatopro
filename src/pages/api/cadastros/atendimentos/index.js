@@ -42,6 +42,7 @@ export default async function handler(req, res) {
           descricao,
           resultado,
           status,
+          ausente_acao_campanha,
           eleitor_id,
           campanha_id,
           eleitores!atendimentos_eleitor_id_fkey (
@@ -164,7 +165,7 @@ export default async function handler(req, res) {
   // POST - Criar novo atendimento
   if (req.method === 'POST') {
     try {
-      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, dataAtendimento, campanhaId, servicosSelecionados } = req.body;
+      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, ausenteAcaoCampanha, dataAtendimento, campanhaId, servicosSelecionados } = req.body;
 
       const statusNormalizado = normalizeStatus(status);
 
@@ -182,6 +183,7 @@ export default async function handler(req, res) {
             descricao,
             resultado,
             status: statusNormalizado,
+            ausente_acao_campanha: Boolean(ausenteAcaoCampanha),
             data_atendimento: dataAtendimento ? new Date(dataAtendimento).toISOString() : new Date().toISOString(),
             campanha_id: campanhaId || null
           }
@@ -231,7 +233,7 @@ export default async function handler(req, res) {
             // Não falha o atendimento se não conseguir associar serviços
           }
 
-          if (campanhaId) {
+          if (campanhaId && !ausenteAcaoCampanha) {
             for (const servico of servicosPayload) {
               const { data: campanhaServico, error: erroCampanhaServico } = await supabase
                 .from('campanhas_servicos')
@@ -274,6 +276,7 @@ export default async function handler(req, res) {
           descricao,
           resultado,
           status,
+          ausente_acao_campanha,
           eleitor_id,
           campanha_id,
           eleitores!atendimentos_eleitor_id_fkey (

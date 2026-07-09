@@ -44,6 +44,7 @@ export default async function handler(req, res) {
           assunto,
           descricao,
           resultado,
+          ausente_acao_campanha,
           status,
           eleitor_id,
           campanha_id,

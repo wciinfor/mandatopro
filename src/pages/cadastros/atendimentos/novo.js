@@ -67,6 +67,7 @@ export default function NovoAtendimento() {
     
     // Status e Acompanhamento
     statusAtendimento: 'AGENDADO', // AGENDADO, REALIZADO, CANCELADO
+    ausenteAcaoCampanha: false,
     dataAtendimento: '',
     dataConclusao: '',
     
@@ -437,8 +438,8 @@ export default function NovoAtendimento() {
     
     // Modo 2: Registrar novo eleitor
     if (modoEleitor === 'registrar') {
-      if (!formData.eleitorNome || !formData.eleitorCpf) {
-        showWarning('Preencha o nome e CPF/RG do novo eleitor');
+      if (!formData.eleitorNome) {
+        showWarning('Preencha o nome do novo eleitor');
         return;
       }
       
@@ -500,6 +501,7 @@ export default function NovoAtendimento() {
       descricao: formData.descricao || formData.servicosOferecidos || '',
       resultado: formData.observacoes || '',
       status: formData.statusAtendimento,
+      ausenteAcaoCampanha: Boolean(formData.ausenteAcaoCampanha),
       dataAtendimento: formData.dataAtendimento || null,
       campanhaId: campanhaValida ? campanhaSelecionada.id : null
     };
@@ -1189,6 +1191,26 @@ export default function NovoAtendimento() {
                   />
                 </div>
               </div>
+
+              {campanhaSelecionada && campanhaSelecionada.id !== 'AVULSO' && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="ausenteAcaoCampanha"
+                      checked={formData.ausenteAcaoCampanha}
+                      onChange={handleInputChange}
+                      className="mt-1 h-5 w-5 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
+                    />
+                    <span>
+                      <span className="block font-semibold text-amber-900">Ausente na ação/Campanha</span>
+                      <span className="block text-sm text-amber-800">
+                        Marque quando o eleitor estava vinculado à campanha, mas não compareceu ao atendimento.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Descrição e Observações */}
