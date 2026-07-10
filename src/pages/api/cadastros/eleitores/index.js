@@ -79,7 +79,7 @@ function calcularQualidadeTexto(value) {
 }
 
 async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, excludeLiderancas }) {
-  const chaveCache = `status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}`;
+  const chaveCache = `v2|status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}`;
   const cache = cidadesCache.get(chaveCache);
   if (cache && Array.isArray(cache.data) && cache.data.length > 0) {
     return cache.data;
@@ -88,8 +88,7 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
   // Carga paginada sem depender de count/head, que pode retornar zero/nulo
   // dependendo de permissao, cache ou inconsistencias temporarias.
   const pageSize = 1000;
-  const MAX_PAGINAS_CIDADES = 300; // processa até 300k registros para cidades
-  const MAX_PAGINAS_SEM_NOVAS_CIDADES = 6;
+  const MAX_PAGINAS_CIDADES = 1000; // cobre bases grandes sem parar antes dos registros com cidade
   const cidadesMap = new Map();
 
   const processarCidade = (cidadeRaw) => {
@@ -122,7 +121,6 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
 
   const coletarCidades = async (filtros) => {
     let ultimoId = 0;
-    let paginasSemNovasCidades = 0;
 
     for (let pagina = 0; pagina < MAX_PAGINAS_CIDADES; pagina += 1) {
       const pageQuery = aplicarFiltrosBase(
@@ -145,21 +143,9 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
         break;
       }
 
-      const totalAntes = cidadesMap.size;
-
       for (const row of rows) {
         processarCidade(row?.cidade);
         processarCidade(row?.municipio);
-      }
-
-      if (cidadesMap.size === totalAntes) {
-        paginasSemNovasCidades += 1;
-      } else {
-        paginasSemNovasCidades = 0;
-      }
-
-      if (paginasSemNovasCidades >= MAX_PAGINAS_SEM_NOVAS_CIDADES) {
-        break;
       }
 
       const ultimoRegistro = rows[rows.length - 1];
