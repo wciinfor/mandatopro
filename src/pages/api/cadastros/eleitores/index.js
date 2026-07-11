@@ -79,16 +79,14 @@ function calcularQualidadeTexto(value) {
 }
 
 async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, excludeLiderancas }) {
-  const chaveCache = `v2|status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}`;
+  const chaveCache = `v3|status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}`;
   const cache = cidadesCache.get(chaveCache);
-  if (cache && Array.isArray(cache.data) && cache.data.length > 0) {
+  if (cache && cache.expireAt > Date.now() && Array.isArray(cache.data) && cache.data.length > 0) {
     return cache.data;
   }
 
-  // Carga paginada sem depender de count/head, que pode retornar zero/nulo
-  // dependendo de permissao, cache ou inconsistencias temporarias.
   const pageSize = 1000;
-  const MAX_PAGINAS_CIDADES = 1000; // cobre bases grandes sem parar antes dos registros com cidade
+  const MAX_PAGINAS_CIDADES = 300;
   const cidadesMap = new Map();
 
   const processarCidade = (cidadeRaw) => {
@@ -119,14 +117,16 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
     cidadesMap.set(key, atual);
   };
 
-  const coletarCidades = async (filtros) => {
+  const coletarCidadesPorColuna = async (coluna, filtros) => {
     let ultimoId = 0;
 
     for (let pagina = 0; pagina < MAX_PAGINAS_CIDADES; pagina += 1) {
       const pageQuery = aplicarFiltrosBase(
         supabase
           .from('eleitores')
-          .select('cidade,municipio,id')
+          .select(`${coluna},id`)
+          .not(coluna, 'is', null)
+          .neq(coluna, '')
           .gt('id', ultimoId)
           .order('id', { ascending: true })
           .limit(pageSize),
@@ -144,8 +144,7 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
       }
 
       for (const row of rows) {
-        processarCidade(row?.cidade);
-        processarCidade(row?.municipio);
+        processarCidade(row?.[coluna]);
       }
 
       const ultimoRegistro = rows[rows.length - 1];
@@ -159,6 +158,11 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
         break;
       }
     }
+  };
+
+  const coletarCidades = async (filtros) => {
+    await coletarCidadesPorColuna('cidade', filtros);
+    await coletarCidadesPorColuna('municipio', filtros);
   };
 
   await coletarCidades({ status, liderancaFiltro, excludeLiderancas });
