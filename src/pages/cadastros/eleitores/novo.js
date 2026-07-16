@@ -228,13 +228,6 @@ export default function NovoEleitor() {
         return prev;
       }
 
-      if (liderancasFiltradas.length === 1) {
-        return {
-          ...prev,
-          lideranca: String(liderancasFiltradas[0]?.nome || '')
-        };
-      }
-
       if (!atual) {
         return prev;
       }
@@ -1032,27 +1025,28 @@ export default function NovoEleitor() {
                 name="lideranca"
                 value={formData.lideranca}
                 onChange={handleInputChange}
-                disabled={!podeSelecionarLideranca}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
-                <option value="">Selecione uma liderança</option>
-                {liderancasFiltradas.map((item) => (
+                <option value="">Sem liderança vinculada</option>
+                {podeSelecionarLideranca && liderancasFiltradas.map((item) => (
                   <option key={item.id} value={item.nome}>
                     {item.nome}
                   </option>
                 ))}
               </select>
               {!podeSelecionarLideranca && (
-                <p className="text-xs text-amber-700 mt-1">
-                  Preencha bairro ou município/cidade para habilitar a seleção.
+                <p className="text-xs text-gray-600 mt-1">
+                  Preencha bairro ou município/cidade para sugerir lideranças compatíveis, se houver.
                 </p>
               )}
-              <p className="text-xs text-teal-700 mt-1">
-                Filtro aplicado por <strong>{criterioFiltroLideranca}</strong>. Apenas lideranças cadastradas são permitidas.
-              </p>
-              {liderancasFiltradas.length === 0 && (
+              {podeSelecionarLideranca && (
+                <p className="text-xs text-teal-700 mt-1">
+                  Campo opcional. Sugestões filtradas por <strong>{criterioFiltroLideranca}</strong>.
+                </p>
+              )}
+              {podeSelecionarLideranca && liderancasFiltradas.length === 0 && (
                 <p className="text-xs text-amber-700 mt-1">
-                  Nenhuma liderança ativa encontrada para este {criterioFiltroLideranca}.
+                  Nenhuma liderança ativa encontrada para este {criterioFiltroLideranca}. O eleitor pode ser cadastrado sem liderança.
                 </p>
               )}
             </div>
