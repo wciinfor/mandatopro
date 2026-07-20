@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSearch,
@@ -13,46 +13,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { ConversaCard, MensagemItem } from '@/components/ConversaBaseComponents';
-
-// Dados fictícios estruturados de acordo com o modelo de Conversa
-const CONVERSAS_MOCK = [
-  {
-    id: 'conv-1',
-    contact_id: 'eleitor-1',
-    contatoNome: 'Mariana Souza',
-    channel: 'whatsapp', // WhatsApp Business Oficial
-    status: 'nova',
-    assigned_to: null,
-    unread_count: 3,
-    last_message_at: new Date().toISOString(),
-    last_message_preview: 'Gostaria de saber como apoiar o novo projeto de lei.',
-    responsavel: null
-  },
-  {
-    id: 'conv-2',
-    contact_id: 'eleitor-2',
-    contatoNome: 'Carlos Eduardo',
-    channel: 'whatsapp_legacy', // WhatsApp Legacy
-    status: 'em_atendimento',
-    assigned_to: 'user-1',
-    unread_count: 0,
-    last_message_at: new Date(Date.now() - 3600000).toISOString(),
-    last_message_preview: 'Obrigado pelo retorno rápido, aguardo o andamento.',
-    responsavel: { id: 'user-1', nome: 'Rodrigo Lima' }
-  },
-  {
-    id: 'conv-3',
-    contact_id: 'eleitor-3',
-    contatoNome: 'Ana Beatriz',
-    channel: 'instagram', // Instagram Direct
-    status: 'aguardando_eleitor',
-    assigned_to: 'user-2',
-    unread_count: 0,
-    last_message_at: new Date(Date.now() - 7200000).toISOString(),
-    last_message_preview: 'Vocês realizam atendimento presencial aos sábados?',
-    responsavel: { id: 'user-2', nome: 'Fernanda Costa' }
-  }
-];
+import { ConversasService } from '@/services/conversasService';
 
 const MOCK_MENSAGENS = {
   'conv-1': [
@@ -70,8 +31,9 @@ const MOCK_MENSAGENS = {
 };
 
 export default function CentralInbox() {
-  const [conversas, setConversas] = useState(CONVERSAS_MOCK);
+  const [conversas, setConversas] = useState([]);
   const [conversaAtiva, setConversaAtiva] = useState(null);
+  const [mensagens, setMensagens] = useState([]);
   const [busca, setBusca] = useState('');
   
   // Filtros
@@ -81,10 +43,107 @@ export default function CentralInbox() {
 
   const [novaMensagemText, setNovaMensagemText] = useState('');
 
+  const carregarConversasReais = async () => {
+    try {
+      const data = await ConversasService.listarConversas();
+      setConversas(data || []);
+    } catch (err) {
+      console.error('Falha ao obter lista de conversas da Central:', err);
+    }
+  };
+
+  const carregarMensagensReais = async (conversaId) => {
+    try {
+      const data = await ConversasService.obterMensagens(conversaId);
+      setMensagens(data || []);
+    } catch (err) {
+      console.error('Falha ao carregar histórico de mensagens:', err);
+    }
+  };
+
+  useEffect(() => {
+    carregarConversasReais();
+
+    // 1. Inicia canal Realtime para escuta de communication_conversations
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const channelConversations = supabase
+      .channel('realtime-conversas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'communication_conversations' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const novaC = {
+            id: payload.new.id,
+            contact_id: payload.new.contact_id,
+            contatoNome: payload.new.contact_id,
+            channel: payload.new.channel,
+            status: payload.new.status,
+            assigned_to: payload.new.assigned_to,
+            unread_count: payload.new.unread_count || 0,
+            last_message_at: payload.new.last_message_at,
+            last_message_preview: payload.new.last_message_preview,
+            responsavel: payload.new.assigned_to ? { id: payload.new.assigned_to, nome: 'Operador' } : null
+          };
+          setConversas(prev => [novaC, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setConversas(prev => prev.map(c => c.id === payload.new.id ? {
+            ...c,
+            status: payload.new.status,
+            last_message_preview: payload.new.last_message_preview,
+            last_message_at: payload.new.last_message_at,
+            unread_count: payload.new.unread_count || 0,
+            assigned_to: payload.new.assigned_to,
+            responsavel: payload.new.assigned_to ? { id: payload.new.assigned_to, nome: 'Operador' } : null
+          } : c));
+        } else if (payload.eventType === 'DELETE') {
+          setConversas(prev => prev.filter(c => c.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channelConversations);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (conversaAtiva?.id) {
+      carregarMensagensReais(conversaAtiva.id);
+
+      // 2. Inicia canal Realtime para escuta de communication_messages na conversa ativa
+      const supabase = createClient();
+      if (!supabase) return;
+
+      const channelMessages = supabase
+        .channel(`realtime-mensagens-${conversaAtiva.id}`)
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'communication_messages',
+          filter: `conversation_id=eq.${conversaAtiva.id}`
+        }, (payload) => {
+          setMensagens(prev => {
+            // Evita duplicações causadas por envio próprio concorrente
+            if (prev.some(m => m.id === payload.new.id || m.provider_message_id === payload.new.provider_message_id)) {
+              return prev;
+            }
+            return [...prev, payload.new];
+          });
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channelMessages);
+      };
+    } else {
+      setMensagens([]);
+    }
+  }, [conversaAtiva]);
+
   // Lógica de Filtro aplicada na exibição das Conversas
   const conversasFiltradas = conversas.filter((c) => {
     const bateBusca = c.contatoNome.toLowerCase().includes(busca.toLowerCase()) || 
-                      c.last_message_preview.toLowerCase().includes(busca.toLowerCase());
+                      (c.last_message_preview && c.last_message_preview.toLowerCase().includes(busca.toLowerCase()));
     
     const bateCanal = filtroCanal === 'all' || c.channel === filtroCanal;
     const bateStatus = filtroStatus === 'all' || c.status === filtroStatus;
@@ -99,28 +158,29 @@ export default function CentralInbox() {
     return bateBusca && bateCanal && bateStatus && bateResponsavel;
   });
 
-  const handleEnviarMensagem = (e) => {
+  const handleEnviarMensagem = async (e) => {
     e.preventDefault();
     if (!conversaAtiva || !novaMensagemText.trim()) return;
 
-    const novaM = {
-      id: `msg-${Date.now()}`,
-      conversa_id: conversaAtiva.id,
-      direcao: 'saida',
-      mensagem: novaMensagemText.trim(),
-      created_at: new Date().toISOString()
-    };
-
-    MOCK_MENSAGENS[conversaAtiva.id] = [...(MOCK_MENSAGENS[conversaAtiva.id] || []), novaM];
-    
-    // Atualizar preview da conversa
-    setConversas(prev => prev.map(c => c.id === conversaAtiva.id ? {
-      ...c,
-      last_message_preview: novaMensagemText.trim(),
-      last_message_at: new Date().toISOString()
-    } : c));
-
+    const textoEnvio = novaMensagemText.trim();
     setNovaMensagemText('');
+
+    try {
+      const msgCriada = await ConversasService.enviarMensagem(conversaAtiva.id, { mensagem: textoEnvio });
+      
+      // Insere na lista local de balões de conversa
+      setMensagens(prev => [...prev, msgCriada]);
+      
+      // Atualiza preview na lista lateral de chats
+      setConversas(prev => prev.map(c => c.id === conversaAtiva.id ? {
+        ...c,
+        last_message_preview: textoEnvio,
+        last_message_at: new Date().toISOString()
+      } : c));
+
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+    }
   };
 
   return (
@@ -148,47 +208,75 @@ export default function CentralInbox() {
             />
           </div>
         </div>
+        {/* Chips de Contexto / Filtros Rápidos de Status */}
+        <div className="p-3 bg-white border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-[10px] font-bold uppercase tracking-wider">
+          <button
+            onClick={() => setFiltroStatus('all')}
+            className={`px-3 py-1.5 rounded-full transition border ${
+              filtroStatus === 'all'
+                ? 'bg-teal-600 border-teal-600 text-white'
+                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            Todas
+          </button>
+          <button
+            onClick={() => setFiltroStatus('nova')}
+            className={`px-3 py-1.5 rounded-full transition border ${
+              filtroStatus === 'nova'
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : 'bg-blue-50/50 border-blue-100 text-blue-700 hover:bg-blue-50'
+            }`}
+          >
+            Novas
+          </button>
+          <button
+            onClick={() => setFiltroStatus('em_atendimento')}
+            className={`px-3 py-1.5 rounded-full transition border ${
+              filtroStatus === 'em_atendimento'
+                ? 'bg-amber-600 border-amber-600 text-white'
+                : 'bg-amber-50/50 border-amber-100 text-amber-700 hover:bg-amber-50'
+            }`}
+          >
+            Em Atendimento
+          </button>
+          <button
+            onClick={() => setFiltroStatus('aguardando_eleitor')}
+            className={`px-3 py-1.5 rounded-full transition border ${
+              filtroStatus === 'aguardando_eleitor'
+                ? 'bg-purple-600 border-purple-600 text-white'
+                : 'bg-purple-50/50 border-purple-100 text-purple-700 hover:bg-purple-50'
+            }`}
+          >
+            Aguardando
+          </button>
+        </div>
 
-        {/* Painel de Filtros Operacionais */}
-        <div className="p-3 border-b border-gray-100 bg-white grid grid-cols-3 gap-2 text-xs">
+        {/* Painel de Filtros Operacionais Secundários */}
+        <div className="p-3 border-b border-gray-100 bg-white grid grid-cols-2 gap-2 text-[10px]">
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Canal</label>
+            <label className="block font-bold text-gray-400 uppercase mb-1">Canal de Origem</label>
             <select
               value={filtroCanal}
               onChange={(e) => setFiltroCanal(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-1.5 focus:outline-none font-medium"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-1.5 focus:outline-none font-semibold text-gray-600"
             >
-              <option value="all">Todos</option>
-              <option value="whatsapp">Business</option>
-              <option value="whatsapp_legacy">Legacy</option>
-              <option value="instagram">Instagram</option>
+              <option value="all">Todos os canais</option>
+              <option value="whatsapp">WhatsApp Business</option>
+              <option value="instagram">Instagram Direct</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status</label>
-            <select
-              value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-1.5 focus:outline-none font-medium"
-            >
-              <option value="all">Todos</option>
-              <option value="nova">Novos</option>
-              <option value="em_atendimento">Em Atend.</option>
-              <option value="resolver_depois">Depois</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Operador</label>
+            <label className="block font-bold text-gray-400 uppercase mb-1">Responsável</label>
             <select
               value={filtroResponsavel}
               onChange={(e) => setFiltroResponsavel(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-1.5 focus:outline-none font-medium"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-1.5 focus:outline-none font-semibold text-gray-600"
             >
               <option value="all">Todos</option>
               <option value="assigned">Atribuídos</option>
-              <option value="unassigned">Sem Resp.</option>
+              <option value="unassigned">Sem Responsável</option>
             </select>
           </div>
         </div>
@@ -207,7 +295,7 @@ export default function CentralInbox() {
           ) : (
             <div className="text-center py-12 text-gray-400 text-xs">
               <FontAwesomeIcon icon={faInbox} className="text-3xl text-gray-200 mb-2 block mx-auto" />
-              Nenhuma conversa atende aos filtros ativos.
+              Nenhum atendimento ativo localizado.
             </div>
           )}
         </div>
@@ -242,7 +330,7 @@ export default function CentralInbox() {
 
             {/* Balões de Mensagem */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {(MOCK_MENSAGENS[conversaAtiva.id] || []).map((msg) => (
+              {mensagens.map((msg) => (
                 <MensagemItem key={msg.id} mensagem={msg} />
               ))}
             </div>
@@ -265,10 +353,14 @@ export default function CentralInbox() {
             </form>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-xs">
-            <FontAwesomeIcon icon={faMessage} className="text-4xl text-gray-200 mb-3" />
-            <p className="font-medium">Nenhum atendimento selecionado</p>
-            <p className="text-gray-400 mt-1">Selecione uma conversa ao lado para visualizar a linha do tempo.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gradient-to-b from-white to-gray-50/50">
+            <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-sm border border-teal-100/50">
+              💬
+            </div>
+            <h4 className="font-bold text-gray-800 text-sm">Central de Atendimento Multicanal</h4>
+            <p className="text-gray-400 text-xs mt-1.5 max-w-xs leading-relaxed">
+              Selecione um eleitor na fila lateral para visualizar as conversas e responder em tempo real.
+            </p>
           </div>
         )}
       </div>

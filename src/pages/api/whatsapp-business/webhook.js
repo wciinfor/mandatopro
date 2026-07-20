@@ -1,59 +1,67 @@
-/**
- * Webhook para receber mensagens do WhatsApp Business
- */
+import { MetaWebhookNormalizer } from '@/services/metaWebhookNormalizer';
+import { ConversasService } from '@/services/conversasService';
 
+/**
+ * API Handler oficial para receber e tratar Webhooks da Meta Cloud API.
+ * Suporta GET (validação de token) e POST (recebimento de mensagens e status de envio).
+ */
 export default async function handler(req, res) {
-  // Verificação do webhook (GET)
+  // 1. ENDPOINT GET: Verificação de Token de Validação da Meta
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
+    const verifyToken = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    const { getWhatsAppBusinessService } = await import('@/services/whatsapp-business');
-    const whatsapp = getWhatsAppBusinessService();
-    
-    const validationResult = whatsapp.validateWebhook(mode, token, challenge);
-    
-    if (validationResult) {
-      console.log('✅ Webhook verificado com sucesso');
-      return res.status(200).send(validationResult);
+    const localVerifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || 'mandatopro_token_webhook';
+
+    if (mode === 'subscribe' && verifyToken === localVerifyToken) {
+      console.log('[MetaWebhook] Validação do verify_token efetuada com sucesso!');
+      return res.status(200).send(challenge);
     } else {
-      console.error('❌ Falha na verificação do webhook');
-      return res.status(403).send('Forbidden');
+      console.warn('[MetaWebhook] Falha de validação do verify_token da Meta.');
+      return res.status(403).json({ error: 'Verification token mismatch or invalid mode' });
     }
   }
 
-  // Recebimento de mensagens (POST)
+  // 2. ENDPOINT POST: Recepção de Eventos de Mensagens e Status de Envio
   if (req.method === 'POST') {
+    const payload = req.body;
+
+    console.log('[MetaWebhook] Evento bruto recebido:', JSON.stringify(payload, null, 2));
+
+    if (!payload.object || !payload.entry || payload.entry.length === 0) {
+      return res.status(400).json({ error: 'Payload sem formato Meta esperado' });
+    }
+
     try {
-      const { getWhatsAppBusinessService } = await import('@/services/whatsapp-business');
-      const whatsapp = getWhatsAppBusinessService();
-      
-      const messageData = whatsapp.processWebhook(req.body);
-      
-      if (messageData) {
-        // Aqui você pode:
-        // 1. Salvar a mensagem no banco de dados
-        // 2. Processar comandos automáticos
-        // 3. Notificar usuários do sistema
-        // 4. Marcar mensagem como lida
-        
-        if (messageData.id && messageData.type !== 'status') {
-          // Marca como lida automaticamente
-          await whatsapp.markAsRead(messageData.id);
+      const entry = payload.entry[0];
+      if (entry.changes && entry.changes.length > 0) {
+        const change = entry.changes[0];
+        const value = change.value;
+
+        // Trata Mensagens
+        if (value.messages && value.messages.length > 0) {
+          const msgNormalizada = MetaWebhookNormalizer.normalizarMensagem(value);
+          if (msgNormalizada) {
+            await ConversasService.processarEventoMeta(msgNormalizada);
+          }
         }
-        
-        console.log('📨 Mensagem processada:', messageData);
+
+        // Trata Statuses
+        if (value.statuses && value.statuses.length > 0) {
+          const statusNormalizado = MetaWebhookNormalizer.normalizarStatus(value);
+          if (statusNormalizado) {
+            await ConversasService.processarEventoMeta(statusNormalizado);
+          }
+        }
       }
-      
-      // Sempre retorna 200 para o WhatsApp
+
       return res.status(200).json({ success: true });
-    } catch (error) {
-      console.error('❌ Erro ao processar webhook:', error);
-      // Mesmo com erro, retorna 200 para não ficar retentando
-      return res.status(200).json({ success: false });
+    } catch (err) {
+      console.error('[MetaWebhook] Erro no processamento do evento da Meta:', err);
+      return res.status(500).json({ error: 'Erro interno no processamento' });
     }
   }
 
-  return res.status(405).json({ error: 'Método não permitido' });
+  return res.status(405).json({ error: 'Method not allowed' });
 }

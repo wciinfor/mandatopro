@@ -62,11 +62,20 @@ export class WhatsAppBusinessChannelProvider extends ChannelProvider {
   }
 
   async enviarMensagem(conversationId, payload) {
-    return null;
+    const res = await fetch(`/api/comunicacao-oficial/conversas/${conversationId}/mensagens/enviar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Falha ao enviar mensagem pela Graph API');
+    return res.json();
   }
 
   async marcarComoLida(conversationId) {
-    return true;
+    const res = await fetch(`/api/comunicacao-oficial/conversas/${conversationId}/lida`, {
+      method: 'POST'
+    });
+    return res.ok;
   }
 
   async assumirConversa(conversationId, operador) {

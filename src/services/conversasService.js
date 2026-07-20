@@ -19,6 +19,61 @@ export class ConversasService {
   }
 
   /**
+   * Obtém conversas normalizadas a partir da tabela communication_conversations
+   */
+  static async listarConversas(filters = {}) {
+    const params = new URLSearchParams(filters);
+    const response = await fetch(`/api/comunicacao-oficial/conversas?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error('Falha ao obter lista de conversas oficiais.');
+    }
+    return response.json();
+  }
+
+  /**
+   * Obtém histórico de mensagens normalizadas a partir da tabela communication_messages
+   * @param {string} conversaId
+   */
+  static async obterMensagens(conversaId) {
+    const response = await fetch(`/api/comunicacao-oficial/conversas/${conversaId}/mensagens`);
+    if (!response.ok) {
+      throw new Error('Falha ao obter histórico de mensagens oficiais.');
+    }
+    return response.json();
+  }
+
+  /**
+   * Envia uma mensagem oficial através do ChannelProvider e persiste
+   */
+  static async enviarMensagem(conversaId, payload) {
+    const response = await fetch(`/api/comunicacao-oficial/conversas/${conversaId}/mensagens/enviar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      throw new Error('Falha ao enviar mensagem oficial.');
+    }
+    return response.json();
+  }
+
+  /**
+   * Encaminha o evento normalizado da Meta para processamento e gravação física no banco
+   * @param {Object} eventoNormalizado
+   */
+  static async processarEventoMeta(eventoNormalizado) {
+    const response = await fetch('/api/comunicacao-oficial/processar-evento', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(eventoNormalizado)
+    });
+    if (!response.ok) {
+      throw new Error('Falha ao processar evento normalizado da Meta no servidor.');
+    }
+    return response.json();
+  }
+
+  /**
    * Cria ou localiza uma conversa ativa para um determinado contato/canal
    * @param {Object} params
    * @param {string} params.contactId
