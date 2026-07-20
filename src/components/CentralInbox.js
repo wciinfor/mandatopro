@@ -7,7 +7,9 @@ import {
   faUserTie,
   faCheck,
   faExclamationTriangle,
-  faClock
+  faClock,
+  faMessage,
+  faPaperPlane
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { ConversaCard, MensagemItem } from '@/components/ConversaBaseComponents';

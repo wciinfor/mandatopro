@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { createClient } from '@/lib/supabaseClient';
 import { ROLES } from '@/utils/permissions';
 import { 
   FontAwesomeIcon 
@@ -1304,12 +1305,12 @@ export default function ConfiguracaoSistema() {
                   {whatsappStatus.isConnected ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Canal Ativo
+                      Canal ativo
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-50 text-gray-500 border border-gray-200">
-                      <span className="h-2 w-2 rounded-full bg-gray-400"></span>
-                      Desconectado
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                      <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                      Canal não conectado
                     </span>
                   )}
                 </div>
@@ -1317,26 +1318,48 @@ export default function ConfiguracaoSistema() {
 
               {/* ── ESTADO: NÃO CONECTADO ── */}
               {!whatsappStatus.isConnected && (
-                <div className="bg-gradient-to-br from-gray-50 to-teal-50/20 border border-gray-200 rounded-2xl p-10 text-center max-w-xl mx-auto my-8 shadow-sm">
+                <div className="bg-gradient-to-br from-gray-50 to-teal-50/20 border border-gray-200 rounded-2xl p-10 text-center max-w-2xl mx-auto my-8 shadow-sm">
                   <div className="mx-auto w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center text-2xl mb-5 shadow-sm">
                     💬
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Conecte seu WhatsApp Business</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
-                    Habilite disparos e automatize atendimentos no MandatoPro com seu número oficial de comunicação.
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Potencialize sua Comunicação Oficial</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-md mx-auto">
+                    Conecte sua conta do WhatsApp Business para ter acesso a disparos automatizados, selo verificado e relatórios reais de leitura.
                   </p>
+
+                  {/* Lista de Benefícios Orientada ao Usuário */}
+                  <div className="text-left max-w-md mx-auto bg-white rounded-xl p-5 border border-gray-100 space-y-3 mb-8 shadow-2xs">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Principais Benefícios da Conexão:</p>
+                    <div className="flex items-start gap-2.5 text-xs text-gray-600">
+                      <span className="text-emerald-500 font-bold">✓</span>
+                      <p><strong>Envios Oficiais Autenticados:</strong> Canal direto e seguro homologado pela Meta, reduzindo o risco de bloqueio de número.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-xs text-gray-600">
+                      <span className="text-emerald-500 font-bold">✓</span>
+                      <p><strong>Modelos com Variáveis (HSM):</strong> Crie convites e informativos personalizados chamando cada eleitor pelo primeiro nome.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-xs text-gray-600">
+                      <span className="text-emerald-500 font-bold">✓</span>
+                      <p><strong>Métricas de Leitura:</strong> Acompanhe exatamente quem recebeu, quem leu e quem clicou nos links das suas mensagens.</p>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-xs text-gray-600">
+                      <span className="text-emerald-500 font-bold">✓</span>
+                      <p><strong>Atendimento Centralizado:</strong> Triagem e resposta de eleitores em fila unificada por múltiplos operadores simultâneos.</p>
+                    </div>
+                  </div>
+
                   <button
                     type="button"
                     onClick={iniciarMetaEmbeddedSignup}
                     disabled={loading || metaSignupLoading}
-                    className="mx-auto bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm disabled:opacity-50 flex items-center gap-2 justify-center"
+                    className="mx-auto bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-8 rounded-xl transition shadow-sm disabled:opacity-50 flex items-center gap-2 justify-center"
                   >
                     <FontAwesomeIcon icon={faPlug} />
-                    {metaSignupLoading ? 'Conectando...' : 'Conectar Canal'}
+                    {metaSignupLoading ? 'Conectando...' : 'Conectar WhatsApp Business'}
                   </button>
                   {(!META_APP_ID || !META_EMBEDDED_SIGNUP_CONFIG_ID) && (
                     <p className="text-xs text-amber-700 mt-5 bg-amber-50 border border-amber-100 py-2 px-4 rounded-lg inline-block">
-                      Variáveis da Meta não configuradas. Use as Configurações Avançadas no menu de opções para configurar.
+                      Variáveis da Meta não configuradas. Use as Configurações Avançadas no menu de opções abaixo para configurar.
                     </p>
                   )}
                 </div>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBullhorn,
@@ -12,21 +13,10 @@ import {
   faUserTie
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
+import { DashboardCampaignService } from '@/services/dashboardCampaignService';
+import { DashboardAttendanceService } from '@/services/dashboardAttendanceService';
 
-// Mock de dados consolidados locais para o Dashboard Executivo
-const DASHBOARD_KPES = {
-  campanhasAtivas: 3,
-  mensagensEnviadasHoje: 1450,
-  entregues: 1420,
-  lidas: 1100,
-  falhas: 30,
-  taxaEntrega: 97.9,
-  taxaLeitura: 77.4,
-  tempoMedioResposta: '4m 32s',
-  conversasAbertas: 24,
-  conversasAguardando: 5
-};
-
+// Mocks de dados consolidados locais para o Dashboard Executivo (Removido os mocks de atendimento)
 const CHART_DIARIO_ENVIO = [
   { dia: 'Seg', total: 400 },
   { dia: 'Ter', total: 800 },
@@ -52,6 +42,45 @@ const RANKING_OPERADORES = [
 ];
 
 export default function DashboardExecutivo() {
+  const [metrics, setMetrics] = useState({
+    campanhasAtivas: 0,
+    mensagensEnviadasHoje: 0,
+    entregues: 0,
+    lidas: 0,
+    falhas: 0,
+    taxaEntrega: 0,
+    taxaLeitura: 0
+  });
+
+  const [attendance, setAttendance] = useState({
+    conversasAbertas: 0,
+    conversasAguardando: 0,
+    tempoMedioResposta: '0m 00s'
+  });
+
+  const carregarMétricasCampanhas = async () => {
+    try {
+      const data = await DashboardCampaignService.obterIndicadoresCampanha();
+      setMetrics(data);
+    } catch (err) {
+      console.error('Falha ao obter os dados do DashboardCampaignService:', err);
+    }
+  };
+
+  const carregarMétricasAtendimento = async () => {
+    try {
+      const data = await DashboardAttendanceService.obterIndicadoresAtendimento();
+      setAttendance(data);
+    } catch (err) {
+      console.error('Falha ao obter os dados do DashboardAttendanceService:', err);
+    }
+  };
+
+  useEffect(() => {
+    carregarMétricasCampanhas();
+    carregarMétricasAtendimento();
+  }, []);
+
   return (
     <div className="space-y-6">
       
@@ -64,7 +93,7 @@ export default function DashboardExecutivo() {
           </span>
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Campanhas Ativas</p>
-            <p className="text-base font-bold text-gray-800">{DASHBOARD_KPES.campanhasAtivas}</p>
+            <p className="text-base font-bold text-gray-800">{metrics.campanhasAtivas}</p>
           </div>
         </div>
 
@@ -74,7 +103,7 @@ export default function DashboardExecutivo() {
           </span>
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Enviadas Hoje</p>
-            <p className="text-base font-bold text-gray-800">{DASHBOARD_KPES.mensagensEnviadasHoje}</p>
+            <p className="text-base font-bold text-gray-800">{metrics.mensagensEnviadasHoje}</p>
           </div>
         </div>
 
@@ -84,7 +113,7 @@ export default function DashboardExecutivo() {
           </span>
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Entregues</p>
-            <p className="text-base font-bold text-green-700">{DASHBOARD_KPES.entregues}</p>
+            <p className="text-base font-bold text-green-700">{metrics.entregues}</p>
           </div>
         </div>
 
@@ -94,7 +123,7 @@ export default function DashboardExecutivo() {
           </span>
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Lidas</p>
-            <p className="text-base font-bold text-emerald-700">{DASHBOARD_KPES.lidas}</p>
+            <p className="text-base font-bold text-emerald-700">{metrics.lidas}</p>
           </div>
         </div>
 
@@ -104,7 +133,7 @@ export default function DashboardExecutivo() {
           </span>
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Falhas</p>
-            <p className="text-base font-bold text-red-600">{DASHBOARD_KPES.falhas}</p>
+            <p className="text-base font-bold text-red-600">{metrics.falhas}</p>
           </div>
         </div>
 
@@ -115,28 +144,28 @@ export default function DashboardExecutivo() {
         <div className="bg-gradient-to-br from-teal-50/60 to-emerald-50/20 border border-teal-100 rounded-2xl p-4 text-center shadow-xs">
           <p className="text-[10px] font-bold text-teal-800 uppercase">Taxa de Entrega</p>
           <p className="text-2xl font-bold text-teal-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faPercentage} className="text-sm" /> {DASHBOARD_KPES.taxaEntrega}%
+            <FontAwesomeIcon icon={faPercentage} className="text-sm" /> {metrics.taxaEntrega}%
           </p>
         </div>
 
         <div className="bg-gradient-to-br from-blue-50/60 to-indigo-50/20 border border-blue-100 rounded-2xl p-4 text-center shadow-xs">
           <p className="text-[10px] font-bold text-blue-800 uppercase">Taxa de Leitura</p>
           <p className="text-2xl font-bold text-blue-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faPercentage} className="text-sm" /> {DASHBOARD_KPES.taxaLeitura}%
+            <FontAwesomeIcon icon={faPercentage} className="text-sm" /> {metrics.taxaLeitura}%
           </p>
         </div>
 
         <div className="bg-gradient-to-br from-amber-50/60 to-yellow-50/20 border border-amber-100 rounded-2xl p-4 text-center shadow-xs">
           <p className="text-[10px] font-bold text-amber-800 uppercase">Tempo de Resposta</p>
           <p className="text-2xl font-bold text-amber-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faClock} className="text-sm" /> {DASHBOARD_KPES.tempoMedioResposta}
+            <FontAwesomeIcon icon={faClock} className="text-sm" /> {attendance.tempoMedioResposta}
           </p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-50/60 to-purple-100/20 border border-purple-100 rounded-2xl p-4 text-center shadow-xs">
           <p className="text-[10px] font-bold text-purple-800 uppercase">Aguardando Atend.</p>
           <p className="text-2xl font-bold text-purple-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faUserClock} className="text-sm" /> {DASHBOARD_KPES.conversasAguardando} / {DASHBOARD_KPES.conversasAbertas}
+            <FontAwesomeIcon icon={faUserClock} className="text-sm" /> {attendance.conversasAguardando} / {attendance.conversasAbertas}
           </p>
         </div>
       </div>
