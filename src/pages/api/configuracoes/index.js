@@ -10,7 +10,6 @@ const CHAVES_SISTEMA = [
   'nome_orgao', 'sigla', 'logo', 'cnpj', 'endereco', 'telefone',
   'email_orgao', 'website', 'cargo', 'nome_parlamentar',
   'cor_principal', 'cor_secundaria',
-  'whatsapp_phone_number_id', 'whatsapp_access_token',
   'openai_provider', 'openai_api_key', 'openai_model',
   'groq_api_key', 'groq_model', 'openai_enabled'
 ];
@@ -46,12 +45,7 @@ function rowsToConfig(rows) {
     cargo: map.cargo || '',
     nomeParlamentar: map.nome_parlamentar || '',
     corPrincipal: map.cor_principal || '#14b8a6',
-    corSecundaria: map.cor_secundaria || '#0d9488',
-    whatsapp: {
-      phoneNumberId: map.whatsapp_phone_number_id || '',
-      accessToken: '',
-      hasAccessToken: Boolean(map.whatsapp_access_token)
-    }
+    corSecundaria: map.cor_secundaria || '#0d9488'
   };
 }
 
@@ -137,33 +131,6 @@ export default async function handler(req, res) {
         if (error) throw error;
 
         return res.status(200).json({ success: true, message: 'Configuração salva com sucesso' });
-      }
-
-      else if (tipo === 'whatsapp') {
-        const { data: atualRows, error: atualError } = await supabase
-          .from('configuracoes_sistema')
-          .select('chave, valor')
-          .in('chave', ['whatsapp_access_token']);
-
-        if (atualError) throw atualError;
-
-        const tokenAtual = Array.isArray(atualRows)
-          ? atualRows.find((row) => row.chave === 'whatsapp_access_token')?.valor || ''
-          : '';
-        const accessToken = String(dados.accessToken || '').trim() || tokenAtual;
-
-        const upserts = [
-          { chave: 'whatsapp_phone_number_id', valor: dados.phoneNumberId ?? '', tipo: 'STRING', editavel: true },
-          { chave: 'whatsapp_access_token', valor: accessToken, tipo: 'STRING', editavel: true },
-        ];
-
-        const { error } = await supabase
-          .from('configuracoes_sistema')
-          .upsert(upserts, { onConflict: 'chave' });
-
-        if (error) throw error;
-
-        return res.status(200).json({ success: true, message: 'WhatsApp configurado com sucesso' });
       }
 
       else if (tipo === 'openai') {

@@ -1,14 +1,23 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import {
+  buscarContaWhatsappPrincipal,
+  normalizarWhatsappAccount,
+  salvarContaWhatsappPrincipal
+} from '@/lib/whatsapp-business-accounts';
 
 /**
- * API para configurar WhatsApp Business
+ * API para configurar WhatsApp Business por tenant.
  */
 
 export default async function handler(req, res) {
+  let supabase;
+  let usuario;
+
   try {
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    supabase = createServerClient();
+    const auth = await obterUsuarioAutenticado(req, supabase);
+    usuario = auth.usuario;
     exigirAdministrador(usuario);
   } catch (error) {
     const status = error?.statusCode || 500;
@@ -16,13 +25,9 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    // Retorna status da configuração
     try {
-      const { getWhatsAppBusinessService } = await import('@/services/whatsapp-business');
-      const whatsapp = getWhatsAppBusinessService();
-      const status = whatsapp.getStatus();
-      
-      return res.status(200).json(status);
+      const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
+      return res.status(200).json(normalizarWhatsappAccount(conta));
     } catch (error) {
       console.error('Erro ao obter status:', error);
       return res.status(500).json({ error: error.message });
@@ -30,47 +35,51 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    // Atualiza configuração
     try {
       const { phoneNumberId, accessToken } = req.body;
-      
-      if (!phoneNumberId || !accessToken) {
-        return res.status(400).json({ 
-          error: 'Phone Number ID e Access Token são obrigatórios' 
+      const contaAtual = await buscarContaWhatsappPrincipal(supabase, usuario);
+      const tokenDisponivel = String(accessToken || '').trim() || contaAtual?.access_token || '';
+
+      if (!phoneNumberId || !tokenDisponivel) {
+        return res.status(400).json({
+          error: 'Phone Number ID e Access Token sao obrigatorios'
         });
       }
 
-      const { getWhatsAppBusinessService } = await import('@/services/whatsapp-business');
-      const whatsapp = getWhatsAppBusinessService();
-      
-      const configured = whatsapp.updateConfig(phoneNumberId, accessToken);
-      
+      const conta = await salvarContaWhatsappPrincipal(supabase, usuario, req.body);
+      const contaNormalizada = normalizarWhatsappAccount(conta);
+
+      const { default: WhatsAppBusinessService } = await import('@/services/whatsapp-business');
+      const whatsapp = new WhatsAppBusinessService();
+      const configured = whatsapp.updateConfig(contaNormalizada.phoneNumberId, tokenDisponivel);
+
       if (configured) {
-        // Testa a configuração
         try {
           const info = await whatsapp.getPhoneInfo();
-          return res.status(200).json({ 
-            success: true, 
+          return res.status(200).json({
+            success: true,
             configured: true,
-            phoneInfo: info
+            phoneInfo: info,
+            account: contaNormalizada
           });
         } catch (testError) {
-          return res.status(400).json({ 
-            success: false, 
-            error: 'Configuração salva mas falhou no teste: ' + testError.message 
+          return res.status(400).json({
+            success: false,
+            error: 'Configuracao salva mas falhou no teste: ' + testError.message,
+            account: contaNormalizada
           });
         }
       }
-      
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Configuração inválida' 
+
+      return res.status(400).json({
+        success: false,
+        error: 'Configuracao invalida'
       });
     } catch (error) {
       console.error('Erro ao configurar:', error);
-      return res.status(500).json({ error: error.message });
+      return res.status(error?.statusCode || 500).json({ error: error.message });
     }
   }
 
-  return res.status(405).json({ error: 'Método não permitido' });
+  return res.status(405).json({ error: 'Metodo nao permitido' });
 }

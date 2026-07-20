@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 
 /**
  * API para enviar mensagens via WhatsApp Business
@@ -23,8 +24,14 @@ export default async function handler(req, res) {
       });
     }
 
-    const { getWhatsAppBusinessService } = await import('@/services/whatsapp-business');
-    const whatsapp = getWhatsAppBusinessService();
+    const { default: WhatsAppBusinessService } = await import('@/services/whatsapp-business');
+    const whatsapp = new WhatsAppBusinessService();
+    const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
+    const contaNormalizada = normalizarWhatsappAccount(conta);
+
+    if (contaNormalizada.isConfigured && conta?.access_token) {
+      whatsapp.updateConfig(contaNormalizada.phoneNumberId, conta.access_token);
+    }
     
     // Verifica se está configurado
     if (!whatsapp.isConfigured) {

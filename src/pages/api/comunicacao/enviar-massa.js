@@ -2,24 +2,23 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import { gerarTraceId } from '@/lib/financeiro-utils';
+import { obterTenantId } from '@/lib/tenant';
+import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 
 export const runtime = 'nodejs';
 
 // Carregar configuração do WhatsApp a partir do Supabase
-const carregarConfiguracao = async (supabase) => {
+const carregarConfiguracao = async (supabase, usuario) => {
   try {
-    const { data: rows, error } = await supabase
-      .from('configuracoes_sistema')
-      .select('chave, valor')
-      .in('chave', ['whatsapp_phone_number_id', 'whatsapp_access_token']);
+    const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
+    const contaNormalizada = normalizarWhatsappAccount(conta);
 
-    if (error || !rows?.length) return null;
+    if (!contaNormalizada.isConfigured || !conta?.access_token) return null;
 
-    const map = Object.fromEntries(rows.map(r => [r.chave, r.valor]));
     return {
       whatsapp: {
-        phoneNumberId: map.whatsapp_phone_number_id || '',
-        accessToken: map.whatsapp_access_token || ''
+        phoneNumberId: contaNormalizada.phoneNumberId,
+        accessToken: conta.access_token
       }
     };
   } catch (error) {
@@ -29,7 +28,7 @@ const carregarConfiguracao = async (supabase) => {
 };
 
 // Buscar destinatários do Supabase (apenas usuários do sistema)
-const buscarDestinatarios = async (supabase, tipo, excluirUsuarioId) => {
+const buscarDestinatarios = async (supabase, tipo, excluirUsuarioId, tenantId) => {
   // OBS: a tabela `usuarios` não tem coluna `telefone` no schema base.
   // Para WhatsApp/SMS, tentamos obter telefone via tabela `liderancas` quando houver vínculo.
   let query = supabase
@@ -37,6 +36,10 @@ const buscarDestinatarios = async (supabase, tipo, excluirUsuarioId) => {
     .select('id, nome, email, nivel, ativo, status, lideranca_id, liderancas(telefone)')
     .eq('ativo', true)
     .eq('status', 'ATIVO');
+
+  if (tenantId) {
+    query = query.eq('tenant_id', tenantId);
+  }
 
   if (tipo === 'liderancas') {
     query = query.eq('nivel', 'LIDERANCA');
@@ -242,7 +245,7 @@ export default async function handler(req, res) {
     }
 
     // Buscar destinatários no Supabase
-    const listaDestinatarios = await buscarDestinatarios(supabase, tipo, usuario?.id);
+    const listaDestinatarios = await buscarDestinatarios(supabase, tipo, usuario?.id, obterTenantId(usuario));
 
     if (listaDestinatarios.length === 0) {
       return res.status(400).json({
@@ -254,7 +257,7 @@ export default async function handler(req, res) {
 
     // Carregar configuração do WhatsApp do Supabase (se necessário)
     const precisaWhatsApp = canaisNormalizados.includes('whatsapp');
-    const config = precisaWhatsApp ? await carregarConfiguracao(supabase) : null;
+    const config = precisaWhatsApp ? await carregarConfiguracao(supabase, usuario) : null;
 
     // Enviar por cada canal
     const resultados = [];
