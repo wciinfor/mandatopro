@@ -59,6 +59,21 @@ const modulosBase = [
     rota: '/comunicacao'
   },
   {
+    nome: 'Comunicação',
+    icone: faPaperPlane,
+    submenu: [
+      'Dashboard Oficial',
+      'Central de Atendimento',
+      'Contatos Oficiais',
+      'Públicos Oficiais',
+      'Campanhas Oficiais',
+      'Templates Oficiais',
+      'WhatsApp Business Oficial',
+      'Insights Oficiais'
+    ],
+    rota: '/comunicacao-oficial/dashboard'
+  },
+  {
     nome: 'Mandato Connect',
     icone: faPaperPlane,
     submenu: [
@@ -149,6 +164,15 @@ const routeMap = {
   'Logs do Sistema': '/auditoria/logs',
   'Dados do Sistema': '/configuracoes/sistema#dados',
   IA: '/configuracoes/sistema#ia',
+
+  'Comunicação - Dashboard Oficial': '/comunicacao-oficial/dashboard',
+  'Comunicação - Central de Atendimento': '/comunicacao-oficial/central-atendimento',
+  'Comunicação - Contatos Oficiais': '/comunicacao-oficial/contatos',
+  'Comunicação - Públicos Oficiais': '/comunicacao-oficial/publicos',
+  'Comunicação - Campanhas Oficiais': '/comunicacao-oficial/campanhas',
+  'Comunicação - Templates Oficiais': '/comunicacao-oficial/templates',
+  'Comunicação - WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
+  'Comunicação - Insights Oficiais': '/comunicacao-oficial/insights',
 
   'Mandato Connect - Dashboard': '/disparos?section=dashboard',
   'Mandato Connect - Contatos': '/disparos?section=contatos',

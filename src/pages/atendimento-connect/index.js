@@ -13,10 +13,17 @@ import {
   faPhone,
   faUserCheck
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 import { useAuth } from '@/contexts/AuthContext';
+
+const CANAL_CONFIGS = {
+  whatsapp: { label: 'WhatsApp Business', icon: faWhatsapp, bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  whatsapp_legacy: { label: 'WhatsApp Legacy', icon: faWhatsapp, bg: 'bg-teal-100 text-teal-800 border-teal-200' },
+  instagram: { label: 'Instagram Direct', icon: faInstagram, bg: 'bg-pink-100 text-pink-800 border-pink-200' }
+};
 
 const COLUNAS = [
   { id: 'nova', titulo: 'Novas respostas', icon: faInbox, color: 'border-teal-500' },
@@ -226,7 +233,17 @@ export default function AtendimentoConnect() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <h3 className="font-bold text-sm text-gray-900 truncate">{conversa.contatoNome}</h3>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h3 className="font-bold text-sm text-gray-900 truncate">{conversa.contatoNome}</h3>
+                                {conversa.canal && (
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${
+                                    (CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).bg
+                                  }`}>
+                                    <FontAwesomeIcon icon={(CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).icon} className="text-[8px]" />
+                                    {(CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).label.replace(' WhatsApp', '').replace(' Direct', '')}
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-gray-500 flex items-center gap-1">
                                 <FontAwesomeIcon icon={faPhone} />
                                 {formatTelefone(conversa.contatoTelefone)}
@@ -288,7 +305,17 @@ export default function AtendimentoConnect() {
                   <header className="p-4 border-b">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-lg font-bold text-gray-900">{ativa.contatoNome}</h2>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-lg font-bold text-gray-900">{ativa.contatoNome}</h2>
+                          {ativa.canal && (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                              (CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).bg
+                            }`}>
+                              <FontAwesomeIcon icon={(CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).icon} className="text-[10px]" />
+                              {(CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).label}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-600">{formatTelefone(ativa.contatoTelefone)}</p>
                         <p className="text-xs text-gray-500 mt-1">{STATUS_LABEL[ativa.status]} · {ativa.campanha?.titulo || 'Sem campanha vinculada'}</p>
                       </div>

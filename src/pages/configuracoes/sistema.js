@@ -1290,454 +1290,432 @@ export default function ConfiguracaoSistema() {
           {/* ABA: WHATSAPP */}
           {activeTab === 'whatsapp' && (
             <div className="bg-white rounded-lg shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                Integração WhatsApp Business
-              </h2>
-
-              <WhatsAppWizardProgress currentStep={whatsappWizardStep} />
-
-              <div className="border border-blue-100 rounded-xl overflow-hidden mb-6">
-                <div className="bg-blue-50 border-b border-blue-100 p-5">
-                  <p className="text-sm font-semibold text-blue-700">Etapa 1</p>
-                  <h3 className="text-xl font-bold text-gray-900">Conectar Meta</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Use o Embedded Signup oficial para selecionar ou criar Business Manager, WABA e numero do WhatsApp.
+              {/* Cabeçalho */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-5 mb-6 gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    WhatsApp Business
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Gerencie seu canal oficial de comunicação.
                   </p>
                 </div>
-
-                <div className="p-5">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-                    <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-5">
-                      <p className="font-semibold text-gray-800 mb-2">Configuracao assistida pela Meta</p>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Esta opcao abre o popup oficial da Meta, troca o codigo de autorizacao no backend e grava os IDs e o System User Access Token no tenant atual. Webhook e envio continuam para as proximas etapas.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={iniciarMetaEmbeddedSignup}
-                        disabled={loading || metaSignupLoading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-5 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <FontAwesomeIcon icon={faPlug} />
-                        {metaSignupLoading ? 'Conectando...' : 'Conectar com a Meta'}
-                      </button>
-                      {(!META_APP_ID || !META_EMBEDDED_SIGNUP_CONFIG_ID) && (
-                        <p className="text-xs text-amber-700 mt-3">
-                          Configure NEXT_PUBLIC_META_APP_ID e NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID para habilitar o popup oficial.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="rounded-lg border border-gray-200 p-5">
-                      <p className="text-sm font-semibold text-gray-700 mb-3">Dados capturados</p>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <p><strong>Business ID:</strong> {metaSignupData?.businessManagerId || '-'}</p>
-                        <p><strong>WABA ID:</strong> {metaSignupData?.wabaId || '-'}</p>
-                        <p><strong>Phone Number ID:</strong> {metaSignupData?.phoneNumberId || '-'}</p>
-                        <p><strong>Telefone:</strong> {metaSignupData?.displayPhoneNumber || '-'}</p>
-                        <p><strong>Display Name:</strong> {metaSignupData?.displayName || '-'}</p>
-                        <p><strong>Verified Name:</strong> {metaSignupData?.verifiedName || '-'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-cyan-100 rounded-xl overflow-hidden mb-6">
-                <div className="bg-cyan-50 border-b border-cyan-100 p-5">
-                  <p className="text-sm font-semibold text-cyan-700">Etapa 5</p>
-                  <h3 className="text-xl font-bold text-gray-900">Validação do Número</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Registre oficialmente o número na WhatsApp Cloud API usando o endpoint oficial da Meta.
-                  </p>
-                </div>
-
-                <div className="p-5">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-5">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        PIN de verificação em duas etapas *
-                      </label>
-                      <div className="flex flex-col md:flex-row gap-3">
-                        <input
-                          type="password"
-                          inputMode="numeric"
-                          maxLength={6}
-                          value={phoneRegistrationPin}
-                          onChange={(event) => setPhoneRegistrationPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                          placeholder="6 dígitos"
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={registrarNumeroWhatsapp}
-                          disabled={phoneRegistrationLoading || !whatsappStatus.onboarding.productionReady}
-                          className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-5 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          <FontAwesomeIcon icon={faPhone} />
-                          {phoneRegistrationLoading ? 'Registrando...' : 'Registrar Número'}
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">
-                        A Meta exige um PIN de 6 dígitos para registrar o número e ativar a verificação em duas etapas.
-                      </p>
-                      {!whatsappStatus.onboarding.productionReady && (
-                        <p className="text-xs text-amber-700 mt-2">
-                          Conclua a validação da integração antes de registrar o número.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="rounded-lg border border-gray-200 p-5">
-                      <p className="text-sm font-semibold text-gray-700 mb-3">Registro do número</p>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <p><strong>Status:</strong> {phoneRegistrationStatus}</p>
-                        <p>
-                          <strong>Data do registro:</strong>{' '}
-                          {whatsappStatus.onboarding.phoneRegisteredAt
-                            ? new Date(whatsappStatus.onboarding.phoneRegisteredAt).toLocaleString('pt-BR')
-                            : '-'}
-                        </p>
-                        <p><strong>Mensagem:</strong> {whatsappStatus.onboarding.phoneRegistrationMessage || '-'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-teal-100 rounded-xl overflow-hidden">
-                <div className="bg-teal-50 border-b border-teal-100 p-5">
-                  <p className="text-sm font-semibold text-teal-700">Etapa Atual</p>
-                  <h3 className="text-xl font-bold text-gray-900">Webhook e Credenciais</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Informe as credenciais oficiais da Meta e acompanhe o status da conexão antes do teste final.
-                  </p>
-                </div>
-
-                <div className="p-5">
-              {/* Status */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="bg-gradient-to-br from-green-50 to-green-100 border-l-4 border-green-500 p-4 rounded">
-                  <p className="text-sm text-gray-600">Pronto para Produção</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <FontAwesomeIcon
-                      icon={whatsappStatus.isConfigured ? faCheck : faTimes}
-                      className={whatsappStatus.isConfigured ? 'text-green-600' : 'text-red-600'}
-                      size="lg"
-                    />
-                    <span className={`font-bold ${whatsappStatus.isConfigured ? 'text-green-600' : 'text-red-600'}`}>
-                      {whatsappStatus.isConfigured ? 'Pronto' : 'Pendente'}
+                <div>
+                  {whatsappStatus.isConnected ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Canal Ativo
                     </span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-l-4 border-blue-500 p-4 rounded">
-                  <p className="text-sm text-gray-600">Status da Conexão</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <FontAwesomeIcon
-                      icon={whatsappStatus.isConnected ? faCheck : faTimes}
-                      className={whatsappStatus.isConnected ? 'text-blue-600' : 'text-yellow-600'}
-                      size="lg"
-                    />
-                    <span className={`font-bold ${whatsappStatus.isConnected ? 'text-blue-600' : 'text-yellow-600'}`}>
-                      {whatsappStatus.isConnected ? 'Conectado' : 'Desconectado'}
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-50 text-gray-500 border border-gray-200">
+                      <span className="h-2 w-2 rounded-full bg-gray-400"></span>
+                      Desconectado
                     </span>
+                  )}
+                </div>
+              </div>
+
+              {/* ── ESTADO: NÃO CONECTADO ── */}
+              {!whatsappStatus.isConnected && (
+                <div className="bg-gradient-to-br from-gray-50 to-teal-50/20 border border-gray-200 rounded-2xl p-10 text-center max-w-xl mx-auto my-8 shadow-sm">
+                  <div className="mx-auto w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center text-2xl mb-5 shadow-sm">
+                    💬
                   </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-l-4 border-gray-500 p-4 rounded">
-                  <p className="text-sm text-gray-600">Última Atualização</p>
-                  <p className="font-bold text-gray-700 mt-2">
-                    {whatsappStatus.lastUpdate || 'Nunca'}
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Conecte seu WhatsApp Business</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
+                    Habilite disparos e automatize atendimentos no MandatoPro com seu número oficial de comunicação.
                   </p>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-lg p-4 mb-8">
-                <p className="text-sm font-semibold text-gray-700 mb-3">Onboarding Meta</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
-                  {whatsappOnboardingSteps.map(([label, done]) => (
-                    <div
-                      key={label}
-                      className={`rounded-lg border p-3 ${done ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FontAwesomeIcon
-                          icon={done ? faCheck : faTimes}
-                          className={done ? 'text-green-600' : 'text-gray-400'}
-                        />
-                        <span className={`text-sm font-semibold ${done ? 'text-green-700' : 'text-gray-500'}`}>
-                          {label}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Formulário */}
-              <div className="bg-gray-50 p-6 rounded-lg mb-6 border-l-4 border-yellow-500">
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2">
-                    <strong>Passo 1:</strong> Acesse{' '}
-                    <a
-                      href="https://developers.facebook.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      Meta for Developers
-                    </a>
-                  </p>
-                  <p className="text-sm text-gray-600 mb-2">
-                    <strong>Passo 2:</strong> Crie/configure uma app com WhatsApp
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Passo 3:</strong> Copie o Phone Number ID e Access Token abaixo
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Phone Number ID *
-                  </label>
-                  <input
-                    type="text"
-                    name="phoneNumberId"
-                    value={whatsapp.phoneNumberId}
-                    onChange={handleWhatsappChange}
-                    placeholder="Seu Phone Number ID do Meta"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Encontre em: App ? WhatsApp ? API Setup
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Access Token *
-                  </label>
-                  <textarea
-                    name="accessToken"
-                    value={whatsapp.accessToken}
-                    onChange={handleWhatsappChange}
-                    placeholder="Seu Access Token do Meta"
-                    rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Token permanente (24h) ou temporário. Copie com cuidado!
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Verify Token do Webhook
-                  </label>
-                  <input
-                    type="text"
-                    name="verifyToken"
-                    value={whatsapp.verifyToken}
-                    onChange={handleWhatsappChange}
-                    placeholder={whatsapp.verifyTokenConfigured ? 'Token já configurado' : 'Defina um token de verificação'}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Callback URL oficial: /api/whatsapp-business/meta-webhook
-                  </p>
-                </div>
-              </div>
-
-              {/* Botões de Ação */}
-              <div className="flex gap-3 flex-col md:flex-row">
-                <button
-                  onClick={salvarWhatsApp}
-                  disabled={loading}
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <FontAwesomeIcon icon={faSave} />
-                  {loading ? 'Salvando...' : 'Salvar Configuração'}
-                </button>
-
-                <button
-                  onClick={testarWhatsApp}
-                  disabled={loading || !whatsappStatus.isConfigured}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <FontAwesomeIcon icon={faCheck} />
-                  Enviar Mensagem de Teste
-                </button>
-
-                <button
-                  onClick={verificarStatusWhatsApp}
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  Verificar Status
-                </button>
-              </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-xl overflow-hidden mt-6">
-                <div className="bg-gray-50 border-b border-gray-200 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-600">Etapa 7</p>
-                    <h3 className="text-xl font-bold text-gray-900">Teste Final</h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Painel de saúde e diagnóstico da integração WhatsApp Business.
-                    </p>
-                  </div>
                   <button
                     type="button"
-                    onClick={executarDiagnosticoWhatsapp}
-                    disabled={whatsappHealthLoading}
-                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-5 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    onClick={iniciarMetaEmbeddedSignup}
+                    disabled={loading || metaSignupLoading}
+                    className="mx-auto bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm disabled:opacity-50 flex items-center gap-2 justify-center"
                   >
-                    <FontAwesomeIcon icon={faSyncAlt} className={whatsappHealthLoading ? 'animate-spin' : ''} />
-                    {whatsappHealthLoading ? 'Executando...' : 'Executar Diagnóstico'}
+                    <FontAwesomeIcon icon={faPlug} />
+                    {metaSignupLoading ? 'Conectando...' : 'Conectar Canal'}
                   </button>
+                  {(!META_APP_ID || !META_EMBEDDED_SIGNUP_CONFIG_ID) && (
+                    <p className="text-xs text-amber-700 mt-5 bg-amber-50 border border-amber-100 py-2 px-4 rounded-lg inline-block">
+                      Variáveis da Meta não configuradas. Use as Configurações Avançadas no menu de opções para configurar.
+                    </p>
+                  )}
                 </div>
+              )}
 
-                <div className="p-5">
-                  {/* Grid de Resumo de Sincronização e Diagnóstico Geral */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-                    {/* Card 1: Última Sincronização */}
-                    <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                        <div className="flex items-center gap-2">
-                          <FontAwesomeIcon icon={faSyncAlt} className="text-teal-600 text-lg" />
-                          <h4 className="font-bold text-gray-800">Sincronização com a Meta</h4>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={executarSincronizacao}
-                            disabled={whatsappSyncLoading}
-                            className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-2"
-                          >
-                            <FontAwesomeIcon icon={faSyncAlt} className={whatsappSyncLoading ? 'animate-spin' : ''} />
-                            {whatsappSyncLoading ? 'Sincronizando...' : 'Sincronizar Agora'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setIsSyncHistoryModalOpen(true)}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm transition flex items-center gap-2"
-                          >
-                            Histórico
-                          </button>
+              {/* ── ESTADO: CONECTADO — DASHBOARD ── */}
+              {whatsappStatus.isConnected && (
+                <div className="space-y-8">
+                  {/* Status do Canal */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Status do Canal</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className={`rounded-xl border p-4 flex items-center gap-3 ${whatsappStatus.isConfigured ? 'border-green-200 bg-green-50/60' : 'border-red-100 bg-red-50/40'}`}>
+                        <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${whatsappStatus.isConfigured ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'}`}>
+                          <FontAwesomeIcon icon={whatsappStatus.isConfigured ? faCheck : faTimes} />
+                        </span>
+                        <div>
+                          <p className="text-xs text-gray-500">Configuração</p>
+                          <p className={`text-sm font-bold ${whatsappStatus.isConfigured ? 'text-green-700' : 'text-red-600'}`}>
+                            {whatsappStatus.isConfigured ? 'Pronta' : 'Pendente'}
+                          </p>
                         </div>
                       </div>
 
-                      {syncHistory.length > 0 ? (
-                        (() => {
-                          const latest = syncHistory[0];
-                          return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <p className="text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800">Status: </span>
-                                  {latest.success ? (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                      Sucesso
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">
-                                      Falha
-                                    </span>
-                                  )}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800">Última Sincronização: </span>
-                                  {latest.started_at ? new Date(latest.started_at).toLocaleString('pt-BR') : '-'}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800">Duração: </span>
-                                  {latest.duration_ms ? (latest.duration_ms >= 1000 ? (latest.duration_ms / 1000).toFixed(2) + 's' : latest.duration_ms + 'ms') : '0ms'}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  <span className="font-semibold text-gray-800">Alterações: </span>
-                                  {latest.updated_items} {latest.updated_items === 1 ? 'campo alterado' : 'campos alterados'}
-                                </p>
-                              </div>
-
-                              <div className="space-y-2 border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4">
-                                <span className="text-xs font-bold uppercase text-gray-400 block tracking-wider">Diferenças Detectadas</span>
-                                {latest.diff && latest.diff.length > 0 ? (
-                                  <div className="space-y-1 max-h-32 overflow-y-auto font-mono text-xs bg-gray-50 p-2.5 rounded border border-gray-100">
-                                    {latest.diff.map((d, idx) => (
-                                      <div key={idx} className="text-gray-700 truncate" title={`${d.field}: ${String(d.before)} -> ${String(d.after)}`}>
-                                        <span className="text-teal-700 font-semibold">{d.field}</span>: <span className="text-red-500 line-through">{String(d.before ?? 'null')}</span> → <span className="text-green-600 font-bold">{String(d.after ?? 'null')}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-gray-500 italic bg-gray-50 p-2.5 rounded border border-gray-100">
-                                    Nenhuma diferença encontrada. Dados idênticos aos da Meta.
-                                  </p>
-                                )}
-
-                                {latest.error_message && (
-                                  <div className="text-xs text-red-600 bg-red-50 border border-red-100 p-2.5 rounded">
-                                    <span className="font-bold">Erro:</span> {latest.error_message}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()
-                      ) : (
-                        <div className="text-center py-6 text-gray-500 text-sm">
-                          Nenhuma sincronização realizada ainda. Clique em "Sincronizar Agora" para iniciar.
+                      <div className={`rounded-xl border p-4 flex items-center gap-3 ${whatsappStatus.isConnected ? 'border-blue-200 bg-blue-50/60' : 'border-gray-200 bg-gray-50'}`}>
+                        <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${whatsappStatus.isConnected ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
+                          <FontAwesomeIcon icon={faPlug} />
+                        </span>
+                        <div>
+                          <p className="text-xs text-gray-500">Conexão API</p>
+                          <p className={`text-sm font-bold ${whatsappStatus.isConnected ? 'text-blue-700' : 'text-gray-500'}`}>
+                            {whatsappStatus.isConnected ? 'Operacional' : 'Inativa'}
+                          </p>
                         </div>
-                      )}
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 flex items-center gap-3">
+                        <span className="w-9 h-9 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+                          <FontAwesomeIcon icon={faSyncAlt} />
+                        </span>
+                        <div>
+                          <p className="text-xs text-gray-500">Última Atualização</p>
+                          <p className="text-sm font-bold text-gray-700 truncate">
+                            {whatsappStatus.lastUpdate || 'Não sincronizado'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Informações da Conta */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Informações da Conta</h3>
+                    <div className="bg-gradient-to-br from-emerald-50/60 to-teal-50/20 border border-emerald-100 rounded-2xl p-6 shadow-sm">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                        {/* Avatar */}
+                        <div className="flex-shrink-0">
+                          {metaSignupData?.profilePicUrl ? (
+                            <img
+                              src={metaSignupData.profilePicUrl}
+                              alt="Foto do perfil"
+                              className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-200 shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-2xl font-bold shadow-sm select-none">
+                              {(metaSignupData?.displayName || metaSignupData?.verifiedName || '?').charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Detalhes */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <h4 className="text-lg font-bold text-gray-900 truncate">
+                              {metaSignupData?.displayName || metaSignupData?.verifiedName || 'Conta WhatsApp'}
+                            </h4>
+                            {(whatsappStatus.onboarding.embeddedSignupCompleted || metaSignupData?.verifiedName) ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                ✓ Verificado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                ⚠ Pendente
+                              </span>
+                            )}
+                          </div>
+
+                          {metaSignupData?.displayPhoneNumber && (
+                            <p className="text-sm text-gray-600 mb-3">
+                              📱 <span className="font-semibold text-gray-800">{metaSignupData.displayPhoneNumber}</span>
+                            </p>
+                          )}
+
+                          {metaSignupData?.businessName && (
+                            <p className="text-xs text-gray-500 mb-3">
+                              🏢 <span className="font-medium text-gray-700">{metaSignupData.businessName}</span>
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap gap-3 mt-1">
+                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                              metaSignupData?.qualityRating === 'GREEN'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : metaSignupData?.qualityRating === 'YELLOW'
+                                ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                : metaSignupData?.qualityRating === 'RED'
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : 'bg-gray-50 text-gray-500 border-gray-200'
+                            }`}>
+                              <span>{
+                                metaSignupData?.qualityRating === 'GREEN' ? '🟢' :
+                                metaSignupData?.qualityRating === 'YELLOW' ? '🟡' :
+                                metaSignupData?.qualityRating === 'RED' ? '🔴' : '⚪'
+                              }</span>
+                              Qualidade: {
+                                metaSignupData?.qualityRating === 'GREEN' ? 'Alta' :
+                                metaSignupData?.qualityRating === 'YELLOW' ? 'Média' :
+                                metaSignupData?.qualityRating === 'RED' ? 'Baixa' : 'N/D'
+                              }
+                            </div>
+
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+                              📨 Limite: {
+                                metaSignupData?.messagingLimit === 'TIER_50' ? '50/dia' :
+                                metaSignupData?.messagingLimit === 'TIER_250' ? '250/dia' :
+                                metaSignupData?.messagingLimit === 'TIER_1K' ? '1.000/dia' :
+                                metaSignupData?.messagingLimit === 'TIER_10K' ? '10.000/dia' :
+                                metaSignupData?.messagingLimit === 'TIER_100K' ? '100.000/dia' :
+                                metaSignupData?.messagingLimit === 'UNLIMITED' ? 'Ilimitado' : 'N/D'
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ações */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-gray-100 pt-6 gap-4">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Ações</h3>
+                      <p className="text-xs text-gray-500">Operações e controle do canal.</p>
                     </div>
 
-                    {/* Card 2: Resumo do Diagnóstico */}
-                    <div className={`rounded-xl border p-5 flex flex-col justify-between shadow-sm ${
-                      whatsappHealth?.ready
-                        ? 'border-green-200 bg-green-50/50'
-                        : 'border-yellow-200 bg-yellow-50/50'
-                    }`}>
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <FontAwesomeIcon
-                            icon={whatsappHealth?.ready ? faCheck : faExclamationTriangle}
-                            className={whatsappHealth?.ready ? 'text-green-600' : 'text-yellow-600'}
-                          />
-                          <h4 className={`font-bold ${whatsappHealth?.ready ? 'text-green-800' : 'text-yellow-800'}`}>
-                            Painel de Saúde
-                          </h4>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={executarSincronizacao}
+                        disabled={whatsappSyncLoading}
+                        className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-sm text-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <FontAwesomeIcon icon={faSyncAlt} className={whatsappSyncLoading ? 'animate-spin' : ''} />
+                        Sincronizar Canal
+                      </button>
+
+                      <button
+                        onClick={testarWhatsApp}
+                        disabled={loading}
+                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-bold py-2.5 px-5 rounded-xl shadow-sm text-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <FontAwesomeIcon icon={faCheck} />
+                        Enviar Mensagem de Teste
+                      </button>
+
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedWhatsapp(!showAdvancedWhatsapp)}
+                          className="bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 font-bold py-2.5 px-5 rounded-xl text-sm transition-all flex items-center gap-2"
+                        >
+                          <FontAwesomeIcon icon={faCog} />
+                          <span>Mais Opções</span>
+                          <span className="text-[10px] text-gray-400">
+                            {showAdvancedWhatsapp ? '▲' : '▼'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-painel "Mais Opções" */}
+                  {showAdvancedWhatsapp && (
+                    <div className="mt-6 border-t border-gray-100 pt-6 space-y-6">
+                      
+                      {/* Saúde do Canal e Histórico */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
+                        <div className="flex items-center justify-between mb-4 border-b border-gray-200 pb-3">
+                          <div>
+                            <h4 className="font-bold text-gray-800 text-sm">Saúde do Canal & Diagnósticos</h4>
+                            <p className="text-[11px] text-gray-500">Ferramentas de análise do canal.</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={executarDiagnosticoWhatsapp}
+                              disabled={whatsappHealthLoading}
+                              className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              <FontAwesomeIcon icon={faSyncAlt} className={whatsappHealthLoading ? 'animate-spin' : ''} />
+                              Executar Diagnóstico
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsSyncHistoryModalOpen(true)}
+                              className="bg-white hover:bg-gray-100 text-gray-600 border border-gray-200 font-bold py-1.5 px-3 rounded-lg text-xs transition"
+                            >
+                              Ver Histórico
+                            </button>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-700">
-                          {whatsappHealth
-                            ? (whatsappHealth.ready ? 'Integração pronta para uso em produção.' : 'Existem pendências antes de iniciar o uso.')
-                            : 'Diagnóstico não executado.'}
-                        </p>
-                        {whatsappHealth?.pending?.length > 0 && (
-                          <div className="mt-3 max-h-24 overflow-y-auto text-xs text-yellow-800 space-y-1 bg-yellow-100/50 p-2 rounded">
-                            {whatsappHealth.pending.map((item) => (
-                              <div key={item}>• {item}</div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                          <div className="bg-white border border-gray-200 p-4 rounded-xl">
+                            <p className="font-bold text-gray-700 mb-1.5">Última Sincronização:</p>
+                            {syncHistory.length > 0 ? (
+                              <p className="text-gray-600 font-medium">
+                                Status: <span className="text-green-600">Sucesso</span> | Data: {new Date(syncHistory[0].started_at).toLocaleString('pt-BR')}
+                              </p>
+                            ) : (
+                              <p className="text-gray-400 italic">Sem registros recentes.</p>
+                            )}
+                          </div>
+                          <div className="bg-white border border-gray-200 p-4 rounded-xl">
+                            <p className="font-bold text-gray-700 mb-1.5">Status Geral:</p>
+                            <p className="text-gray-600 font-medium">
+                              {whatsappHealth?.ready ? '🟢 Canal operacional pronto para produção.' : '🟡 Atenção: Diagnóstico pendente.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Indicadores de Saúde */}
+                        {(whatsappHealth?.indicators || []).length > 0 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4 border-t border-gray-100 pt-4">
+                            {whatsappHealth.indicators.map((item) => (
+                              <WhatsappHealthCard key={item.id} item={item} />
                             ))}
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-4">
-                        Última verificação: {whatsappHealth?.checkedAt ? new Date(whatsappHealth.checkedAt).toLocaleString('pt-BR') : 'Nunca'}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {(whatsappHealth?.indicators || []).map((item) => (
-                      <WhatsappHealthCard key={item.id} item={item} />
-                    ))}
-                  </div>
+                      {/* Configurações Técnicas e Avançadas */}
+                      <div className="border border-gray-200 rounded-2xl p-6 space-y-5 bg-white">
+                        <div>
+                          <h4 className="font-bold text-gray-800 text-sm">Configurações Avançadas e Técnicas</h4>
+                          <p className="text-[11px] text-gray-500">Parâmetros confidenciais e credenciais da API Meta.</p>
+                        </div>
+
+                        <WhatsAppWizardProgress currentStep={whatsappWizardStep} />
+
+                        {/* Autenticação popup */}
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="bg-gray-50 border-b border-gray-200 p-4">
+                            <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Autenticação com a Meta</h5>
+                          </div>
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                              <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs">
+                                <p className="text-gray-600 mb-3">
+                                  Abre o popup oficial da Meta, troca o código de autorização e grava as chaves.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={iniciarMetaEmbeddedSignup}
+                                  disabled={loading || metaSignupLoading}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition text-xs"
+                                >
+                                  Conectar com a Meta
+                                </button>
+                              </div>
+                              <div className="rounded-lg border border-gray-200 p-4 text-[11px] text-gray-600 space-y-1 bg-white">
+                                <p><strong>Business ID:</strong> {metaSignupData?.businessManagerId || '—'}</p>
+                                <p><strong>WABA ID:</strong> {metaSignupData?.wabaId || '—'}</p>
+                                <p><strong>Phone ID:</strong> {metaSignupData?.phoneNumberId || '—'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Registro PIN */}
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="bg-gray-50 border-b border-gray-200 p-4">
+                            <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Registro do Número</h5>
+                          </div>
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                              <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs">
+                                <label className="block font-semibold text-gray-700 mb-1.5">
+                                  PIN de verificação em duas etapas
+                                </label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="password"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={phoneRegistrationPin}
+                                    onChange={(event) => setPhoneRegistrationPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="6 dígitos"
+                                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={registrarNumeroWhatsapp}
+                                    disabled={phoneRegistrationLoading || !whatsappStatus.onboarding.productionReady}
+                                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs"
+                                  >
+                                    Registrar
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="rounded-lg border border-gray-200 p-4 text-[11px] text-gray-600 bg-white">
+                                <p><strong>Status:</strong> {phoneRegistrationStatus}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Form manual */}
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="bg-gray-50 border-b border-gray-200 p-4">
+                            <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Credenciais e Webhook Manual</h5>
+                          </div>
+                          <div className="p-4 space-y-4 text-xs">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-gray-700 font-semibold mb-1">Phone Number ID</label>
+                                <input
+                                  type="text"
+                                  name="phoneNumberId"
+                                  value={whatsapp.phoneNumberId}
+                                  onChange={handleWhatsappChange}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-gray-700 font-semibold mb-1">Verify Token (Webhook)</label>
+                                <input
+                                  type="text"
+                                  name="verifyToken"
+                                  value={whatsapp.verifyToken}
+                                  onChange={handleWhatsappChange}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-gray-700 font-semibold mb-1">Access Token</label>
+                              <input
+                                type="password"
+                                name="accessToken"
+                                value={whatsapp.accessToken}
+                                onChange={handleWhatsappChange}
+                                className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs"
+                              />
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={salvarWhatsApp}
+                                disabled={loading}
+                                className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg text-xs"
+                              >
+                                Salvar Credenciais
+                              </button>
+                              <button
+                                onClick={verificarStatusWhatsApp}
+                                disabled={loading}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-xs"
+                              >
+                                Verificar Status
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+
                 </div>
-              </div>
+              )}
             </div>
           )}
 
