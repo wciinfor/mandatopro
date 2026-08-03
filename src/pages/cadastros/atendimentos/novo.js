@@ -471,6 +471,7 @@ export default function NovoAtendimento() {
             data_nascimento: dadosLimpos.eleitorDataNascimento || '',
             sexo: dadosLimpos.eleitorSexo || '',
             profissao: dadosLimpos.eleitorProfissao || '',
+            lideranca: liderancaSelecionada?.nome || formData.liderancaResponsavel || '',
             status: 'ATIVO'
           })
         });
