@@ -4,6 +4,7 @@ import CampanhasWidget from './widgets/CampanhasWidget';
 import MapaWidget from './widgets/MapaWidget';
 import MetasWidget from './widgets/MetasWidget';
 import LiderancasPerformanceWidget from './widgets/LiderancasPerformanceWidget';
+import AtividadeTempoRealWidget from './widgets/AtividadeTempoRealWidget';
 
 /**
  * Registro Central de Widgets do MandatoPRO Live
@@ -15,9 +16,9 @@ export const LiveWidgetRegistry = {
     component: EleitoresWidget,
     gridClass: 'col-span-4 row-span-4'
   },
-  atendimentos: {
-    id: 'atendimentos',
-    component: AtendimentosWidget,
+  atividadeTempoReal: {
+    id: 'atividadeTempoReal',
+    component: AtividadeTempoRealWidget,
     gridClass: 'col-span-4 row-span-4'
   },
   campanhas: {
@@ -43,7 +44,7 @@ export const LiveWidgetRegistry = {
 export const getActiveWidgets = () => {
   return [
     LiveWidgetRegistry.eleitores,
-    LiveWidgetRegistry.atendimentos,
+    LiveWidgetRegistry.atividadeTempoReal,
     LiveWidgetRegistry.campanhas,
     LiveWidgetRegistry.mapa,
     LiveWidgetRegistry.liderancasPerformance
