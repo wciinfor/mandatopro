@@ -6,12 +6,18 @@ import MetasWidget from './widgets/MetasWidget';
 import LiderancasPerformanceWidget from './widgets/LiderancasPerformanceWidget';
 import AtividadeTempoRealWidget from './widgets/AtividadeTempoRealWidget';
 import InteligenciaWidget from './widgets/InteligenciaWidget';
+import StatusWidget from './widgets/StatusWidget';
 
 /**
  * Registro Central de Widgets do MandatoPRO Live
  * Permite adicionar, remover ou reordenar os widgets dinamicamente sem alterar o layout principal.
  */
 export const LiveWidgetRegistry = {
+  statusGeral: {
+    id: 'statusGeral',
+    component: StatusWidget,
+    gridClass: 'col-span-12 row-span-4'
+  },
   eleitores: {
     id: 'eleitores',
     component: EleitoresWidget,
@@ -30,12 +36,12 @@ export const LiveWidgetRegistry = {
   mapa: {
     id: 'mapa',
     component: MapaWidget,
-    gridClass: 'col-span-6 row-span-8'
+    gridClass: 'col-span-6 row-span-4'
   },
   liderancasPerformance: {
     id: 'liderancasPerformance',
     component: LiderancasPerformanceWidget,
-    gridClass: 'col-span-6 row-span-8'
+    gridClass: 'col-span-6 row-span-4'
   }
 };
 
@@ -44,6 +50,7 @@ export const LiveWidgetRegistry = {
  */
 export const getActiveWidgets = () => {
   return [
+    LiveWidgetRegistry.statusGeral,
     LiveWidgetRegistry.eleitores,
     LiveWidgetRegistry.atividadeTempoReal,
     LiveWidgetRegistry.inteligencia,
