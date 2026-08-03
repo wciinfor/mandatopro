@@ -3,6 +3,7 @@ import AtendimentosWidget from './widgets/AtendimentosWidget';
 import CampanhasWidget from './widgets/CampanhasWidget';
 import MapaWidget from './widgets/MapaWidget';
 import MetasWidget from './widgets/MetasWidget';
+import LiderancasPerformanceWidget from './widgets/LiderancasPerformanceWidget';
 
 /**
  * Registro Central de Widgets do MandatoPRO Live
@@ -27,12 +28,12 @@ export const LiveWidgetRegistry = {
   mapa: {
     id: 'mapa',
     component: MapaWidget,
-    gridClass: 'col-span-8 row-span-8'
+    gridClass: 'col-span-6 row-span-8'
   },
-  metas: {
-    id: 'metas',
-    component: MetasWidget,
-    gridClass: 'col-span-4 row-span-8'
+  liderancasPerformance: {
+    id: 'liderancasPerformance',
+    component: LiderancasPerformanceWidget,
+    gridClass: 'col-span-6 row-span-8'
   }
 };
 
@@ -45,6 +46,6 @@ export const getActiveWidgets = () => {
     LiveWidgetRegistry.atendimentos,
     LiveWidgetRegistry.campanhas,
     LiveWidgetRegistry.mapa,
-    LiveWidgetRegistry.metas
+    LiveWidgetRegistry.liderancasPerformance
   ];
 };
