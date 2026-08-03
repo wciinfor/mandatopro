@@ -252,6 +252,7 @@ export default function NovoAtendimento() {
         })).filter(s => s.id && s.nome) || [];
         
         setServicosCampanha(servicos);
+        setServicosSelecionados(servicos); // Marcar automaticamente todos os serviços da campanha por padrão
         
         // Preencher localidade
         setFormData(prev => ({
