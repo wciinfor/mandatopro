@@ -64,6 +64,7 @@ export default function EditarEleitor() {
     statusCadastro: 'ATIVO'
   });
   const [liderancas, setLiderancas] = useState([]);
+  const [buscaLideranca, setBuscaLideranca] = useState('');
 
   const normalizarTexto = (valor = '') =>
     String(valor)
@@ -76,46 +77,38 @@ export default function EditarEleitor() {
 
   const correspondeTexto = (base, referencia) => {
     if (!base || !referencia) return false;
-    return base === referencia || base.includes(referencia) || referencia.includes(base);
+    return base.includes(referencia) || referencia.includes(base);
   };
-
-  const obterLiderancasFiltradas = (lista, bairro, municipio, cidade) => {
-    if (!Array.isArray(lista) || lista.length === 0) return [];
-
-    const bairroRef = normalizarTexto(bairro);
-    const municipioRef = normalizarTexto(municipio || cidade);
-
-    // Regra de negocio: prioriza bairro; municipio/cidade e fallback quando bairro nao informado.
-    if (bairroRef) {
-      return lista.filter((item) => {
-        const bairroLideranca = normalizarTexto(item?.bairro);
-        return correspondeTexto(bairroLideranca, bairroRef);
-      });
-    }
-
-    if (municipioRef) {
-      return lista.filter((item) => {
-        const municipioLideranca = normalizarTexto(item?.municipio || item?.cidade);
-        return correspondeTexto(municipioLideranca, municipioRef);
-      });
-    }
-
-    return [];
-  };
-
-  const liderancasFiltradas = obterLiderancasFiltradas(
-    liderancas,
-    formData.bairro,
-    formData.municipio,
-    formData.cidade
-  );
 
   const possuiBairroPreenchido = Boolean(String(formData.bairro || '').trim());
   const possuiMunicipioOuCidadePreenchido = Boolean(
     String(formData.municipio || formData.cidade || '').trim()
   );
-  const podeSelecionarLideranca = possuiBairroPreenchido || possuiMunicipioOuCidadePreenchido;
-  const criterioFiltroLideranca = possuiBairroPreenchido ? 'bairro' : 'município/cidade';
+  const criterioFiltroLideranca = possuiBairroPreenchido ? 'bairro' : (possuiMunicipioOuCidadePreenchido ? 'município/cidade' : '');
+
+  // Lideranças sugeridas (se houver bairro ou município/cidade preenchido)
+  const liderancasSugeridas = liderancas.filter((item) => {
+    const bairroRef = normalizarTexto(formData.bairro);
+    const municipioRef = normalizarTexto(formData.municipio || formData.cidade);
+
+    if (bairroRef && item?.bairro) {
+      return correspondeTexto(normalizarTexto(item.bairro), bairroRef);
+    }
+    if (municipioRef && (item?.municipio || item?.cidade)) {
+      return correspondeTexto(normalizarTexto(item.municipio || item.cidade), municipioRef);
+    }
+    return false;
+  });
+
+  // Lideranças filtradas pela busca por texto
+  const liderancasFiltradas = liderancas.filter((item) => {
+    if (!buscaLideranca.trim()) return true;
+    const termo = normalizarTexto(buscaLideranca);
+    const nome = normalizarTexto(item.nome);
+    const bairro = normalizarTexto(item.bairro);
+    const municipio = normalizarTexto(item.municipio || item.cidade);
+    return nome.includes(termo) || bairro.includes(termo) || municipio.includes(termo);
+  });
 
   const carregarEleitor = useCallback(async () => {
     try {
@@ -203,7 +196,7 @@ export default function EditarEleitor() {
 
   useEffect(() => {
     const nomesValidos = new Set(
-      liderancasFiltradas
+      liderancas
         .map((item) => String(item?.nome || '').trim())
         .filter(Boolean)
     );
@@ -215,13 +208,6 @@ export default function EditarEleitor() {
         return prev;
       }
 
-      if (liderancasFiltradas.length === 1) {
-        return {
-          ...prev,
-          lideranca: String(liderancasFiltradas[0]?.nome || '')
-        };
-      }
-
       if (!atual) {
         return prev;
       }
@@ -231,7 +217,7 @@ export default function EditarEleitor() {
         lideranca: ''
       };
     });
-  }, [liderancasFiltradas]);
+  }, [liderancas]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -915,31 +901,54 @@ export default function EditarEleitor() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 LIDERANÇA
               </label>
+
+              <div className="mb-2 relative">
+                <input
+                  type="text"
+                  placeholder="🔍 Pesquisar liderança por nome, bairro ou cidade..."
+                  value={buscaLideranca}
+                  onChange={(e) => setBuscaLideranca(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50"
+                />
+                {buscaLideranca && (
+                  <button
+                    type="button"
+                    onClick={() => setBuscaLideranca('')}
+                    className="absolute right-3 top-2.5 text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+
               <select
                 name="lideranca"
                 value={formData.lideranca}
                 onChange={handleInputChange}
-                disabled={!podeSelecionarLideranca}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
-                <option value="">Selecione uma liderança</option>
-                {liderancasFiltradas.map((item) => (
-                  <option key={item.id} value={item.nome}>
-                    {item.nome}
-                  </option>
-                ))}
+                <option value="">Sem liderança vinculada</option>
+                {liderancasFiltradas.map((item) => {
+                  const detalheLocal = [item.bairro, item.municipio || item.cidade].filter(Boolean).join(' - ');
+                  return (
+                    <option key={item.id} value={item.nome}>
+                      {item.nome} {detalheLocal ? `(${detalheLocal})` : ''}
+                    </option>
+                  );
+                })}
               </select>
-              {!podeSelecionarLideranca && (
-                <p className="text-xs text-amber-700 mt-1">
-                  Preencha bairro ou município/cidade para habilitar a seleção.
+
+              {criterioFiltroLideranca && (
+                <p className="text-xs text-teal-700 mt-1.5">
+                  💡 Sugestão para a região ({criterioFiltroLideranca}):{' '}
+                  {liderancasSugeridas.length > 0
+                    ? liderancasSugeridas.map((l) => l.nome).join(', ')
+                    : 'Nenhuma liderança cadastrada nesta região específica.'}
                 </p>
               )}
-              <p className="text-xs text-teal-700 mt-1">
-                Filtro aplicado por <strong>{criterioFiltroLideranca}</strong>. Apenas lideranças cadastradas são permitidas.
-              </p>
-              {liderancasFiltradas.length === 0 && (
+              {buscaLideranca && liderancasFiltradas.length === 0 && (
                 <p className="text-xs text-amber-700 mt-1">
-                  Nenhuma liderança ativa encontrada para este {criterioFiltroLideranca}.
+                  Nenhuma liderança encontrada para a pesquisa "{buscaLideranca}".
                 </p>
               )}
             </div>
