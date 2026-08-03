@@ -58,8 +58,7 @@ export default function BuscaEleitor({ onSelecionarEleitor, eleitorSelecionado }
                 type="text"
                 value={busca}
                 onChange={(e) => buscarEleitor(e.target.value)}
-                disabled={carregando}
-                className="w-full px-4 py-3 pl-10 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                className="w-full px-4 py-3 pl-10 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 placeholder="Digite o nome ou CPF do eleitor..."
               />
               <FontAwesomeIcon 

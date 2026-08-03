@@ -56,8 +56,7 @@ export default function BuscaLideranca({ onSelecionarLideranca, liderancaSelecio
               type="text"
               value={busca}
               onChange={(e) => buscarLideranca(e.target.value)}
-              disabled={carregando}
-              className="w-full px-4 py-2 pl-10 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-100"
+              className="w-full px-4 py-2 pl-10 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
               placeholder="Digite o nome da liderança..."
             />
             <FontAwesomeIcon 
