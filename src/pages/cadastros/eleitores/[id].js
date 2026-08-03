@@ -902,53 +902,90 @@ export default function EditarEleitor() {
                 LIDERANÇA
               </label>
 
-              <div className="mb-2 relative">
+              <div className="relative">
                 <input
                   type="text"
-                  placeholder="🔍 Pesquisar liderança por nome, bairro ou cidade..."
+                  placeholder="🔍 Digite para buscar uma liderança por nome, bairro ou cidade..."
                   value={buscaLideranca}
-                  onChange={(e) => setBuscaLideranca(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50"
+                  onChange={(e) => {
+                    setBuscaLideranca(e.target.value);
+                    if (formData.lideranca) {
+                      setFormData((prev) => ({ ...prev, lideranca: '' }));
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-white"
                 />
                 {buscaLideranca && (
                   <button
                     type="button"
-                    onClick={() => setBuscaLideranca('')}
-                    className="absolute right-3 top-2.5 text-xs text-gray-500 hover:text-gray-700"
+                    onClick={() => {
+                      setBuscaLideranca('');
+                      setFormData((prev) => ({ ...prev, lideranca: '' }));
+                    }}
+                    className="absolute right-3 top-2.5 text-xs text-gray-500 hover:text-gray-700 font-semibold"
                   >
                     Limpar
                   </button>
                 )}
+
+                {/* Dropdown dinâmico exibido ao digitar */}
+                {buscaLideranca.trim() && !formData.lideranca && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {liderancasFiltradas.length > 0 ? (
+                      liderancasFiltradas.map((item) => {
+                        const detalheLocal = [item.bairro, item.municipio || item.cidade].filter(Boolean).join(' - ');
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setFormData((prev) => ({ ...prev, lideranca: item.nome }));
+                              setBuscaLideranca(item.nome);
+                            }}
+                            className="px-4 py-2.5 hover:bg-teal-50 cursor-pointer border-b border-gray-100 last:border-0 flex justify-between items-center"
+                          >
+                            <span className="font-medium text-gray-800">{item.nome}</span>
+                            {detalheLocal && (
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                {detalheLocal}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="px-4 py-3 text-xs text-amber-700 bg-amber-50">
+                        Nenhuma liderança encontrada para "{buscaLideranca}".
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <select
-                name="lideranca"
-                value={formData.lideranca}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              >
-                <option value="">Sem liderança vinculada</option>
-                {liderancasFiltradas.map((item) => {
-                  const detalheLocal = [item.bairro, item.municipio || item.cidade].filter(Boolean).join(' - ');
-                  return (
-                    <option key={item.id} value={item.nome}>
-                      {item.nome} {detalheLocal ? `(${detalheLocal})` : ''}
-                    </option>
-                  );
-                })}
-              </select>
-
-              {criterioFiltroLideranca && (
-                <p className="text-xs text-teal-700 mt-1.5">
-                  💡 Sugestão para a região ({criterioFiltroLideranca}):{' '}
-                  {liderancasSugeridas.length > 0
-                    ? liderancasSugeridas.map((l) => l.nome).join(', ')
-                    : 'Nenhuma liderança cadastrada nesta região específica.'}
+              {formData.lideranca && (
+                <p className="text-xs text-teal-700 mt-1.5 font-medium">
+                  ✓ Liderança selecionada: <strong>{formData.lideranca}</strong>
                 </p>
               )}
-              {buscaLideranca && liderancasFiltradas.length === 0 && (
-                <p className="text-xs text-amber-700 mt-1">
-                  Nenhuma liderança encontrada para a pesquisa "{buscaLideranca}".
+
+              {criterioFiltroLideranca && !formData.lideranca && (
+                <p className="text-xs text-teal-700 mt-1.5">
+                  💡 Sugestão para a região ({criterioFiltroLideranca}):{' '}
+                  {liderancasSugeridas.length > 0 ? (
+                    liderancasSugeridas.map((l, index) => (
+                      <span
+                        key={l.id}
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, lideranca: l.nome }));
+                          setBuscaLideranca(l.nome);
+                        }}
+                        className="underline cursor-pointer hover:text-teal-900 font-semibold mr-1"
+                      >
+                        {l.nome}{index < liderancasSugeridas.length - 1 ? ',' : ''}
+                      </span>
+                    ))
+                  ) : (
+                    'Nenhuma liderança cadastrada nesta região específica.'
+                  )}
                 </p>
               )}
             </div>
