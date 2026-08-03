@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // Buscar campanhas ativas (status EXECUCAO ou PLANEJAMENTO)
+    // Buscar campanhas cadastradas (ordenadas pelas mais recentes)
     const { data, error } = await supabase
       .from('campanhas')
       .select(`
@@ -42,9 +42,8 @@ export default async function handler(req, res) {
           )
         )
       `)
-      .in('status', ['PLANEJAMENTO', 'EXECUCAO'])
       .order('data_campanha', { ascending: false })
-      .limit(50);
+      .limit(500);
 
     if (error) throw error;
 

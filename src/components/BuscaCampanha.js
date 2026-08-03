@@ -4,9 +4,10 @@ import { faSearch, faTimes, faCheckCircle } from '@fortawesome/free-solid-svg-ic
 
 export default function BuscaCampanha({ onSelecionarCampanha, campanhaSelecionada }) {
   const [campanhas, setCampanhas] = useState([]);
+  const [busca, setBusca] = useState('');
   const [carregando, setCarregando] = useState(true);
 
-  // Carregar campanhas ativas ao montar
+  // Carregar campanhas ao montar
   useEffect(() => {
     carregarCampanhas();
   }, []);
@@ -24,6 +25,27 @@ export default function BuscaCampanha({ onSelecionarCampanha, campanhaSelecionad
       setCarregando(false);
     }
   };
+
+  const normalizarTexto = (valor = '') =>
+    String(valor)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  // Filtrar campanhas pela busca por texto
+  const campanhasFiltradas = campanhas.filter((c) => {
+    if (!busca.trim()) return true;
+    const termo = normalizarTexto(busca);
+    const nome = normalizarTexto(c.nome);
+    const local = normalizarTexto(c.local);
+    return nome.includes(termo) || local.includes(termo);
+  });
+
+  // Se não houver busca ativa, exibe apenas as 10 mais recentes
+  const campanhasExibidas = busca.trim() ? campanhasFiltradas : campanhasFiltradas.slice(0, 10);
 
   const selecionarCampanha = (campanha) => {
     onSelecionarCampanha(campanha);
@@ -53,29 +75,65 @@ export default function BuscaCampanha({ onSelecionarCampanha, campanhaSelecionad
 
       {!campanhaSelecionada ? (
         <div className="space-y-3">
+          {/* Input de Busca Dinâmica */}
+          <div className="relative mb-3">
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-full px-4 py-2.5 pl-10 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm"
+              placeholder="🔍 Digite para pesquisar uma campanha específica por nome ou local..."
+            />
+            <FontAwesomeIcon 
+              icon={faSearch} 
+              className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-purple-400"
+            />
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca('')}
+                className="absolute right-3 top-2.5 text-xs text-gray-500 hover:text-gray-700 font-semibold"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+
           {carregando ? (
             <div className="text-center py-6">
               <p className="text-gray-600 text-base">Carregando campanhas...</p>
             </div>
           ) : (
             <>
+              {!busca.trim() && (
+                <p className="text-xs text-purple-700 font-semibold mb-1">
+                  Exibindo as 10 últimas campanhas cadastradas:
+                </p>
+              )}
+
               <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto pr-2">
-                {campanhas.map((campanha) => (
-                  <button
-                    key={campanha.id}
-                    type="button"
-                    onClick={() => selecionarCampanha(campanha)}
-                    className="p-3 border-2 border-purple-300 rounded-lg hover:bg-purple-100 hover:border-purple-500 text-left transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <div className="font-bold text-gray-800 text-base">{campanha.nome}</div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      📍 {campanha.local || '-'}
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      📅 {new Date(campanha.data_campanha).toLocaleDateString('pt-BR')}
-                    </div>
-                  </button>
-                ))}
+                {campanhasExibidas.length > 0 ? (
+                  campanhasExibidas.map((campanha) => (
+                    <button
+                      key={campanha.id}
+                      type="button"
+                      onClick={() => selecionarCampanha(campanha)}
+                      className="p-3 border-2 border-purple-300 rounded-lg hover:bg-purple-100 hover:border-purple-500 text-left transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                    >
+                      <div className="font-bold text-gray-800 text-base">{campanha.nome}</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        📍 {campanha.local || '-'}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        📅 {new Date(campanha.data_campanha).toLocaleDateString('pt-BR')}
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-4 border-2 border-amber-300 rounded-lg bg-amber-50 text-amber-800 text-sm">
+                    Nenhuma campanha encontrada para a pesquisa "{busca}".
+                  </div>
+                )}
               </div>
 
               {/* Atendimento Avulso */}
