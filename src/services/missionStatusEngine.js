@@ -9,8 +9,8 @@ async function avaliarCrescimento(supabase, agora) {
   const fimMesAnterior = new Date(agora.getFullYear(), agora.getMonth(), 0, 23, 59, 59, 999).toISOString();
 
   const [{ count: mesAtual }, { count: mesAnterior }] = await Promise.all([
-    supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMes),
-    supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior)
+    supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioMes),
+    supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior)
   ]);
 
   const countAtual = mesAtual || 0;
@@ -96,7 +96,7 @@ async function avaliarLiderancas(supabase, agora) {
  * Avaliador de Cobertura Territorial (Peso: 15)
  */
 async function avaliarCobertura(supabase) {
-  const { data: eleitores } = await supabase.from('eleitores').select('cidade, municipio, bairro');
+  const { data: eleitores } = await supabase.from('eleitores').select('cidade, municipio, bairro').limit(200);
   const municipiosMap = new Set();
 
   (eleitores || []).forEach(e => {
@@ -133,7 +133,7 @@ async function avaliarAtendimentos(supabase, agora) {
 
   const { count: pendentesAtrasadas } = await supabase
     .from('solicitacoes')
-    .select('id', { count: 'exact', head: true })
+    .select('id', { count: 'planned', head: true })
     .neq('status', 'ATENDIDO')
     .lte('created_at', limite48h);
 
