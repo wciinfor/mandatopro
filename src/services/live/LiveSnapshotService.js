@@ -30,8 +30,8 @@ export const LiveSnapshotService = {
     const inicioExecucao = Date.now();
     const supabase = createServerClient();
 
-    // 1. Fetch de Dados Brutos Único via LiveRepository
-    const rawData = await LiveRepository.fetchLiveRawData(req);
+    // 1. Fetch de Dados Brutos Único via LiveRepository (delegado para DashboardStatsService)
+    const rawData = await LiveRepository.fetchLiveRawData(req, supabase);
 
     // 2. Executar Domain Services com isolamento de erro (catch individual para resiliência total)
     const missionStatus = await calcularMissionStatus(supabase).catch(err => {
