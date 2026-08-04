@@ -5,10 +5,14 @@ import { faTv, faSyncAlt, faCheckCircle, faClock } from '@fortawesome/free-solid
 import { LiveSnapshotProvider } from '@/context/LiveSnapshotContext';
 
 export default function LiveLayout({ children, token, parlamentarNome = 'Mandato Parlamentar' }) {
-  const [dataHora, setDataHora] = useState(new Date());
+  const [dataHora, setDataHora] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Relógio em tempo real
+  // Relógio em tempo real ativado exclusivamente após a montagem no cliente (Garantia de Zero Hydration Mismatch)
   useEffect(() => {
+    setMounted(true);
+    setDataHora(new Date());
+
     const timer = setInterval(() => {
       setDataHora(new Date());
     }, 1000);
@@ -16,6 +20,7 @@ export default function LiveLayout({ children, token, parlamentarNome = 'Mandato
   }, []);
 
   const formatarData = (d) => {
+    if (!d) return '--/--/----';
     return d.toLocaleDateString('pt-BR', {
       weekday: 'long',
       day: '2-digit',
@@ -25,6 +30,7 @@ export default function LiveLayout({ children, token, parlamentarNome = 'Mandato
   };
 
   const formatarHora = (d) => {
+    if (!d) return '--:--:--';
     return d.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
@@ -70,13 +76,13 @@ export default function LiveLayout({ children, token, parlamentarNome = 'Mandato
               <span>Atualizado agora</span>
             </div>
 
-            {/* Relógio e Data */}
+            {/* Relógio e Data com proteção estrita contra Hydration Mismatch */}
             <div className="text-right border-l border-slate-800 pl-8">
-              <div className="text-2xl font-black font-mono tracking-wider text-teal-300">
-                {formatarHora(dataHora)}
+              <div className="text-2xl font-black font-mono tracking-wider text-teal-300" suppressHydrationWarning>
+                {mounted && dataHora ? formatarHora(dataHora) : '--:--:--'}
               </div>
-              <div className="text-xs text-slate-400 font-medium capitalize">
-                {formatarData(dataHora)}
+              <div className="text-xs text-slate-400 font-medium capitalize" suppressHydrationWarning>
+                {mounted && dataHora ? formatarData(dataHora) : '------------------'}
               </div>
             </div>
           </div>
