@@ -21,15 +21,18 @@ export default function SalaDeSituacaoWidget() {
   const { insights } = useLiveInteligencia({ pollingIntervalMs: 15000 });
   const { municipios } = useLiveMapaCalor({ pollingIntervalMs: 15000 });
 
+  const insightsArray = insights || [];
+  const municipiosArray = municipios || [];
+
   // 1. Maior Alerta Estratégico
-  const maiorAlerta = insights.find(i => i.tipo === 'ALERTA' || i.prioridade === 'CRITICA') || {
+  const maiorAlerta = insightsArray.find(i => i && (i.tipo === 'ALERTA' || i.prioridade === 'CRITICA')) || {
     titulo: 'Queda no Ritmo de Cadastros',
     descricao: 'Castanhal e municípios vizinhos apresentaram retração no ritmo de cadastros.',
     municipioFoco: 'Castanhal'
   };
 
   // 2. Maior Oportunidade
-  const maiorOportunidade = insights.find(i => i.tipo === 'OPORTUNIDADE') || {
+  const maiorOportunidade = insightsArray.find(i => i && i.tipo === 'OPORTUNIDADE') || {
     titulo: 'Expansão em Municípios sem Liderança',
     descricao: 'Identificado interesse espontâneo em Ananindeua sem estrutura formal.',
     municipioFoco: 'Ananindeua'
@@ -37,7 +40,7 @@ export default function SalaDeSituacaoWidget() {
 
   // Seleção automática do município em destaque (sem necessidade de clique)
   const municipioAlertaNome = maiorAlerta?.municipioFoco || 'Castanhal';
-  const municipioDestaque = municipios.find(m => m.nome?.toLowerCase() === municipioAlertaNome.toLowerCase()) || {
+  const municipioDestaque = municipiosArray.find(m => m && m.nome?.toLowerCase() === municipioAlertaNome.toLowerCase()) || {
     nome: municipioAlertaNome,
     totalEleitores: 12450,
     cadastrosMes: 45,

@@ -46,15 +46,20 @@ export default function MapaWidget() {
     return () => clearInterval(timer);
   }, []);
 
+  const municipiosArray = municipios || [];
+  const top10EleitoresArray = top10Eleitores || [];
+  const top10CrescimentoArray = top10Crescimento || [];
+  const top10EstagnadosArray = top10Estagnados || [];
+
   // Títulos dos Rankings com rotação automática
   const tiposRanking = [
-    { titulo: '🏆 Maior Base', lista: top10Eleitores },
-    { titulo: '📈 Maior Crescimento', lista: top10Crescimento },
-    { titulo: '🎯 Maior Oportunidade', lista: municipios.filter(m => m.liderancasCount === 0 && m.totalEleitores > 0).slice(0, 10) },
-    { titulo: '⚠️ Maior Atenção', lista: top10Estagnados }
+    { titulo: '🏆 Maior Base', lista: top10EleitoresArray },
+    { titulo: '📈 Maior Crescimento', lista: top10CrescimentoArray },
+    { titulo: '🎯 Maior Oportunidade', lista: municipiosArray.filter(m => m && m.liderancasCount === 0 && m.totalEleitores > 0).slice(0, 10) },
+    { titulo: '⚠️ Maior Atenção', lista: top10EstagnadosArray }
   ];
 
-  const rankingAtual = tiposRanking[indexRankingAuto];
+  const rankingAtual = tiposRanking[indexRankingAuto] || { titulo: '🏆 Maior Base', lista: [] };
 
   const formatarData = (isoString) => {
     if (!isoString) return 'Sem registro';
