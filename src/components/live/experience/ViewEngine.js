@@ -51,11 +51,10 @@ export function ViewEngine({ modoInicial = VIEWS_LIVE.AUTO }) {
     LiveWidgetRegistry.liderancasPerformance
   ];
 
-  // Widgets do Modo Inteligência (Status Geral + Inteligência + Radar Estratégico + Mapa)
+  // Widgets do Modo Inteligência (Status Geral + Sala de Situação Consolidada + Mapa)
   const widgetsInteligencia = [
     LiveWidgetRegistry.statusGeral,
-    LiveWidgetRegistry.inteligencia,
-    LiveWidgetRegistry.radarEstrategico,
+    LiveWidgetRegistry.salaDeSituacao,
     LiveWidgetRegistry.mapa
   ];
 
