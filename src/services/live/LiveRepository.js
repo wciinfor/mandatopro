@@ -17,27 +17,27 @@ export const LiveRepository = {
     const fimMesAnterior = new Date(agora.getFullYear(), agora.getMonth(), 0, 23, 59, 59, 999).toISOString();
 
     const [
-      { count: totalEleitores },
-      { count: cadastrosHoje },
-      { count: cadastrosSemana },
-      { count: cadastrosMes },
-      { count: cadastrosMesAnterior },
-      { data: ultimosEleitores },
-      { data: liderancas },
-      { data: atendimentos },
-      { data: solicitacoes },
-      { data: campanhas }
+      totalEleitores,
+      cadastrosHoje,
+      cadastrosSemana,
+      cadastrosMes,
+      cadastrosMesAnterior,
+      ultimosEleitores,
+      liderancas,
+      atendimentos,
+      solicitacoes,
+      campanhas
     ] = await Promise.all([
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioHoje),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioSemana),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMes),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior),
-      supabase.from('eleitores').select('id, nome, cidade, municipio, bairro, lideranca, created_at').order('created_at', { ascending: false }).limit(10),
-      supabase.from('liderancas').select('id, nome, cidade, municipio, bairro').limit(50),
-      supabase.from('atendimentos').select('id, assunto, status, data_atendimento, created_at').order('created_at', { ascending: false }).limit(10),
-      supabase.from('solicitacoes').select('id, titulo, status, created_at, municipio').order('created_at', { ascending: false }).limit(10),
-      supabase.from('campanhas').select('id, nome, status, local, created_at').limit(5)
+      supabase.from('eleitores').select('id', { count: 'exact', head: true }).then(r => r.count || 0).catch(() => 0),
+      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioHoje).then(r => r.count || 0).catch(() => 0),
+      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioSemana).then(r => r.count || 0).catch(() => 0),
+      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMes).then(r => r.count || 0).catch(() => 0),
+      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior).then(r => r.count || 0).catch(() => 0),
+      supabase.from('eleitores').select('id, nome, cidade, municipio, bairro, lideranca, created_at').order('created_at', { ascending: false }).limit(10).then(r => r.data || []).catch(() => []),
+      supabase.from('liderancas').select('id, nome, cidade, municipio, bairro').limit(50).then(r => r.data || []).catch(() => []),
+      supabase.from('atendimentos').select('id, assunto, status, data_atendimento, created_at').order('created_at', { ascending: false }).limit(10).then(r => r.data || []).catch(() => []),
+      supabase.from('solicitacoes').select('id, titulo, status, created_at, municipio').order('created_at', { ascending: false }).limit(10).then(r => r.data || []).catch(() => []),
+      supabase.from('campanhas').select('id, nome, status, local, created_at').limit(5).then(r => r.data || []).catch(() => [])
     ]);
 
     return {
