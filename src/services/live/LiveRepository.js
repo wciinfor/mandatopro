@@ -1,27 +1,36 @@
-import { getDashboardStatsCore } from '../DashboardStatsService';
+import { getEleitoresMetrics } from '../domains/EleitoresDomainService';
+import { getLiderancasMetrics } from '../domains/LiderancasDomainService';
+import { getCampanhasMetrics } from '../domains/CampanhasDomainService';
+import { getAtendimentosMetrics } from '../domains/AtendimentosDomainService';
+import { getSolicitacoesMetrics } from '../domains/SolicitacoesDomainService';
 
 /**
- * LiveRepository (Sprint A0 — Single Source of Truth)
- * Delegado integralmente para o DashboardStatsService compartilhado.
- * Elimina qualquer duplicação de SQL ou consultas paralelas no MandatoPRO Live.
+ * LiveRepository (Pass-Through Desacoplado)
+ * Consome puramente os Domain Services oficiais da aplicação.
  */
 export const LiveRepository = {
   async fetchLiveRawData(req, supabaseClient) {
-    const statsCore = await getDashboardStatsCore(supabaseClient);
+    const [eleitores, liderancas, campanhas, atendimentos, solicitacoes] = await Promise.all([
+      getEleitoresMetrics(supabaseClient),
+      getLiderancasMetrics(supabaseClient),
+      getCampanhasMetrics(supabaseClient),
+      getAtendimentosMetrics(supabaseClient),
+      getSolicitacoesMetrics(supabaseClient)
+    ]);
 
     return {
       eleitores: {
-        total: statsCore.totalEleitores,
-        hoje: statsCore.cadastrosHoje,
-        semana: statsCore.cadastrosSemana,
-        mes: statsCore.cadastrosMes,
+        total: eleitores.total,
+        hoje: eleitores.hoje,
+        semana: eleitores.semana,
+        mes: eleitores.mes,
         mesAnterior: 0,
-        listaRecente: statsCore.ultimosEleitores
+        listaRecente: eleitores.listaRecente
       },
-      liderancas: statsCore.liderancasLista,
-      atendimentos: statsCore.atendimentosLista,
-      solicitacoes: statsCore.solicitacoesLista,
-      campanhas: Array(statsCore.campanhasAtivas).fill({ status: 'EXECUCAO' })
+      liderancas: liderancas.lista,
+      atendimentos: atendimentos.lista,
+      solicitacoes: solicitacoes.lista,
+      campanhas: campanhas.lista
     };
   }
 };
