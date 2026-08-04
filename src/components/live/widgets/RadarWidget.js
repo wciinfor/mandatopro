@@ -140,7 +140,7 @@ export default function RadarWidget() {
 
         {/* Top 6 Previsões (Scrollável / Grid Dividida) */}
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar min-h-0">
-          {previsoes.map((item) => (
+          {(previsoes || []).map((item) => (
             <div 
               key={item.id}
               className="bg-slate-900/80 border border-slate-800/90 hover:border-teal-500/30 p-3 rounded-xl transition-all"

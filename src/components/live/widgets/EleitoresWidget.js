@@ -130,7 +130,7 @@ export default function EleitoresWidget() {
 
           {/* Feed scrollável com alto contraste para leitura a distância */}
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-            {timeline.map((item) => (
+            {(timeline || []).map((item) => (
               <div 
                 key={item.id} 
                 className="bg-slate-900/90 border border-slate-800 hover:border-teal-500/40 rounded-lg p-2.5 flex items-center justify-between transition-colors shadow-sm"

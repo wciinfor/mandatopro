@@ -101,7 +101,7 @@ export default function InteligenciaWidget() {
 
         {/* Feed de Insights (Scrollável, Máximo 8 Insights) */}
         <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar min-h-0">
-          {insights.map((item) => {
+          {(insights || []).map((item) => {
             const bordaClass = getCorBordaInsight(item.prioridade);
             const iconeTipo = getIconeCategoria(item.tipo);
 
