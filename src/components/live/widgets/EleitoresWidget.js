@@ -1,5 +1,5 @@
 import LiveWidget from '../LiveWidget';
-import { useLiveEleitores } from '@/hooks/useLiveEleitores';
+import { useLiveSnapshot } from '@/hooks/useLiveSnapshot';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUsers, 
@@ -14,15 +14,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function EleitoresWidget() {
-  const { 
-    metricas, 
-    timeline, 
-    loading, 
-    error, 
-    empty, 
-    ultimaAtualizacao, 
-    refetch 
-  } = useLiveEleitores({ pollingIntervalMs: 10000 });
+  const { snapshot, loading, error, refetch } = useLiveSnapshot({ pollingIntervalMs: 10000 });
+  const metricas = snapshot?.cadastros;
+  const timeline = snapshot?.activity?.feedExecutivo || snapshot?.feedExecutivo;
+  const empty = !metricas;
+  const ultimaAtualizacao = snapshot?.metadata?.ultimaAtualizacao;
 
   const formatarHoraRelativa = (isoString) => {
     if (!isoString) return '';

@@ -12,11 +12,6 @@ import { useLiveMapaCalor } from '@/hooks/useLiveMapaCalor';
  * 3. Painel Operacional / Estratégico (Sem Scroll)
  */
 export function DashboardLayoutEngine({ widgets = [] }) {
-  // Coletar indicadores globais para a ExecutiveKpiBar sem requisições adicionais (reutilização)
-  const { metricas: eleitoresMetricas } = useLiveEleitores({ pollingIntervalMs: 20000 });
-  const { metricas: liderancasMetricas } = useLiveLiderancasPerformance({ pollingIntervalMs: 20000 });
-  const { metricasTerritoriais } = useLiveMapaCalor({ pollingIntervalMs: 20000 });
-
   const isModoEstrategico = widgets.some(w => w.id === 'salaDeSituacao');
 
   return (
@@ -34,21 +29,7 @@ export function DashboardLayoutEngine({ widgets = [] }) {
 
       {/* 2º KPIs EXECUTIVOS 2.0 (Exibidos apenas no Painel Executivo Operacional - View 01) */}
       {!isModoEstrategico && (
-        <ExecutiveKpiBar
-          totalEleitores={eleitoresMetricas?.totalEleitores}
-          cadastrosHoje={eleitoresMetricas?.cadastrosHoje || 128}
-          liderancasAtivasHoje={liderancasMetricas?.liderancasAtivas || 18}
-          totalLiderancas={liderancasMetricas?.totalLiderancas || 43}
-          metaDiaria={150}
-          municipiosAtendidos={metricasTerritoriais?.municipiosComPresenca || 44}
-          totalMunicipiosEstado={metricasTerritoriais?.totalMunicipiosPA || 144}
-          campanhasAtivas={2}
-          campanhasMes={3}
-          atendimentosPendentes={14}
-          atendimentosConcluidosHoje={38}
-          solicitacoesPendentes={6}
-          solicitacoesResolvidasHoje={12}
-        />
+        <ExecutiveKpiBar />
       )}
 
       {/* 3º PAINÉIS DE CONTEÚDO (Grid Operacional na View 01 vs Sala de Situação na View 02) */}

@@ -1,5 +1,5 @@
 import LiveWidget from '../LiveWidget';
-import { useLiveAtividadeTempoReal } from '@/hooks/useLiveAtividadeTempoReal';
+import { useLiveSnapshot } from '@/hooks/useLiveSnapshot';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBroadcastTower, 
@@ -12,14 +12,10 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function AtividadeTempoRealWidget() {
-  const { 
-    eventos, 
-    loading, 
-    error, 
-    empty, 
-    ultimaAtualizacao, 
-    refetch 
-  } = useLiveAtividadeTempoReal({ pollingIntervalMs: 8000 });
+  const { snapshot, loading, error, refetch } = useLiveSnapshot({ pollingIntervalMs: 10000 });
+  const eventos = snapshot?.activity?.feedExecutivo || snapshot?.feedExecutivo || [];
+  const empty = eventos.length === 0;
+  const ultimaAtualizacao = snapshot?.metadata?.ultimaAtualizacao;
 
   // Feed Executivo: exibir rigorosamente os últimos 5 a 6 acontecimentos mais relevantes (Sem scroll, sem abas, sem filtros)
   const ultimosEventos = eventos.slice(0, 5);

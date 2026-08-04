@@ -1,5 +1,5 @@
 import LiveWidget from '../LiveWidget';
-import { useLiveStatusGeral } from '@/hooks/useLiveStatusGeral';
+import { useLiveSnapshot } from '@/hooks/useLiveSnapshot';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faShieldAlt, 
@@ -14,14 +14,10 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function StatusWidget() {
-  const { 
-    statusData, 
-    loading, 
-    error, 
-    empty, 
-    ultimaAtualizacao, 
-    refetch 
-  } = useLiveStatusGeral({ pollingIntervalMs: 15000 });
+  const { snapshot, loading, error, refetch } = useLiveSnapshot({ pollingIntervalMs: 10000 });
+  const statusData = snapshot?.executive?.statusGeral || snapshot?.statusGeral;
+  const empty = !statusData;
+  const ultimaAtualizacao = snapshot?.metadata?.ultimaAtualizacao;
 
   const renderBadgeNivel = (status, score) => {
     switch (status) {
