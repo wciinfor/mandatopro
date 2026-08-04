@@ -21,7 +21,7 @@ export function useLiveSnapshot({ pollingIntervalMs = 10000, enabled = true } = 
     } catch (err) {
       console.error('[useLiveSnapshot] Erro ao buscar snapshot:', err);
       setError(err.message || 'Falha ao sincronizar snapshot');
-    } fontally: {
+    } finally {
       if (isInitial) setLoading(false);
     }
   }, []);
@@ -29,11 +29,9 @@ export function useLiveSnapshot({ pollingIntervalMs = 10000, enabled = true } = 
   useEffect(() => {
     if (!enabled) return;
     fetchSnapshot(true);
-    timerRef.current = setInterval(() => fetchSnapshot(false), pollingIntervalMs);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [fetchSnapshot, pollingIntervalMs, enabled]);
+    const interval = setInterval(() => fetchSnapshot(false), pollingIntervalMs);
+    return () => clearInterval(interval);
+  }, [pollingIntervalMs, enabled]);
 
   return {
     snapshot,
