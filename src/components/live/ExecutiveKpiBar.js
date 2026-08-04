@@ -1,194 +1,222 @@
 import React from 'react';
+import { useLiveSnapshot } from '@/hooks/useLiveSnapshot';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faUsers, 
-  faUserTie, 
-  faChartLine, 
-  faMapMarkerAlt, 
-  faBullhorn, 
-  faHandsHelping, 
-  faClipboardList 
+import {
+  faUsers,
+  faUserTie,
+  faChartLine,
+  faMapMarkedAlt,
+  faBullhorn,
+  faHandshake,
+  faFileAlt,
+  faExclamationTriangle
 } from '@fortawesome/free-solid-svg-icons';
 
 /**
- * ExecutiveKpiBar 2.0 (Executive Dashboard Sprint 01)
- * Responde instantaneamente às 7 perguntas práticas do deputado em <5 segundos.
- * Cada KPI inclui ícone, valor principal, subinformação, barra de progresso e estado visual (🟢/🟡/🔴).
+ * ExecutiveKpiBar 2.0 (Sprint D04.1 — Executive KPI Bar com Dados Reais do LiveSnapshot)
+ * Consome exclusivamente a API /api/live/snapshot.
  */
-export default function ExecutiveKpiBar({
-  totalEleitores = 0,
-  cadastrosHoje = 0,
-  liderancasAtivasHoje = 0,
-  totalLiderancas = 0,
-  metaDiaria = 150,
-  municipiosAtendidos = 0,
-  totalMunicipiosEstado = 144,
-  campanhasAtivas = 0,
-  campanhasMes = 0,
-  atendimentosPendentes = 0,
-  atendimentosConcluidosHoje = 0,
-  solicitacoesPendentes = 0,
-  solicitacoesResolvidasHoje = 0
-}) {
-  // 1. Base Eleitoral
-  const totalEleitoresFmt = (totalEleitores || 0).toLocaleString('pt-BR');
-  const cadastrosHojeFmt = cadastrosHoje || 0;
+export default function ExecutiveKpiBar() {
+  const { kpisExecutivos, healthReport, loading, error } = useLiveSnapshot({ pollingIntervalMs: 10000 });
 
-  // 2. Equipe em Campo (Lideranças ativas hoje)
-  const pctEquipeAtiva = totalLiderancas > 0 ? Math.round((liderancasAtivasHoje / totalLiderancas) * 100) : 0;
-  const estadoEquipe = pctEquipeAtiva >= 40 ? 'VERDE' : pctEquipeAtiva >= 20 ? 'AMARELO' : 'VERMELHO';
+  if (loading && !kpisExecutivos) {
+    return (
+      <div className="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-center text-xs text-slate-400 font-mono animate-pulse">
+        Sincronizando KPIs Executivos com o Snapshot...
+      </div>
+    );
+  }
 
-  // 3. Produção do Dia (Meta diária)
-  const pctMeta = Math.min(100, Math.round((cadastrosHoje / (metaDiaria || 150)) * 100));
-  const estadoProducao = pctMeta >= 80 ? 'VERDE' : pctMeta >= 40 ? 'AMARELO' : 'VERMELHO';
+  const isDataIncomplete = !kpisExecutivos || error;
+  const isHealthWarning = healthReport && (healthReport.status === 'WARNING' || healthReport.status === 'CRITICAL');
 
-  // 4. Cobertura (Municípios)
-  const pctCobertura = Math.min(100, Math.round(((municipiosAtendidos || 0) / (totalMunicipiosEstado || 144)) * 100));
+  // Metricas Reais consumidas exclusivamente do Snapshot
+  const totalEleitores = kpisExecutivos?.totalEleitores;
+  const cadastrosHoje = kpisExecutivos?.cadastrosHoje;
+  const liderancasAtivasHoje = kpisExecutivos?.liderancasAtivasHoje;
+  const totalLiderancas = kpisExecutivos?.totalLiderancas;
+  const metaDiaria = kpisExecutivos?.metaDiaria || 150;
+  const municipiosAtendidos = kpisExecutivos?.municipiosAtendidos;
+  const totalMunicipiosEstado = kpisExecutivos?.totalMunicipiosEstado || 144;
+  const campanhasAtivas = kpisExecutivos?.campanhasAtivas;
+  const campanhasMes = kpisExecutivos?.campanhasMes;
+  const atendimentosPendentes = kpisExecutivos?.atendimentosPendentes;
+  const atendimentosConcluidosHoje = kpisExecutivos?.atendimentosConcluidosHoje;
+  const solicitacoesPendentes = kpisExecutivos?.solicitacoesPendentes;
+  const solicitacoesResolvidasHoje = kpisExecutivos?.solicitacoesResolvidasHoje;
 
-  // Lista dos 7 KPIs Executivos com perguntas práticas respondidas
-  const kpis = [
-    {
-      id: 'base-eleitoral',
-      pergunta: 'Quantos eleitores temos?',
-      titulo: '👥 Base Eleitoral',
-      valor: totalEleitoresFmt,
-      subtext: `+${cadastrosHojeFmt} hoje`,
-      icone: faUsers,
-      estado: 'VERDE',
-      progresso: null
-    },
-    {
-      id: 'equipe-campo',
-      pergunta: 'Quantas lideranças trabalharam hoje?',
-      titulo: '🤝 Equipe em Campo',
-      valor: `${liderancasAtivasHoje} / ${totalLiderancas || 1}`,
-      subtext: `${pctEquipeAtiva}% da equipe produziu hoje`,
-      icone: faUserTie,
-      estado: estadoEquipe,
-      progresso: pctEquipeAtiva
-    },
-    {
-      id: 'producao-dia',
-      pergunta: 'Nossa meta diária está sendo cumprida?',
-      titulo: '📈 Produção do Dia',
-      valor: `${cadastrosHojeFmt}`,
-      subtext: `Meta: ${metaDiaria} (${pctMeta}%)`,
-      icone: faChartLine,
-      estado: estadoProducao,
-      progresso: pctMeta
-    },
-    {
-      id: 'cobertura',
-      pergunta: 'Em quantos municípios estamos presentes?',
-      titulo: '🗺 Cobertura',
-      valor: `${municipiosAtendidos || 0} municípios`,
-      subtext: `${pctCobertura}% do estado`,
-      icone: faMapMarkerAlt,
-      estado: pctCobertura >= 30 ? 'VERDE' : 'AMARELO',
-      progresso: pctCobertura
-    },
-    {
-      id: 'campanhas',
-      pergunta: 'Quantas campanhas estão em andamento?',
-      titulo: '📢 Campanhas',
-      valor: `${campanhasAtivas || 0} Ativas`,
-      subtext: `${campanhasMes || campanhasAtivas || 0} iniciadas no mês`,
-      icone: faBullhorn,
-      estado: 'VERDE',
-      progresso: null
-    },
-    {
-      id: 'atendimentos',
-      pergunta: 'Como está o volume de atendimentos?',
-      titulo: '🎫 Atendimentos',
-      valor: `${atendimentosPendentes} Pendentes`,
-      subtext: `${atendimentosConcluidosHoje} concluídos hoje`,
-      icone: faHandsHelping,
-      estado: atendimentosPendentes <= 10 ? 'VERDE' : 'AMARELO',
-      progresso: null
-    },
-    {
-      id: 'solicitacoes',
-      pergunta: 'Qual o volume de solicitações?',
-      titulo: '📄 Solicitações',
-      valor: `${solicitacoesPendentes} Pendentes`,
-      subtext: `${solicitacoesResolvidasHoje} resolvidas hoje`,
-      icone: faClipboardList,
-      estado: solicitacoesPendentes <= 5 ? 'VERDE' : 'VERMELHO',
-      progresso: null
-    }
-  ];
+  // Calculos e estados visuais
+  const pctEquipe = totalLiderancas ? Math.round((liderancasAtivasHoje / totalLiderancas) * 100) : 0;
+  const pctMeta = Math.min(100, Math.round(((cadastrosHoje || 0) / metaDiaria) * 100));
+  const pctCobertura = Math.round(((municipiosAtendidos || 0) / totalMunicipiosEstado) * 100);
 
-  const getStatusBorderColor = (estado) => {
-    switch (estado) {
-      case 'VERDE': return 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300';
-      case 'AMARELO': return 'border-amber-500/40 bg-amber-950/20 text-amber-300';
-      case 'VERMELHO': default: return 'border-rose-500/40 bg-rose-950/20 text-rose-300';
-    }
+  const getEstadoVisual = (valor, limiteBaixo, limiteAlto) => {
+    if (valor === undefined || valor === null) return { cor: 'text-slate-500', icone: '⚪' };
+    if (valor >= limiteAlto) return { cor: 'text-emerald-400', icone: '🟢' };
+    if (valor >= limiteBaixo) return { cor: 'text-amber-400', icone: '🟡' };
+    return { cor: 'text-rose-400', icone: '🔴' };
   };
 
-  const getStatusDot = (estado) => {
-    switch (estado) {
-      case 'VERDE': return <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>;
-      case 'AMARELO': return <span className="w-2 h-2 rounded-full bg-amber-400"></span>;
-      case 'VERMELHO': default: return <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>;
-    }
-  };
+  const estadoEquipe = getEstadoVisual(pctEquipe, 30, 60);
+  const estadoMeta = getEstadoVisual(pctMeta, 50, 80);
+  const estadoAtendimentos = atendimentosPendentes < 20 ? { cor: 'text-emerald-400', icone: '🟢' } : { cor: 'text-amber-400', icone: '🟡' };
 
   return (
-    <div className="w-full grid grid-cols-7 gap-2.5 flex-shrink-0">
-      {kpis.map((kpi) => {
-        const estadoClass = getStatusBorderColor(kpi.estado);
-        const statusDot = getStatusDot(kpi.estado);
+    <div className="w-full bg-slate-950/90 border border-slate-800/90 rounded-xl p-2.5 shadow-2xl relative">
+      
+      {/* ALERTA DISCRETO DE DADOS EM SINCRONIZAÇÃO CASO O HEALTH SEJA WARNING OU CRITICAL */}
+      {isHealthWarning && (
+        <div className="absolute -top-2.5 right-4 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur z-10">
+          <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-400 animate-pulse" />
+          ⚠ Dados em sincronização
+        </div>
+      )}
 
-        return (
-          <div
-            key={kpi.id}
-            className={`border rounded-xl p-2.5 flex flex-col justify-between backdrop-blur transition-all duration-500 shadow-md ${estadoClass}`}
-          >
-            {/* Header: Ícone + Título Curto + Estado Visual */}
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5 truncate">
-                <FontAwesomeIcon icon={kpi.icone} className="text-slate-400 text-xs flex-shrink-0" />
-                {kpi.titulo}
-              </span>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {statusDot}
-              </div>
-            </div>
-
-            {/* Valor Grande Principal */}
-            <div className="my-0.5">
-              <span className="text-lg font-black text-white font-mono leading-none tracking-tight block">
-                {kpi.valor}
-              </span>
-            </div>
-
-            {/* Subinformação + Barra de Progresso (quando houver) */}
-            <div className="mt-1">
-              <span className="text-[10px] font-bold text-slate-300/90 block truncate">
-                {kpi.subtext}
-              </span>
-
-              {kpi.progresso !== null && (
-                <div className="w-full h-1.5 bg-slate-900 rounded-full border border-slate-800 overflow-hidden mt-1">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${
-                      kpi.estado === 'VERDE' 
-                        ? 'bg-emerald-400' 
-                        : kpi.estado === 'AMARELO' 
-                        ? 'bg-amber-400' 
-                        : 'bg-rose-500'
-                    }`}
-                    style={{ width: `${kpi.progresso}%` }}
-                  ></div>
-                </div>
-              )}
-            </div>
-
+      <div className="grid grid-cols-7 gap-2 text-xs">
+        
+        {/* KPI 1: Base Eleitoral */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-2 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+              <FontAwesomeIcon icon={faUsers} className="text-emerald-400" />
+              Base Eleitoral
+            </span>
+            <span className="text-[10px]">🟢</span>
           </div>
-        );
-      })}
+          <div className="my-1">
+            <span className="text-lg font-black text-white font-mono block">
+              {totalEleitores !== undefined ? totalEleitores.toLocaleString('pt-BR') : 'Dado indisponível'}
+            </span>
+          </div>
+          <span className="text-[9px] font-bold text-emerald-400">
+            +{cadastrosHoje !== undefined ? cadastrosHoje : 0} hoje
+          </span>
+        </div>
+
+        {/* KPI 2: Equipe em Campo */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-2 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+              <FontAwesomeIcon icon={faUserTie} className="text-amber-400" />
+              Equipe em Campo
+            </span>
+            <span className="text-[10px]">{estadoEquipe.icone}</span>
+          </div>
+          <div className="my-1">
+            <span className="text-lg font-black text-white font-mono block">
+              {liderancasAtivasHoje !== undefined ? `${liderancasAtivasHoje} / ${totalLiderancas}` : 'Dado indisponível'}
+            </span>
+          </div>
+          <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden border border-slate-800">
+            <div className="bg-amber-400 h-full rounded-full" style={{ width: `${pctEquipe}%` }}></div>
+          </div>
+          <span className="text-[9px] text-slate-400 font-medium mt-1">
+            {pctEquipe}% da equipe hoje
+          </span>
+        </div>
+
+        {/* KPI 3: Produção do Dia */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-2 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+              <FontAwesomeIcon icon={faChartLine} className="text-teal-300" />
+              Produção do Dia
+            </span>
+            <span className="text-[10px]">{estadoMeta.icone}</span>
+          </div>
+          <div className="my-1">
+            <span className="text-lg font-black text-white font-mono block">
+              {cadastrosHoje !== undefined ? `${cadastrosHoje} cad.` : 'Dado indisponível'}
+            </span>
+          </div>
+          <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden border border-slate-800">
+            <div className="bg-teal-400 h-full rounded-full" style={{ width: `${pctMeta}%` }}></div>
+          </div>
+          <span className="text-[9px] text-slate-400 font-medium mt-1">
+            Meta: {metaDiaria} ({pctMeta}%)
+          </span>
+        </div>
+
+        {/* KPI 4: Cobertura Territorial */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-2 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+              <FontAwesomeIcon icon={faMapMarkedAlt} className="text-indigo-400" />
+              Cobertura
+            </span>
+            <span className="text-[10px]">🟢</span>
+          </div>
+          <div className="my-1">
+            <span className="text-lg font-black text-white font-mono block">
+              {municipiosAtendidos !== undefined ? `${municipiosAtendidos} mun.` : 'Dado indisponível'}
+            </span>
+          </div>
+          <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden border border-slate-800">
+            <div className="bg-indigo-400 h-full rounded-full" style={{ width: `${pctCobertura}%` }}></div>
+          </div>
+          <span className="text-[9px] text-slate-400 font-medium mt-1">
+            {pctCobertura}% do estado
+          </span>
+        </div>
+
+        {/* KPI 5: Campanhas */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-2 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+              <FontAwesomeIcon icon={faBullhorn} className="text-purple-400" />
+              Campanhas
+            </span>
+            <span className="text-[10px]">🟢</span>
+          </div>
+          <div className="my-1">
+            <span className="text-lg font-black text-white font-mono block">
+              {campanhasAtivas !== undefined ? `${campanhasAtivas} Ativas` : 'Dado indisponível'}
+            </span>
+          </div>
+          <span className="text-[9px] text-slate-400 font-medium">
+            {campanhasMes} no mês
+          </span>
+        </div>
+
+        {/* KPI 6: Atendimentos */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-2 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+              <FontAwesomeIcon icon={faHandshake} className="text-blue-400" />
+              Atendimentos
+            </span>
+            <span className="text-[10px]">{estadoAtendimentos.icone}</span>
+          </div>
+          <div className="my-1">
+            <span className="text-lg font-black text-white font-mono block">
+              {atendimentosPendentes !== undefined ? `${atendimentosPendentes} Pend.` : 'Dado indisponível'}
+            </span>
+          </div>
+          <span className="text-[9px] text-emerald-400 font-bold">
+            {atendimentosConcluidosHoje} concluídos hoje
+          </span>
+        </div>
+
+        {/* KPI 7: Solicitações */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-2 rounded-lg flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1">
+              <FontAwesomeIcon icon={faFileAlt} className="text-rose-400" />
+              Solicitações
+            </span>
+            <span className="text-[10px]">🟢</span>
+          </div>
+          <div className="my-1">
+            <span className="text-lg font-black text-white font-mono block">
+              {solicitacoesPendentes !== undefined ? `${solicitacoesPendentes} Pend.` : 'Dado indisponível'}
+            </span>
+          </div>
+          <span className="text-[9px] text-emerald-400 font-bold">
+            {solicitacoesResolvidasHoje} resolvidas hoje
+          </span>
+        </div>
+
+      </div>
     </div>
   );
 }
