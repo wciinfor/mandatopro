@@ -13,14 +13,19 @@ export function useLiveSnapshot({ pollingIntervalMs = 10000, enabled = true } = 
     if (isInitial) setLoading(true);
     setError(null);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
-      const response = await fetch('/api/live/snapshot');
+      const response = await fetch('/api/live/snapshot', { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!response.ok) throw new Error(`Erro na API (${response.status})`);
       const json = await response.json();
       setSnapshot(json);
     } catch (err) {
+      clearTimeout(timeoutId);
       console.error('[useLiveSnapshot] Erro ao buscar snapshot:', err);
-      setError(err.message || 'Falha ao sincronizar snapshot');
+      setError(err.name === 'AbortError' ? 'Tempo limite atingido na sincronização' : (err.message || 'Falha ao sincronizar snapshot'));
     } finally {
       if (isInitial) setLoading(false);
     }
