@@ -16,8 +16,14 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
+    let usuario = null;
+
+    try {
+      const auth = await obterUsuarioAutenticado(req, supabase);
+      usuario = auth?.usuario;
+    } catch {
+      usuario = null;
+    }
 
     // Gerar o Snapshot Único de Dados Consolidado
     const snapshot = await LiveSnapshotService.getSnapshot(req);
