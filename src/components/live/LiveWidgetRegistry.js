@@ -7,6 +7,7 @@ import LiderancasPerformanceWidget from './widgets/LiderancasPerformanceWidget';
 import AtividadeTempoRealWidget from './widgets/AtividadeTempoRealWidget';
 import InteligenciaWidget from './widgets/InteligenciaWidget';
 import StatusWidget from './widgets/StatusWidget';
+import StatusCompactoWidget from './widgets/StatusCompactoWidget';
 import RadarWidget from './widgets/RadarWidget';
 import SalaDeSituacaoWidget from './widgets/SalaDeSituacaoWidget';
 
@@ -19,6 +20,11 @@ export const LiveWidgetRegistry = {
     id: 'statusGeral',
     component: StatusWidget,
     gridClass: 'col-span-12 row-span-4'
+  },
+  statusCompacto: {
+    id: 'statusCompacto',
+    component: StatusCompactoWidget,
+    gridClass: 'col-span-12 row-span-2'
   },
   salaDeSituacao: {
     id: 'salaDeSituacao',

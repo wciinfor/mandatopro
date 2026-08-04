@@ -42,7 +42,7 @@ export function ViewEngine({ modoInicial = VIEWS_LIVE.AUTO }) {
     return () => clearInterval(timer);
   }, [modoAtivo]);
 
-  // Widgets do Modo Operação (Status Geral + Eleitores + Atividade + Mapa + Lideranças)
+  // View 01: Modo Operação (Status Geral Completo + Eleitores + Atividade + Mapa + Lideranças)
   const widgetsOperacao = [
     LiveWidgetRegistry.statusGeral,
     LiveWidgetRegistry.eleitores,
@@ -51,11 +51,10 @@ export function ViewEngine({ modoInicial = VIEWS_LIVE.AUTO }) {
     LiveWidgetRegistry.liderancasPerformance
   ];
 
-  // Widgets do Modo Inteligência (Status Geral + Sala de Situação Consolidada + Mapa)
+  // View 02: Sala de Situação (Status Compacto + Decisão Estratégica Consolidada Puro - Sem duplicar widgets operacionais)
   const widgetsInteligencia = [
-    LiveWidgetRegistry.statusGeral,
-    LiveWidgetRegistry.salaDeSituacao,
-    LiveWidgetRegistry.mapa
+    LiveWidgetRegistry.statusCompacto,
+    LiveWidgetRegistry.salaDeSituacao
   ];
 
   const widgetsAtivos = painelExibido === VIEWS_LIVE.INTELIGENCIA ? widgetsInteligencia : widgetsOperacao;
