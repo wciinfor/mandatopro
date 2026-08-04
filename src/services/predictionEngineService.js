@@ -62,8 +62,8 @@ async function predicaoAtividadeLiderancas(supabase, agora) {
   const limite10Dias = new Date(agora.getTime() - (10 * 24 * 60 * 60 * 1000)).toISOString();
 
   const [{ data: liderancas }, { data: eleitoresRecentes }] = await Promise.all([
-    supabase.from('liderancas').select('id, nome, cidade, municipio, bairro'),
-    supabase.from('eleitores').select('lideranca, lideranca_id, created_at').gte('created_at', limite10Dias)
+    supabase.from('liderancas').select('id, nome, cidade, municipio, bairro').limit(100),
+    supabase.from('eleitores').select('lideranca, lideranca_id, created_at').gte('created_at', limite10Dias).limit(200)
   ]);
 
   const lideresAtivos = new Set();
@@ -104,8 +104,8 @@ async function predicaoAtividadeLiderancas(supabase, agora) {
  */
 async function predicaoExpansaoTerritorial(supabase) {
   const [{ data: eleitores }, { data: liderancas }] = await Promise.all([
-    supabase.from('eleitores').select('cidade, municipio, bairro'),
-    supabase.from('liderancas').select('cidade, municipio, bairro')
+    supabase.from('eleitores').select('cidade, municipio, bairro').limit(200),
+    supabase.from('liderancas').select('cidade, municipio, bairro').limit(100)
   ]);
 
   const liderMun = new Set((liderancas || []).map(l => String(l.cidade || l.municipio || l.bairro || '').trim().toUpperCase()).filter(Boolean));
@@ -148,7 +148,7 @@ async function predicaoExpansaoTerritorial(supabase) {
  * Modelo Preditivo 4: Risco de Concentração Excessiva (ConcentrationPrediction)
  */
 async function predicaoConcentracao(supabase) {
-  const { data: eleitores } = await supabase.from('eleitores').select('cidade, municipio, bairro');
+  const { data: eleitores } = await supabase.from('eleitores').select('cidade, municipio, bairro').limit(200);
   const total = eleitores?.length || 0;
 
   if (total < 20) return null;

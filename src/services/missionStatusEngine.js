@@ -51,7 +51,7 @@ async function avaliarLiderancas(supabase, agora) {
 
   const [{ data: liderancas }, { data: eleitoresRecentes }] = await Promise.all([
     supabase.from('liderancas').select('id, nome'),
-    supabase.from('eleitores').select('lideranca, lideranca_id, created_at').gte('created_at', limite15Dias)
+    supabase.from('eleitores').select('lideranca, lideranca_id, created_at').gte('created_at', limite15Dias).limit(100)
   ]);
 
   const total = liderancas?.length || 0;

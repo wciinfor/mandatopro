@@ -28,11 +28,11 @@ export const LiveRepository = {
       { data: solicitacoes },
       { data: campanhas }
     ] = await Promise.all([
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioHoje),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioSemana),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMes),
-      supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior),
+      supabase.from('eleitores').select('id', { count: 'planned', head: true }),
+      supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioHoje),
+      supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioSemana),
+      supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioMes),
+      supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior),
       supabase.from('eleitores').select('id, nome, cidade, municipio, bairro, lideranca, created_at').order('created_at', { ascending: false }).limit(20),
       supabase.from('liderancas').select('id, nome, cidade, municipio, bairro'),
       supabase.from('atendimentos').select('id, assunto, status, data_atendimento, created_at').order('created_at', { ascending: false }).limit(20),

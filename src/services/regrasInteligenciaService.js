@@ -25,14 +25,14 @@ export async function processarRegrasInteligencia(supabase) {
     { count: solicitacoesAtrasadas48h },
     { data: campanhas }
   ] = await Promise.all([
-    supabase.from('eleitores').select('id', { count: 'exact', head: true }),
-    supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMes),
-    supabase.from('eleitores').select('id', { count: 'exact', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior),
-    supabase.from('eleitores').select('cidade, municipio, bairro'),
-    supabase.from('liderancas').select('id, nome, cidade, municipio, bairro'),
-    supabase.from('eleitores').select('lideranca, lideranca_id, created_at'),
-    supabase.from('solicitacoes').select('id', { count: 'exact', head: true }).neq('status', 'ATENDIDO').lte('created_at', limite48h),
-    supabase.from('campanhas').select('id, nome, status, data_campanha')
+    supabase.from('eleitores').select('id', { count: 'planned', head: true }),
+    supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioMes),
+    supabase.from('eleitores').select('id', { count: 'planned', head: true }).gte('created_at', inicioMesAnterior).lte('created_at', fimMesAnterior),
+    supabase.from('eleitores').select('cidade, municipio, bairro').limit(200),
+    supabase.from('liderancas').select('id, nome, cidade, municipio, bairro').limit(100),
+    supabase.from('eleitores').select('lideranca, lideranca_id, created_at').gte('created_at', limite15Dias).limit(200),
+    supabase.from('solicitacoes').select('id', { count: 'planned', head: true }).neq('status', 'ATENDIDO').lte('created_at', limite48h),
+    supabase.from('campanhas').select('id, nome, status, data_campanha').limit(10)
   ]);
 
   const insights = [];
