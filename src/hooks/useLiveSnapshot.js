@@ -14,7 +14,7 @@ export function useLiveSnapshot({ pollingIntervalMs = 10000, enabled = true } = 
     setError(null);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const response = await fetch('/api/live/snapshot', { signal: controller.signal });
