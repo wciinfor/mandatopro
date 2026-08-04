@@ -20,23 +20,22 @@ import {
  * - Ranking Lateral com Rotação Automática a cada 15 segundos
  * - Tooltip / Painel Lateral com Recomendação Automática
  */
+import { useLiveSnapshot } from '@/hooks/useLiveSnapshot';
+
 export default function MapaWidget() {
-  const [camadaAtiva, setCamadaAtiva] = useState('BASE'); // 'BASE' | 'CRESCIMENTO' | 'LIDERANCAS' | 'ATENDIMENTOS' | 'CAMPANHAS'
-  const [indexRankingAuto, setIndexRankingAuto] = useState(0); // 0: Maior Base, 1: Maior Crescimento, 2: Oportunidade, 3: Maior Atenção
+  const [camadaAtiva, setCamadaAtiva] = useState('BASE');
+  const [indexRankingAuto, setIndexRankingAuto] = useState(0);
   const [municipioSelecionado, setMunicipioSelecionado] = useState(null);
 
-  const { 
-    metricasTerritoriais, 
-    municipios, 
-    top10Eleitores, 
-    top10Crescimento, 
-    top10Estagnados, 
-    loading, 
-    error, 
-    empty, 
-    ultimaAtualizacao, 
-    refetch 
-  } = useLiveMapaCalor({ pollingIntervalMs: 15000 });
+  const { snapshot, loading, error, refetch } = useLiveSnapshot({ pollingIntervalMs: 10000 });
+
+  const metricasTerritoriais = snapshot?.territory;
+  const municipios = snapshot?.territory?.municipios || [];
+  const top10Eleitores = snapshot?.territory?.top10Eleitores || [];
+  const top10Crescimento = snapshot?.territory?.top10Crescimento || [];
+  const top10Estagnados = snapshot?.territory?.top10Estagnados || [];
+  const empty = !metricasTerritoriais;
+  const ultimaAtualizacao = snapshot?.metadata?.ultimaAtualizacao;
 
   // Rotação Automática dos Rankings Laterais a cada 15 segundos
   useEffect(() => {
