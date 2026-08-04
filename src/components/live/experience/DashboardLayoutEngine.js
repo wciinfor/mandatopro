@@ -57,10 +57,10 @@ export function DashboardLayoutEngine({ widgets = [] }) {
           .filter((w) => w.id !== 'statusGeral' && w.id !== 'statusCompacto')
           .map((w) => {
             const WidgetComp = w.component;
-            let colSpan = 'col-span-4';
+            let colSpan = 'col-span-6';
             if (w.id === 'salaDeSituacao') {
               colSpan = 'col-span-12';
-            } else if (w.id === 'mapa' || w.id === 'liderancasPerformance' || w.id === 'radarEstrategico') {
+            } else if (w.id === 'eleitores' || w.id === 'atividadeTempoReal' || w.id === 'mapa' || w.id === 'liderancasPerformance') {
               colSpan = 'col-span-6';
             }
 

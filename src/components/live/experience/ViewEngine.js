@@ -42,13 +42,11 @@ export function ViewEngine({ modoInicial = VIEWS_LIVE.AUTO }) {
     return () => clearInterval(timer);
   }, [modoAtivo]);
 
-  // View 01: Modo Operação (Status Geral Completo + Eleitores + Atividade + Mapa + Lideranças)
+  // View 01: Modo Operação (Status Geral Completo + Eleitores + Atividade)
   const widgetsOperacao = [
     LiveWidgetRegistry.statusGeral,
     LiveWidgetRegistry.eleitores,
-    LiveWidgetRegistry.atividadeTempoReal,
-    LiveWidgetRegistry.mapa,
-    LiveWidgetRegistry.liderancasPerformance
+    LiveWidgetRegistry.atividadeTempoReal
   ];
 
   // View 02: Sala de Situação (Status Compacto + Decisão Estratégica Consolidada Puro - Sem duplicar widgets operacionais)
