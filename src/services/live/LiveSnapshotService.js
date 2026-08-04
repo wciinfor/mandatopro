@@ -1,4 +1,5 @@
 import { LiveRepository } from './LiveRepository';
+import { DataQualityService } from './DataQualityService';
 import { calcularMissionStatus } from '../missionStatusEngine';
 import { processarRegrasInteligencia } from '../regrasInteligenciaService';
 import { processarPredictionEngine } from '../predictionEngineService';
@@ -27,8 +28,7 @@ export const LiveSnapshotService = {
     const tempoGeracao = Date.now() - inicioExecucao;
     const agora = new Date().toISOString();
 
-    // 3. Montagem do Snapshot Consolidado Único
-    return {
+    const snapshotDraft = {
       metadata: {
         ultimaAtualizacao: agora,
         tempoGeracaoMs: tempoGeracao,
@@ -76,6 +76,14 @@ export const LiveSnapshotService = {
         insights,
         radar: radarData
       }
+    };
+
+    // 3. Avaliação Automática de Qualidade via DataQualityService (Sprint D03)
+    const healthReport = DataQualityService.avaliarSnapshot(snapshotDraft, tempoGeracao);
+
+    return {
+      ...snapshotDraft,
+      healthReport
     };
   }
 };
