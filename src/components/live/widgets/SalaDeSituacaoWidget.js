@@ -1,63 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import LiveWidget from '../LiveWidget';
 import { useLiveInteligencia } from '@/hooks/useLiveInteligencia';
-import { useLiveRadarEstrategico } from '@/hooks/useLiveRadarEstrategico';
+import { useLiveMapaCalor } from '@/hooks/useLiveMapaCalor';
+import MapaWidget from './MapaWidget';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faChess, 
   faExclamationTriangle, 
   faLightbulb, 
-  faSatellite, 
-  faBullseye, 
-  faTasks 
+  faBullseye,
+  faMapMarkerAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 /**
- * SalaDeSituacaoWidget (View 02 Estratégica Consolidada)
- * Responde exclusivamente: "O que devemos fazer agora?"
- * Ordem rigorosa:
- * 1. Maior Alerta
- * 2. Maior Oportunidade
- * 3. Radar Estratégico (Preditivo)
- * 4. Recomendação Prioritária
- * 5. Missão do Dia
+ * SalaDeSituacaoWidget 2.0 (Sprint UX — Mapa Estratégico)
+ * Coluna Esquerda: Diagnóstico Estratégico (Maior Alerta, Maior Oportunidade, Recomendação Prioritária)
+ * Coluna Direita: Mapa de Calor Integrado Orientado à Decisão com Destaque Automático do Município do Alerta.
  */
 export default function SalaDeSituacaoWidget() {
   const { insights } = useLiveInteligencia({ pollingIntervalMs: 15000 });
-  const { previsoes, previsaoMaisCritica, indiceTendencia } = useLiveRadarEstrategico({ pollingIntervalMs: 15000 });
+  const { municipios } = useLiveMapaCalor({ pollingIntervalMs: 15000 });
 
-  // 1. Maior Alerta
+  // 1. Maior Alerta Estratégico
   const maiorAlerta = insights.find(i => i.tipo === 'ALERTA' || i.prioridade === 'CRITICA') || {
-    titulo: 'Triagem de Atendimentos Retidos',
-    descricao: 'Existem solicitações pendentes há mais de 48h aguardando retorno do gabinete.'
+    titulo: 'Queda no Ritmo de Cadastros',
+    descricao: 'Castanhal e municípios vizinhos apresentaram retração no ritmo de cadastros.',
+    municipioFoco: 'Castanhal'
   };
 
   // 2. Maior Oportunidade
   const maiorOportunidade = insights.find(i => i.tipo === 'OPORTUNIDADE') || {
     titulo: 'Expansão em Municípios sem Liderança',
-    descricao: 'Identificado interesse espontâneo em 3 municípios da Região Metropolitana.'
+    descricao: 'Identificado interesse espontâneo em Ananindeua sem estrutura formal.',
+    municipioFoco: 'Ananindeua'
+  };
+
+  // Seleção automática do município em destaque (sem necessidade de clique)
+  const municipioAlertaNome = maiorAlerta?.municipioFoco || 'Castanhal';
+  const municipioDestaque = municipios.find(m => m.nome?.toLowerCase() === municipioAlertaNome.toLowerCase()) || {
+    nome: municipioAlertaNome,
+    totalEleitores: 12450,
+    cadastrosMes: 45,
+    liderancasCount: 0,
+    classificacao: 'SEM_MOVIMENTACAO'
   };
 
   return (
     <LiveWidget
       titulo="Sala de Situação & Decisão Estratégica"
-      subtitulo="Análise executiva, antecipação de cenários e ordem de ação"
       icone={faChess}
-      badgeTag="Decisão Estratégica"
+      badgeTag="Mapa Estratégico"
       corBadge="purple"
       densityMode="commandCenter"
     >
       <div className="grid grid-cols-12 gap-3 h-full overflow-hidden text-xs">
         
-        {/* Lado Esquerdo (6 Colunas): 1. Maior Alerta | 2. Maior Oportunidade | 4. Recomendação */}
-        <div className="col-span-6 flex flex-col justify-between gap-2.5 h-full overflow-hidden">
+        {/* COLUNA ESQUERDA (5 Colunas): Diagnóstico Estratégico (Sem Radar / Sem Missão do Dia) */}
+        <div className="col-span-5 flex flex-col justify-between gap-2.5 h-full overflow-hidden">
           
           {/* 1. Maior Alerta */}
-          <div className="bg-rose-950/30 border border-rose-500/40 p-3 rounded-xl flex-1 flex flex-col justify-between">
+          <div className="bg-rose-950/30 border border-rose-500/50 p-3 rounded-xl flex-1 flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-black text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
                 <FontAwesomeIcon icon={faExclamationTriangle} className="animate-pulse" />
-                1. Maior Alerta Operacional
+                1. Maior Alerta Estratégico
               </span>
               <span className="bg-rose-500/20 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
                 Crítico
@@ -67,14 +73,18 @@ export default function SalaDeSituacaoWidget() {
               <h4 className="text-slate-100 font-bold text-sm mt-1">{maiorAlerta.titulo}</h4>
               <p className="text-slate-300 text-xs mt-0.5">{maiorAlerta.descricao}</p>
             </div>
+            <div className="mt-2 text-[10px] text-rose-400 font-bold flex items-center gap-1">
+              <FontAwesomeIcon icon={faMapMarkerAlt} />
+              Foco do Alerta: {municipioAlertaNome}
+            </div>
           </div>
 
           {/* 2. Maior Oportunidade */}
-          <div className="bg-emerald-950/30 border border-emerald-500/40 p-3 rounded-xl flex-1 flex flex-col justify-between">
+          <div className="bg-emerald-950/30 border border-emerald-500/50 p-3 rounded-xl flex-1 flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                 <FontAwesomeIcon icon={faLightbulb} />
-                2. Maior Oportunidade Estratégica
+                2. Maior Oportunidade
               </span>
               <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
                 Oportunidade
@@ -86,63 +96,48 @@ export default function SalaDeSituacaoWidget() {
             </div>
           </div>
 
-          {/* 4. Recomendação Prioritária */}
+          {/* 3. Recomendação Prioritária */}
           <div className="bg-slate-950/80 border border-teal-500/40 p-3 rounded-xl flex-shrink-0">
             <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
               <FontAwesomeIcon icon={faBullseye} />
-              4. Recomendação Prioritária da Semana
+              Recomendação Executiva Automática:
             </span>
             <span className="text-slate-200 font-semibold block text-xs">
-              {maiorAlerta.recomendacao || 'Mobilizar equipe de campo para triagem e reforço nas regiões prioritárias.'}
+              {`Intervenção e ação de campo imediata em ${municipioAlertaNome}.`}
             </span>
           </div>
 
         </div>
 
-        {/* Lado Direito (6 Colunas): 3. Radar Estratégico | 5. Missão do Dia */}
-        <div className="col-span-6 flex flex-col justify-between gap-2.5 h-full overflow-hidden">
-          
-          {/* 3. Radar Estratégico Preditivo */}
-          <div className="bg-slate-950/70 border border-slate-800 p-3 rounded-xl flex-1 flex flex-col justify-between overflow-hidden">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-bold text-teal-300 uppercase tracking-wider flex items-center gap-1.5">
-                <FontAwesomeIcon icon={faSatellite} />
-                3. Radar Preditivo (Projeções)
-              </span>
-              <span className="text-[10px] font-mono text-teal-400 font-bold">
-                Índice: {indiceTendencia} pts
-              </span>
-            </div>
+        {/* COLUNA DIREITA (7 Colunas): MAPA DE CALOR ORIENTADO À DECISÃO COM DESTAQUE AUTOMÁTICO */}
+        <div className="col-span-7 h-full overflow-hidden flex flex-col relative">
+          <MapaWidget />
 
-            <div className="space-y-2 flex-1 overflow-hidden">
-              {(previsoes || []).slice(0, 2).map((p) => (
-                <div key={p.id} className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400">
-                    <span className="font-bold text-slate-300">{p.tipo} • {p.categoria}</span>
-                    <span>Horizonte: {p.horizonte}</span>
-                  </div>
-                  <h5 className="font-bold text-slate-100 text-xs mt-0.5">{p.titulo}</h5>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 5. Missão do Dia */}
-          <div className="bg-purple-950/30 border border-purple-500/40 p-3 rounded-xl flex-shrink-0 flex items-center justify-between">
+          {/* TOOLTIP / BANNER DE DESTAQUE AUTOMÁTICO DO MUNICÍPIO DO ALERTA (SEM NECESSIDADE DE CLIQUE) */}
+          <div className="absolute bottom-2 left-2 right-2 bg-slate-950/95 border-2 border-rose-500 p-3 rounded-xl backdrop-blur shadow-2xl z-30 flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-black text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                <FontAwesomeIcon icon={faTasks} />
-                5. Missão do Dia do Gabinete
-              </span>
-              <span className="text-slate-100 font-bold block text-xs mt-0.5">
-                Alinhamento e despacho de demandas pendentes com coordenação geral.
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                  {municipioDestaque.nome} (Foco Automático)
+                </h4>
+              </div>
+              <p className="text-[11px] text-rose-300 font-medium mt-0.5">
+                Recomendação: Nomear liderança local e agendar visita institucional.
+              </p>
             </div>
-            <span className="bg-purple-500/20 text-purple-300 text-[10px] font-bold px-2 py-1 rounded-lg border border-purple-500/30 flex-shrink-0">
-              Prioridade #1
-            </span>
-          </div>
 
+            <div className="flex items-center gap-3 text-right font-mono text-xs flex-shrink-0">
+              <div>
+                <span className="text-[9px] text-slate-400 block uppercase font-bold">Eleitores</span>
+                <span className="font-bold text-white">{municipioDestaque.totalEleitores}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-slate-400 block uppercase font-bold">Lideranças</span>
+                <span className="font-bold text-amber-400">{municipioDestaque.liderancasCount}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
