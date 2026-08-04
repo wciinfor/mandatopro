@@ -32,15 +32,22 @@ export function DashboardLayoutEngine({ widgets = [] }) {
           })}
       </div>
 
-      {/* 2º KPIs EXECUTIVOS (Exibidos apenas no Painel Executivo Operacional - View 01) */}
+      {/* 2º KPIs EXECUTIVOS 2.0 (Exibidos apenas no Painel Executivo Operacional - View 01) */}
       {!isModoEstrategico && (
         <ExecutiveKpiBar
           totalEleitores={eleitoresMetricas?.totalEleitores}
-          totalLiderancas={liderancasMetricas?.totalLiderancas}
+          cadastrosHoje={eleitoresMetricas?.cadastrosHoje || 128}
+          liderancasAtivasHoje={liderancasMetricas?.liderancasAtivas || 18}
+          totalLiderancas={liderancasMetricas?.totalLiderancas || 43}
+          metaDiaria={150}
+          municipiosAtendidos={metricasTerritoriais?.municipiosComPresenca || 44}
+          totalMunicipiosEstado={metricasTerritoriais?.totalMunicipiosPA || 144}
           campanhasAtivas={2}
-          totalAtendimentos={148}
-          solicitacoesAbertas={12}
-          municipiosAtendidos={metricasTerritoriais?.municipiosComPresenca}
+          campanhasMes={3}
+          atendimentosPendentes={14}
+          atendimentosConcluidosHoje={38}
+          solicitacoesPendentes={6}
+          solicitacoesResolvidasHoje={12}
         />
       )}
 
