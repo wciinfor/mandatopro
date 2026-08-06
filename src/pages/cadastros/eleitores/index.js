@@ -24,6 +24,7 @@ export default function GerenciarEleitores() {
   const [filtroLideranca, setFiltroLideranca] = useState('');
   const [filtroCidade, setFiltroCidade] = useState('');
   const [situacao, setSituacao] = useState('ATIVO');
+  const [ordem, setOrdem] = useState('recentes');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
 
@@ -48,7 +49,7 @@ export default function GerenciarEleitores() {
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [situacao, paginaAtual, filtro, filtroLideranca, filtroCidade, cidades]);
+  }, [situacao, paginaAtual, filtro, filtroLideranca, filtroCidade, cidades, ordem]);
 
   useEffect(() => {
     fetch('/api/usuarios/liderancas-opcoes')
@@ -110,6 +111,7 @@ export default function GerenciarEleitores() {
       params.set('status', situacao);
       params.set('limit', String(itensPorPagina));
       params.set('offset', String(offset));
+      params.set('ordem', ordem);
 
       if (filtro && filtro.trim().length > 0) params.set('search', filtro.trim());
       if (filtroLideranca) params.set('liderancaId', filtroLideranca);
@@ -307,8 +309,8 @@ export default function GerenciarEleitores() {
               </select>
             </div>
           </div>
-          {/* Linha 2: Cidade + Liderança + Limpar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          {/* Linha 2: Cidade + Liderança + Ordenação + Limpar */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 CIDADE
@@ -345,8 +347,23 @@ export default function GerenciarEleitores() {
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ORDENAR POR
+              </label>
+              <select
+                value={ordem}
+                onChange={(e) => { setOrdem(e.target.value); setPaginaAtual(1); }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-medium"
+              >
+                <option value="recentes">Mais Recentes (Últimos)</option>
+                <option value="nome_asc">Ordem Alfabética (A - Z)</option>
+                <option value="nome_desc">Ordem Alfabética (Z - A)</option>
+                <option value="antigos">Mais Antigos</option>
+              </select>
+            </div>
+            <div>
               <button
-                onClick={() => { setFiltro(''); setFiltroLideranca(''); setFiltroCidade(''); setPaginaAtual(1); }}
+                onClick={() => { setFiltro(''); setFiltroLideranca(''); setFiltroCidade(''); setOrdem('recentes'); setPaginaAtual(1); }}
                 className="w-full px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 font-medium"
               >
                 LIMPAR FILTROS

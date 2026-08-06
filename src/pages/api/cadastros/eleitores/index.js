@@ -207,7 +207,8 @@ export default async function handler(req, res) {
         onlyCities,
         limit = 100,
         offset = 0,
-        excludeLiderancas = false
+        excludeLiderancas = false,
+        ordem = 'recentes'
       } = req.query;
 
       const liderancaFiltro = liderancaId || lideranca_id;
@@ -297,9 +298,28 @@ export default async function handler(req, res) {
         query = query.or(`cidade.eq.${cidade},municipio.eq.${cidade}`);
       }
 
+      // Ordenação dinâmica: por padrão coloca os últimos eleitores registrados primeiro ('recentes' -> id desc)
+      let orderCol = 'id';
+      let ascending = false;
+
+      if (ordem === 'nome_asc' || ordem === 'alfabetica') {
+        orderCol = 'nome';
+        ascending = true;
+      } else if (ordem === 'nome_desc') {
+        orderCol = 'nome';
+        ascending = false;
+      } else if (ordem === 'antigos') {
+        orderCol = 'id';
+        ascending = true;
+      } else {
+        // 'recentes' (Padrão: mais recentes / últimos registrados primeiro)
+        orderCol = 'id';
+        ascending = false;
+      }
+
       const { data: eleitores, count, error } = await query
         .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1)
-        .order('nome', { ascending: true });
+        .order(orderCol, { ascending });
 
       if (error) {
         return res.status(400).json({
