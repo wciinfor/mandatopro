@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import PDFGenerator from '@/utils/pdfGenerator';
@@ -110,7 +110,10 @@ export default function GerenciarAtendimentos() {
     const matchFim = !campanhaFimDate || dataCampanha <= campanhaFimDate;
     return matchInicio && matchFim;
   });
-  const campanhaIdsPeriodo = new Set(campanhasPorPeriodo.map((campanha) => campanha.id));
+  const campanhaIdsPeriodo = useMemo(
+    () => new Set(campanhasPorPeriodo.map((campanha) => campanha.id)),
+    [campanhasPorPeriodo]
+  );
 
   const campanhasParaFiltro = (campanhaInicioDate || campanhaFimDate) ? campanhasPorPeriodo : campanhas;
   const periodoAtivo = Boolean(campanhaInicioDate || campanhaFimDate);
@@ -124,33 +127,39 @@ export default function GerenciarAtendimentos() {
   const liderancasUnicas = Array.from(
     new Map(liderancasParaFiltro.map((lideranca) => [lideranca.id, lideranca])).values()
   ).sort((a, b) => a.nome.localeCompare(b.nome));
-  const campanhaIdsPorLideranca = new Set(
-    campanhasParaFiltro
-      .filter((campanha) =>
-        (campanha.campanhas_liderancas || []).some((item) =>
-          String(item.liderancas?.id || item.lideranca_id || '') === liderancaFiltro
-        )
-      )
-      .map((campanha) => campanha.id)
+  const campanhaIdsPorLideranca = useMemo(
+    () =>
+      new Set(
+        campanhasParaFiltro
+          .filter((campanha) =>
+            (campanha.campanhas_liderancas || []).some((item) =>
+              String(item.liderancas?.id || item.lideranca_id || '') === liderancaFiltro
+            )
+          )
+          .map((campanha) => campanha.id)
+      ),
+    [campanhasParaFiltro, liderancaFiltro]
   );
 
-  const atendimentosFiltrados = atendimentos.filter(at => {
-    const matchFiltro = filtro === '' || 
-      (at.eleitores?.nome?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
-      (at.eleitores?.cpf || '').includes(filtro) ||
-      (at.tipo_atendimento?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
-      (at.protocolo?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
-      (at.campanhas?.nome?.toLowerCase() || '').includes(filtro.toLowerCase());
-    const matchSituacao = situacao === '' || at.status === situacao;
-    const matchCampanha = campanhaFiltro === '' ||
-      (campanhaFiltro === 'AVULSO' ? !at.campanha_id : at.campanha_id === campanhaFiltro);
-    const matchLideranca = liderancaFiltro === '' || campanhaIdsPorLideranca.has(at.campanha_id);
-    const inicio = campanhaDataInicio ? new Date(campanhaDataInicio) : null;
-    const fim = campanhaDataFim ? new Date(campanhaDataFim) : null;
-    const temPeriodo = Boolean(inicio || fim);
-    const matchPeriodo = !temPeriodo || campanhaIdsPeriodo.has(at.campanha_id) || (incluirAvulsosPeriodo && !at.campanha_id);
-    return matchFiltro && matchSituacao && matchCampanha && matchLideranca && matchPeriodo;
-  });
+  const atendimentosFiltrados = useMemo(() => {
+    return atendimentos.filter(at => {
+      const matchFiltro = filtro === '' || 
+        (at.eleitores?.nome?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
+        (at.eleitores?.cpf || '').includes(filtro) ||
+        (at.tipo_atendimento?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
+        (at.protocolo?.toLowerCase() || '').includes(filtro.toLowerCase()) ||
+        (at.campanhas?.nome?.toLowerCase() || '').includes(filtro.toLowerCase());
+      const matchSituacao = situacao === '' || at.status === situacao;
+      const matchCampanha = campanhaFiltro === '' ||
+        (campanhaFiltro === 'AVULSO' ? !at.campanha_id : at.campanha_id === campanhaFiltro);
+      const matchLideranca = liderancaFiltro === '' || campanhaIdsPorLideranca.has(at.campanha_id);
+      const inicio = campanhaDataInicio ? new Date(campanhaDataInicio) : null;
+      const fim = campanhaDataFim ? new Date(campanhaDataFim) : null;
+      const temPeriodo = Boolean(inicio || fim);
+      const matchPeriodo = !temPeriodo || campanhaIdsPeriodo.has(at.campanha_id) || (incluirAvulsosPeriodo && !at.campanha_id);
+      return matchFiltro && matchSituacao && matchCampanha && matchLideranca && matchPeriodo;
+    });
+  }, [atendimentos, filtro, situacao, campanhaFiltro, liderancaFiltro, campanhaDataInicio, campanhaDataFim, incluirAvulsosPeriodo, campanhaIdsPorLideranca, campanhaIdsPeriodo]);
 
   const totalPaginas = Math.ceil(atendimentosFiltrados.length / itensPorPagina);
   const indiceInicio = (paginaAtual - 1) * itensPorPagina;
@@ -161,9 +170,14 @@ export default function GerenciarAtendimentos() {
     atendimentosPaginados.every((item) => atendimentosSelecionados.includes(item.id));
 
   useEffect(() => {
+    if (atendimentosSelecionados.length === 0) return;
     const idsFiltrados = new Set(atendimentosFiltrados.map((item) => item.id));
-    setAtendimentosSelecionados((prev) => prev.filter((id) => idsFiltrados.has(id)));
-  }, [atendimentosFiltrados]);
+    setAtendimentosSelecionados((prev) => {
+      const validos = prev.filter((id) => idsFiltrados.has(id));
+      if (validos.length === prev.length) return prev;
+      return validos;
+    });
+  }, [atendimentosFiltrados, atendimentosSelecionados.length]);
 
   const alternarSelecaoAtendimento = (id) => {
     setAtendimentosSelecionados((prev) =>
