@@ -410,6 +410,9 @@ async function carregarAgregadosMunicipio(supabase) {
 }
 
 export default async function handler(req, res) {
+  // [MANUTENÇÃO P0 — 2026-08-06] Módulo desabilitado temporariamente para redução de carga no Supabase
+  return res.status(503).json({ error: 'Módulo temporariamente indisponível para manutenção.' });
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método não permitido' });
   }

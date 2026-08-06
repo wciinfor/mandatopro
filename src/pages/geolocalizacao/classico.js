@@ -74,15 +74,13 @@ export default function Geolocalizacao() {
     carregarMarcadores();
   }, [carregarMarcadores]);
 
-  // Auto-carregamento a cada 30 segundos
+  // Auto-carregamento a cada 30 segundos (Desabilitado temporariamente - MANUTENÇÃO P0 2026-08-06)
   useEffect(() => {
-    if (!autoCarregamento) return;
-
-    const intervalo = setInterval(() => {
-      carregarMarcadores();
-    }, 30000); // 30 segundos
-
-    return () => clearInterval(intervalo);
+    // if (!autoCarregamento) return;
+    // const intervalo = setInterval(() => {
+    //   carregarMarcadores();
+    // }, 30000); // 30 segundos
+    // return () => clearInterval(intervalo);
   }, [autoCarregamento, carregarMarcadores]);
 
   const handleSincronizar = async () => {

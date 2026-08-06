@@ -40,7 +40,8 @@ export default function NotificationBell() {
     };
 
     atualizar();
-    intervalId = setInterval(atualizar, 30000);
+    // [MANUTENÇÃO P0 — 2026-08-06] Polling desabilitado temporariamente
+    // intervalId = setInterval(atualizar, 30000);
 
     return () => {
       cancelled = true;
