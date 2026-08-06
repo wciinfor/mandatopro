@@ -59,29 +59,83 @@ function createAuthClient(accessToken) {
   });
 }
 
+// Micro-cache em memória para tokens validados (TTL: 30 segundos)
+// Evita requisições redundantes ao GoTrue Auth quando múltiplas APIs chegam em paralelo
+const TOKEN_CACHE_TTL_MS = 30 * 1000;
+const tokenCache = new Map();
+
+function limparCacheTokensExpirados(agora = Date.now()) {
+  for (const [token, item] of tokenCache.entries()) {
+    if (item.expiresAt <= agora) {
+      tokenCache.delete(token);
+    }
+  }
+}
+
 export async function obterUsuarioAutenticado(req, supabaseAdmin) {
-  const accessToken = getBearerToken(req) || getAccessTokenFromCookie(req);
-
-  if (accessToken) {
-    const authClient = createAuthClient(accessToken);
-    if (authClient) {
-      const { data, error } = await authClient.auth.getUser(accessToken);
-      if (!error && data?.user?.email) {
-        const { data: usuario } = await supabaseAdmin
-          .from('usuarios')
-          .select('*')
-          .eq('email', data.user.email)
-          .eq('ativo', true)
-          .single();
-
-        if (usuario) {
-          return { usuario, metodo: 'bearer' };
-        }
-      }
+  if (req) {
+    if (req._authenticatedUser) {
+      return req._authenticatedUser;
+    }
+    if (req._authenticatedUserPromise) {
+      return await req._authenticatedUserPromise;
     }
   }
 
-  return { usuario: null, metodo: 'none' };
+  const exec = async () => {
+    const accessToken = getBearerToken(req) || getAccessTokenFromCookie(req);
+
+    if (!accessToken) {
+      return { usuario: null, metodo: 'none' };
+    }
+
+    const agora = Date.now();
+    limparCacheTokensExpirados(agora);
+
+    // 1. Tenta obter o e-mail do token via micro-cache (30s)
+    let email = null;
+    const cachedToken = tokenCache.get(accessToken);
+
+    if (cachedToken && cachedToken.expiresAt > agora) {
+      email = cachedToken.email;
+    } else {
+      // 2. Se não estiver em cache, faz a validação única no GoTrue Auth
+      const authClient = createAuthClient(accessToken);
+      if (authClient) {
+        const { data, error } = await authClient.auth.getUser(accessToken);
+        if (!error && data?.user?.email) {
+          email = data.user.email;
+          tokenCache.set(accessToken, {
+            email,
+            expiresAt: agora + TOKEN_CACHE_TTL_MS
+          });
+        }
+      }
+    }
+
+    if (email) {
+      const { data: usuario } = await supabaseAdmin
+        .from('usuarios')
+        .select('*')
+        .eq('email', email)
+        .eq('ativo', true)
+        .single();
+
+      if (usuario) {
+        const result = { usuario, metodo: 'bearer' };
+        if (req) req._authenticatedUser = result;
+        return result;
+      }
+    }
+
+    const result = { usuario: null, metodo: 'none' };
+    if (req) req._authenticatedUser = result;
+    return result;
+  };
+
+  const promise = exec();
+  if (req) req._authenticatedUserPromise = promise;
+  return await promise;
 }
 
 export function exigirUsuario(usuario) {
