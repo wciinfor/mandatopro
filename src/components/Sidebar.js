@@ -66,7 +66,7 @@ const modulosBase = [
       'Central de Atendimento',
       'Contatos Oficiais',
       'Públicos Oficiais',
-      'Campanhas Oficiais',
+      'Comunicações Oficiais',
       'Templates Oficiais',
       'WhatsApp Business Oficial',
       'Insights Oficiais'
@@ -169,7 +169,7 @@ const routeMap = {
   'Comunicação - Central de Atendimento': '/comunicacao-oficial/central-atendimento',
   'Comunicação - Contatos Oficiais': '/comunicacao-oficial/contatos',
   'Comunicação - Públicos Oficiais': '/comunicacao-oficial/publicos',
-  'Comunicação - Campanhas Oficiais': '/comunicacao-oficial/campanhas',
+  'Comunicação - Comunicações Oficiais': '/comunicacao-oficial/campanhas',
   'Comunicação - Templates Oficiais': '/comunicacao-oficial/templates',
   'Comunicação - WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
   'Comunicação - Insights Oficiais': '/comunicacao-oficial/insights',

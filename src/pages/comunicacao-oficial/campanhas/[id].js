@@ -4,179 +4,349 @@ import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faBullhorn,
   faArrowLeft,
-  faChartLine,
   faFilter,
   faHistory,
-  faExclamationCircle
+  faCheckCircle,
+  faTimesCircle,
+  faClock,
+  faSpinner,
+  faList
 } from '@fortawesome/free-solid-svg-icons';
-import { LinhaTempoJornada } from '@/components/LinhaTempoJornada';
-import { AcompanhamentoExecucao } from '@/components/AcompanhamentoExecucao';
-import { FunilResultadosCampanha } from '@/components/FunilResultadosCampanha';
 
-// Mocks de campanhas detalhadas para jornada
-const JORNADA_CAMPANHA_MOCK = {
-  id: 'camp-1',
-  nome: 'Informativo Obras Verão',
-  canal: 'whatsapp',
-  template: 'obras_praca_central',
-  publico: 'Bairro Centro - Opt-in',
-  status: 'enviando',
-  agendamento: null,
-  total_destinatarios: 450,
-  enviadas: 380,
-  entregues: 375,
-  lidas: 290,
-  falhas: 5,
-  created_at: new Date().toISOString()
-};
-
-// Histórico de logs simulados de webhook e disparos locais
-const FILA_EXECUCAO_MOCK = [
-  { contact_id: '+5591999998888', status: 'lida', updated_at: new Date().toISOString(), attempts: 1, last_error: null },
-  { contact_id: '+5591999997777', status: 'entregue', updated_at: new Date(Date.now() - 30000).toISOString(), attempts: 1, last_error: null },
-  { contact_id: '+5591999996666', status: 'falhou', updated_at: new Date(Date.now() - 60000).toISOString(), attempts: 3, last_error: 'Meta API: Sandbox limit exceeded' },
-  { contact_id: '+5591999995555', status: 'enviada', updated_at: new Date(Date.now() - 120000).toISOString(), attempts: 1, last_error: null }
-];
-
-const RESULTADOS_MOCK = {
-  campaign_id: 'camp-1',
-  cliques_botoes: 45,
-  cliques_links: 32,
-  respostas_recebidas: 85,
-  conversas_iniciadas: 110,
-  conversoes: 62,
-  taxa_conversao: 13.7,
-  custo_por_conversa: 0.15
-};
-
-export default function JornadaCampanhaPage() {
+export default function DetalhesComunicacaoPage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const [campanha, setCampanha] = useState(JORNADA_CAMPANHA_MOCK);
-  const [filaLogs, setFilaLogs] = useState(FILA_EXECUCAO_MOCK);
-  
-  // Filtros Operacionais solicitados
+  const [campanha, setCampanha] = useState(null);
+  const [metricas, setMetricas] = useState(null);
+  const [destinatarios, setDestinatarios] = useState([]);
+  const [timeline, setTimeline] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [buscaDestinatario, setBuscaDestinatario] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('all');
-  const [filtroCanal, setFiltroCanal] = useState('all');
-  const [filtroPeriodo, setFiltroPeriodo] = useState('all');
-  const [filtroPublico, setFiltroPublico] = useState('all');
+  const [abaAtiva, setAbaAtiva] = useState('destinatarios');
 
-  const filtrarLogs = filaLogs.filter((log) => {
-    const bateStatus = filtroStatus === 'all' || log.status === filtroStatus;
-    return bateStatus;
+  const carregarDetalhes = async (campanhaId) => {
+    try {
+      const res = await fetch(`/api/comunicacao-oficial/campanhas/${campanhaId}/detalhes`);
+      if (res.ok) {
+        const data = await res.json();
+        setCampanha(data.campanha || null);
+        setMetricas(data.metricas || null);
+        setDestinatarios(data.destinatarios || []);
+        setTimeline(data.timeline || []);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar detalhes da comunicação:', err);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      carregarDetalhes(id);
+    }
+  }, [id]);
+
+  const destinatariosFiltrados = destinatarios.filter(d => {
+    const matchBusca = d.nome.toLowerCase().includes(buscaDestinatario.toLowerCase()) || d.telefone.includes(buscaDestinatario);
+    const matchStatus = filtroStatus === 'all' || d.status === filtroStatus;
+    return matchBusca && matchStatus;
   });
+
+  const executarAcao = async (acaoNome) => {
+    try {
+      const res = await fetch(`/api/comunicacao-oficial/campanhas/${id}/acoes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: acaoNome })
+      });
+      if (res.ok) {
+        carregarDetalhes(id);
+      }
+    } catch (err) {
+      console.error('Erro ao executar ação operacional:', err);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'Na Fila':
+      case 'agendado':
+        return <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full">Na Fila</span>;
+      case 'Executando':
+      case 'processando':
+        return <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">Processando</span>;
+      case 'Pausada':
+        return <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full">Pausada</span>;
+      case 'concluido':
+      case 'enviado':
+        return <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Enviado</span>;
+      case 'Cancelada':
+        return <span className="bg-gray-100 text-gray-700 border border-gray-255 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Cancelada</span>;
+      default:
+        return <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Falha</span>;
+    }
+  };
+
+  if (carregando) {
+    return (
+      <ProtectedRoute>
+        <Layout titulo="Carregando Detalhes...">
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <FontAwesomeIcon icon={faSpinner} className="animate-spin text-3xl text-teal-600 mb-3" />
+            <p className="text-sm">Carregando painel de acompanhamento...</p>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (!campanha) {
+    return (
+      <ProtectedRoute>
+        <Layout titulo="Erro">
+          <div className="bg-white rounded-2xl p-6 text-center text-gray-400 border border-gray-100 max-w-md mx-auto mt-10">
+            <p className="text-sm font-semibold">Comunicação Oficial não localizada ou erro de permissão.</p>
+            <button
+              onClick={() => router.push('/comunicacao-oficial/campanhas')}
+              className="mt-4 bg-teal-600 text-white text-xs font-bold py-2 px-4 rounded-xl"
+            >
+              Voltar para Comunicações
+            </button>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
+  const mostrarPausar = ['Na Fila', 'Executando', 'processando'].includes(campanha.status);
+  const mostrarRetomar = campanha.status === 'Pausada';
+  const mostrarCancelar = ['Na Fila', 'Executando', 'processando', 'Pausada'].includes(campanha.status);
 
   return (
     <ProtectedRoute>
-      <Layout titulo={`Jornada: ${campanha.nome}`}>
+      <Layout titulo={`Acompanhamento: ${campanha.nome}`}>
         <div className="space-y-6">
           
           {/* Header e Ações */}
-          <div className="flex items-center justify-between bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-5 border border-gray-100 shadow-sm gap-4">
             <button
               onClick={() => router.push('/comunicacao-oficial/campanhas')}
-              className="text-gray-500 hover:text-teal-600 font-bold flex items-center gap-1 text-xs"
+              className="text-gray-500 hover:text-teal-600 font-bold flex items-center gap-1.5 text-xs self-start sm:self-auto"
             >
-              <FontAwesomeIcon icon={faArrowLeft} /> Voltar para Campanhas
+              <FontAwesomeIcon icon={faArrowLeft} /> Voltar para Comunicações
             </button>
-            <span className="bg-teal-50 text-teal-700 text-xs font-bold border border-teal-200 px-3 py-1 rounded-full uppercase tracking-wider">
-              {campanha.status}
-            </span>
-          </div>
-
-          {/* Resumo executivo e Barra de Progresso do motor */}
-          <AcompanhamentoExecucao
-            progresso={{
-              total: campanha.total_destinatarios,
-              enviados: campanha.enviadas,
-              entregues: campanha.entregues,
-              falhas: campanha.falhas,
-              pendentes: campanha.total_destinatarios - (campanha.enviadas + campanha.falhas)
-            }}
-            statusCampanha={campanha.status}
-          />
-
-          {/* Painel de Filtros de Jornada */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-              <FontAwesomeIcon icon={faFilter} className="text-teal-600 text-sm" />
-              <h4 className="font-bold text-xs text-gray-800">Filtros da Jornada</h4>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status</label>
-                <select
-                  value={filtroStatus}
-                  onChange={(e) => setFiltroStatus(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 focus:outline-none"
-                >
-                  <option value="all">Todos</option>
-                  <option value="lida">Lida</option>
-                  <option value="entregue">Entregue</option>
-                  <option value="enviada">Enviada</option>
-                  <option value="falhou">Falhou</option>
-                </select>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 font-medium">Status da Fila:</span>
+                {getStatusBadge(campanha.status)}
               </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Canal</label>
-                <select
-                  value={filtroCanal}
-                  onChange={(e) => setFiltroCanal(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 focus:outline-none"
-                >
-                  <option value="all">Todos</option>
-                  <option value="whatsapp">WhatsApp Business Cloud</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Período</label>
-                <select
-                  value={filtroPeriodo}
-                  onChange={(e) => setFiltroPeriodo(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 focus:outline-none"
-                >
-                  <option value="all">Hoje</option>
-                  <option value="last_7">Últimos 7 dias</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Público</label>
-                <select
-                  value={filtroPublico}
-                  onChange={(e) => setFiltroPublico(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 focus:outline-none"
-                >
-                  <option value="all">Todos os destinatários</option>
-                </select>
-              </div>
+              {(mostrarPausar || mostrarRetomar || mostrarCancelar) && (
+                <div className="flex items-center gap-2 border-l border-gray-100 pl-3">
+                  {mostrarPausar && (
+                    <button
+                      onClick={() => executarAcao('pausar')}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-200 transition"
+                    >
+                      Pausar
+                    </button>
+                  )}
+                  {mostrarRetomar && (
+                    <button
+                      onClick={() => executarAcao('retomar')}
+                      className="bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-teal-200 transition"
+                    >
+                      Retomar
+                    </button>
+                  )}
+                  {mostrarCancelar && (
+                    <button
+                      onClick={() => executarAcao('cancelar')}
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-rose-200 transition"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Exibição em duas colunas: Gráficos de Evolução de Status e Log de Webhooks */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Grid de Metadados e Dashboard Executivo */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Funil de Resultados da Campanha */}
-            <FunilResultadosCampanha
-              funil={{
-                enviadas: campanha.enviadas,
-                entregues: campanha.entregues,
-                lidas: campanha.lidas
-              }}
-              resultados={RESULTADOS_MOCK}
-            />
+            {/* Informações da Comunicação */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 lg:col-span-1 shadow-sm">
+              <div className="border-b border-gray-100 pb-3">
+                <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Ficha da Comunicação</h4>
+              </div>
+              <div className="space-y-3 text-xs text-gray-600">
+                <p><strong>Nome:</strong> {campanha.nome}</p>
+                <p><strong>Canal:</strong> {campanha.canal === 'whatsapp' ? 'WhatsApp Business Cloud' : campanha.canal}</p>
+                <p><strong>Origem contatos:</strong> {campanha.origem}</p>
+                <p><strong>Template:</strong> {campanha.template}</p>
+                <p><strong>Responsável:</strong> {campanha.operador}</p>
+                <p><strong>Criação:</strong> {new Date(campanha.created_at).toLocaleString('pt-BR')}</p>
+                {campanha.agendamento && (
+                  <p><strong>Agendado para:</strong> {new Date(campanha.agendamento).toLocaleString('pt-BR')}</p>
+                )}
+              </div>
+            </div>
 
-            {/* Linha do Tempo e Log Cronológico Completo */}
-            <LinhaTempoJornada eventosFila={filtrarLogs} />
-
+            {/* Dashboard Executivo de Disparos */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 lg:col-span-2 space-y-4 shadow-sm">
+              <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
+                <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Métricas de Envio em Lote</h4>
+                <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-100">
+                  Taxa de conclusão: {metricas?.taxaConclusao}%
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl text-center">
+                  <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Destinatários</span>
+                  <p className="text-xl font-bold text-gray-800 mt-1">{metricas?.total}</p>
+                </div>
+                <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl text-center">
+                  <span className="text-[9px] uppercase font-bold text-blue-600 block">Pendentes</span>
+                  <p className="text-xl font-bold text-blue-800 mt-1">{metricas?.pendentes}</p>
+                </div>
+                <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-xl text-center">
+                  <span className="text-[9px] uppercase font-bold text-amber-600 block">Processando</span>
+                  <p className="text-xl font-bold text-amber-800 mt-1">{metricas?.processando}</p>
+                </div>
+                <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl text-center">
+                  <span className="text-[9px] uppercase font-bold text-emerald-600 block">Enviadas</span>
+                  <p className="text-xl font-bold text-emerald-800 mt-1">{metricas?.enviadas}</p>
+                </div>
+                <div className="bg-rose-50/50 border border-rose-100 p-4 rounded-xl text-center">
+                  <span className="text-[9px] uppercase font-bold text-rose-600 block">Falhas</span>
+                  <p className="text-xl font-bold text-rose-800 mt-1">{metricas?.falhas}</p>
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Abas e Seções de Detalhes (Lista de contatos e Timeline de Auditoria) */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+            <div className="flex border-b border-gray-100 bg-gray-50/30 px-5 pt-3 gap-4">
+              <button
+                onClick={() => setAbaAtiva('destinatarios')}
+                className={`pb-3 text-xs font-bold transition-all border-b-2 ${
+                  abaAtiva === 'destinatarios'
+                    ? 'border-teal-600 text-teal-600'
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Fila de Destinatários
+              </button>
+              <button
+                onClick={() => setAbaAtiva('timeline')}
+                className={`pb-3 text-xs font-bold transition-all border-b-2 ${
+                  abaAtiva === 'timeline'
+                    ? 'border-teal-600 text-teal-600'
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Timeline de Auditoria
+              </button>
+            </div>
+
+            {abaAtiva === 'destinatarios' ? (
+              <div className="space-y-0">
+                <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faList} className="text-teal-600 text-sm" />
+                    <h4 className="font-bold text-xs text-gray-800 font-medium">Contatos da Transmissão</h4>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <input
+                      type="text"
+                      value={buscaDestinatario}
+                      onChange={(e) => setBuscaDestinatario(e.target.value)}
+                      placeholder="Buscar destinatário..."
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                    />
+                    <select
+                      value={filtroStatus}
+                      onChange={(e) => setFiltroStatus(e.target.value)}
+                      className="bg-white border border-gray-200 rounded-lg p-1.5 focus:outline-none"
+                    >
+                      <option value="all">Todos os Status</option>
+                      <option value="pendente">Pendente</option>
+                      <option value="processando">Processando</option>
+                      <option value="enviado">Enviado</option>
+                      <option value="falha">Falha</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wider text-[10px] border-b border-gray-100">
+                        <th className="p-4">Nome</th>
+                        <th className="p-4">Telefone</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Data/Hora Processamento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {destinatariosFiltrados.length > 0 ? (
+                        destinatariosFiltrados.map((dest) => (
+                          <tr key={dest.id} className="hover:bg-gray-50/50">
+                            <td className="p-4 font-bold text-gray-800">{dest.nome}</td>
+                            <td className="p-4 text-gray-600">{dest.telefone}</td>
+                            <td className="p-4">{getStatusBadge(dest.status)}</td>
+                            <td className="p-4 text-gray-400">
+                              {dest.processado_em ? new Date(dest.processado_em).toLocaleString('pt-BR') : '—'}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="4" className="text-center py-8 text-gray-400">
+                            Nenhum destinatário localizado com os critérios informados.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 space-y-6 max-w-2xl">
+                <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                  <FontAwesomeIcon icon={faHistory} className="text-teal-600 text-sm" />
+                  <h4 className="font-bold text-xs text-gray-800 font-medium">Timeline de Rastreabilidade e Auditoria</h4>
+                </div>
+                {timeline.length > 0 ? (
+                  <div className="relative border-l border-gray-200 ml-3 pl-6 space-y-6">
+                    {timeline.map((evt, idx) => (
+                      <div key={idx} className="relative">
+                        <span className="absolute -left-[30px] top-1 bg-white border-2 border-teal-500 rounded-full w-4 h-4 flex items-center justify-center">
+                          <span className="w-1.5 h-1.5 bg-teal-600 rounded-full"></span>
+                        </span>
+                        <div className="text-xs text-gray-400 font-semibold">
+                          {new Date(evt.timestamp).toLocaleString('pt-BR')} · <span className="text-teal-600 font-bold">{evt.operador || 'Operador'}</span>
+                        </div>
+                        <div className="font-bold text-xs text-gray-800 mt-1 uppercase tracking-wider">{evt.tipo}</div>
+                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">{evt.descricao}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center py-8 text-xs text-gray-400">
+                    Nenhum registro de auditoria disponível na timeline para esta comunicação.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </Layout>
     </ProtectedRoute>

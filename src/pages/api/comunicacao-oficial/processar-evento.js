@@ -130,15 +130,55 @@ export default async function handler(req, res) {
       }
 
       // Também tenta atualizar a fila de disparos de campanhas se houver correspondência
-      const { error: errUpdateFila } = await supabase
+      const { data: itemFilaObj, error: errGetItem } = await supabase
         .from('communication_campaign_items')
-        .update({
-          status: statusInterno,
-          delivered_at: evento.status === 'delivered' ? evento.timestamp : undefined,
-          read_at: evento.status === 'read' ? evento.timestamp : undefined,
-          last_error: evento.status === 'failed' ? JSON.stringify(evento.erro) : undefined
-        })
-        .eq('provider_message_id', evento.provider_message_id);
+        .select('id, campaign_id')
+        .eq('provider_message_id', evento.provider_message_id)
+        .maybeSingle();
+
+      if (itemFilaObj) {
+        // Atualiza o item individual
+        await supabase
+          .from('communication_campaign_items')
+          .update({
+            status: statusInterno === 'falhou' ? 'falha' : statusInterno === 'lida' ? 'lido' : statusInterno === 'entregue' ? 'entregue' : 'enviado',
+            delivered_at: (evento.status === 'delivered' || evento.status === 'read') ? evento.timestamp : undefined,
+            read_at: evento.status === 'read' ? evento.timestamp : undefined,
+            last_error: evento.status === 'failed' ? JSON.stringify(evento.erro) : undefined
+          })
+          .eq('id', itemFilaObj.id);
+
+        // Recalcula totais em tempo real da campanha no Supabase
+        const { data: todosItens } = await supabase
+          .from('communication_campaign_items')
+          .select('status')
+          .eq('campaign_id', itemFilaObj.campaign_id);
+
+        if (todosItens) {
+          let enviadas = 0;
+          let entregues = 0;
+          let lidas = 0;
+          let falhas = 0;
+
+          todosItens.forEach(it => {
+            if (it.status === 'enviado') enviadas++;
+            else if (it.status === 'entregue') entregues++;
+            else if (it.status === 'lido') lidas++;
+            else if (it.status === 'falha') falhas++;
+          });
+
+          await supabase
+            .from('communication_campaigns')
+            .update({
+              total_enviadas: enviadas + entregues + lidas,
+              total_entregues: entregues + lidas,
+              total_lidas: lidas,
+              total_falhas: falhas,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', itemFilaObj.campaign_id);
+        }
+      }
 
       return res.status(200).json({ success: true });
     }

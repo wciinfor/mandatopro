@@ -50,23 +50,46 @@ export default function CampanhasOficiaisPage() {
     c.template.toLowerCase().includes(busca.toLowerCase())
   );
 
-  const handleSalvarNovaCampanha = (novaCamp) => {
-    const campanhaCompleta = {
-      id: `camp-${Date.now()}`,
-      created_at: new Date().toISOString(),
-      ...novaCamp
-    };
-    setCampanhas([campanhaCompleta, ...campanhas]);
+  const handleSalvarNovaCampanha = async (novaCamp) => {
+    try {
+      const res = await fetch('/api/comunicacao-oficial/salvar-comunicacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(novaCamp)
+      });
+      if (res.ok) {
+        const campSalva = await res.json();
+        // Mapeia para exibição no card
+        const campFormatada = {
+          id: campSalva.id,
+          nome: campSalva.nome,
+          canal: campSalva.canal,
+          template: novaCamp.template,
+          publico: novaCamp.publico,
+          status: campSalva.status,
+          agendamento: campSalva.agendado_para,
+          total_destinatarios: campSalva.total_destinatarios || 0,
+          enviadas: 0,
+          entregues: 0,
+          lidas: 0,
+          falhas: 0,
+          created_at: campSalva.created_at
+        };
+        setCampanhas(prev => [campFormatada, ...prev]);
+      }
+    } catch (err) {
+      console.error('Erro ao salvar comunicação oficial:', err);
+    }
     setCriando(false);
   };
 
   return (
     <ProtectedRoute>
-      <Layout titulo="Campanhas - WhatsApp Cloud API Oficial">
+      <Layout titulo="Comunicações - WhatsApp Cloud API Oficial">
         {criando ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-teal-100/50">
-              <h3 className="font-bold text-gray-800 text-sm">Criar Nova Campanha de Transmissão Oficial</h3>
+              <h3 className="font-bold text-gray-800 text-sm">Criar Nova Comunicação de Transmissão Oficial</h3>
             </div>
             <AssistenteCampanha
               onCancel={() => setCriando(false)}
@@ -78,7 +101,7 @@ export default function CampanhasOficiaisPage() {
             {/* Cabeçalho */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-6 shadow-sm border border-teal-100/50 gap-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-800">Campanhas de Disparos</h3>
+                <h3 className="text-xl font-bold text-gray-800">Comunicações de Disparos</h3>
                 <p className="text-sm text-gray-500 mt-1">
                   Monitore e gerencie disparos em massa utilizando templates de mensagens HSM homologados.
                 </p>
@@ -89,7 +112,7 @@ export default function CampanhasOficiaisPage() {
                   className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center gap-2 shadow-sm"
                 >
                   <FontAwesomeIcon icon={faPlus} />
-                  Nova Campanha
+                  Nova Comunicação
                 </button>
               </div>
             </div>
@@ -99,7 +122,7 @@ export default function CampanhasOficiaisPage() {
               <input
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Pesquisar campanha ou template..."
+                placeholder="Pesquisar comunicação ou template..."
                 className="w-full md:w-80 px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20"
               />
               <button className="text-gray-500 hover:text-teal-600 text-xs font-semibold flex items-center gap-1.5 transition">
@@ -117,7 +140,7 @@ export default function CampanhasOficiaisPage() {
             ) : (
               <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
                 <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-200 mb-3" />
-                <p className="text-sm">Nenhuma campanha atende aos filtros pesquisados.</p>
+                <p className="text-sm">Nenhuma comunicação atende aos filtros pesquisados.</p>
               </div>
             )}
           </div>
