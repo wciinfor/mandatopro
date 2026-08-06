@@ -49,28 +49,40 @@ async function fetchTopLideres(supabase) {
 }
 
 /**
- * Carrega contagem de eleitores para cada líder em paralelo (apenas 10 queries).
- * Resolve N+1 original de até 200 queries individuais.
+ * Carrega a contagem de eleitores de TODOS os 10 líderes em UMA ÚNICA CONSULTA.
+ * Elimina o N+1 de 10 queries em paralelo.
  */
-async function countCadastrosPorLider(supabase, liderId) {
-  const tentativas = ['lideranca_id', 'liderancaId'];
+async function fetchContagemEleitoresPorLideres(supabase, lideresIds) {
+  if (!lideresIds || lideresIds.length === 0) {
+    return new Map();
+  }
 
-  for (const coluna of tentativas) {
-    const { count, error } = await supabase
+  const colunas = ['lideranca_id', 'liderancaId'];
+
+  for (const col of colunas) {
+    const { data, error } = await supabase
       .from('eleitores')
-      .select('id', { count: 'exact', head: true })
-      .eq(coluna, liderId);
+      .select(col)
+      .in(col, lideresIds);
 
-    if (!error) {
-      return count || 0;
+    if (!error && Array.isArray(data)) {
+      const mapa = new Map();
+      data.forEach((row) => {
+        const id = row[col];
+        if (id) {
+          const key = String(id);
+          mapa.set(key, (mapa.get(key) || 0) + 1);
+        }
+      });
+      return mapa;
     }
 
-    if (!isMissingColumnError(error)) {
+    if (error && !isMissingColumnError(error)) {
       throw error;
     }
   }
 
-  return 0;
+  return new Map();
 }
 
 export default async function handler(req, res) {
@@ -83,32 +95,34 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // Busca top 10 no banco já ordenado — evita buscar 200 e fazer N+1 queries
+    // 1. Busca top 10 lideranças (1 consulta SQL)
     const lideres = await fetchTopLideres(supabase);
 
-    // Conta eleitores em paralelo para apenas os 10 líderes retornados
-    const lideresComCadastros = await Promise.all(
-      lideres.map(async (lider) => {
-        const cadastros = await countCadastrosPorLider(supabase, lider.id);
-        const projecaoVotos = getProjecaoVotos(lider);
-        const percentual = projecaoVotos > 0 ? ((cadastros / projecaoVotos) * 100).toFixed(1) : 0;
+    const lideresIds = lideres.map((l) => l.id).filter(Boolean);
 
-        return {
-          id: lider.id,
-          nome: lider.nome,
-          projecaoVotos,
-          areaAtividade: lider.area_atuacao || lider.areaAtuacao || '',
-          cadastros,
-          percentual: parseFloat(percentual)
-        };
-      })
-    );
+    // 2. Busca contagem para todos os 10 líderes em UMA ÚNICA CONSULTA SQL
+    const contagemMapa = await fetchContagemEleitoresPorLideres(supabase, lideresIds);
 
-    const top = lideresComCadastros
-      .sort((a, b) => {
-        if (b.projecaoVotos !== a.projecaoVotos) return b.projecaoVotos - a.projecaoVotos;
-        return b.cadastros - a.cadastros;
-      });
+    // 3. Monta o resultado final em memória (0 queries adicionais)
+    const lideresComCadastros = lideres.map((lider) => {
+      const cadastros = contagemMapa.get(String(lider.id)) || 0;
+      const projecaoVotos = getProjecaoVotos(lider);
+      const percentual = projecaoVotos > 0 ? ((cadastros / projecaoVotos) * 100).toFixed(1) : 0;
+
+      return {
+        id: lider.id,
+        nome: lider.nome,
+        projecaoVotos,
+        areaAtividade: lider.area_atuacao || lider.areaAtuacao || '',
+        cadastros,
+        percentual: parseFloat(percentual)
+      };
+    });
+
+    const top = lideresComCadastros.sort((a, b) => {
+      if (b.projecaoVotos !== a.projecaoVotos) return b.projecaoVotos - a.projecaoVotos;
+      return b.cadastros - a.cadastros;
+    });
 
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 

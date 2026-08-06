@@ -95,34 +95,37 @@ function buildDateSeries(startDate, length) {
 }
 
 /**
- * Conta eleitores cadastrados por dia usando queries COUNT individuais.
- * Muito mais eficiente que baixar todos os registros: são apenas `days` queries leves.
+ * Busca eleitores criados no período em UMA ÚNICA CONSULTA e agrupa por dia em memória.
+ * Elimina o N+1 de `days` consultas COUNT.
  */
-async function fetchEleitoresPorDia(supabase, inicioEleitores, days) {
-  const tarefas = Array.from({ length: days }, (_, i) => {
-    const dia = new Date(inicioEleitores);
-    dia.setDate(dia.getDate() + i);
+async function fetchEleitoresSeries(supabase, inicioEleitores, fimEleitores, labels) {
+  const { data, error } = await supabase
+    .from('eleitores')
+    .select('created_at')
+    .gte('created_at', inicioEleitores.toISOString())
+    .lte('created_at', fimEleitores.toISOString());
 
-    const diaInicio = new Date(dia);
-    diaInicio.setHours(0, 0, 0, 0);
+  if (error) {
+    console.warn('Erro ao buscar eleitores para gráficos:', error.message);
+    return labels.map((label) => ({ label, value: 0 }));
+  }
 
-    const diaFim = new Date(dia);
-    diaFim.setHours(23, 59, 59, 999);
-
-    const label = formatDateKeyLocal(diaInicio);
-
-    return supabase
-      .from('eleitores')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', diaInicio.toISOString())
-      .lte('created_at', diaFim.toISOString())
-      .then(({ count, error }) => {
-        if (error) throw error;
-        return { label, value: count || 0 };
-      });
+  const contagem = {};
+  labels.forEach((label) => {
+    contagem[label] = 0;
   });
 
-  return Promise.all(tarefas);
+  (data || []).forEach((item) => {
+    const key = extractDateKey(item.created_at);
+    if (key && contagem[key] !== undefined) {
+      contagem[key] += 1;
+    }
+  });
+
+  return labels.map((label) => ({
+    label,
+    value: contagem[label] || 0
+  }));
 }
 
 export default async function handler(req, res) {
@@ -141,12 +144,18 @@ export default async function handler(req, res) {
     inicioEleitores.setHours(0, 0, 0, 0);
     inicioEleitores.setDate(inicioEleitores.getDate() - (days - 1));
 
+    const fimEleitores = new Date();
+    fimEleitores.setHours(23, 59, 59, 999);
+
     const mesAtualInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     const mesAtualFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
     mesAtualFim.setHours(23, 59, 59, 999);
 
+    const labelsEleitores = buildDateSeries(inicioEleitores, days);
+
+    // Executa apenas 2 consultas SQL no banco em paralelo (1 para eleitores, 1 para campanhas)
     const [eleitoresSeries, campanhasData] = await Promise.all([
-      fetchEleitoresPorDia(supabase, inicioEleitores, days),
+      fetchEleitoresSeries(supabase, inicioEleitores, fimEleitores, labelsEleitores),
       fetchCampanhasMes(supabase, mesAtualInicio, mesAtualFim)
     ]);
 
