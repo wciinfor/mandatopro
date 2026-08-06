@@ -3,83 +3,61 @@ import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 
 export const runtime = 'nodejs';
 
-function isMissingColumnError(error) {
-  const message = String(error?.message || '').toLowerCase();
-  const code = String(error?.code || '').toUpperCase();
-  return code === '42703' || code === 'PGRST204' || message.includes('column') || message.includes('schema cache');
-}
-
-function getProjecaoVotos(lider) {
-  const raw = lider?.projecao_votos ?? lider?.projecaoVotos ?? 0;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 /**
- * Busca top líderes já ordenados pelo banco, limitando a 10.
- * Tenta colunas de ordem possíveis. Retorna array ou lança erro.
+ * Busca top 10 líderes usando exclusivamente os nomes reais das colunas no banco (snake_case).
  */
 async function fetchTopLideres(supabase) {
-  const tentativasOrdem = ['projecao_votos', 'projecaoVotos'];
-
-  for (const colOrdem of tentativasOrdem) {
-    const { data, error } = await supabase
-      .from('liderancas')
-      .select('id, nome, projecao_votos, projecaoVotos, area_atuacao, areaAtuacao')
-      .order(colOrdem, { ascending: false })
-      .limit(10);
-
-    if (!error) {
-      return data || [];
-    }
-
-    if (!isMissingColumnError(error)) {
-      throw error;
-    }
-  }
-
-  // Fallback: sem ordenação, apenas limit 10
   const { data, error } = await supabase
     .from('liderancas')
-    .select('id, nome, projecao_votos, projecaoVotos, area_atuacao, areaAtuacao')
+    .select('id, nome, projecao_votos, area_atuacao')
+    .order('projecao_votos', { ascending: false })
     .limit(10);
 
-  if (error) throw error;
-  return data || [];
+  if (!error) {
+    return data || [];
+  }
+
+  // Fallback: se projecao_votos falhar, tenta sem ordenação
+  const fallback = await supabase
+    .from('liderancas')
+    .select('id, nome, projecao_votos, area_atuacao')
+    .limit(10);
+
+  if (!fallback.error) {
+    return fallback.data || [];
+  }
+
+  const basic = await supabase
+    .from('liderancas')
+    .select('id, nome')
+    .limit(10);
+
+  if (basic.error) throw basic.error;
+  return basic.data || [];
 }
 
 /**
  * Carrega a contagem de eleitores de TODOS os 10 líderes em UMA ÚNICA CONSULTA.
- * Elimina o N+1 de 10 queries em paralelo.
  */
 async function fetchContagemEleitoresPorLideres(supabase, lideresIds) {
   if (!lideresIds || lideresIds.length === 0) {
     return new Map();
   }
 
-  const colunas = ['lideranca_id', 'liderancaId'];
+  const { data, error } = await supabase
+    .from('eleitores')
+    .select('lideranca_id')
+    .in('lideranca_id', lideresIds);
 
-  for (const col of colunas) {
-    const { data, error } = await supabase
-      .from('eleitores')
-      .select(col)
-      .in(col, lideresIds);
-
-    if (!error && Array.isArray(data)) {
-      const mapa = new Map();
-      data.forEach((row) => {
-        const id = row[col];
-        if (id) {
-          const key = String(id);
-          mapa.set(key, (mapa.get(key) || 0) + 1);
-        }
-      });
-      return mapa;
-    }
-
-    if (error && !isMissingColumnError(error)) {
-      throw error;
-    }
+  if (!error && Array.isArray(data)) {
+    const mapa = new Map();
+    data.forEach((row) => {
+      if (row.lideranca_id) {
+        const key = String(row.lideranca_id);
+        mapa.set(key, (mapa.get(key) || 0) + 1);
+      }
+    });
+    return mapa;
   }
 
   return new Map();
@@ -95,7 +73,7 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // 1. Busca top 10 lideranças (1 consulta SQL)
+    // 1. Busca top 10 lideranças (1 consulta SQL com colunas reais do banco)
     const lideres = await fetchTopLideres(supabase);
 
     const lideresIds = lideres.map((l) => l.id).filter(Boolean);
@@ -103,17 +81,17 @@ export default async function handler(req, res) {
     // 2. Busca contagem para todos os 10 líderes em UMA ÚNICA CONSULTA SQL
     const contagemMapa = await fetchContagemEleitoresPorLideres(supabase, lideresIds);
 
-    // 3. Monta o resultado final em memória (0 queries adicionais)
+    // 3. Mapeia para o formato esperado pelo frontend (camelCase no JSON, nunca no SQL)
     const lideresComCadastros = lideres.map((lider) => {
       const cadastros = contagemMapa.get(String(lider.id)) || 0;
-      const projecaoVotos = getProjecaoVotos(lider);
+      const projecaoVotos = Number(lider?.projecao_votos || 0);
       const percentual = projecaoVotos > 0 ? ((cadastros / projecaoVotos) * 100).toFixed(1) : 0;
 
       return {
         id: lider.id,
         nome: lider.nome,
         projecaoVotos,
-        areaAtividade: lider.area_atuacao || lider.areaAtuacao || '',
+        areaAtividade: lider?.area_atuacao || '',
         cadastros,
         percentual: parseFloat(percentual)
       };
