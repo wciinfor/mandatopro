@@ -165,7 +165,22 @@ export default async function handler(req, res) {
   // POST - Criar novo atendimento
   if (req.method === 'POST') {
     try {
-      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, ausenteAcaoCampanha, dataAtendimento, campanhaId, servicosSelecionados } = req.body;
+      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, ausenteAcaoCampanha, dataAtendimento, campanhaId, servicosSelecionados, liderancaId, lideranca_id } = req.body;
+
+      const targetLiderancaId = liderancaId || lideranca_id;
+      if (eleitorId && targetLiderancaId && !isNaN(parseInt(targetLiderancaId))) {
+        try {
+          await supabase
+            .from('eleitores')
+            .update({
+              lideranca_id: parseInt(targetLiderancaId),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', parseInt(eleitorId));
+        } catch (errLidUpdate) {
+          console.warn('[ATENDIMENTO] Aviso ao atualizar lideranca_id do eleitor:', errLidUpdate);
+        }
+      }
 
       const statusNormalizado = normalizeStatus(status);
 

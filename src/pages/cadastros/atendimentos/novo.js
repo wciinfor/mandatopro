@@ -471,6 +471,7 @@ export default function NovoAtendimento() {
             data_nascimento: dadosLimpos.eleitorDataNascimento || '',
             sexo: dadosLimpos.eleitorSexo || '',
             profissao: dadosLimpos.eleitorProfissao || '',
+            lideranca_id: liderancaSelecionada?.id || null,
             lideranca: liderancaSelecionada?.nome || formData.liderancaResponsavel || '',
             status: 'ATIVO'
           })
@@ -500,6 +501,7 @@ export default function NovoAtendimento() {
     const temServicosSelecionados = campanhaValida && servicosSelecionados.length > 0;
     const payloadBase = {
       eleitorId: eleitorIdParaAtendimento,
+      liderancaId: liderancaSelecionada?.id || null,
       descricao: formData.descricao || formData.servicosOferecidos || '',
       resultado: formData.observacoes || '',
       status: formData.statusAtendimento,

@@ -31,6 +31,26 @@ export default async function handler(req, res) {
       const body = req.body || {};
       const normalizar = (value) => (value === '' ? null : value);
 
+      const rawLiderancaId = body.lideranca_id || body.liderancaId;
+      let liderancaIdFinal = rawLiderancaId && !isNaN(parseInt(rawLiderancaId)) ? parseInt(rawLiderancaId) : null;
+
+      if (!liderancaIdFinal && body.lideranca) {
+        const liderancaStr = String(body.lideranca).trim();
+        if (liderancaStr && !isNaN(parseInt(liderancaStr))) {
+          liderancaIdFinal = parseInt(liderancaStr);
+        } else if (liderancaStr) {
+          const { data: lidFound } = await supabase
+            .from('liderancas')
+            .select('id')
+            .ilike('nome', liderancaStr)
+            .limit(1)
+            .maybeSingle();
+          if (lidFound?.id) {
+            liderancaIdFinal = lidFound.id;
+          }
+        }
+      }
+
       const payload = {
         nome: normalizar(body.nome),
         cpf: normalizar(body.cpf),
@@ -80,6 +100,7 @@ export default async function handler(req, res) {
         data_nascimento: normalizar(body.dataNascimento || body.data_nascimento),
         sexo: normalizar(body.sexo) ?? 'MASCULINO',
         profissao: normalizar(body.profissao),
+        lideranca_id: liderancaIdFinal,
         lideranca: normalizar(body.lideranca),
         status: normalizar(body.statusCadastro || body.status)
       };
