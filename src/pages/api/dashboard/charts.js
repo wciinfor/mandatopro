@@ -95,36 +95,31 @@ function buildDateSeries(startDate, length) {
 }
 
 /**
- * Busca eleitores criados no período em UMA ÚNICA CONSULTA e agrupa por dia em memória.
- * Elimina o N+1 de `days` consultas COUNT.
+ * Busca a série temporal de eleitores agregada diretamente no PostgreSQL via RPC em 1 única chamada.
+ * O agrupamento e a conversão de timezone (America/Belem) ocorrem no banco, retornando no máximo 15 linhas.
  */
 async function fetchEleitoresSeries(supabase, inicioEleitores, fimEleitores, labels) {
-  const { data, error } = await supabase
-    .from('eleitores')
-    .select('created_at')
-    .gte('created_at', inicioEleitores.toISOString())
-    .lte('created_at', fimEleitores.toISOString());
+  const { data, error } = await supabase.rpc('fn_eleitores_cadastrados_por_dia', {
+    p_inicio: inicioEleitores.toISOString(),
+    p_fim: fimEleitores.toISOString()
+  });
 
   if (error) {
-    console.warn('Erro ao buscar eleitores para gráficos:', error.message);
+    console.warn('Erro ao buscar série de eleitores via RPC:', error.message);
     return labels.map((label) => ({ label, value: 0 }));
   }
 
-  const contagem = {};
-  labels.forEach((label) => {
-    contagem[label] = 0;
-  });
-
+  const mapaContagem = {};
   (data || []).forEach((item) => {
-    const key = extractDateKey(item.created_at);
-    if (key && contagem[key] !== undefined) {
-      contagem[key] += 1;
+    const key = item._data;
+    if (key) {
+      mapaContagem[key] = Number(item._total || 0);
     }
   });
 
   return labels.map((label) => ({
     label,
-    value: contagem[label] || 0
+    value: mapaContagem[label] || 0
   }));
 }
 
