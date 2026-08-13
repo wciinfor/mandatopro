@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export default async function handler(req, res) {
   const { q } = req.query;
@@ -16,11 +17,13 @@ export default async function handler(req, res) {
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
     // Buscar eleitores por nome ou CPF
     const { data, error } = await supabase
       .from('eleitores')
       .select('*')
+      .in('pertencimento', contextoMandato.pertencimentosPermitidos)
       .or(
         `nome.ilike.%${q}%,cpf.ilike.%${q}%`
       )

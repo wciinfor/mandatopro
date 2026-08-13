@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -22,7 +23,7 @@ async function countRowsSafe(supabase, table) {
   return count || 0;
 }
 
-async function fetchEleitoresStatusCounts(supabase) {
+async function fetchEleitoresStatusCounts(supabase, pertencimentosPermitidos = ['ESTADUAL', 'AMBOS']) {
   // Tenta contar por statusCadastro primeiro, depois fallback para status
   const colunas = ['statusCadastro', 'status'];
 
@@ -31,10 +32,12 @@ async function fetchEleitoresStatusCounts(supabase) {
       supabase
         .from('eleitores')
         .select('id', { count: 'exact', head: true })
+        .in('pertencimento', pertencimentosPermitidos)
         .eq(col, 'ATIVO'),
       supabase
         .from('eleitores')
         .select('id', { count: 'exact', head: true })
+        .in('pertencimento', pertencimentosPermitidos)
         .eq(col, 'INATIVO'),
     ]);
 
@@ -96,6 +99,7 @@ export default async function handler(req, res) {
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
     // Apenas contagens simples — aniversariantes são carregados separadamente no frontend
     const [
@@ -108,7 +112,7 @@ export default async function handler(req, res) {
       countRowsSafe(supabase, 'eleitores'),
       countRowsSafe(supabase, 'liderancas'),
       countRowsSafe(supabase, 'atendimentos'),
-      fetchEleitoresStatusCounts(supabase),
+      fetchEleitoresStatusCounts(supabase, contextoMandato.pertencimentosPermitidos),
       countCampanhasAtivasSafe(supabase),
     ]);
 

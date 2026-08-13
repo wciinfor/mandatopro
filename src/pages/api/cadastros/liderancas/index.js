@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -32,9 +33,11 @@ function getMissingColumn(message) {
 
 export default async function handler(req, res) {
   const authSupabase = createServerClient();
+  let usuarioObj = null;
   try {
     const { usuario } = await obterUsuarioAutenticado(req, authSupabase);
     exigirUsuario(usuario);
+    usuarioObj = usuario;
   } catch (error) {
     const status = error?.statusCode || 500;
     return res.status(status).json({ message: error.message || 'Erro interno' });
@@ -43,11 +46,23 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const supabase = createServerClient();
+      const contextoMandato = await obterContextoMandato(req, usuarioObj, supabase);
       const { search, status, limit = 200, offset = 0 } = req.query;
+
+      const { data: lmData } = await supabase
+        .from('liderancas_mandatos')
+        .select('lideranca_id')
+        .eq('mandato_id', contextoMandato.mandatoId);
+      const idsLid = (lmData || []).map(l => l.lideranca_id);
+
+      if (!idsLid.length) {
+        return res.status(200).json({ data: [], total: 0 });
+      }
 
       let query = supabase
         .from('liderancas')
-        .select('*', { count: 'exact' });
+        .select('*', { count: 'exact' })
+        .in('id', idsLid);
 
       if (status) {
         query = query.ilike('status', status);

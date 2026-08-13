@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 /**
  * API Handler para carregar eleitores vinculados à campanha política do CRM por meio de atendimentos
@@ -20,6 +21,7 @@ export default async function handler(req, res) {
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
     // 1. Busca os eleitores distintos vinculados à campanha política por meio de atendimentos
     const { data: atendimentos, error: errAtend } = await supabase
@@ -39,11 +41,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Busca os eleitores da lista de IDs
+    // 2. Busca os eleitores da lista de IDs filtrando por pertencimento elegível ao mandato
     const { data: eleitores, error: errEleitores } = await supabase
       .from('eleitores')
-      .select('id, nome, celular, telefone, whatsapp, bairro, sexo, situacao, lideranca_id')
-      .in('id', eleitoresIds);
+      .select('id, nome, celular, telefone, whatsapp, bairro, sexo, situacao, lideranca_id, pertencimento')
+      .in('id', eleitoresIds)
+      .in('pertencimento', contextoMandato.pertencimentosPermitidos);
 
     if (errEleitores) throw errEleitores;
 

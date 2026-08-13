@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato, validarAcessoRegistroPorId } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -36,12 +37,20 @@ export default async function handler(req, res) {
   }
 
   const supabase = createServerClient();
+  let usuarioObj = null;
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    usuarioObj = usuario;
   } catch (error) {
     const status = error?.statusCode || 500;
     return res.status(status).json({ message: error.message || 'Erro interno' });
+  }
+
+  const contextoMandato = await obterContextoMandato(req, usuarioObj, supabase);
+  const valAcc = await validarAcessoRegistroPorId('LIDERANCA', id, contextoMandato, supabase);
+  if (!valAcc.autorizado) {
+    return res.status(valAcc.status).json({ message: valAcc.message });
   }
 
   // GET — buscar liderança por ID

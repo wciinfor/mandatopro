@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -258,10 +259,12 @@ export default async function handler(req, res) {
         }
       }
 
+      const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+
       let query = aplicarFiltrosBase(
         supabase.from('eleitores').select('*', { count: 'exact' }),
         { status, liderancaFiltro, excludeLiderancas }
-      );
+      ).in('pertencimento', contextoMandato.pertencimentosPermitidos);
 
       // Busca por nome, CPF, RG ou título eleitoral.
       // CORREÇÃO: sanitizar o termo de busca (remover vírgulas que quebram o
