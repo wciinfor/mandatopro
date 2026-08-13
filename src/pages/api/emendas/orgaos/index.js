@@ -1,9 +1,10 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
-function normalizarPayload(body = {}) {
+function normalizarPayload(body = {}, mandatoId) {
   return {
     codigo: body.codigo ? Number.parseInt(String(body.codigo), 10) : null,
     nome: body.nome,
@@ -18,7 +19,8 @@ function normalizarPayload(body = {}) {
     contato: body.contato || null,
     observacoes: body.observacoes || null,
     status: body.status || 'ATIVO',
-    sigla: body.sigla || null
+    sigla: body.sigla || null,
+    mandato_id: mandatoId
   };
 }
 
@@ -29,18 +31,29 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { mandatoId } = contextoMandato;
+
     if (req.method === 'GET') {
-      const { data, error } = await supabase
+      let query = supabase
         .from('orgaos')
         .select('*')
         .order('nome', { ascending: true });
+
+      if (mandatoId === 1) {
+        query = query.or('mandato_id.eq.1,mandato_id.is.null');
+      } else {
+        query = query.eq('mandato_id', mandatoId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return res.status(200).json({ data: data || [] });
     }
 
     if (req.method === 'POST') {
-      const payload = normalizarPayload(req.body || {});
+      const payload = normalizarPayload(req.body || {}, mandatoId);
 
       if (!payload.nome || !payload.cnpj || !payload.municipio) {
         return res.status(400).json({ message: 'Nome, CNPJ e municipio sao obrigatorios' });

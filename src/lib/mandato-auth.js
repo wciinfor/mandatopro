@@ -198,5 +198,33 @@ export async function validarAcessoRegistroPorId(tipoEntidade, registroId, conte
     return { autorizado: true, registro: item };
   }
 
+  if (['EMENDA', 'REPASSE', 'ORGAO', 'RESPONSAVEL_EMENDA'].includes(tipoEntidade)) {
+    const tabela = tipoEntidade === 'EMENDA'
+      ? 'emendas'
+      : tipoEntidade === 'REPASSE'
+        ? 'repasses'
+        : tipoEntidade === 'ORGAO'
+          ? 'orgaos'
+          : 'responsaveis_emendas';
+
+    const { data: item, error } = await clientSupabase
+      .from(tabela)
+      .select('id, mandato_id')
+      .eq('id', parseInt(registroId))
+      .maybeSingle();
+
+    if (error || !item) return { autorizado: false, status: 404, message: 'Registro de emenda não encontrado' };
+
+    // mandato_id NULL é legado, compatível apenas com Mandato Estadual (1)
+    if (item.mandato_id === null && mandatoId !== 1) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Registro legado pertence ao Mandato Estadual' };
+    }
+
+    if (item.mandato_id !== null && item.mandato_id !== mandatoId) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Registro pertence a outro mandato' };
+    }
+    return { autorizado: true, registro: item };
+  }
+
   return { autorizado: true };
 }

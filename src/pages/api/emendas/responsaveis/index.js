@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -7,7 +8,7 @@ function onlyDigits(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
-function normalizarPayload(body = {}) {
+function normalizarPayload(body = {}, mandatoId) {
   return {
     nome: body.nome,
     cargo: body.cargo,
@@ -17,7 +18,8 @@ function normalizarPayload(body = {}) {
     email: body.email || null,
     whatsapp: onlyDigits(body.whatsapp) || null,
     observacoes: body.observacoes || null,
-    status: body.status || 'ATIVO'
+    status: body.status || 'ATIVO',
+    mandato_id: mandatoId
   };
 }
 
@@ -28,18 +30,29 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { mandatoId } = contextoMandato;
+
     if (req.method === 'GET') {
-      const { data, error } = await supabase
+      let query = supabase
         .from('responsaveis_emendas')
         .select('*')
         .order('nome', { ascending: true });
+
+      if (mandatoId === 1) {
+        query = query.or('mandato_id.eq.1,mandato_id.is.null');
+      } else {
+        query = query.eq('mandato_id', mandatoId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return res.status(200).json({ data: data || [] });
     }
 
     if (req.method === 'POST') {
-      const payload = normalizarPayload(req.body || {});
+      const payload = normalizarPayload(req.body || {}, mandatoId);
 
       if (!payload.nome || !payload.cargo || !payload.orgao) {
         return res.status(400).json({ message: 'Nome, cargo e orgao sao obrigatorios' });

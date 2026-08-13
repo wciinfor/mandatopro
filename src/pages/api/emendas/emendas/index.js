@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +13,7 @@ function parseNumber(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function normalizarPayload(body = {}) {
+function normalizarPayload(body = {}, mandatoId) {
   return {
     numero: body.numero,
     tipo: body.tipo,
@@ -25,7 +26,8 @@ function normalizarPayload(body = {}) {
     dataEmpenho: body.dataEmpenho || null,
     dataVencimento: body.dataVencimento || null,
     status: body.status || 'PENDENTE',
-    observacoes: body.observacoes || null
+    observacoes: body.observacoes || null,
+    mandato_id: mandatoId
   };
 }
 
@@ -36,18 +38,29 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { mandatoId } = contextoMandato;
+
     if (req.method === 'GET') {
-      const { data, error } = await supabase
+      let query = supabase
         .from('emendas')
         .select('*')
         .order('numero', { ascending: true });
+
+      if (mandatoId === 1) {
+        query = query.or('mandato_id.eq.1,mandato_id.is.null');
+      } else {
+        query = query.eq('mandato_id', mandatoId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return res.status(200).json({ data: data || [] });
     }
 
     if (req.method === 'POST') {
-      const payload = normalizarPayload(req.body || {});
+      const payload = normalizarPayload(req.body || {}, mandatoId);
 
       if (!payload.numero || !payload.tipo || !payload.autor || !payload.orgao || !payload.finalidade || payload.valorEmpenhado === null) {
         return res.status(400).json({ message: 'Numero, tipo, autor, orgao, finalidade e valor empenhado sao obrigatorios' });
