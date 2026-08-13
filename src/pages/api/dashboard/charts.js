@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -19,13 +20,22 @@ function getCampanhaDate(campanha) {
   return campanha?.data_campanha || campanha?.dataCampanha || campanha?.data || null;
 }
 
-async function fetchCampanhasMes(supabase, mesAtualInicio, mesAtualFim) {
+async function fetchCampanhasMes(supabase, mesAtualInicio, mesAtualFim, mandatoId) {
   const mesInicioKey = formatDateKeyLocal(mesAtualInicio);
   const mesFimKey = formatDateKeyLocal(mesAtualFim);
+
+  // Obter IDs de campanhas do mandato ativo
+  const { data: cmData } = await supabase
+    .from('campanhas_mandatos')
+    .select('campanha_id')
+    .eq('mandato_id', mandatoId);
+  const campIds = (cmData || []).map(c => c.campanha_id);
+  if (!campIds.length) return [];
 
   const principal = await supabase
     .from('campanhas')
     .select('id, data_campanha, status')
+    .in('id', campIds)
     .gte('data_campanha', mesInicioKey)
     .lte('data_campanha', mesFimKey);
 
@@ -42,7 +52,8 @@ async function fetchCampanhasMes(supabase, mesAtualInicio, mesAtualFim) {
   for (const selectClause of tentativas) {
     const fallback = await supabase
       .from('campanhas')
-      .select(selectClause);
+      .select(selectClause)
+      .in('id', campIds);
 
     if (fallback.error) {
       if (!isMissingColumnError(fallback.error)) {
@@ -132,6 +143,7 @@ export default async function handler(req, res) {
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
     const days = Math.max(parseInt(req.query.days || '7', 10), 1);
 
     const hoje = new Date();
@@ -148,10 +160,10 @@ export default async function handler(req, res) {
 
     const labelsEleitores = buildDateSeries(inicioEleitores, days);
 
-    // Executa apenas 2 consultas SQL no banco em paralelo (1 para eleitores, 1 para campanhas)
+    // 2 consultas SQL em paralelo: eleitores via RPC (global por design de cadastro) + campanhas do mandato ativo
     const [eleitoresSeries, campanhasData] = await Promise.all([
       fetchEleitoresSeries(supabase, inicioEleitores, fimEleitores, labelsEleitores),
-      fetchCampanhasMes(supabase, mesAtualInicio, mesAtualFim)
+      fetchCampanhasMes(supabase, mesAtualInicio, mesAtualFim, contextoMandato.mandatoId)
     ]);
 
     const diasNoMes = mesAtualFim.getDate();

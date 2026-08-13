@@ -10,16 +10,38 @@ function isMissingColumnError(error) {
   return code === '42703' || code === 'PGRST204' || message.includes('column') || message.includes('schema cache');
 }
 
-async function countRowsSafe(supabase, table) {
+/** Contagem de eleitores do mandato ativo via pertencimento */
+async function countEleitoresMandato(supabase, pertencimentosPermitidos) {
   const { count, error } = await supabase
-    .from(table)
+    .from('eleitores')
+    .select('id', { count: 'exact', head: true })
+    .in('pertencimento', pertencimentosPermitidos);
+  if (error) { console.error('Erro ao contar eleitores por mandato:', error); return 0; }
+  return count || 0;
+}
+
+/** Contagem de lideranças do mandato ativo via liderancas_mandatos */
+async function countLiderancasMandato(supabase, mandatoId) {
+  const { count, error } = await supabase
+    .from('liderancas_mandatos')
+    .select('lideranca_id', { count: 'exact', head: true })
+    .eq('mandato_id', mandatoId);
+  if (error) { console.error('Erro ao contar lideranças por mandato:', error); return 0; }
+  return count || 0;
+}
+
+/** Contagem de atendimentos do mandato ativo: mandato_id = X OR NULL (legados Estadual) */
+async function countAtendimentosMandato(supabase, mandatoId) {
+  let query = supabase
+    .from('atendimentos')
     .select('id', { count: 'exact', head: true });
-
-  if (error) {
-    console.error(`Erro ao contar ${table}:`, error);
-    return 0;
+  if (mandatoId === 1) {
+    query = query.or(`mandato_id.eq.${mandatoId},mandato_id.is.null`);
+  } else {
+    query = query.eq('mandato_id', mandatoId);
   }
-
+  const { count, error } = await query;
+  if (error) { console.error('Erro ao contar atendimentos por mandato:', error); return 0; }
   return count || 0;
 }
 
@@ -53,40 +75,24 @@ async function fetchEleitoresStatusCounts(supabase, pertencimentosPermitidos = [
   return { eleitoresAtivos: 0, eleitoresInativos: 0 };
 }
 
-async function countCampanhasAtivasSafe(supabase) {
+async function countCampanhasAtivasSafe(supabase, mandatoId) {
+  // 1. Obter IDs de campanhas do mandato ativo
+  const { data: cmData } = await supabase
+    .from('campanhas_mandatos')
+    .select('campanha_id')
+    .eq('mandato_id', mandatoId);
+  const campIds = (cmData || []).map(c => c.campanha_id);
+  if (!campIds.length) return 0;
+
+  // 2. Contar ativas dentro dessas campanhas
   const { count, error } = await supabase
     .from('campanhas')
     .select('id', { count: 'exact', head: true })
+    .in('id', campIds)
     .in('status', ['PLANEJAMENTO', 'EXECUCAO']);
 
-  if (!error) {
-    return count || 0;
-  }
-
-  if (!isMissingColumnError(error)) {
-    throw error;
-  }
-
-  const tentativas = ['id, status', '*'];
-
-  for (const selectClause of tentativas) {
-    const fallback = await supabase
-      .from('campanhas')
-      .select(selectClause);
-
-    if (fallback.error) {
-      if (!isMissingColumnError(fallback.error)) {
-        throw fallback.error;
-      }
-      continue;
-    }
-
-    return (fallback.data || []).filter((item) => {
-      const status = String(item?.status || '').toUpperCase();
-      return status === 'PLANEJAMENTO' || status === 'EXECUCAO';
-    }).length;
-  }
-
+  if (!error) return count || 0;
+  if (!isMissingColumnError(error)) throw error;
   return 0;
 }
 
@@ -101,7 +107,7 @@ export default async function handler(req, res) {
     exigirUsuario(usuario);
     const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
-    // Apenas contagens simples — aniversariantes são carregados separadamente no frontend
+    // Apenas contagens por mandato ativo
     const [
       totalEleitores,
       totalLiderancas,
@@ -109,11 +115,11 @@ export default async function handler(req, res) {
       statusCounts,
       campanhasAtivas
     ] = await Promise.all([
-      countRowsSafe(supabase, 'eleitores'),
-      countRowsSafe(supabase, 'liderancas'),
-      countRowsSafe(supabase, 'atendimentos'),
+      countEleitoresMandato(supabase, contextoMandato.pertencimentosPermitidos),
+      countLiderancasMandato(supabase, contextoMandato.mandatoId),
+      countAtendimentosMandato(supabase, contextoMandato.mandatoId),
       fetchEleitoresStatusCounts(supabase, contextoMandato.pertencimentosPermitidos),
-      countCampanhasAtivasSafe(supabase),
+      countCampanhasAtivasSafe(supabase, contextoMandato.mandatoId),
     ]);
 
     const { eleitoresAtivos, eleitoresInativos } = statusCounts;
