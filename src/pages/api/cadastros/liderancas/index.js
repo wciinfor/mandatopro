@@ -81,6 +81,30 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const norm = (v) => (v === '' || v === undefined ? null : v);
 
+    // Obter mandatos do usuário autenticado para validação de autorização
+    let userMandates = usuario.mandatos || [];
+    if (usuario.nivel === 'ADMINISTRADOR') {
+      userMandates = [1, 2];
+    } else if (!userMandates.length) {
+      const { data: vinculosUser } = await supabase
+        .from('usuarios_mandatos')
+        .select('mandato_id')
+        .eq('usuario_id', usuario.id);
+      userMandates = (vinculosUser || []).map(v => v.mandato_id);
+    }
+
+    // Processar e validar os mandatos solicitados para a liderança
+    const rawMandatos = Array.isArray(body.mandatos) ? body.mandatos.map(Number).filter(Boolean) : [1];
+    if (rawMandatos.length === 0) {
+      return res.status(400).json({ message: 'Selecione ao menos um mandato para a liderança' });
+    }
+
+    // Verificar se o usuário possui autorização para todos os mandatos solicitados
+    const naoAutorizado = rawMandatos.some(mId => !userMandates.includes(mId));
+    if (naoAutorizado) {
+      return res.status(403).json({ message: 'Você não possui permissão para vincular a liderança ao mandato solicitado' });
+    }
+
     const payload = {
       nome: norm(body.nome),
       cpf: norm(body.cpf),
@@ -137,7 +161,17 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(201).json(lideranca);
+    // Inserir relacionamentos na tabela liderancas_mandatos
+    const vinculosPayload = rawMandatos.map(mandato_id => ({
+      lideranca_id: lideranca.id,
+      mandato_id
+    }));
+    await supabase.from('liderancas_mandatos').insert(vinculosPayload);
+
+    return res.status(201).json({
+      ...lideranca,
+      mandatos: rawMandatos
+    });
   } catch (error) {
     console.error('[POST /api/cadastros/liderancas]', error);
     return res.status(500).json({

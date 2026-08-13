@@ -53,11 +53,22 @@ export default async function handler(req, res) {
         .eq('id', id)
         .single();
 
-      if (error) {
-        return res.status(404).json({ message: 'Liderança não encontrada', error: error.message });
+      if (error || !data) {
+        return res.status(404).json({ message: 'Liderança não encontrada', error: error?.message });
       }
 
-      return res.status(200).json(data);
+      // Buscar mandatos vinculados
+      const { data: vinculos } = await supabase
+        .from('liderancas_mandatos')
+        .select('mandato_id')
+        .eq('lideranca_id', id);
+
+      const mandatos = (vinculos || []).map(v => v.mandato_id);
+
+      return res.status(200).json({
+        ...data,
+        mandatos
+      });
     } catch (error) {
       return res.status(500).json({ message: 'Erro interno', error: error.message });
     }
@@ -68,6 +79,32 @@ export default async function handler(req, res) {
     try {
       const body = req.body || {};
       const norm = (v) => (v === '' || v === undefined ? null : v);
+
+      // Se informou mandatos, realizar a validação de autorização no backend
+      let novosMandatos = null;
+      if (Object.prototype.hasOwnProperty.call(body, 'mandatos')) {
+        novosMandatos = Array.isArray(body.mandatos) ? body.mandatos.map(Number).filter(Boolean) : [];
+        if (novosMandatos.length === 0) {
+          return res.status(400).json({ message: 'Selecione ao menos um mandato para a liderança' });
+        }
+
+        // Obter mandatos autorizados do usuário
+        let userMandates = usuario.mandatos || [];
+        if (usuario.nivel === 'ADMINISTRADOR') {
+          userMandates = [1, 2];
+        } else if (!userMandates.length) {
+          const { data: vinculosUser } = await supabase
+            .from('usuarios_mandatos')
+            .select('mandato_id')
+            .eq('usuario_id', usuario.id);
+          userMandates = (vinculosUser || []).map(v => v.mandato_id);
+        }
+
+        const naoAutorizado = novosMandatos.some(mId => !userMandates.includes(mId));
+        if (naoAutorizado) {
+          return res.status(403).json({ message: 'Você não possui permissão para vincular a liderança ao mandato solicitado' });
+        }
+      }
 
       const payload = {
         nome: norm(body.nome),
@@ -118,7 +155,28 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: error.message, error: error.message, code: error.code });
       }
 
-      return res.status(200).json(data);
+      // Sincronizar vínculos em liderancas_mandatos se informados no body
+      let mandatosFinais = [];
+      if (novosMandatos !== null) {
+        await supabase.from('liderancas_mandatos').delete().eq('lideranca_id', id);
+        const vinculosPayload = novosMandatos.map(mandato_id => ({
+          lideranca_id: id,
+          mandato_id
+        }));
+        await supabase.from('liderancas_mandatos').insert(vinculosPayload);
+        mandatosFinais = novosMandatos;
+      } else {
+        const { data: vinculosExistentes } = await supabase
+          .from('liderancas_mandatos')
+          .select('mandato_id')
+          .eq('lideranca_id', id);
+        mandatosFinais = (vinculosExistentes || []).map(v => v.mandato_id);
+      }
+
+      return res.status(200).json({
+        ...data,
+        mandatos: mandatosFinais
+      });
     } catch (error) {
       return res.status(500).json({ message: 'Erro interno', error: error.message });
     }

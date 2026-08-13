@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -7,17 +7,23 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { applyMask, onlyDigits } from '@/utils/inputMasks';
 
 export default function NovaLideranca() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError } = useModal();
+  const { user, mandatoAtivoId } = useAuth();
   
   const [busca, setBusca] = useState('');
   const [resultados, setResultados] = useState([]);
   const [mostrarResultados, setMostrarResultados] = useState(false);
   const [eleitorSelecionado, setEleitorSelecionado] = useState(null);
   const [carregando, setCarregando] = useState(false);
+
+  const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
+  const permiteEstadual = userMandates.includes(1);
+  const permiteFederal = userMandates.includes(2);
 
   const [formData, setFormData] = useState({
     // Dados básicos
@@ -45,8 +51,18 @@ export default function NovaLideranca() {
     bairro: '',
     observacoes: '',
     projecaoVotos: 0,
-    status: 'ATIVO'
+    status: 'ATIVO',
+    mandatos: [permiteFederal && !permiteEstadual ? 2 : (mandatoAtivoId || 1)]
   });
+
+  useEffect(() => {
+    if (mandatoAtivoId && userMandates.includes(mandatoAtivoId)) {
+      setFormData(prev => ({
+        ...prev,
+        mandatos: [mandatoAtivoId]
+      }));
+    }
+  }, [mandatoAtivoId]);
 
   // Simulação de banco de dados de eleitores
   // TODO: Substituir por chamada à API/Supabase
@@ -159,11 +175,30 @@ export default function NovaLideranca() {
     }));
   };
 
+  const handleMandatoToggle = (mandatoId) => {
+    setFormData((prev) => {
+      const mandatosAtuais = Array.isArray(prev.mandatos) ? [...prev.mandatos] : [];
+      const existe = mandatosAtuais.includes(mandatoId);
+      let novosMandatos = [];
+      if (existe) {
+        novosMandatos = mandatosAtuais.filter((mId) => mId !== mandatoId);
+      } else {
+        novosMandatos = [...mandatosAtuais, mandatoId];
+      }
+      return { ...prev, mandatos: novosMandatos };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!eleitorSelecionado) {
       showError('Selecione um eleitor para cadastrar como liderança');
+      return;
+    }
+
+    if (!Array.isArray(formData.mandatos) || formData.mandatos.length === 0) {
+      showError('Selecione ao menos um mandato para a liderança');
       return;
     }
 
@@ -181,6 +216,7 @@ export default function NovaLideranca() {
     try {
       const payload = {
         ...formData,
+        mandatos: formData.mandatos,
         cpf: onlyDigits(formData.cpf),
         rg: onlyDigits(formData.rg),
         telefone: onlyDigits(formData.telefone),
@@ -506,6 +542,43 @@ export default function NovaLideranca() {
               <h2 className="text-2xl font-bold mb-6 text-teal-700 border-b-2 border-teal-500 pb-3">
                 DADOS DE LIDERANÇA
               </h2>
+
+              {/* MANDATOS DA LIDERANÇA */}
+              <div className="bg-teal-50/60 p-4 rounded-xl border border-teal-200 mb-6">
+                <label className="block text-sm font-bold text-teal-900 mb-1">
+                  MANDATOS DA LIDERANÇA *
+                </label>
+                <p className="text-xs text-teal-700 mb-3">
+                  Selecione a qual(is) mandato(s) esta liderança pertencerá no sistema. Pelo menos um mandato deve ser selecionado.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                    permiteEstadual ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      disabled={!permiteEstadual}
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(1)}
+                      onChange={() => handleMandatoToggle(1)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputado Estadual (Estadual)</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                    permiteFederal ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      disabled={!permiteFederal}
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(2)}
+                      onChange={() => handleMandatoToggle(2)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputada Federal (Federal)</span>
+                  </label>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* INFLUÊNCIA */}

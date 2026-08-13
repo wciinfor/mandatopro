@@ -11,12 +11,14 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { applyMask } from '@/utils/inputMasks';
 
 export default function EditarLideranca() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+  const { user } = useAuth();
   const showErrorRef = useRef(showError);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -24,6 +26,10 @@ export default function EditarLideranca() {
   const [fotoScale, setFotoScale] = useState(1);
   const [fotoOffset, setFotoOffset] = useState({ x: 0, y: 0 });
   const [arrastandoFoto, setArrastandoFoto] = useState(false);
+
+  const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
+  const permiteEstadual = userMandates.includes(1);
+  const permiteFederal = userMandates.includes(2);
 
   useEffect(() => {
     showErrorRef.current = showError;
@@ -60,7 +66,8 @@ export default function EditarLideranca() {
     endereco: '',
     estado: '',
     observacoes: '',
-    projecaoVotos: 0
+    projecaoVotos: 0,
+    mandatos: []
   });
 
   useEffect(() => {
@@ -97,7 +104,8 @@ export default function EditarLideranca() {
           observacoes: dados?.observacoes || '',
           tipo: dados?.tipo || 'LOCAL',
           foto: dados?.foto || null,
-          projecaoVotos: dados?.projecao_votos || dados?.projecaoVotos || 0
+          projecaoVotos: dados?.projecao_votos || dados?.projecaoVotos || 0,
+          mandatos: Array.isArray(dados?.mandatos) && dados.mandatos.length > 0 ? dados.mandatos : [1]
         };
 
         const cpfBase = (dados?.cpf || '').replace(/\D/g, '');
@@ -288,6 +296,20 @@ export default function EditarLideranca() {
     });
   };
 
+  const handleMandatoToggle = (mandatoId) => {
+    setFormData((prev) => {
+      const mandatosAtuais = Array.isArray(prev.mandatos) ? [...prev.mandatos] : [];
+      const existe = mandatosAtuais.includes(mandatoId);
+      let novosMandatos = [];
+      if (existe) {
+        novosMandatos = mandatosAtuais.filter((mId) => mId !== mandatoId);
+      } else {
+        novosMandatos = [...mandatosAtuais, mandatoId];
+      }
+      return { ...prev, mandatos: novosMandatos };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (salvando) return;
@@ -295,12 +317,19 @@ export default function EditarLideranca() {
       showError('ID da liderança não encontrado. Atualize a página e tente novamente.');
       return;
     }
+
+    if (!Array.isArray(formData.mandatos) || formData.mandatos.length === 0) {
+      showError('Selecione ao menos um mandato para a liderança');
+      return;
+    }
+
     setSalvando(true);
 
     try {
       const fotoProcessada = await gerarFotoProcessada();
       const payload = {
         ...formData,
+        mandatos: formData.mandatos,
         cpf: (formData.cpf || '').replace(/\D/g, ''),
         rg: (formData.rg || '').replace(/\D/g, ''),
         telefone: (formData.telefone || '').replace(/\D/g, ''),
@@ -520,10 +549,48 @@ export default function EditarLideranca() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            {/* DADOS DE LIDERANÇA */}
+            <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-2xl font-bold mb-6 text-teal-700 border-b-2 border-teal-500 pb-3">
                 DADOS DE LIDERANÇA
               </h2>
+
+              {/* MANDATOS DA LIDERANÇA */}
+              <div className="bg-teal-50/60 p-4 rounded-xl border border-teal-200 mb-6">
+                <label className="block text-sm font-bold text-teal-900 mb-1">
+                  MANDATOS DA LIDERANÇA *
+                </label>
+                <p className="text-xs text-teal-700 mb-3">
+                  Selecione a qual(is) mandato(s) esta liderança pertence no sistema. Pelo menos um mandato deve ser selecionado.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                    permiteEstadual ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      disabled={!permiteEstadual}
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(1)}
+                      onChange={() => handleMandatoToggle(1)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputado Estadual (Estadual)</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                    permiteFederal ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      disabled={!permiteFederal}
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(2)}
+                      onChange={() => handleMandatoToggle(2)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputada Federal (Federal)</span>
+                  </label>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
