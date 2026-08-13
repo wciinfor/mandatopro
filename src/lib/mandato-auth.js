@@ -152,5 +152,25 @@ export async function validarAcessoRegistroPorId(tipoEntidade, registroId, conte
     return { autorizado: true, registro: sol };
   }
 
+  if (tipoEntidade === 'AGENDA') {
+    const { data: evento, error } = await clientSupabase
+      .from('agenda_eventos')
+      .select('id, mandato_id')
+      .eq('id', parseInt(registroId))
+      .maybeSingle();
+
+    if (error || !evento) return { autorizado: false, status: 404, message: 'Evento da agenda não encontrado' };
+
+    // mandato_id NULL é legado, compatível apenas com Mandato Estadual (1)
+    if (evento.mandato_id === null && mandatoId !== 1) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Evento legado pertence ao Mandato Estadual' };
+    }
+
+    if (evento.mandato_id !== null && evento.mandato_id !== mandatoId) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Evento pertence a outro mandato' };
+    }
+    return { autorizado: true, registro: evento };
+  }
+
   return { autorizado: true };
 }

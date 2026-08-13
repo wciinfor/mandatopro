@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +30,7 @@ export default async function handler(req, res) {
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
     const { limit } = req.query;
     const userId = usuario.id;
@@ -39,10 +41,19 @@ export default async function handler(req, res) {
     hoje.setHours(0, 0, 0, 0);
     const hojeISO = hoje.toISOString().slice(0, 10);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('agenda_eventos')
       .select('*')
-      .gte('data', hojeISO)
+      .gte('data', hojeISO);
+
+    // Estadual inclui legados (NULL), Federal restringe estritamente mandato_id = 2
+    if (contextoMandato.mandatoId === 1) {
+      query = query.or(`mandato_id.eq.${contextoMandato.mandatoId},mandato_id.is.null`);
+    } else {
+      query = query.eq('mandato_id', contextoMandato.mandatoId);
+    }
+
+    const { data, error } = await query
       .order('data', { ascending: true })
       .limit(200);
 
