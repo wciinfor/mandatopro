@@ -45,6 +45,9 @@ export default async function handler(req, res) {
           ausente_acao_campanha,
           eleitor_id,
           campanha_id,
+          lideranca_id,
+          mandato_id,
+          liderancas:lideranca_id(id, nome),
           eleitores!atendimentos_eleitor_id_fkey (
             id,
             nome,
@@ -165,20 +168,90 @@ export default async function handler(req, res) {
   // POST - Criar novo atendimento
   if (req.method === 'POST') {
     try {
-      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, ausenteAcaoCampanha, dataAtendimento, campanhaId, servicosSelecionados, liderancaId, lideranca_id } = req.body;
+      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, ausenteAcaoCampanha, dataAtendimento, campanhaId, servicosSelecionados, liderancaId, lideranca_id } = req.body || {};
 
+      // Resolução de Mandato e Snapshot de Liderança (Sprint P2.11)
+      let userMandates = usuario.mandatos || [];
+      if (usuario.nivel === 'ADMINISTRADOR') {
+        userMandates = [1, 2];
+      } else if (!userMandates.length) {
+        const { data: vinculosUser } = await supabase
+          .from('usuarios_mandatos')
+          .select('mandato_id')
+          .eq('usuario_id', usuario.id);
+        userMandates = (vinculosUser || []).map(v => v.mandato_id);
+      }
+
+      let mandatoIdFinal = req.body.mandato_id ? parseInt(req.body.mandato_id) : null;
+      if (campanhaId) {
+        const { data: cm } = await supabase
+          .from('campanhas_mandatos')
+          .select('mandato_id')
+          .eq('campanha_id', campanhaId)
+          .maybeSingle();
+
+        if (cm?.mandato_id) {
+          mandatoIdFinal = cm.mandato_id;
+        }
+      }
+
+      if (mandatoIdFinal && !userMandates.includes(mandatoIdFinal)) {
+        return res.status(403).json({ error: `Você não possui permissão para registrar atendimentos no mandato ${mandatoIdFinal === 1 ? 'Estadual' : 'Federal'}` });
+      }
+
+      let eleitorInfo = null;
+      if (eleitorId) {
+        const { data: eFound } = await supabase
+          .from('eleitores')
+          .select('id, pertencimento, lideranca_id')
+          .eq('id', parseInt(eleitorId))
+          .maybeSingle();
+        eleitorInfo = eFound;
+      }
+
+      if (mandatoIdFinal && eleitorInfo) {
+        const pert = eleitorInfo.pertencimento || 'NAO_CLASSIFICADO';
+        if (pert === 'NAO_CLASSIFICADO') {
+          return res.status(400).json({ error: 'Classifique o pertencimento do eleitor antes de registrar ações por mandato' });
+        }
+        if (mandatoIdFinal === 1 && pert === 'FEDERAL') {
+          return res.status(400).json({ error: 'Eleitor do mandato Federal não pode participar de ação do mandato Estadual' });
+        }
+        if (mandatoIdFinal === 2 && pert === 'ESTADUAL') {
+          return res.status(400).json({ error: 'Eleitor do mandato Estadual não pode participar de ação do mandato Federal' });
+        }
+      }
+
+      let liderancaIdFinal = null;
       const targetLiderancaId = liderancaId || lideranca_id;
-      if (eleitorId && targetLiderancaId && !isNaN(parseInt(targetLiderancaId))) {
-        try {
-          await supabase
-            .from('eleitores')
-            .update({
-              lideranca_id: parseInt(targetLiderancaId),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', parseInt(eleitorId));
-        } catch (errLidUpdate) {
-          console.warn('[ATENDIMENTO] Aviso ao atualizar lideranca_id do eleitor:', errLidUpdate);
+
+      if (targetLiderancaId && !isNaN(parseInt(targetLiderancaId))) {
+        const reqLidId = parseInt(targetLiderancaId);
+        if (mandatoIdFinal) {
+          const { data: lm } = await supabase
+            .from('liderancas_mandatos')
+            .select('lideranca_id')
+            .eq('lideranca_id', reqLidId)
+            .eq('mandato_id', mandatoIdFinal)
+            .maybeSingle();
+
+          if (!lm) {
+            return res.status(400).json({ error: 'A liderança selecionada para a ação não pertence ao mandato da campanha' });
+          }
+        }
+        liderancaIdFinal = reqLidId;
+      } else if (eleitorId && mandatoIdFinal) {
+        const { data: elm } = await supabase
+          .from('eleitores_liderancas_mandatos')
+          .select('lideranca_id')
+          .eq('eleitor_id', parseInt(eleitorId))
+          .eq('mandato_id', mandatoIdFinal)
+          .maybeSingle();
+
+        if (elm?.lideranca_id) {
+          liderancaIdFinal = elm.lideranca_id;
+        } else if (eleitorInfo?.lideranca_id) {
+          liderancaIdFinal = eleitorInfo.lideranca_id;
         }
       }
 
@@ -200,7 +273,9 @@ export default async function handler(req, res) {
             status: statusNormalizado,
             ausente_acao_campanha: Boolean(ausenteAcaoCampanha),
             data_atendimento: dataAtendimento ? new Date(dataAtendimento).toISOString() : new Date().toISOString(),
-            campanha_id: campanhaId || null
+            campanha_id: campanhaId || null,
+            lideranca_id: liderancaIdFinal,
+            mandato_id: mandatoIdFinal
           }
         ])
         .select();
