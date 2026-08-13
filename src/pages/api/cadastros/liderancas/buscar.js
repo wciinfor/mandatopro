@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export default async function handler(req, res) {
   // Apenas GET é permitido
@@ -20,11 +21,24 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // Buscar lideranças que correspondem ao termo de busca
-    // Procura em: nome, nomeSocial, email, profissao, areaAtuacao
+    // Resolver mandato ativo e obter IDs de lideranças autorizadas (via liderancas_mandatos)
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { data: lmData } = await supabase
+      .from('liderancas_mandatos')
+      .select('lideranca_id')
+      .eq('mandato_id', contextoMandato.mandatoId);
+
+    const liderancaIds = (lmData || []).map(r => r.lideranca_id);
+
+    if (!liderancaIds.length) {
+      return res.status(200).json([]);
+    }
+
+    // Buscar lideranças do mandato ativo que correspondem ao termo de busca
     const { data, error } = await supabase
       .from('liderancas')
       .select('id, nome, email, telefone, profissao, areaAtuacao')
+      .in('id', liderancaIds)
       .or(`nome.ilike.%${q}%,email.ilike.%${q}%,profissao.ilike.%${q}%,areaAtuacao.ilike.%${q}%`)
       .limit(10);
 
@@ -39,3 +53,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 }
+

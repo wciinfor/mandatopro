@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export default async function handler(req, res) {
   const { q } = req.query;
@@ -17,10 +18,24 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // Buscar lideranças por nome
+    // Resolver mandato ativo e obter IDs de lideranças autorizadas (via liderancas_mandatos)
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { data: lmData } = await supabase
+      .from('liderancas_mandatos')
+      .select('lideranca_id')
+      .eq('mandato_id', contextoMandato.mandatoId);
+
+    const liderancaIds = (lmData || []).map(r => r.lideranca_id);
+
+    if (!liderancaIds.length) {
+      return res.status(200).json([]);
+    }
+
+    // Buscar lideranças por nome dentro do mandato ativo
     const { data, error } = await supabase
       .from('liderancas')
       .select('id, nome, cpf, telefone, influencia, area_atuacao')
+      .in('id', liderancaIds)
       .ilike('nome', `%${q}%`)
       .eq('status', 'ATIVO')
       .limit(20);
@@ -33,3 +48,4 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: error.message });
   }
 }
+
