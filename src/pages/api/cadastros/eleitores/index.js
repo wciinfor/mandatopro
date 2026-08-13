@@ -79,8 +79,9 @@ function calcularQualidadeTexto(value) {
   return score;
 }
 
-async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, excludeLiderancas }) {
-  const chaveCache = `v3|status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}`;
+async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, excludeLiderancas, pertencimentosPermitidos }) {
+  const pertKey = pertencimentosPermitidos ? pertencimentosPermitidos.join(',') : 'ALL';
+  const chaveCache = `v4|status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}|mandato:${pertKey}`;
   const cache = cidadesCache.get(chaveCache);
   if (cache && cache.expireAt > Date.now() && Array.isArray(cache.data) && cache.data.length > 0) {
     return cache.data;
@@ -126,6 +127,7 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
         supabase
           .from('eleitores')
           .select(`${coluna},id`)
+          .in('pertencimento', pertencimentosPermitidos || ['ESTADUAL', 'AMBOS'])
           .not(coluna, 'is', null)
           .neq(coluna, '')
           .gt('id', ultimoId)
@@ -166,11 +168,11 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
     await coletarCidadesPorColuna('municipio', filtros);
   };
 
-  await coletarCidades({ status, liderancaFiltro, excludeLiderancas });
+  await coletarCidades({ status, liderancaFiltro, excludeLiderancas, pertencimentosPermitidos });
 
   // Fallback: se nao encontrou cidade com status filtrado, tenta sem status.
   if (cidadesMap.size === 0 && status) {
-    await coletarCidades({ status: undefined, liderancaFiltro, excludeLiderancas });
+    await coletarCidades({ status: undefined, liderancaFiltro, excludeLiderancas, pertencimentosPermitidos });
   }
 
   const data = Array.from(cidadesMap.values())
@@ -212,6 +214,8 @@ export default async function handler(req, res) {
         ordem = 'recentes'
       } = req.query;
 
+      // Resolver mandato ativo ANTES de qualquer desvio (incluindo onlyCities)
+      const contextoMandato = await obterContextoMandato(req, usuario, supabase);
       const liderancaFiltro = liderancaId || lideranca_id;
 
       if (String(onlyCities || '').toLowerCase() === 'true') {
@@ -219,6 +223,7 @@ export default async function handler(req, res) {
           status,
           liderancaFiltro,
           excludeLiderancas,
+          pertencimentosPermitidos: contextoMandato.pertencimentosPermitidos,
         });
 
         return res.status(200).json({ data: cidades });
@@ -258,8 +263,6 @@ export default async function handler(req, res) {
           }
         }
       }
-
-      const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
       let query = aplicarFiltrosBase(
         supabase.from('eleitores').select('*', { count: 'exact' }),
