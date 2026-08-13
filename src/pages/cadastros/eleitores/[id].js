@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faSave, faSearch, faCheckCircle, faTimesCircle, faArrowLeft, faMapMarkerAlt
+  faSave, faSearch, faCheckCircle, faTimesCircle, faArrowLeft, faMapMarkerAlt, faExclamationTriangle
 } from '@fortawesome/free-solid-svg-icons';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { applyMask, onlyDigits } from '@/utils/inputMasks';
 
@@ -14,7 +15,13 @@ export default function EditarEleitor() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [mandatosSelecionados, setMandatosSelecionados] = useState([]);
+
+  const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
+  const permiteEstadual = userMandates.includes(1);
+  const permiteFederal = userMandates.includes(2);
   const [formData, setFormData] = useState({
     // Dados Pessoais
     cpf: '',
@@ -148,9 +155,22 @@ export default function EditarEleitor() {
         cep: applyMask('cep', mapped.cep || '')
       };
 
+      // Mapear pertencimento para mandatosSelecionados
+      const pert = String(data.pertencimento || 'NAO_CLASSIFICADO').toUpperCase();
+      if (pert === 'ESTADUAL') {
+        setMandatosSelecionados([1]);
+      } else if (pert === 'FEDERAL') {
+        setMandatosSelecionados([2]);
+      } else if (pert === 'AMBOS') {
+        setMandatosSelecionados([1, 2]);
+      } else {
+        setMandatosSelecionados([]);
+      }
+
       setFormData(prev => ({
         ...prev,
-        ...masked
+        ...masked,
+        pertencimento: pert
       }));
     } catch (error) {
       showError('Erro ao carregar eleitor: ' + error.message);
@@ -229,6 +249,18 @@ export default function EditarEleitor() {
         return;
       }
 
+      let pertencimentoFinal = 'ESTADUAL';
+      if (mandatosSelecionados.includes(1) && mandatosSelecionados.includes(2)) {
+        pertencimentoFinal = 'AMBOS';
+      } else if (mandatosSelecionados.includes(2)) {
+        pertencimentoFinal = 'FEDERAL';
+      } else if (mandatosSelecionados.includes(1)) {
+        pertencimentoFinal = 'ESTADUAL';
+      } else {
+        showWarning('Selecione ao menos um mandato de pertencimento para o eleitor.');
+        return;
+      }
+
       setLoading(true);
 
       let latitude = formData.latitude ? parseFloat(formData.latitude) : null;
@@ -271,6 +303,7 @@ export default function EditarEleitor() {
 
       const payload = {
         ...formData,
+        pertencimento: pertencimentoFinal,
         cpf: onlyDigits(formData.cpf),
         rg: onlyDigits(formData.rg),
         telefone: onlyDigits(formData.telefone),
@@ -370,6 +403,51 @@ export default function EditarEleitor() {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* PERTENCIMENTO / MANDATO */}
+          <div className="bg-teal-50/70 rounded-lg shadow-md p-6 mb-6 border border-teal-200">
+            <h2 className="text-xl font-bold text-teal-900 mb-2 pb-2 border-b border-teal-300">
+              🏛️ PERTENCIMENTO / MANDATO *
+            </h2>
+
+            {formData.pertencimento === 'NAO_CLASSIFICADO' && mandatosSelecionados.length === 0 && (
+              <div className="bg-amber-50 border border-amber-300 text-amber-800 p-3 rounded-lg text-xs font-semibold mb-4 flex items-center gap-2">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-600 text-base" />
+                ⚠️ Pertencimento ainda não classificado. Selecione o mandato correspondente para classificar este eleitor.
+              </div>
+            )}
+
+            <p className="text-xs text-teal-700 mb-4">
+              Selecione a qual(is) mandato(s) este eleitor pertence. Pelo menos um mandato deve ser selecionado.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                permiteEstadual ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+              }`}>
+                <input
+                  type="checkbox"
+                  disabled={!permiteEstadual}
+                  checked={mandatosSelecionados.includes(1)}
+                  onChange={() => handleToggleMandato(1)}
+                  className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm font-bold text-gray-800">🏛️ Deputado Estadual</span>
+              </label>
+
+              <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                permiteFederal ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+              }`}>
+                <input
+                  type="checkbox"
+                  disabled={!permiteFederal}
+                  checked={mandatosSelecionados.includes(2)}
+                  onChange={() => handleToggleMandato(2)}
+                  className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm font-bold text-gray-800">🏛️ Deputada Federal</span>
+              </label>
+            </div>
+          </div>
+
           {/* DADOS PESSOAIS */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4 pb-3 border-b-2 border-teal-500">

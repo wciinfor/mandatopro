@@ -51,59 +51,39 @@ export default async function handler(req, res) {
         }
       }
 
-      const payload = {
-        nome: normalizar(body.nome),
-        cpf: normalizar(body.cpf),
-        email: normalizar(body.email),
-        telefone: normalizar(body.telefone),
-        celular: normalizar(body.celular),
-        whatsapp: normalizar(body.whatsapp),
-        tituloEleitoral: normalizar(body.tituloEleitoral),
-        tituloeleitoral: normalizar(body.tituloEleitoral),
-        secao: normalizar(body.secao),
-        zona: normalizar(body.zona),
-        municipio: normalizar(body.municipio),
-        localVotacao: normalizar(body.localVotacao),
-        localvotacao: normalizar(body.localVotacao),
-        situacaoTSE: normalizar(body.situacaoTSE),
-        situacaotse: normalizar(body.situacaoTSE),
-        biometria: normalizar(body.biometria),
-        nomeSocial: normalizar(body.nomeSocial),
-        nomesocial: normalizar(body.nomeSocial),
-        rg: normalizar(body.rg),
-        nomePai: normalizar(body.nomePai),
-        nomepai: normalizar(body.nomePai),
-        nomeMae: normalizar(body.nomeMae),
-        nomemae: normalizar(body.nomeMae),
-        naturalidade: normalizar(body.naturalidade),
-        estadoCivil: normalizar(body.estadoCivil),
-        estadocivil: normalizar(body.estadoCivil),
-        localTrabalho: normalizar(body.localTrabalho),
-        localtrabalho: normalizar(body.localTrabalho),
-        observacoes: normalizar(body.observacoes),
-        logradouro: normalizar(body.logradouro),
-        numero: normalizar(body.numero),
-        complemento: normalizar(body.complemento),
-        bairro: normalizar(body.bairro),
-        cidade: normalizar(body.cidade),
-        uf: normalizar(body.uf),
-        cep: normalizar(body.cep),
-        dataNascimento: normalizar(body.dataNascimento),
-        datanascimento: normalizar(body.dataNascimento),
-        statusCadastro: normalizar(body.statusCadastro),
-        statuscadastro: normalizar(body.statusCadastro),
-        latitude: body.latitude ?? null,
-        longitude: body.longitude ?? null,
-        // Colunas base (snake_case)
-        endereco: normalizar(body.logradouro || body.endereco),
-        estado: normalizar(body.uf || body.estado),
-        data_nascimento: normalizar(body.dataNascimento || body.data_nascimento),
-        sexo: normalizar(body.sexo) ?? 'MASCULINO',
-        profissao: normalizar(body.profissao),
-        lideranca_id: liderancaIdFinal,
-        lideranca: normalizar(body.lideranca),
-        status: normalizar(body.statusCadastro || body.status)
-      };
+      // Validar pertencimento se fornecido
+      if (body.pertencimento) {
+        let userMandates = usuario.mandatos || [];
+        if (usuario.nivel === 'ADMINISTRADOR') {
+          userMandates = [1, 2];
+        } else if (!userMandates.length) {
+          const { data: vinculosUser } = await supabase
+            .from('usuarios_mandatos')
+            .select('mandato_id')
+            .eq('usuario_id', usuario.id);
+          userMandates = (vinculosUser || []).map(v => v.mandato_id);
+        }
+
+        const pertencimentoSolicitado = String(body.pertencimento).toUpperCase();
+        if (!['ESTADUAL', 'FEDERAL', 'AMBOS', 'NAO_CLASSIFICADO'].includes(pertencimentoSolicitado)) {
+          return res.status(400).json({ message: 'Pertencimento inválido' });
+        }
+
+        const temEstadual = userMandates.includes(1);
+        const temFederal = userMandates.includes(2);
+
+        if (pertencimentoSolicitado === 'ESTADUAL' && !temEstadual) {
+          return res.status(403).json({ message: 'Você não possui permissão para vincular eleitores ao mandato Estadual' });
+        }
+        if (pertencimentoSolicitado === 'FEDERAL' && !temFederal) {
+          return res.status(403).json({ message: 'Você não possui permissão para vincular eleitores ao mandato Federal' });
+        }
+        if (pertencimentoSolicitado === 'AMBOS' && (!temEstadual || !temFederal)) {
+          return res.status(403).json({ message: 'Você não possui permissão para vincular eleitores a ambos os mandatos' });
+        }
+
+        payload.pertencimento = pertencimentoSolicitado;
+      }
 
       let { data: eleitor, error } = await supabase
         .from('eleitores')

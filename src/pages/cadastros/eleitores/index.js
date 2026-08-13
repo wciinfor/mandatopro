@@ -441,14 +441,34 @@ export default function GerenciarEleitores() {
                       <td className="px-4 py-3 text-sm">{eleitor.cidade || eleitor.municipio || '-'}</td>
                       <td className="px-4 py-3 text-sm">{eleitor.bairro || '-'}</td>
                       <td className="px-4 py-3 text-sm">{eleitor.telefone || eleitor.celular || '-'}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      <td className="px-4 py-3 text-sm flex flex-col gap-1">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold w-max ${
                           (eleitor.statusCadastro || eleitor.status) === 'ATIVO' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {eleitor.statusCadastro || eleitor.status || 'ATIVO'}
                         </span>
+                        {eleitor.pertencimento === 'ESTADUAL' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 w-max" title="Estadual">
+                            🏛️ Estadual
+                          </span>
+                        )}
+                        {eleitor.pertencimento === 'FEDERAL' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 w-max" title="Federal">
+                            🏛️ Federal
+                          </span>
+                        )}
+                        {eleitor.pertencimento === 'AMBOS' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 w-max" title="Ambos os mandatos">
+                            🏛️ Estadual + Federal
+                          </span>
+                        )}
+                        {(!eleitor.pertencimento || eleitor.pertencimento === 'NAO_CLASSIFICADO') && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 w-max" title="Não Classificado">
+                            ⚠️ Não Classificado
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex justify-center gap-2">

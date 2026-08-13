@@ -361,6 +361,36 @@ export default async function handler(req, res) {
         }
       }
 
+      // Validar pertencimento e autorização do usuário
+      let userMandates = usuario.mandatos || [];
+      if (usuario.nivel === 'ADMINISTRADOR') {
+        userMandates = [1, 2];
+      } else if (!userMandates.length) {
+        const { data: vinculosUser } = await supabase
+          .from('usuarios_mandatos')
+          .select('mandato_id')
+          .eq('usuario_id', usuario.id);
+        userMandates = (vinculosUser || []).map(v => v.mandato_id);
+      }
+
+      let pertencimentoSolicitado = String(body.pertencimento || '').toUpperCase();
+      if (!['ESTADUAL', 'FEDERAL', 'AMBOS', 'NAO_CLASSIFICADO'].includes(pertencimentoSolicitado)) {
+        pertencimentoSolicitado = 'ESTADUAL'; // Fallback seguro para novos
+      }
+
+      const temEstadual = userMandates.includes(1);
+      const temFederal = userMandates.includes(2);
+
+      if (pertencimentoSolicitado === 'ESTADUAL' && !temEstadual) {
+        return res.status(403).json({ message: 'Você não possui permissão para cadastrar eleitores no mandato Estadual' });
+      }
+      if (pertencimentoSolicitado === 'FEDERAL' && !temFederal) {
+        return res.status(403).json({ message: 'Você não possui permissão para cadastrar eleitores no mandato Federal' });
+      }
+      if (pertencimentoSolicitado === 'AMBOS' && (!temEstadual || !temFederal)) {
+        return res.status(403).json({ message: 'Você não possui permissão para vincular eleitores a ambos os mandatos' });
+      }
+
       const payload = {
         nome: normalizar(body.nome),
         cpf: normalizar(body.cpf),
@@ -405,6 +435,7 @@ export default async function handler(req, res) {
         statuscadastro: normalizar(body.statusCadastro),
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
+        pertencimento: pertencimentoSolicitado,
         // Colunas base (snake_case)
         endereco: normalizar(body.logradouro || body.endereco),
         estado: normalizar(body.uf || body.estado),

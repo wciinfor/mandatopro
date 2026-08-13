@@ -7,6 +7,7 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { applyMask, onlyDigits } from '@/utils/inputMasks';
 import { getMunicipioIBGEByName } from '@/utils/municipiosIBGE';
@@ -14,8 +15,21 @@ import { getMunicipioIBGEByName } from '@/utils/municipiosIBGE';
 export default function NovoEleitor() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+  const { user, mandatoAtivoId } = useAuth();
   const inputRGRef = useRef(null);
   const lookupRequestRef = useRef(0);
+
+  const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
+  const permiteEstadual = userMandates.includes(1);
+  const permiteFederal = userMandates.includes(2);
+
+  const [mandatosSelecionados, setMandatosSelecionados] = useState(() => {
+    if (mandatoAtivoId && userMandates.includes(mandatoAtivoId)) {
+      return [mandatoAtivoId];
+    }
+    return [permiteFederal && !permiteEstadual ? 2 : 1];
+  });
+
   const [formData, setFormData] = useState({
     // Dados Pessoais
     cpf: '',
@@ -298,12 +312,34 @@ export default function NovoEleitor() {
     }
   };
 
+  const handleToggleMandato = (mandatoId) => {
+    setMandatosSelecionados((prev) => {
+      const existe = prev.includes(mandatoId);
+      if (existe) {
+        return prev.filter((m) => m !== mandatoId);
+      }
+      return [...prev, mandatoId];
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       // Validações básicas
       if (!formData.nome.trim()) {
         showWarning('Nome é obrigatório');
+        return;
+      }
+
+      let pertencimentoFinal = 'ESTADUAL';
+      if (mandatosSelecionados.includes(1) && mandatosSelecionados.includes(2)) {
+        pertencimentoFinal = 'AMBOS';
+      } else if (mandatosSelecionados.includes(2)) {
+        pertencimentoFinal = 'FEDERAL';
+      } else if (mandatosSelecionados.includes(1)) {
+        pertencimentoFinal = 'ESTADUAL';
+      } else {
+        showWarning('Selecione ao menos um mandato de pertencimento para o eleitor.');
         return;
       }
 
@@ -355,6 +391,7 @@ export default function NovoEleitor() {
       // Normalizar campos numericos
       const payload = {
         ...formData,
+        pertencimento: pertencimentoFinal,
         cpf: onlyDigits(formData.cpf),
         rg: onlyDigits(formData.rg),
         telefone: onlyDigits(formData.telefone),
@@ -499,6 +536,43 @@ export default function NovoEleitor() {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* PERTENCIMENTO / MANDATO */}
+          <div className="bg-teal-50/70 rounded-lg shadow-md p-6 mb-6 border border-teal-200">
+            <h2 className="text-xl font-bold text-teal-900 mb-2 pb-2 border-b border-teal-300">
+              🏛️ PERTENCIMENTO / MANDATO *
+            </h2>
+            <p className="text-xs text-teal-700 mb-4">
+              Selecione a qual(is) mandato(s) este novo eleitor pertence. Pelo menos um mandato deve ser selecionado.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                permiteEstadual ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+              }`}>
+                <input
+                  type="checkbox"
+                  disabled={!permiteEstadual}
+                  checked={mandatosSelecionados.includes(1)}
+                  onChange={() => handleToggleMandato(1)}
+                  className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm font-bold text-gray-800">🏛️ Deputado Estadual</span>
+              </label>
+
+              <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors shadow-sm ${
+                permiteFederal ? 'cursor-pointer bg-white border-teal-300 hover:border-teal-500' : 'cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+              }`}>
+                <input
+                  type="checkbox"
+                  disabled={!permiteFederal}
+                  checked={mandatosSelecionados.includes(2)}
+                  onChange={() => handleToggleMandato(2)}
+                  className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm font-bold text-gray-800">🏛️ Deputada Federal</span>
+              </label>
+            </div>
+          </div>
+
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4 pb-3 border-b-2 border-teal-500">
               📋 DADOS PESSOAIS
