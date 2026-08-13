@@ -27,7 +27,8 @@ import {
   faChartLine,
   faShieldAlt,
   faClipboardCheck,
-  faInfoCircle
+  faInfoCircle,
+  faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 const WHATSAPP_WIZARD_STEPS = [
@@ -194,6 +195,16 @@ export default function ConfiguracaoSistema() {
   const metaSignupResultRef = useRef(null);
   const metaSignupCodeRef = useRef('');
   const metaSignupSavedRef = useRef(false);
+
+  // Dados do Google Calendar
+  const [gcalStatus, setGcalStatus] = useState({
+    conectado: false,
+    mandatoId: null,
+    tipoMandato: '',
+    googleCalendarId: '',
+    status: 'NAO_CONECTADO',
+    loading: false,
+  });
 
   // Dados do Sistema
   const [sistema, setSistema] = useState({
@@ -524,6 +535,70 @@ export default function ConfiguracaoSistema() {
     }
   }, []);
 
+  const carregarStatusGoogleCalendar = useCallback(async () => {
+    try {
+      setGcalStatus(prev => ({ ...prev, loading: true }));
+      const response = await fetch('/api/configuracoes/google-calendar');
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao consultar status do Google Calendar');
+      }
+      setGcalStatus({
+        conectado: Boolean(data.conectado),
+        mandatoId: data.mandatoId,
+        tipoMandato: data.tipoMandato,
+        googleCalendarId: data.googleCalendarId || '',
+        status: data.status || 'NAO_CONECTADO',
+        createdAt: data.createdAt || null,
+        updatedAt: data.updatedAt || null,
+        loading: false,
+      });
+    } catch (error) {
+      console.error('Erro ao consultar Google Calendar:', error);
+      setGcalStatus(prev => ({ ...prev, loading: false }));
+    }
+  }, []);
+
+  const conectarGoogleCalendar = async () => {
+    try {
+      setGcalStatus(prev => ({ ...prev, loading: true }));
+      const response = await fetch('/api/auth/google/connect');
+      const data = await response.json();
+      if (!response.ok || !data.authUrl) {
+        throw new Error(data.error || 'Falha ao iniciar autenticação OAuth2 do Google');
+      }
+      // Redireciona o usuário para a página de consentimento do Google
+      window.location.href = data.authUrl;
+    } catch (error) {
+      setErrorMessage(error.message);
+      setErrorModal(true);
+      setGcalStatus(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const desconectarGoogleCalendar = async () => {
+    if (!confirm('Deseja realmente desconectar o Google Calendar do seu mandato ativo? Os compromissos oficiais da conta do Google deixarão de ser exibidos.')) {
+      return;
+    }
+    try {
+      setGcalStatus(prev => ({ ...prev, loading: true }));
+      const response = await fetch('/api/configuracoes/google-calendar', {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao desconectar Google Calendar');
+      }
+      setSuccessModal(true);
+      setTimeout(() => setSuccessModal(false), 3000);
+      await carregarStatusGoogleCalendar();
+    } catch (error) {
+      setErrorMessage(error.message);
+      setErrorModal(true);
+      setGcalStatus(prev => ({ ...prev, loading: false }));
+    }
+  };
+
   const executarSincronizacao = async () => {
     try {
       setWhatsappSyncLoading(true);
@@ -617,13 +692,17 @@ export default function ConfiguracaoSistema() {
         setActiveTab('whatsapp');
       } else if (window.location.hash === '#ia') {
         setActiveTab('ia');
+      } else if (window.location.hash === '#google-calendar') {
+        setActiveTab('google-calendar');
       } else if (window.location.hash === '#dados') {
         setActiveTab('sistema');
       }
+
+      carregarStatusGoogleCalendar();
     } catch (error) {
       console.error('Erro ao carregar página de configurações:', error);
     }
-  }, [carregarConfiguracoes]);
+  }, [carregarConfiguracoes, carregarStatusGoogleCalendar]);
 
   // Manipular upload de logo
   const handleLogoChange = (e) => {
@@ -1033,6 +1112,16 @@ export default function ConfiguracaoSistema() {
                 }`}
               >
                 Inteligencia Artificial
+              </button>
+              <button
+                onClick={() => setActiveTab('google-calendar')}
+                className={`py-4 px-2 border-b-2 font-semibold transition ${
+                  activeTab === 'google-calendar'
+                    ? 'border-teal-600 text-teal-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                Google Calendar
               </button>
             </div>
           </div>
@@ -1882,6 +1971,106 @@ export default function ConfiguracaoSistema() {
                   Testar Conexao
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ABA: GOOGLE CALENDAR */}
+          {activeTab === 'google-calendar' && (
+            <div className="bg-white rounded-lg shadow-lg p-8">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                    <FontAwesomeIcon icon={faCalendarAlt} className="text-blue-600" />
+                    Integração Google Calendar
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Conecte a agenda oficial do parlamentar para visualizar os compromissos diretamente no MandatoPro.
+                  </p>
+                </div>
+                {gcalStatus.tipoMandato && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                    Mandato Ativo: {gcalStatus.tipoMandato === 'FEDERAL' ? 'Deputada Federal' : 'Deputado Estadual'}
+                  </span>
+                )}
+              </div>
+
+              {gcalStatus.loading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <FontAwesomeIcon icon={faSyncAlt} className="text-teal-600 text-3xl animate-spin mb-4" />
+                  <p className="text-gray-500 text-sm">Verificando status da conexão com o Google Calendar...</p>
+                </div>
+              ) : gcalStatus.conectado ? (
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-2xl shadow-md">
+                          <FontAwesomeIcon icon={faCalendarAlt} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-gray-900">Google Calendar Conectado</h3>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+                              {gcalStatus.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-0.5">
+                            Calendário Principal: <span className="font-semibold text-gray-900">{gcalStatus.googleCalendarId}</span>
+                          </p>
+                          {gcalStatus.updatedAt && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Última sincronização/conexão: {new Date(gcalStatus.updatedAt).toLocaleString('pt-BR')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-blue-100 flex flex-wrap items-center justify-between gap-4">
+                      <div className="text-xs text-blue-700 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faShieldAlt} />
+                        <span>Permissão concedida: <strong>Somente Leitura</strong> (O MandatoPro não altera sua agenda oficial).</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={conectarGoogleCalendar}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition flex items-center gap-2"
+                        >
+                          <FontAwesomeIcon icon={faSyncAlt} />
+                          Reconectar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={desconectarGoogleCalendar}
+                          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-sm font-bold rounded-lg transition flex items-center gap-2"
+                        >
+                          <FontAwesomeIcon icon={faTimes} />
+                          Desconectar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center max-w-2xl mx-auto">
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-sm">
+                    <FontAwesomeIcon icon={faCalendarAlt} />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">Nenhum Google Calendar Conectado</h3>
+                  <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                    Conecte a conta do Google oficial do parlamentar para visualizar os compromissos em tempo real na Agenda do MandatoPro, mesclados com as ações internas de gabinete.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={conectarGoogleCalendar}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition flex items-center gap-3 mx-auto"
+                  >
+                    <FontAwesomeIcon icon={faPlug} />
+                    Conectar Google Calendar
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
