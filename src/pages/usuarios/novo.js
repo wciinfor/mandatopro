@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -38,7 +38,8 @@ export default function NovoUsuario() {
     confirmarSenha: '',
     nivel: ROLES.OPERADOR,
     liderancaVinculada: '',
-    status: 'ATIVO'
+    status: 'ATIVO',
+    mandatos: [1]
   });
 
   const [errors, setErrors] = useState({});
@@ -47,28 +48,20 @@ export default function NovoUsuario() {
     if (typeof window === 'undefined') {
       return null;
     }
-
     return JSON.parse(localStorage.getItem('usuario') || 'null');
   };
 
   const carregarLiderancas = useCallback(async (signal) => {
     try {
       setCarregandoLiderancas(true);
-
-      const response = await fetch('/api/usuarios/liderancas-opcoes', {
-        signal
-      });
-
+      const response = await fetch('/api/usuarios/liderancas-opcoes', { signal });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.message || 'Erro ao carregar liderancas');
       }
-
       setLiderancas(Array.isArray(data?.data) ? data.data : []);
     } catch (error) {
-      if (isAbortError(error)) {
-        return;
-      }
+      if (isAbortError(error)) return;
       showErrorRef.current('Erro ao carregar liderancas: ' + error.message);
     } finally {
       if (!signal?.aborted) {
@@ -92,7 +85,6 @@ export default function NovoUsuario() {
     };
   }, [carregarLiderancas]);
 
-  // Auto-vincula a liderança quando logado como LIDERANÇA
   useEffect(() => {
     if (usuarioLogado?.nivel === ROLES.LIDERANCA && liderancas.length > 0) {
       const myEntry = liderancas.find(l => String(l.id) === String(usuarioLogado.id));
@@ -104,17 +96,9 @@ export default function NovoUsuario() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Limpar erro do campo quando usuário começa a digitar
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
@@ -145,25 +129,39 @@ export default function NovoUsuario() {
       newErrors.liderancaVinculada = 'Operadores devem estar vinculados a uma liderança';
     }
 
+    if (!Array.isArray(formData.mandatos) || formData.mandatos.length === 0) {
+      newErrors.mandatos = 'Selecione ao menos um mandato para o usuário';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleMandatoToggle = (mandatoId) => {
+    setFormData((prev) => {
+      const mandatosAtuais = Array.isArray(prev.mandatos) ? [...prev.mandatos] : [];
+      const existe = mandatosAtuais.includes(mandatoId);
+      let novosMandatos = [];
+      if (existe) {
+        novosMandatos = mandatosAtuais.filter((id) => id !== mandatoId);
+      } else {
+        novosMandatos = [...mandatosAtuais, mandatoId];
+      }
+      return { ...prev, mandatos: novosMandatos };
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       setSalvando(true);
 
       const response = await fetch('/api/usuarios', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: formData.nome,
           email: formData.email,
@@ -171,6 +169,7 @@ export default function NovoUsuario() {
           nivel: formData.nivel,
           status: formData.status,
           lideranca_id: formData.liderancaVinculada || null,
+          mandatos: formData.mandatos
         }),
       });
 
@@ -196,280 +195,304 @@ export default function NovoUsuario() {
 
   const getRoleIcon = (nivel) => {
     switch (nivel) {
-      case ROLES.ADMINISTRADOR:
-        return faCrown;
-      case ROLES.LIDERANCA:
-        return faUserTie;
-      case ROLES.OPERADOR:
-        return faUser;
-      default:
-        return faUser;
+      case ROLES.ADMINISTRADOR: return faCrown;
+      case ROLES.LIDERANCA: return faUserTie;
+      case ROLES.OPERADOR: return faUser;
+      default: return faUser;
     }
   };
 
   return (
     <ProtectedRoute module={MODULES.USUARIOS}>
-    <Layout titulo="Novo Usuário">
-      <Modal
-        isOpen={modalState.isOpen}
-        onClose={closeModal}
-        onConfirm={modalState.onConfirm}
-        title={modalState.title}
-        message={modalState.message}
-        type={modalState.type}
-        confirmText={modalState.confirmText}
-        cancelText={modalState.cancelText}
-        showCancel={modalState.showCancel}
-      />
+      <Layout titulo="Novo Usuário">
+        <Modal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          onConfirm={modalState.onConfirm}
+          title={modalState.title}
+          message={modalState.message}
+          type={modalState.type}
+          confirmText={modalState.confirmText}
+          cancelText={modalState.cancelText}
+          showCancel={modalState.showCancel}
+        />
 
-      <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-            <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
-              <FontAwesomeIcon icon={faUser} className="text-teal-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Dados do Usuário</h2>
-              <p className="text-sm text-gray-600">Preencha as informações do novo usuário</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Nome Completo */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                NOME COMPLETO *
-              </label>
-              <input
-                type="text"
-                name="nome"
-                value={formData.nome}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                  errors.nome ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Digite o nome completo do usuário"
-              />
-              {errors.nome && (
-                <p className="mt-1 text-sm text-red-600">{errors.nome}</p>
-              )}
+        <form onSubmit={handleSubmit}>
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faUser} className="text-teal-600 text-xl" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Dados do Usuário</h2>
+                <p className="text-sm text-gray-600">Preencha as informações do novo usuário</p>
+              </div>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                EMAIL *
-              </label>
-              <div className="relative">
-                <FontAwesomeIcon icon={faEnvelope} className="absolute left-3 top-3 text-gray-400" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Nome Completo */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  NOME COMPLETO *
+                </label>
                 <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                    errors.email ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="usuario@exemplo.com"
-                />
-              </div>
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-              )}
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                STATUS *
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-              >
-                <option value="ATIVO">Ativo</option>
-                <option value="INATIVO">Inativo</option>
-              </select>
-            </div>
-
-            {/* Senha */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                SENHA *
-              </label>
-              <div className="relative">
-                <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="password"
-                  name="senha"
-                  value={formData.senha}
-                  onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                    errors.senha ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Mínimo 6 caracteres"
-                />
-              </div>
-              {errors.senha && (
-                <p className="mt-1 text-sm text-red-600">{errors.senha}</p>
-              )}
-            </div>
-
-            {/* Confirmar Senha */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                CONFIRMAR SENHA *
-              </label>
-              <div className="relative">
-                <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="password"
-                  name="confirmarSenha"
-                  value={formData.confirmarSenha}
-                  onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                    errors.confirmarSenha ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Digite a senha novamente"
-                />
-              </div>
-              {errors.confirmarSenha && (
-                <p className="mt-1 text-sm text-red-600">{errors.confirmarSenha}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Nível de Acesso */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <FontAwesomeIcon icon={faUserShield} className="text-purple-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Nível de Acesso</h2>
-              <p className="text-sm text-gray-600">Defina as permissões do usuário</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {/* Aviso para LIDERANÇA: só pode criar OPERADOR */}
-            {usuarioLogado?.nivel === ROLES.LIDERANCA && (
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-3">
-                <FontAwesomeIcon icon={faUserShield} className="text-purple-600 mt-1" />
-                <div>
-                  <h4 className="font-semibold text-purple-900 mb-1">Criar Operador da sua equipe</h4>
-                  <p className="text-sm text-purple-800">
-                    Como Liderança, você pode criar apenas usuários do tipo <strong>Operador</strong> vinculados à sua liderança.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Radio buttons para níveis */}
-            {Object.values(ROLES)
-              .filter(role => usuarioLogado?.nivel !== ROLES.LIDERANCA || role === ROLES.OPERADOR)
-              .map((role) => (
-              <label
-                key={role}
-                className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.nivel === role
-                    ? 'border-teal-500 bg-teal-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="nivel"
-                  value={role}
-                  checked={formData.nivel === role}
-                  onChange={handleChange}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <FontAwesomeIcon icon={getRoleIcon(role)} className="text-xl" />
-                    <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getRoleColor(role)}`}>
-                      {role}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700">{ROLE_DESCRIPTIONS[role] || 'Acesso restrito conforme o modulo selecionado.'}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-
-          {/* Vinculação de Liderança (apenas para Operadores) */}
-          {formData.nivel === ROLES.OPERADOR && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-3 mb-4">
-                <FontAwesomeIcon icon={faExclamationTriangle} className="text-blue-600 mt-1" />
-                <div>
-                  <h4 className="font-semibold text-blue-900 mb-1">Vinculação Obrigatória</h4>
-                  <p className="text-sm text-blue-800">
-                    Operadores devem estar vinculados a uma liderança para controle de acesso.
-                  </p>
-                </div>
-              </div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                LIDERANÇA RESPONSÁVEL *
-              </label>
-
-              {usuarioLogado?.nivel === ROLES.LIDERANCA ? (
-                // LIDERANÇA: mostra sua própria liderança como somente-leitura
-                <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
-                  {liderancas.find(l => String(l.id) === String(formData.liderancaVinculada))?.nome || 'Carregando...'}
-                  {carregandoLiderancas && <span className="text-xs text-gray-400 ml-2">Carregando...</span>}
-                </div>
-              ) : (
-                <select
-                  name="liderancaVinculada"
-                  value={formData.liderancaVinculada}
+                  type="text"
+                  name="nome"
+                  value={formData.nome}
                   onChange={handleChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                    errors.liderancaVinculada ? 'border-red-500' : 'border-gray-300'
+                    errors.nome ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Digite o nome completo do usuário"
+                />
+                {errors.nome && (
+                  <p className="mt-1 text-sm text-red-600">{errors.nome}</p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  EMAIL *
+                </label>
+                <div className="relative">
+                  <FontAwesomeIcon icon={faEnvelope} className="absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                      errors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="usuario@exemplo.com"
+                  />
+                </div>
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                )}
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  STATUS *
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="ATIVO">Ativo</option>
+                  <option value="INATIVO">Inativo</option>
+                </select>
+              </div>
+
+              {/* Senha */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  SENHA *
+                </label>
+                <div className="relative">
+                  <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="password"
+                    name="senha"
+                    value={formData.senha}
+                    onChange={handleChange}
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                      errors.senha ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+                {errors.senha && (
+                  <p className="mt-1 text-sm text-red-600">{errors.senha}</p>
+                )}
+              </div>
+
+              {/* Confirmar Senha */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  CONFIRMAR SENHA *
+                </label>
+                <div className="relative">
+                  <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="password"
+                    name="confirmarSenha"
+                    value={formData.confirmarSenha}
+                    onChange={handleChange}
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                      errors.confirmarSenha ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Digite a senha novamente"
+                  />
+                </div>
+                {errors.confirmarSenha && (
+                  <p className="mt-1 text-sm text-red-600">{errors.confirmarSenha}</p>
+                )}
+              </div>
+
+              {/* Mandatos do Usuário */}
+              <div className="md:col-span-2 bg-teal-50/60 p-4 rounded-xl border border-teal-200 mt-2">
+                <label className="block text-sm font-bold text-teal-900 mb-1">
+                  MANDATOS DO USUÁRIO *
+                </label>
+                <p className="text-xs text-teal-700 mb-3">
+                  Selecione a qual(is) mandato(s) este usuário terá acesso no sistema. Pelo menos um deve ser selecionado.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2.5 rounded-lg border border-teal-300 hover:border-teal-500 transition-colors shadow-sm">
+                    <input
+                      type="checkbox"
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(1)}
+                      onChange={() => handleMandatoToggle(1)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputado Estadual (Estadual)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2.5 rounded-lg border border-teal-300 hover:border-teal-500 transition-colors shadow-sm">
+                    <input
+                      type="checkbox"
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(2)}
+                      onChange={() => handleMandatoToggle(2)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputada Federal (Federal)</span>
+                  </label>
+                </div>
+                {errors.mandatos && (
+                  <p className="mt-2 text-sm text-red-600 font-semibold">{errors.mandatos}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Nível de Acesso */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faUserShield} className="text-purple-600 text-xl" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Nível de Acesso</h2>
+                <p className="text-sm text-gray-600">Defina as permissões do usuário</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {usuarioLogado?.nivel === ROLES.LIDERANCA && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-3">
+                  <FontAwesomeIcon icon={faUserShield} className="text-purple-600 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-purple-900 mb-1">Criar Operador da sua equipe</h4>
+                    <p className="text-sm text-purple-800">
+                      Como Liderança, você pode criar apenas usuários do tipo <strong>Operador</strong> vinculados à sua liderança.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {Object.values(ROLES)
+                .filter(role => usuarioLogado?.nivel !== ROLES.LIDERANCA || role === ROLES.OPERADOR)
+                .map((role) => (
+                <label
+                  key={role}
+                  className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    formData.nivel === role
+                      ? 'border-teal-500 bg-teal-50'
+                      : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <option value="">Selecione uma liderança</option>
-                  {liderancas.map((lideranca) => (
-                    <option key={lideranca.id} value={lideranca.id}>
-                    {lideranca.nome}
-                  </option>
-                ))}
-              </select>
-              )}
-              {errors.liderancaVinculada && (
-                <p className="mt-1 text-sm text-red-600">{errors.liderancaVinculada}</p>
-              )}
+                  <input
+                    type="radio"
+                    name="nivel"
+                    value={role}
+                    checked={formData.nivel === role}
+                    onChange={handleChange}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <FontAwesomeIcon icon={getRoleIcon(role)} className="text-xl" />
+                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getRoleColor(role)}`}>
+                        {role}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{ROLE_DESCRIPTIONS[role] || 'Acesso restrito conforme o módulo selecionado.'}</p>
+                  </div>
+                </label>
+              ))}
             </div>
-          )}
-        </div>
 
-        {/* Botões de Ação */}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-          >
-            <FontAwesomeIcon icon={faTimes} />
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={salvando}
-            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-60"
-          >
-            <FontAwesomeIcon icon={faSave} />
-            {salvando ? 'Salvando...' : 'Salvar Usuário'}
-          </button>
-        </div>
-      </form>
-    </Layout>
+            {formData.nivel === ROLES.OPERADOR && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3 mb-4">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-blue-600 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900 mb-1">Vinculação Obrigatória</h4>
+                    <p className="text-sm text-blue-800">
+                      Operadores devem estar vinculados a uma liderança para controle de acesso.
+                    </p>
+                  </div>
+                </div>
 
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  LIDERANÇA RESPONSÁVEL *
+                </label>
+
+                {usuarioLogado?.nivel === ROLES.LIDERANCA ? (
+                  <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                    {liderancas.find(l => String(l.id) === String(formData.liderancaVinculada))?.nome || 'Carregando...'}
+                    {carregandoLiderancas && <span className="text-xs text-gray-400 ml-2">Carregando...</span>}
+                  </div>
+                ) : (
+                  <select
+                    name="liderancaVinculada"
+                    value={formData.liderancaVinculada}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                      errors.liderancaVinculada ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Selecione uma liderança</option>
+                    {liderancas.map((lideranca) => (
+                      <option key={lideranca.id} value={lideranca.id}>
+                        {lideranca.nome}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {errors.liderancaVinculada && (
+                  <p className="mt-1 text-sm text-red-600">{errors.liderancaVinculada}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            >
+              <FontAwesomeIcon icon={faTimes} />
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-60"
+            >
+              <FontAwesomeIcon icon={faSave} />
+              {salvando ? 'Salvando...' : 'Salvar Usuário'}
+            </button>
+          </div>
+        </form>
+      </Layout>
     </ProtectedRoute>
   );
 }

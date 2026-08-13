@@ -16,6 +16,14 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
+    // Buscar mandatos vinculados
+    const { data: vinculos } = await supabase
+      .from('usuarios_mandatos')
+      .select('mandato_id')
+      .eq('usuario_id', usuario.id);
+
+    const mandatos = (vinculos || []).map(v => v.mandato_id);
+
     return res.status(200).json({
       data: {
         id: usuario.id,
@@ -23,7 +31,8 @@ export default async function handler(req, res) {
         email: usuario.email,
         nivel: usuario.nivel,
         status: usuario.status,
-        lideranca_id: usuario.lideranca_id
+        lideranca_id: usuario.lideranca_id,
+        mandatos
       },
       traceId
     });

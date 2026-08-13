@@ -179,9 +179,48 @@ export function exigirAcessoMandatoConnect(usuario) {
   exigirUsuario(usuario);
 
   const nivel = String(usuario?.nivel || '').toUpperCase();
-  if (!['ADMINISTRADOR', 'LIDERANCA', 'SUPERVISOR_CONNECT'].includes(nivel)) {
-    const err = new Error('Acesso restrito ao Mandato Connect');
+  if (!['ADMINISTRADOR', 'SUPERVISOR_CONNECT', 'ATENDENTE_CONNECT'].includes(nivel)) {
+    const err = new Error('Acesso restrito ao modulo Mandato Connect');
     err.statusCode = 403;
     throw err;
   }
+}
+
+/**
+ * Valida e resolve o Mandato Ativo do usuário garantindo autorização no servidor.
+ * NUNCA aceita um mandato_id solicitado se o usuário não tiver vínculo em usuarios_mandatos.
+ */
+export async function obterContextoMandato(req, usuario, supabase) {
+  exigirUsuario(usuario);
+
+  // Buscar vínculos do usuário
+  let userMandates = usuario.mandatos || [];
+  if (!userMandates.length && supabase && usuario.id) {
+    const { data } = await supabase
+      .from('usuarios_mandatos')
+      .select('mandato_id')
+      .eq('usuario_id', usuario.id);
+    userMandates = (data || []).map(v => v.mandato_id);
+  }
+
+  // Mandato solicitado no header, cookie ou query
+  const rawRequested = req?.headers?.['x-mandato-ativo']
+    || req?.cookies?.mandato_ativo
+    || req?.query?.mandato_id
+    || req?.query?.mandatoAtivoId;
+  const requestedId = rawRequested ? Number(rawRequested) : null;
+
+  // Se o usuário tiver vínculo com o mandato solicitado, aceita; caso contrário, usa o 1º mandato do usuário (ou 1 por padrão)
+  let mandatoAtivoId = 1;
+  if (requestedId && userMandates.includes(requestedId)) {
+    mandatoAtivoId = requestedId;
+  } else if (userMandates.length > 0) {
+    mandatoAtivoId = userMandates[0];
+  }
+
+  return {
+    mandatoAtivoId,
+    mandatos: userMandates,
+    temAcessoMultiplo: userMandates.length > 1 || usuario.nivel === 'ADMINISTRADOR'
+  };
 }

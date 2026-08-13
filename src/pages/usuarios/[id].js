@@ -34,7 +34,8 @@ export default function EditarUsuario() {
     email: '',
     nivel: ROLES.OPERADOR,
     liderancaVinculada: '',
-    status: 'ATIVO'
+    status: 'ATIVO',
+    mandatos: []
   });
 
   const [alterarSenha, setAlterarSenha] = useState(false);
@@ -44,18 +45,15 @@ export default function EditarUsuario() {
   const [errors, setErrors] = useState({});
 
   const carregarUsuario = useCallback(async (signal) => {
-    const response = await fetch(`/api/usuarios/${id}`, {
-      signal
-    });
-
+    const response = await fetch(`/api/usuarios/${id}`, { signal });
     const body = await response.json();
     if (!response.ok) {
-      throw new Error(body?.message || 'Erro ao carregar usuario');
+      throw new Error(body?.message || 'Erro ao carregar usuário');
     }
 
     const usuario = body?.data;
     if (!usuario) {
-      throw new Error('Usuario nao encontrado');
+      throw new Error('Usuário não encontrado');
     }
 
     setFormData({
@@ -63,27 +61,23 @@ export default function EditarUsuario() {
       email: usuario.email || '',
       nivel: usuario.nivel || ROLES.OPERADOR,
       liderancaVinculada: usuario.lideranca_id || '',
-      status: usuario.status || 'ATIVO'
+      status: usuario.status || 'ATIVO',
+      mandatos: Array.isArray(usuario.mandatos) ? usuario.mandatos : []
     });
   }, [id]);
 
   const carregarLiderancas = useCallback(async (signal) => {
     try {
       setCarregandoLiderancas(true);
-
-      const response = await fetch('/api/usuarios/liderancas-opcoes', {
-        signal
-      });
-
+      const response = await fetch('/api/usuarios/liderancas-opcoes', { signal });
       const body = await response.json();
       if (!response.ok) {
-        throw new Error(body?.message || 'Erro ao carregar liderancas');
+        throw new Error(body?.message || 'Erro ao carregar lideranças');
       }
-
       setLiderancas(Array.isArray(body?.data) ? body.data : []);
     } catch (error) {
       if (!isAbortError(error)) {
-        showErrorRef.current('Erro ao carregar liderancas: ' + error.message);
+        showErrorRef.current('Erro ao carregar lideranças: ' + error.message);
       }
     } finally {
       if (!signal?.aborted) {
@@ -106,10 +100,8 @@ export default function EditarUsuario() {
           carregarLiderancas(abortController.signal)
         ]);
       } catch (error) {
-        if (!ativo || isAbortError(error)) {
-          return;
-        }
-        showErrorRef.current('Erro ao carregar usuario: ' + error.message);
+        if (!ativo || isAbortError(error)) return;
+        showErrorRef.current('Erro ao carregar usuário: ' + error.message);
         router.push('/usuarios');
       } finally {
         if (ativo) {
@@ -128,17 +120,24 @@ export default function EditarUsuario() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
+  };
+
+  const handleMandatoToggle = (mandatoId) => {
+    setFormData((prev) => {
+      const mandatosAtuais = Array.isArray(prev.mandatos) ? [...prev.mandatos] : [];
+      const existe = mandatosAtuais.includes(mandatoId);
+      let novosMandatos = [];
+      if (existe) {
+        novosMandatos = mandatosAtuais.filter((mId) => mId !== mandatoId);
+      } else {
+        novosMandatos = [...mandatosAtuais, mandatoId];
+      }
+      return { ...prev, mandatos: novosMandatos };
+    });
   };
 
   const validateForm = () => {
@@ -170,6 +169,10 @@ export default function EditarUsuario() {
       newErrors.liderancaVinculada = 'Operadores devem estar vinculados a uma liderança';
     }
 
+    if (!Array.isArray(formData.mandatos) || formData.mandatos.length === 0) {
+      newErrors.mandatos = 'Selecione ao menos um mandato para o usuário';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -177,9 +180,7 @@ export default function EditarUsuario() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       setSalvando(true);
@@ -192,20 +193,19 @@ export default function EditarUsuario() {
         lideranca_id: formData.nivel === ROLES.OPERADOR
           ? Number(formData.liderancaVinculada)
           : null,
+        mandatos: formData.mandatos,
         ...(alterarSenha ? { senha: novaSenha } : {})
       };
 
       const response = await fetch(`/api/usuarios/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
       const body = await response.json();
       if (!response.ok) {
-        throw new Error(body?.message || 'Erro ao atualizar usuario');
+        throw new Error(body?.message || 'Erro ao atualizar usuário');
       }
 
       showSuccess('Usuário atualizado com sucesso!');
@@ -213,7 +213,7 @@ export default function EditarUsuario() {
         router.push('/usuarios');
       }, 1200);
     } catch (error) {
-      showError('Erro ao atualizar usuario: ' + error.message);
+      showError('Erro ao atualizar usuário: ' + error.message);
     } finally {
       setSalvando(false);
     }
@@ -225,14 +225,10 @@ export default function EditarUsuario() {
 
   const getRoleIcon = (nivel) => {
     switch (nivel) {
-      case ROLES.ADMINISTRADOR:
-        return faCrown;
-      case ROLES.LIDERANCA:
-        return faUserTie;
-      case ROLES.OPERADOR:
-        return faUser;
-      default:
-        return faUser;
+      case ROLES.ADMINISTRADOR: return faCrown;
+      case ROLES.LIDERANCA: return faUserTie;
+      case ROLES.OPERADOR: return faUser;
+      default: return faUser;
     }
   };
 
@@ -251,267 +247,298 @@ export default function EditarUsuario() {
 
   return (
     <ProtectedRoute module={MODULES.USUARIOS}>
-    <Layout titulo="Editar Usuário">
-      <Modal
-        isOpen={modalState.isOpen}
-        onClose={closeModal}
-        onConfirm={modalState.onConfirm}
-        title={modalState.title}
-        message={modalState.message}
-        type={modalState.type}
-        confirmText={modalState.confirmText}
-        cancelText={modalState.cancelText}
-        showCancel={modalState.showCancel}
-      />
+      <Layout titulo="Editar Usuário">
+        <Modal
+          isOpen={modalState.isOpen}
+          onClose={closeModal}
+          onConfirm={modalState.onConfirm}
+          title={modalState.title}
+          message={modalState.message}
+          type={modalState.type}
+          confirmText={modalState.confirmText}
+          cancelText={modalState.cancelText}
+          showCancel={modalState.showCancel}
+        />
 
-      <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-            <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
-              <FontAwesomeIcon icon={faUser} className="text-teal-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Dados do Usuário</h2>
-              <p className="text-sm text-gray-600">Edite as informações do usuário</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Nome Completo */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                NOME COMPLETO *
-              </label>
-              <input
-                type="text"
-                name="nome"
-                value={formData.nome}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                  errors.nome ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Digite o nome completo do usuário"
-              />
-              {errors.nome && (
-                <p className="mt-1 text-sm text-red-600">{errors.nome}</p>
-              )}
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                EMAIL *
-              </label>
-              <div className="relative">
-                <FontAwesomeIcon icon={faEnvelope} className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                    errors.email ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="usuario@exemplo.com"
-                />
+        <form onSubmit={handleSubmit}>
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faUser} className="text-teal-600 text-xl" />
               </div>
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-              )}
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                STATUS *
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-              >
-                <option value="ATIVO">Ativo</option>
-                <option value="INATIVO">Inativo</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Alterar Senha */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <FontAwesomeIcon icon={faKey} className="text-yellow-600 text-xl" />
               <div>
-                <h3 className="text-lg font-bold text-gray-800">Alterar Senha</h3>
-                <p className="text-sm text-gray-600">Deixe em branco para manter a senha atual</p>
+                <h2 className="text-xl font-bold text-gray-800">Dados do Usuário</h2>
+                <p className="text-sm text-gray-600">Edite as informações do usuário</p>
               </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={alterarSenha}
-                onChange={(e) => setAlterarSenha(e.target.checked)}
-                className="w-5 h-5 text-teal-600 rounded focus:ring-2 focus:ring-teal-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Alterar senha</span>
-            </label>
-          </div>
 
-          {alterarSenha && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Nova Senha */}
-              <div>
+              {/* Nome Completo */}
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  NOVA SENHA *
+                  NOME COMPLETO *
                 </label>
-                <div className="relative">
-                  <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
-                  <input
-                    type="password"
-                    value={novaSenha}
-                    onChange={(e) => setNovaSenha(e.target.value)}
-                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                      errors.novaSenha ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Mínimo 6 caracteres"
-                  />
-                </div>
-                {errors.novaSenha && (
-                  <p className="mt-1 text-sm text-red-600">{errors.novaSenha}</p>
-                )}
-              </div>
-
-              {/* Confirmar Nova Senha */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  CONFIRMAR NOVA SENHA *
-                </label>
-                <div className="relative">
-                  <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
-                  <input
-                    type="password"
-                    value={confirmarNovaSenha}
-                    onChange={(e) => setConfirmarNovaSenha(e.target.value)}
-                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                      errors.confirmarNovaSenha ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Digite a senha novamente"
-                  />
-                </div>
-                {errors.confirmarNovaSenha && (
-                  <p className="mt-1 text-sm text-red-600">{errors.confirmarNovaSenha}</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Nível de Acesso */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <FontAwesomeIcon icon={faUserShield} className="text-purple-600 text-xl" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Nível de Acesso</h2>
-              <p className="text-sm text-gray-600">Defina as permissões do usuário</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {Object.values(ROLES).map((role) => (
-              <label
-                key={role}
-                className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  formData.nivel === role
-                    ? 'border-teal-500 bg-teal-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
                 <input
-                  type="radio"
-                  name="nivel"
-                  value={role}
-                  checked={formData.nivel === role}
+                  type="text"
+                  name="nome"
+                  value={formData.nome}
                   onChange={handleChange}
-                  className="mt-1"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                    errors.nome ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Digite o nome completo do usuário"
                 />
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <FontAwesomeIcon icon={getRoleIcon(role)} className="text-xl" />
-                    <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getRoleColor(role)}`}>
-                      {role}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700">{ROLE_DESCRIPTIONS[role]}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-
-          {formData.nivel === ROLES.OPERADOR && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start gap-3 mb-4">
-                <FontAwesomeIcon icon={faExclamationTriangle} className="text-blue-600 mt-1" />
-                <div>
-                  <h4 className="font-semibold text-blue-900 mb-1">Vinculação Obrigatória</h4>
-                  <p className="text-sm text-blue-800">
-                    Operadores devem estar vinculados a uma liderança para controle de acesso.
-                  </p>
-                </div>
+                {errors.nome && (
+                  <p className="mt-1 text-sm text-red-600">{errors.nome}</p>
+                )}
               </div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                LIDERANÇA RESPONSÁVEL *
-              </label>
-              <select
-                name="liderancaVinculada"
-                value={formData.liderancaVinculada}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                  errors.liderancaVinculada ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Selecione uma liderança</option>
-                {liderancas.map((lideranca) => (
-                  <option key={lideranca.id} value={lideranca.id}>
-                    {lideranca.nome}
-                  </option>
-                ))}
-              </select>
-              {carregandoLiderancas && (
-                <p className="mt-1 text-xs text-gray-500">Carregando liderancas...</p>
-              )}
-              {errors.liderancaVinculada && (
-                <p className="mt-1 text-sm text-red-600">{errors.liderancaVinculada}</p>
-              )}
-            </div>
-          )}
-        </div>
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  EMAIL *
+                </label>
+                <div className="relative">
+                  <FontAwesomeIcon icon={faEnvelope} className="absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                      errors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="usuario@exemplo.com"
+                  />
+                </div>
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                )}
+              </div>
 
-        {/* Botões de Ação */}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-          >
-            <FontAwesomeIcon icon={faTimes} />
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={salvando}
-            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-60"
-          >
-            <FontAwesomeIcon icon={faSave} />
-            {salvando ? 'Salvando...' : 'Salvar Alterações'}
-          </button>
-        </div>
-      </form>
-    </Layout>
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  STATUS *
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="ATIVO">Ativo</option>
+                  <option value="INATIVO">Inativo</option>
+                </select>
+              </div>
+
+              {/* Mandatos do Usuário */}
+              <div className="md:col-span-2 bg-teal-50/60 p-4 rounded-xl border border-teal-200 mt-2">
+                <label className="block text-sm font-bold text-teal-900 mb-1">
+                  MANDATOS DO USUÁRIO *
+                </label>
+                <p className="text-xs text-teal-700 mb-3">
+                  Selecione a qual(is) mandato(s) este usuário terá acesso no sistema. Pelo menos um deve ser selecionado.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2.5 rounded-lg border border-teal-300 hover:border-teal-500 transition-colors shadow-sm">
+                    <input
+                      type="checkbox"
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(1)}
+                      onChange={() => handleMandatoToggle(1)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputado Estadual (Estadual)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2.5 rounded-lg border border-teal-300 hover:border-teal-500 transition-colors shadow-sm">
+                    <input
+                      type="checkbox"
+                      checked={Array.isArray(formData.mandatos) && formData.mandatos.includes(2)}
+                      onChange={() => handleMandatoToggle(2)}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-xs md:text-sm font-bold text-gray-800">🏛️ Deputada Federal (Federal)</span>
+                  </label>
+                </div>
+                {errors.mandatos && (
+                  <p className="mt-2 text-sm text-red-600 font-semibold">{errors.mandatos}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Alterar Senha */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <FontAwesomeIcon icon={faKey} className="text-yellow-600 text-xl" />
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">Alterar Senha</h3>
+                  <p className="text-sm text-gray-600">Deixe em branco para manter a senha atual</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={alterarSenha}
+                  onChange={(e) => setAlterarSenha(e.target.checked)}
+                  className="w-5 h-5 text-teal-600 rounded focus:ring-2 focus:ring-teal-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Alterar senha</span>
+              </label>
+            </div>
+
+            {alterarSenha && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    NOVA SENHA *
+                  </label>
+                  <div className="relative">
+                    <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
+                    <input
+                      type="password"
+                      value={novaSenha}
+                      onChange={(e) => setNovaSenha(e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                        errors.novaSenha ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                  </div>
+                  {errors.novaSenha && (
+                    <p className="mt-1 text-sm text-red-600">{errors.novaSenha}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CONFIRMAR NOVA SENHA *
+                  </label>
+                  <div className="relative">
+                    <FontAwesomeIcon icon={faKey} className="absolute left-3 top-3 text-gray-400" />
+                    <input
+                      type="password"
+                      value={confirmarNovaSenha}
+                      onChange={(e) => setConfirmarNovaSenha(e.target.value)}
+                      className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                        errors.confirmarNovaSenha ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Digite a senha novamente"
+                    />
+                  </div>
+                  {errors.confirmarNovaSenha && (
+                    <p className="mt-1 text-sm text-red-600">{errors.confirmarNovaSenha}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Nível de Acesso */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <FontAwesomeIcon icon={faUserShield} className="text-purple-600 text-xl" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Nível de Acesso</h2>
+                <p className="text-sm text-gray-600">Defina as permissões do usuário</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {Object.values(ROLES).map((role) => (
+                <label
+                  key={role}
+                  className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    formData.nivel === role
+                      ? 'border-teal-500 bg-teal-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="nivel"
+                    value={role}
+                    checked={formData.nivel === role}
+                    onChange={handleChange}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <FontAwesomeIcon icon={getRoleIcon(role)} className="text-xl" />
+                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getRoleColor(role)}`}>
+                        {role}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{ROLE_DESCRIPTIONS[role]}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {formData.nivel === ROLES.OPERADOR && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3 mb-4">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-blue-600 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900 mb-1">Vinculação Obrigatória</h4>
+                    <p className="text-sm text-blue-800">
+                      Operadores devem estar vinculados a uma liderança para controle de acesso.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  LIDERANÇA RESPONSÁVEL *
+                </label>
+                <select
+                  name="liderancaVinculada"
+                  value={formData.liderancaVinculada}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                    errors.liderancaVinculada ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                >
+                  <option value="">Selecione uma liderança</option>
+                  {liderancas.map((lideranca) => (
+                    <option key={lideranca.id} value={lideranca.id}>
+                      {lideranca.nome}
+                    </option>
+                  ))}
+                </select>
+                {carregandoLiderancas && (
+                  <p className="mt-1 text-xs text-gray-500">Carregando lideranças...</p>
+                )}
+                {errors.liderancaVinculada && (
+                  <p className="mt-1 text-sm text-red-600">{errors.liderancaVinculada}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            >
+              <FontAwesomeIcon icon={faTimes} />
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-60"
+            >
+              <FontAwesomeIcon icon={faSave} />
+              {salvando ? 'Salvando...' : 'Salvar Alterações'}
+            </button>
+          </div>
+        </form>
+      </Layout>
     </ProtectedRoute>
   );
 }

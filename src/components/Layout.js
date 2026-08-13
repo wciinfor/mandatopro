@@ -56,9 +56,12 @@ function obterModuloAtivo(path = '') {
 
 export default function Layout({ children, titulo = 'MandatoPro' }) {
   const router = useRouter();
-  const { user, loading, updateUser } = useAuth();
+  const { user, loading, updateUser, mandatoAtivoId, setMandatoAtivoId } = useAuth();
   const [sidebarAberto, setSidebarAberto] = useState(false);
   const moduloAtivo = obterModuloAtivo(router.asPath || router.pathname);
+
+  // Mostrar seletor de mandato apenas se o usuário tiver acesso a múltiplos mandatos ou for ADMIN
+  const temAcessoMultiplo = user?.nivel === 'ADMINISTRADOR' || (Array.isArray(user?.mandatos) && user.mandatos.length > 1);
 
   useEffect(() => {
     if (loading) return;
@@ -112,7 +115,20 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mr-4">
+            <div className="flex items-center gap-2 md:gap-3 mr-4 flex-wrap">
+              {temAcessoMultiplo && (
+                <div className="flex items-center gap-1.5 bg-teal-50 border border-teal-200 px-2.5 py-1.5 rounded-lg text-xs font-medium text-teal-900 shadow-sm">
+                  <span className="hidden sm:inline font-semibold text-teal-700">Mandato Ativo:</span>
+                  <select
+                    value={mandatoAtivoId || 1}
+                    onChange={(e) => setMandatoAtivoId(Number(e.target.value))}
+                    className="bg-white border border-teal-300 rounded px-2 py-1 text-xs text-teal-900 font-bold focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                  >
+                    <option value={1}>🏛️ Deputado Estadual</option>
+                    <option value={2}>🏛️ Deputada Federal</option>
+                  </select>
+                </div>
+              )}
               <NotificationBell />
               <div className="flex items-center gap-2 bg-teal-100 px-3 py-2 rounded-lg">
                 <FontAwesomeIcon icon={faUserTie} className="text-sm text-teal-700" />

@@ -138,12 +138,29 @@ export function AuthProvider({ children }) {
     setUser(userData);
   };
 
+  const [mandatoAtivoId, setMandatoAtivoIdState] = useState(1);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('mandato_ativo');
+    if (saved) {
+      setMandatoAtivoIdState(Number(saved));
+    }
+  }, []);
+
+  const setMandatoAtivoId = (id) => {
+    const numId = Number(id);
+    setMandatoAtivoIdState(numId);
+    localStorage.setItem('mandato_ativo', String(numId));
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
     updateUser,
+    mandatoAtivoId,
+    setMandatoAtivoId,
     isAuthenticated: !!user,
     isAdmin: user?.nivel === ROLES.ADMINISTRADOR,
     isLideranca: user?.nivel === ROLES.LIDERANCA,

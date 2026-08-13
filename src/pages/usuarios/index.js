@@ -57,14 +57,14 @@ export default function Usuarios() {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.message || 'Erro ao carregar usuarios');
+        throw new Error(data?.message || 'Erro ao carregar usuários');
       }
 
       setUsuarios(data.data || []);
       setTotalRegistros(data.total || 0);
     } catch (error) {
       if (error?.name !== 'AbortError') {
-        showErrorRef.current('Erro ao carregar usuarios: ' + error.message);
+        showErrorRef.current('Erro ao carregar usuários: ' + error.message);
       }
     } finally {
       if (!signal?.aborted) {
@@ -106,8 +106,8 @@ export default function Usuarios() {
 
   const handleExcluir = (usuario) => {
     showConfirm(
-      'Confirmar Exclusao',
-      `Tem certeza que deseja desativar o usuario "${usuario.nome}"?`,
+      'Confirmar Exclusão',
+      `Tem certeza que deseja desativar o usuário "${usuario.nome}"?`,
       () => {
         excluirUsuario(usuario.id);
       }
@@ -121,12 +121,12 @@ export default function Usuarios() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.message || 'Erro ao desativar usuario');
+        throw new Error(data?.message || 'Erro ao desativar usuário');
       }
-      showSuccess('Usuario desativado com sucesso!');
+      showSuccess('Usuário desativado com sucesso!');
       carregarUsuarios();
     } catch (error) {
-      showError('Erro ao desativar usuario: ' + error.message);
+      showError('Erro ao desativar usuário: ' + error.message);
     }
   };
 
@@ -136,7 +136,7 @@ export default function Usuarios() {
 
     showConfirm(
       `Confirmar ${acao.charAt(0).toUpperCase() + acao.slice(1)}`,
-      `Tem certeza que deseja ${acao} o usuario "${usuario.nome}"?`,
+      `Tem certeza que deseja ${acao} o usuário "${usuario.nome}"?`,
       () => {
         atualizarStatusUsuario(usuario.id, novoStatus);
       }
@@ -166,7 +166,7 @@ export default function Usuarios() {
   const handleResetarSenha = (usuario) => {
     showConfirm(
       'Resetar Senha',
-      `Deseja gerar um link de recuperacao para "${usuario.nome}"?`,
+      `Deseja gerar um link de recuperação para "${usuario.nome}"?`,
       () => {
         resetarSenhaUsuario(usuario.id);
       }
@@ -185,12 +185,12 @@ export default function Usuarios() {
 
       const actionLink = String(data?.actionLink || '').trim();
       if (!actionLink) {
-        showSuccess('Link de recuperacao gerado.');
+        showSuccess('Link de recuperação gerado.');
         return;
       }
 
       showModal({
-        message: 'Link de recuperacao gerado.',
+        message: 'Link de recuperação gerado.',
         type: 'success',
         confirmText: 'Clique aqui para Redefinir',
         onConfirm: () => {
@@ -201,7 +201,7 @@ export default function Usuarios() {
           const popup = window.open(actionLink, '_blank', 'noopener,noreferrer');
           if (!popup) {
             openingRecoveryLinkRef.current = false;
-            showError('Nao foi possivel abrir a nova janela. Habilite pop-up para continuar.');
+            showError('Não foi possível abrir a nova janela. Habilite pop-up para continuar.');
             return;
           }
 
@@ -366,32 +366,35 @@ export default function Usuarios() {
       {/* Tabela de Usuários */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Carregando usuarios...</div>
+          <div className="text-center py-12 text-gray-500">Carregando usuários...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Usuario
+                    Usuário
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Email
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nivel de Acesso
+                    Nível de Acesso
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Lideranca Vinculada
+                    Mandato(s)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Liderança Vinculada
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ultimo Acesso
+                    Último Acesso
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acoes
+                    Ações
                   </th>
                 </tr>
               </thead>
@@ -416,9 +419,25 @@ export default function Usuarios() {
                       <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(usuario.nivel)}`}>
                         {usuario.nivel}
                       </span>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {ROLE_DESCRIPTIONS[usuario.nivel] || 'Acesso restrito conforme o modulo selecionado.'}
-                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {Array.isArray(usuario.mandatos) && usuario.mandatos.includes(1) && usuario.mandatos.includes(2) ? (
+                        <span className="px-2.5 py-1 inline-flex text-xs leading-4 font-bold rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+                          🏛️ Estadual + Federal
+                        </span>
+                      ) : Array.isArray(usuario.mandatos) && usuario.mandatos.includes(1) ? (
+                        <span className="px-2.5 py-1 inline-flex text-xs leading-4 font-bold rounded-full bg-teal-100 text-teal-800 border border-teal-300">
+                          🏛️ Estadual
+                        </span>
+                      ) : Array.isArray(usuario.mandatos) && usuario.mandatos.includes(2) ? (
+                        <span className="px-2.5 py-1 inline-flex text-xs leading-4 font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                          🏛️ Federal
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 inline-flex text-xs leading-4 font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                          ⚠️ Não Vinculado
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
@@ -477,7 +496,7 @@ export default function Usuarios() {
         {!loading && usuariosFiltrados.length === 0 && (
           <div className="text-center py-12">
             <FontAwesomeIcon icon={faUsers} className="text-6xl text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum usuario encontrado</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum usuário encontrado</h3>
             <p className="text-gray-500">Tente ajustar os filtros de busca</p>
           </div>
         )}
@@ -493,14 +512,14 @@ export default function Usuarios() {
             Anterior
           </button>
           <span className="text-sm text-gray-600">
-            Pagina {paginaAtual} de {totalPaginas}
+            Página {paginaAtual} de {totalPaginas}
           </span>
           <button
             onClick={() => irParaPagina(paginaAtual + 1)}
             className="px-3 py-2 bg-gray-100 text-gray-700 rounded disabled:opacity-50"
             disabled={paginaAtual >= totalPaginas}
           >
-            Proxima
+            Próxima
           </button>
         </div>
       )}

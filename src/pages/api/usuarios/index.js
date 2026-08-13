@@ -53,8 +53,28 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: error.message, traceId });
       }
 
+      // Buscar vínculos de mandatos dos usuários retornados
+      const userIds = (data || []).map(u => u.id);
+      let mapaMandatos = {};
+      if (userIds.length > 0) {
+        const { data: vinculos } = await supabase
+          .from('usuarios_mandatos')
+          .select('usuario_id, mandato_id')
+          .in('usuario_id', userIds);
+
+        (vinculos || []).forEach(v => {
+          if (!mapaMandatos[v.usuario_id]) mapaMandatos[v.usuario_id] = [];
+          mapaMandatos[v.usuario_id].push(v.mandato_id);
+        });
+      }
+
+      const usuariosComMandatos = (data || []).map(u => ({
+        ...u,
+        mandatos: mapaMandatos[u.id] || []
+      }));
+
       return res.status(200).json({
-        data: data || [],
+        data: usuariosComMandatos,
         total: count || 0,
         limit,
         offset,
@@ -69,15 +89,19 @@ export default async function handler(req, res) {
       const nome = String(body.nome || '').trim();
       const nivel = String(body.nivel || '').toUpperCase();
       const status = String(body.status || 'ATIVO').toUpperCase();
+      const mandatos = Array.isArray(body.mandatos) ? body.mandatos.map(Number).filter(Boolean) : [];
 
       if (!email || !senha || !nome) {
-        return res.status(400).json({ message: 'Nome, email e senha sao obrigatorios', traceId });
+        return res.status(400).json({ message: 'Nome, email e senha são obrigatórios', traceId });
       }
       if (!NIVEIS.includes(nivel)) {
-        return res.status(400).json({ message: 'Nivel invalido', traceId });
+        return res.status(400).json({ message: 'Nível inválido', traceId });
       }
       if (!STATUS.includes(status)) {
-        return res.status(400).json({ message: 'Status invalido', traceId });
+        return res.status(400).json({ message: 'Status inválido', traceId });
+      }
+      if (mandatos.length === 0) {
+        return res.status(400).json({ message: 'O usuário deve estar vinculado a pelo menos um mandato', traceId });
       }
 
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -87,7 +111,7 @@ export default async function handler(req, res) {
       });
 
       if (authError || !authData?.user) {
-        return res.status(400).json({ message: authError?.message || 'Erro ao criar usuario', traceId });
+        return res.status(400).json({ message: authError?.message || 'Erro ao criar usuário', traceId });
       }
 
       const payload = {
@@ -102,33 +126,47 @@ export default async function handler(req, res) {
         updated_at: new Date().toISOString()
       };
 
-      const { data, error } = await supabase
+      const { data: novoUsuario, error: createError } = await supabase
         .from('usuarios')
         .insert([payload])
-        .select()
+        .select('*')
         .single();
 
-      if (error) {
+      if (createError || !novoUsuario) {
         await supabase.auth.admin.deleteUser(authData.user.id);
-        return res.status(400).json({ message: error.message, traceId });
+        return res.status(400).json({ message: createError?.message || 'Erro ao inserir usuário', traceId });
       }
+
+      // Gravar mandatos na tabela usuarios_mandatos
+      const mandatosPayload = mandatos.map(mandato_id => ({
+        usuario_id: novoUsuario.id,
+        mandato_id
+      }));
+
+      await supabase.from('usuarios_mandatos').insert(mandatosPayload);
 
       await registrarAuditoria(supabase, buildAuditoriaPayload({
         usuario,
         acao: 'CADASTRO',
         modulo: 'USUARIOS',
-        descricao: 'Usuario cadastrado',
+        descricao: 'Usuário cadastrado com mandatos',
         dadosAnteriores: null,
-        dadosNovos: { usuario_id: data?.id, email: data?.email },
+        dadosNovos: { usuario_id: novoUsuario?.id, email: novoUsuario?.email, mandatos },
         status: 'SUCESSO',
         traceId,
         req
       }));
 
-      return res.status(201).json({ data, traceId });
+      return res.status(201).json({
+        data: {
+          ...novoUsuario,
+          mandatos
+        },
+        traceId
+      });
     }
 
-    return res.status(405).json({ message: 'Metodo nao permitido', traceId });
+    return res.status(405).json({ message: 'Método não permitido', traceId });
   } catch (error) {
     const status = error?.statusCode || 500;
     return res.status(status).json({ message: error.message || 'Erro interno', traceId });
