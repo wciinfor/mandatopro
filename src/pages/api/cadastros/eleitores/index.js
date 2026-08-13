@@ -525,6 +525,40 @@ export default async function handler(req, res) {
           }]);
       }
 
+      // Sincronizar Lideranças por Mandato na Criação (Sprint P2.9)
+      const lidEstadual = body.liderancaEstadualId ? parseInt(body.liderancaEstadualId) : null;
+      const lidFederal = body.liderancaFederalId ? parseInt(body.liderancaFederalId) : null;
+
+      if (lidEstadual && temEstadual && pertencimentoSolicitado !== 'FEDERAL') {
+        const { data: lidM1 } = await supabase
+          .from('liderancas_mandatos')
+          .select('lideranca_id')
+          .eq('lideranca_id', lidEstadual)
+          .eq('mandato_id', 1)
+          .maybeSingle();
+
+        if (lidM1) {
+          await supabase
+            .from('eleitores_liderancas_mandatos')
+            .insert([{ eleitor_id: eleitor.id, mandato_id: 1, lideranca_id: lidEstadual }]);
+        }
+      }
+
+      if (lidFederal && temFederal && pertencimentoSolicitado !== 'ESTADUAL') {
+        const { data: lidM2 } = await supabase
+          .from('liderancas_mandatos')
+          .select('lideranca_id')
+          .eq('lideranca_id', lidFederal)
+          .eq('mandato_id', 2)
+          .maybeSingle();
+
+        if (lidM2) {
+          await supabase
+            .from('eleitores_liderancas_mandatos')
+            .insert([{ eleitor_id: eleitor.id, mandato_id: 2, lideranca_id: lidFederal }]);
+        }
+      }
+
       return res.status(201).json(eleitor);
     }
 

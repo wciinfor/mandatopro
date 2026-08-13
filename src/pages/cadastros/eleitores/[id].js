@@ -18,6 +18,9 @@ export default function EditarEleitor() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [mandatosSelecionados, setMandatosSelecionados] = useState([]);
+  const [liderancas, setLiderancas] = useState([]);
+  const [liderancaEstadualId, setLiderancaEstadualId] = useState('');
+  const [liderancaFederalId, setLiderancaFederalId] = useState('');
 
   const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
   const permiteEstadual = userMandates.includes(1);
@@ -70,7 +73,6 @@ export default function EditarEleitor() {
     // Status do cadastro
     statusCadastro: 'ATIVO'
   });
-  const [liderancas, setLiderancas] = useState([]);
   const [buscaLideranca, setBuscaLideranca] = useState('');
 
   const normalizarTexto = (valor = '') =>
@@ -167,6 +169,14 @@ export default function EditarEleitor() {
         setMandatosSelecionados([]);
       }
 
+      // Mapear lideranças por mandato
+      if (data.liderancasPorMandato?.ESTADUAL?.id) {
+        setLiderancaEstadualId(String(data.liderancasPorMandato.ESTADUAL.id));
+      }
+      if (data.liderancasPorMandato?.FEDERAL?.id) {
+        setLiderancaFederalId(String(data.liderancasPorMandato.FEDERAL.id));
+      }
+
       setFormData(prev => ({
         ...prev,
         ...masked,
@@ -180,6 +190,13 @@ export default function EditarEleitor() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    fetch('/api/cadastros/liderancas?limit=500&status=ATIVO')
+      .then((res) => res.json())
+      .then((d) => setLiderancas(d.data || []))
+      .catch(() => {});
+  }, []);
 
   // Carregar dados do eleitor ao montar
   useEffect(() => {
@@ -304,6 +321,8 @@ export default function EditarEleitor() {
       const payload = {
         ...formData,
         pertencimento: pertencimentoFinal,
+        liderancaEstadualId: mandatosSelecionados.includes(1) && liderancaEstadualId ? parseInt(liderancaEstadualId) : null,
+        liderancaFederalId: mandatosSelecionados.includes(2) && liderancaFederalId ? parseInt(liderancaFederalId) : null,
         cpf: onlyDigits(formData.cpf),
         rg: onlyDigits(formData.rg),
         telefone: onlyDigits(formData.telefone),
@@ -446,6 +465,55 @@ export default function EditarEleitor() {
                 <span className="text-sm font-bold text-gray-800">🏛️ Deputada Federal</span>
               </label>
             </div>
+
+            {/* SELEÇÃO DE LIDERANÇAS POR MANDATO */}
+            {mandatosSelecionados.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-4 border-t border-teal-200">
+                {mandatosSelecionados.includes(1) && (
+                  <div>
+                    <label className="block text-xs font-bold text-teal-900 mb-1">
+                      LIDERANÇA — DEPUTADO ESTADUAL
+                    </label>
+                    <select
+                      value={liderancaEstadualId}
+                      onChange={(e) => setLiderancaEstadualId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-teal-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">[ Nenhuma / Não definida ]</option>
+                      {liderancas
+                        .filter((l) => !l.mandatos || l.mandatos.includes(1))
+                        .map((l) => (
+                          <option key={`m1-${l.id}`} value={l.id}>
+                            {l.nome} {l.bairro ? `(${l.bairro})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                {mandatosSelecionados.includes(2) && (
+                  <div>
+                    <label className="block text-xs font-bold text-teal-900 mb-1">
+                      LIDERANÇA — DEPUTADA FEDERAL
+                    </label>
+                    <select
+                      value={liderancaFederalId}
+                      onChange={(e) => setLiderancaFederalId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-teal-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">[ Nenhuma / Não definida ]</option>
+                      {liderancas
+                        .filter((l) => l.mandatos && l.mandatos.includes(2))
+                        .map((l) => (
+                          <option key={`m2-${l.id}`} value={l.id}>
+                            {l.nome} {l.bairro ? `(${l.bairro})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* DADOS PESSOAIS */}

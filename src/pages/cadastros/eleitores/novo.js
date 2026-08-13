@@ -30,6 +30,9 @@ export default function NovoEleitor() {
     return [permiteFederal && !permiteEstadual ? 2 : 1];
   });
 
+  const [liderancaEstadualId, setLiderancaEstadualId] = useState('');
+  const [liderancaFederalId, setLiderancaFederalId] = useState('');
+
   const [formData, setFormData] = useState({
     // Dados Pessoais
     cpf: '',
@@ -392,6 +395,8 @@ export default function NovoEleitor() {
       const payload = {
         ...formData,
         pertencimento: pertencimentoFinal,
+        liderancaEstadualId: mandatosSelecionados.includes(1) && liderancaEstadualId ? parseInt(liderancaEstadualId) : null,
+        liderancaFederalId: mandatosSelecionados.includes(2) && liderancaFederalId ? parseInt(liderancaFederalId) : null,
         cpf: onlyDigits(formData.cpf),
         rg: onlyDigits(formData.rg),
         telefone: onlyDigits(formData.telefone),
@@ -571,6 +576,55 @@ export default function NovoEleitor() {
                 <span className="text-sm font-bold text-gray-800">🏛️ Deputada Federal</span>
               </label>
             </div>
+
+            {/* SELEÇÃO DE LIDERANÇAS POR MANDATO */}
+            {mandatosSelecionados.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-4 border-t border-teal-200">
+                {mandatosSelecionados.includes(1) && (
+                  <div>
+                    <label className="block text-xs font-bold text-teal-900 mb-1">
+                      LIDERANÇA — DEPUTADO ESTADUAL
+                    </label>
+                    <select
+                      value={liderancaEstadualId}
+                      onChange={(e) => setLiderancaEstadualId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-teal-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">[ Nenhuma / Não definida ]</option>
+                      {liderancas
+                        .filter((l) => !l.mandatos || l.mandatos.includes(1))
+                        .map((l) => (
+                          <option key={`m1-${l.id}`} value={l.id}>
+                            {l.nome} {l.bairro ? `(${l.bairro})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                {mandatosSelecionados.includes(2) && (
+                  <div>
+                    <label className="block text-xs font-bold text-teal-900 mb-1">
+                      LIDERANÇA — DEPUTADA FEDERAL
+                    </label>
+                    <select
+                      value={liderancaFederalId}
+                      onChange={(e) => setLiderancaFederalId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-teal-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="">[ Nenhuma / Não definida ]</option>
+                      {liderancas
+                        .filter((l) => l.mandatos && l.mandatos.includes(2))
+                        .map((l) => (
+                          <option key={`m2-${l.id}`} value={l.id}>
+                            {l.nome} {l.bairro ? `(${l.bairro})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
