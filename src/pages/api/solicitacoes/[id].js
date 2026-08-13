@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado } from '@/lib/api-auth';
+import { obterContextoMandato, validarAcessoRegistroPorId } from '@/lib/mandato-auth';
 import { gerarTraceId } from '@/lib/financeiro-utils';
 
 function nivelUsuario(usuario) {
@@ -33,6 +34,18 @@ export default async function handler(req, res) {
   }
 
   const { id } = req.query;
+
+  let contextoMandato = null;
+  try {
+    contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const valAcc = await validarAcessoRegistroPorId('SOLICITACAO', id, contextoMandato, supabase);
+    if (!valAcc.autorizado) {
+      return res.status(valAcc.status).json({ message: valAcc.message, traceId });
+    }
+  } catch (err) {
+    const status = err?.statusCode || 403;
+    return res.status(status).json({ message: err?.message || 'Erro ao validar acesso de mandato', traceId });
+  }
 
   // ────────────────────────────────────────────────────────────
   // GET — buscar uma solicitação

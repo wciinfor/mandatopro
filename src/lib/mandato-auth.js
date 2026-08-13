@@ -132,5 +132,25 @@ export async function validarAcessoRegistroPorId(tipoEntidade, registroId, conte
     return { autorizado: true, registro: atd };
   }
 
+  if (tipoEntidade === 'SOLICITACAO') {
+    const { data: sol, error } = await clientSupabase
+      .from('solicitacoes')
+      .select('id, mandato_id')
+      .eq('id', registroId)
+      .maybeSingle();
+
+    if (error || !sol) return { autorizado: false, status: 404, message: 'Solicitação não encontrada' };
+
+    // mandato_id NULL é legado, compatível apenas com Mandato Estadual (1)
+    if (sol.mandato_id === null && mandatoId !== 1) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Solicitação legada pertence ao Mandato Estadual' };
+    }
+
+    if (sol.mandato_id !== null && sol.mandato_id !== mandatoId) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Solicitação pertence a outro mandato' };
+    }
+    return { autorizado: true, registro: sol };
+  }
+
   return { autorizado: true };
 }

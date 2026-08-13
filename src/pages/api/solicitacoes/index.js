@@ -12,6 +12,7 @@
 
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 import { gerarTraceId } from '@/lib/financeiro-utils';
 
 function nivelUsuario(usuario) {
@@ -44,6 +45,14 @@ export default async function handler(req, res) {
     return res.status(403).json({ message: 'Acesso restrito para liderança e administrador', traceId });
   }
 
+  let contextoMandato = null;
+  try {
+    contextoMandato = await obterContextoMandato(req, usuario, supabase);
+  } catch (err) {
+    const status = err?.statusCode || 403;
+    return res.status(status).json({ message: err?.message || 'Erro ao resolver contexto de mandato', traceId });
+  }
+
   // ────────────────────────────────────────────────────────────
   // GET — listar solicitações com filtros + totais por status
   // ────────────────────────────────────────────────────────────
@@ -62,11 +71,20 @@ export default async function handler(req, res) {
       const off = Math.max(parseInt(offset, 10) || 0, 0);
 
       const aplicarEscopo = (query) => {
+        let q = query;
         if (isLideranca(usuario)) {
           const emailUsuario = String(usuario?.email || '').trim().toLowerCase();
-          return query.eq('email', emailUsuario || '__sem_email__');
+          q = q.eq('email', emailUsuario || '__sem_email__');
         }
-        return query;
+
+        // Filtro de mandato: Estadual inclui legados (NULL), Federal restringe estritamente (mandato_id = 2)
+        if (contextoMandato.mandatoId === 1) {
+          q = q.or(`mandato_id.eq.${contextoMandato.mandatoId},mandato_id.is.null`);
+        } else {
+          q = q.eq('mandato_id', contextoMandato.mandatoId);
+        }
+
+        return q;
       };
 
       const aplicarFiltros = (query) => {
@@ -197,6 +215,7 @@ export default async function handler(req, res) {
             email: emailSolicitante,
             status: 'NOVO',
             data_abertura: new Date().toISOString().slice(0, 10),
+            mandato_id: contextoMandato.mandatoId, // Grava obrigatoriamente o mandato ativo resolvido do backend
           },
         ])
         .select()
