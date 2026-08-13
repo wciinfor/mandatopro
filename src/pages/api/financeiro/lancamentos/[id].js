@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterContextoMandato, validarAcessoRegistroPorId } from '@/lib/mandato-auth';
 import {
   gerarTraceId,
   normalizarValor,
@@ -22,6 +23,18 @@ export default async function handler(req, res) {
 
     if (Number.isNaN(lancamentoId)) {
       return res.status(400).json({ message: 'Id invalido', traceId });
+    }
+
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const validacaoMandato = await validarAcessoRegistroPorId(
+      'FINANCEIRO_LANCAMENTO',
+      lancamentoId,
+      contextoMandato.mandatoId,
+      supabase
+    );
+
+    if (!validacaoMandato.autorizado) {
+      return res.status(validacaoMandato.status).json({ message: validacaoMandato.message, traceId });
     }
 
     if (req.method === 'GET') {

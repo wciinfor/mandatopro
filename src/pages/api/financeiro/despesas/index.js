@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 import {
   gerarTraceId,
   normalizarValor,
@@ -18,6 +19,9 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirAdministrador(usuario);
 
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { mandatoId } = contextoMandato;
+
     if (req.method === 'GET') {
       const { search, tipo, status, categoria, parceiro_id, data_from, data_to } = req.query;
       const { limit, offset } = parsePaginacao(req.query, 20, 100);
@@ -27,6 +31,12 @@ export default async function handler(req, res) {
         .select('*', { count: 'exact' })
         .eq('ativo', true)
         .order('data_despesa', { ascending: false });
+
+      if (mandatoId === 1) {
+        query = query.or('mandato_id.eq.1,mandato_id.is.null');
+      } else {
+        query = query.eq('mandato_id', mandatoId);
+      }
 
       if (tipo) query = query.eq('tipo', String(tipo).toUpperCase());
       if (status) query = query.eq('status', String(status).toUpperCase());
@@ -74,6 +84,7 @@ export default async function handler(req, res) {
         descricao: normalizarValor(body.descricao),
         status: String(body.status || 'PENDENTE').toUpperCase(),
         ativo: true,
+        mandato_id: mandatoId,
         criado_por: usuario?.id || null,
         atualizado_por: usuario?.id || null,
         created_at: new Date().toISOString(),

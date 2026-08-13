@@ -172,5 +172,31 @@ export async function validarAcessoRegistroPorId(tipoEntidade, registroId, conte
     return { autorizado: true, registro: evento };
   }
 
+  if (['FINANCEIRO_PARCEIRO', 'FINANCEIRO_LANCAMENTO', 'FINANCEIRO_DESPESA'].includes(tipoEntidade)) {
+    const tabela = tipoEntidade === 'FINANCEIRO_PARCEIRO'
+      ? 'financeiro_parceiros'
+      : tipoEntidade === 'FINANCEIRO_LANCAMENTO'
+        ? 'financeiro_lancamentos'
+        : 'financeiro_despesas';
+
+    const { data: item, error } = await clientSupabase
+      .from(tabela)
+      .select('id, mandato_id')
+      .eq('id', parseInt(registroId))
+      .maybeSingle();
+
+    if (error || !item) return { autorizado: false, status: 404, message: 'Registro financeiro não encontrado' };
+
+    // mandato_id NULL é legado, compatível apenas com Mandato Estadual (1)
+    if (item.mandato_id === null && mandatoId !== 1) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Registro financeiro legado pertence ao Mandato Estadual' };
+    }
+
+    if (item.mandato_id !== null && item.mandato_id !== mandatoId) {
+      return { autorizado: false, status: 403, message: 'Acesso negado: Registro financeiro pertence a outro mandato' };
+    }
+    return { autorizado: true, registro: item };
+  }
+
   return { autorizado: true };
 }

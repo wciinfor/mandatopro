@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 import {
   gerarTraceId,
   normalizarValor,
@@ -18,6 +19,9 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirAdministrador(usuario);
 
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { mandatoId } = contextoMandato;
+
     if (req.method === 'GET') {
       const { search, tipo, status, include_inativos } = req.query;
       const { limit, offset } = parsePaginacao(req.query, 20, 100);
@@ -26,6 +30,12 @@ export default async function handler(req, res) {
         .from('financeiro_parceiros')
         .select('*', { count: 'exact' })
         .order('nome', { ascending: true });
+
+      if (mandatoId === 1) {
+        query = query.or('mandato_id.eq.1,mandato_id.is.null');
+      } else {
+        query = query.eq('mandato_id', mandatoId);
+      }
 
       if (!include_inativos) {
         query = query.eq('ativo', true);
@@ -52,11 +62,19 @@ export default async function handler(req, res) {
       let ultimaMap = new Map();
 
       if (parceiroIds.length > 0) {
-        const { data: lancs, error: lancError } = await supabase
+        let lancsQuery = supabase
           .from('financeiro_lancamentos')
           .select('parceiro_id, valor, data_lancamento, status')
           .in('parceiro_id', parceiroIds)
           .eq('ativo', true);
+
+        if (mandatoId === 1) {
+          lancsQuery = lancsQuery.or('mandato_id.eq.1,mandato_id.is.null');
+        } else {
+          lancsQuery = lancsQuery.eq('mandato_id', mandatoId);
+        }
+
+        const { data: lancs, error: lancError } = await lancsQuery;
 
         if (!lancError && lancs) {
           lancs.forEach((item) => {
@@ -108,6 +126,7 @@ export default async function handler(req, res) {
         observacoes: normalizarValor(body.observacoes),
         status: String(body.status || 'ATIVO').toUpperCase(),
         ativo: body.ativo !== false,
+        mandato_id: mandatoId,
         criado_por: usuario?.id || null,
         atualizado_por: usuario?.id || null,
         created_at: new Date().toISOString(),

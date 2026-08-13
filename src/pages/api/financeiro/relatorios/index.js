@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 import { gerarTraceId } from '@/lib/financeiro-utils';
 
 export const runtime = 'nodejs';
@@ -19,6 +20,9 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirAdministrador(usuario);
 
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { mandatoId } = contextoMandato;
+
     const { tipo, data_from, data_to } = req.query;
 
     let receitasQuery = supabase
@@ -30,6 +34,14 @@ export default async function handler(req, res) {
       .from('financeiro_despesas')
       .select('categoria, valor, data_despesa, status')
       .eq('ativo', true);
+
+    if (mandatoId === 1) {
+      receitasQuery = receitasQuery.or('mandato_id.eq.1,mandato_id.is.null');
+      despesasQuery = despesasQuery.or('mandato_id.eq.1,mandato_id.is.null');
+    } else {
+      receitasQuery = receitasQuery.eq('mandato_id', mandatoId);
+      despesasQuery = despesasQuery.eq('mandato_id', mandatoId);
+    }
 
     if (data_from) {
       receitasQuery = receitasQuery.gte('data_lancamento', data_from);
