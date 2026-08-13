@@ -402,76 +402,93 @@ export default function Agenda() {
                             >
                               <div className="p-4">
                                 {/* Header com Título e Badge */}
-                                <div className="flex items-start justify-between gap-3 mb-3">
-                                  <div className="flex-1">
-                                    {(() => {
-                                      const isCampanha = isEventoCampanha(evento);
-                                      const tipoBadgeClass = evento.tipo === 'PARLAMENTAR'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : evento.tipo === 'LOCAL'
-                                          ? 'bg-purple-100 text-purple-700'
-                                          : isCampanha
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-teal-100 text-teal-700';
-                                      const tipoBadgeText = evento.tipo === 'PARLAMENTAR'
-                                        ? '📍 PARLAMENTAR'
-                                        : evento.tipo === 'LOCAL'
-                                          ? '📌 LOCAL'
-                                          : isCampanha
-                                            ? '🏛️ CAMPANHA'
-                                            : '🎯 EVENTO';
-                                      const categoriaClass = isCampanha
-                                        ? 'bg-emerald-50 text-emerald-700'
-                                        : 'bg-gray-100 text-gray-700';
-                                      const categoriaText = isCampanha
-                                        ? 'Campanha'
-                                        : (evento.categoria || 'Evento');
+                                  <div className="flex items-start justify-between gap-3 mb-3">
+                                    <div className="flex-1">
+                                      {(() => {
+                                        const isGoogle = evento.origem === 'GOOGLE';
+                                        const isCampanha = isEventoCampanha(evento);
+                                        const tipoBadgeClass = isGoogle
+                                          ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                          : evento.tipo === 'PARLAMENTAR'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : evento.tipo === 'LOCAL'
+                                              ? 'bg-purple-100 text-purple-700'
+                                              : isCampanha
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-teal-100 text-teal-700';
 
-                                      return (
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${tipoBadgeClass}`}>
-                                            {tipoBadgeText}
-                                          </span>
-                                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${categoriaClass}`}>
-                                            {categoriaText}
-                                          </span>
-                                        </div>
-                                      );
-                                    })()}
-                                    <h3 className="text-lg font-bold text-gray-800 group-hover:text-teal-600 transition-colors">
-                                      {evento.titulo}
-                                    </h3>
+                                        const tipoBadgeText = isGoogle
+                                          ? '📅 Google Calendar'
+                                          : evento.tipo === 'PARLAMENTAR'
+                                            ? '📍 PARLAMENTAR'
+                                            : evento.tipo === 'LOCAL'
+                                              ? '📌 LOCAL'
+                                              : isCampanha
+                                                ? '🏛️ CAMPANHA'
+                                                : '🎯 EVENTO';
+
+                                        const categoriaClass = isGoogle
+                                          ? 'bg-blue-50 text-blue-700 font-bold'
+                                          : isCampanha
+                                            ? 'bg-emerald-50 text-emerald-700'
+                                            : 'bg-gray-100 text-gray-700';
+
+                                        const categoriaText = isGoogle
+                                          ? 'Somente Leitura'
+                                          : isCampanha
+                                            ? 'Campanha'
+                                            : (evento.categoria || 'Evento');
+
+                                        return (
+                                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${tipoBadgeClass}`}>
+                                              {tipoBadgeText}
+                                            </span>
+                                            {!isGoogle && (
+                                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                                MandatoPRO
+                                              </span>
+                                            )}
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${categoriaClass}`}>
+                                              {categoriaText}
+                                            </span>
+                                          </div>
+                                        );
+                                      })()}
+                                      <h3 className="text-lg font-bold text-gray-800 group-hover:text-teal-600 transition-colors">
+                                        {evento.titulo}
+                                      </h3>
+                                    </div>
+                                    
+                                    {/* Botões de Ação */}
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => window.location.href = `/agenda/${evento.id}`}
+                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="Ver detalhes"
+                                      >
+                                        <FontAwesomeIcon icon={faEye} className="text-sm" />
+                                      </button>
+                                      {evento.origem !== 'GOOGLE' && (user?.nivel === 'ADMINISTRADOR' || evento.criado_por_id === user?.id) && (
+                                        <>
+                                          <button
+                                            onClick={() => window.location.href = `/agenda/novo?id=${evento.id}`}
+                                            className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                            title="Editar"
+                                          >
+                                            <FontAwesomeIcon icon={faEdit} className="text-sm" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleExcluir(evento)}
+                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Excluir"
+                                          >
+                                            <FontAwesomeIcon icon={faTrash} className="text-sm" />
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
-                                  
-                                  {/* Botões de Ação */}
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => window.location.href = `/agenda/${evento.id}`}
-                                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                      title="Ver detalhes"
-                                    >
-                                      <FontAwesomeIcon icon={faEye} className="text-sm" />
-                                    </button>
-                                    {(user?.nivel === 'ADMINISTRADOR' || evento.criado_por_id === user?.id) && (
-                                      <>
-                                        <button
-                                          onClick={() => window.location.href = `/agenda/novo?id=${evento.id}`}
-                                          className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                                          title="Editar"
-                                        >
-                                          <FontAwesomeIcon icon={faEdit} className="text-sm" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleExcluir(evento)}
-                                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                          title="Excluir"
-                                        >
-                                          <FontAwesomeIcon icon={faTrash} className="text-sm" />
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
 
                                 {/* Informações em Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-50 rounded-lg p-3">

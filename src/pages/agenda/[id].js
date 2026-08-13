@@ -151,23 +151,39 @@ export default function DetalhesEvento() {
               {/* Header */}
               <div className="flex items-start justify-between mb-6">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
-                      evento.tipo === 'PARLAMENTAR' 
-                        ? 'bg-blue-100 text-blue-700' 
-                        : evento.tipo === 'LOCAL'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'bg-teal-100 text-teal-700'
-                    }`}>
-                      {evento.tipo === 'PARLAMENTAR'
-                        ? '📋 Agenda Parlamentar'
-                        : evento.tipo === 'LOCAL'
-                          ? '📍 Agenda Local'
-                          : '🎯 Evento'}
-                    </span>
-                    <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                      {evento.categoria}
-                    </span>
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    {evento.origem === 'GOOGLE' ? (
+                      <>
+                        <span className="px-4 py-1.5 rounded-full text-sm font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                          📅 Google Calendar
+                        </span>
+                        <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-bold">
+                          Somente Leitura
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
+                          evento.tipo === 'PARLAMENTAR' 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : evento.tipo === 'LOCAL'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-teal-100 text-teal-700'
+                        }`}>
+                          {evento.tipo === 'PARLAMENTAR'
+                            ? '📋 Agenda Parlamentar'
+                            : evento.tipo === 'LOCAL'
+                              ? '📍 Agenda Local'
+                              : '🎯 Evento'}
+                        </span>
+                        <span className="px-3 py-1 bg-teal-50 text-teal-800 rounded-full text-sm font-bold border border-teal-200">
+                          MandatoPRO
+                        </span>
+                        <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                          {evento.categoria}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <h1 className="text-2xl font-bold text-gray-800 mb-2">
                     {evento.titulo}
@@ -175,7 +191,7 @@ export default function DetalhesEvento() {
                 </div>
 
                 {/* Ações */}
-                {podeEditar && (
+                {evento.origem !== 'GOOGLE' && podeEditar && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => router.push(`/agenda/novo?id=${id}`)}
@@ -242,8 +258,21 @@ export default function DetalhesEvento() {
                 </div>
               )}
 
-              {/* Botão de Confirmação */}
-              {!confirmado && evento.permitirConfirmacao !== false && (
+              {/* Aviso para Evento do Google Calendar */}
+              {evento.origem === 'GOOGLE' && (
+                <div className="border-t pt-6 mt-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                    <FontAwesomeIcon icon={faCalendarAlt} className="text-blue-600 text-2xl" />
+                    <div>
+                      <div className="font-bold text-blue-900">Compromisso do Google Calendar</div>
+                      <div className="text-sm text-blue-700">Este evento foi importado em tempo real da agenda oficial do parlamentar e é exibido em modo <strong>somente leitura</strong>.</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Botão de Confirmação (Somente MandatoPRO) */}
+              {evento.origem !== 'GOOGLE' && !confirmado && evento.permitirConfirmacao !== false && (
                 <div className="border-t pt-6 mt-6">
                   <button
                     onClick={handleConfirmarPresenca}
