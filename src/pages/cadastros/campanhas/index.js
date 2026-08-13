@@ -374,6 +374,7 @@ export default function GerenciarCampanhas() {
               <thead>
                 <tr className="bg-teal-600 text-white">
                   <th className="px-6 py-3 text-left text-sm font-semibold">#</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Mandato</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Nome</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Local</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Data</th>
@@ -386,13 +387,13 @@ export default function GerenciarCampanhas() {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="8" className="px-6 py-4 text-center text-gray-600">
+                    <td colSpan="9" className="px-6 py-4 text-center text-gray-600">
                       Carregando campanhas...
                     </td>
                   </tr>
                 ) : campanhasPaginadas.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-6 py-4 text-center text-gray-600">
+                    <td colSpan="9" className="px-6 py-4 text-center text-gray-600">
                       Nenhuma campanha encontrada
                     </td>
                   </tr>
@@ -400,6 +401,13 @@ export default function GerenciarCampanhas() {
                   campanhasPaginadas.map((campanha, index) => (
                     <tr key={campanha.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 text-sm text-gray-600">{campanha.id.slice(0, 8)}</td>
+                      <td className="px-6 py-4 text-sm font-semibold">
+                        {campanha.mandato_id === 2 ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-300">🏛️ Federal</span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">🏛️ Estadual</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-sm font-semibold text-gray-800">{campanha.nome}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">📍 {campanha.local}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">

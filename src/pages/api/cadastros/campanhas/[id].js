@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { data: campanha, error } = await supabase
         .from('campanhas')
-        .select('*, campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))')
+        .select('*, campanhas_mandatos(mandato_id, mandatos(*)), campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))')
         .eq('id', id)
         .single();
 
@@ -24,6 +24,11 @@ export default async function handler(req, res) {
           message: 'Campanha não encontrada',
           error: error.message
         });
+      }
+
+      if (campanha) {
+        campanha.mandato_id = campanha.campanhas_mandatos?.[0]?.mandato_id || 1;
+        campanha.mandato = campanha.campanhas_mandatos?.[0]?.mandatos || { id: 1, nome: 'Deputado Estadual', tipo: 'ESTADUAL' };
       }
 
       if (campanha && Array.isArray(campanha.campanhas_servicos)) {
@@ -69,6 +74,58 @@ export default async function handler(req, res) {
       const body = req.body || {};
       const normalizar = (value) => (value === '' ? null : value);
 
+      const novoMandatoId = body.mandato_id ? parseInt(body.mandato_id) : null;
+
+      if (novoMandatoId) {
+        if (![1, 2].includes(novoMandatoId)) {
+          return res.status(400).json({ message: 'Mandato inválido' });
+        }
+
+        // Validar permissão do usuário
+        let userMandates = usuario.mandatos || [];
+        if (usuario.nivel === 'ADMINISTRADOR') {
+          userMandates = [1, 2];
+        } else if (!userMandates.length) {
+          const { data: vinculosUser } = await supabase
+            .from('usuarios_mandatos')
+            .select('mandato_id')
+            .eq('usuario_id', usuario.id);
+          userMandates = (vinculosUser || []).map(v => v.mandato_id);
+        }
+
+        if (!userMandates.includes(novoMandatoId)) {
+          return res.status(403).json({ message: `Você não possui permissão para vincular campanhas ao mandato ${novoMandatoId === 1 ? 'Estadual' : 'Federal'}` });
+        }
+
+        // Determinar lideranças a validar
+        let targetLids = [];
+        if (body.liderancos && Array.isArray(body.liderancos)) {
+          targetLids = body.liderancos.map(l => parseInt(l.id || l));
+        } else {
+          const { data: currentLids } = await supabase
+            .from('campanhas_liderancas')
+            .select('lideranca_id')
+            .eq('campanha_id', id);
+          targetLids = (currentLids || []).map(l => l.lideranca_id);
+        }
+
+        // Validar compatibilidade de cada liderança com o novo mandato
+        for (const lidId of targetLids) {
+          if (!isNaN(lidId)) {
+            const { data: lm } = await supabase
+              .from('liderancas_mandatos')
+              .select('lideranca_id')
+              .eq('lideranca_id', lidId)
+              .eq('mandato_id', novoMandatoId)
+              .maybeSingle();
+
+            if (!lm) {
+              return res.status(400).json({ message: 'Existem lideranças vinculadas à campanha que não pertencem ao novo mandato' });
+            }
+          }
+        }
+      }
+
       const payload = {
         nome: normalizar(body.nome),
         descricao: normalizar(body.descricao),
@@ -95,6 +152,17 @@ export default async function handler(req, res) {
           details: error.details,
           hint: error.hint
         });
+      }
+
+      if (novoMandatoId) {
+        await supabase
+          .from('campanhas_mandatos')
+          .delete()
+          .eq('campanha_id', id);
+
+        await supabase
+          .from('campanhas_mandatos')
+          .insert([{ campanha_id: id, mandato_id: novoMandatoId }]);
       }
 
       // Atualizar lideranças se fornecidas

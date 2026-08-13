@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
       let query = supabase
         .from('campanhas')
-        .select('*, campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))', { count: 'exact' });
+        .select('*, campanhas_mandatos(mandato_id, mandatos(*)), campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))', { count: 'exact' });
 
       if (status) {
         query = query.eq('status', status);
@@ -51,6 +51,11 @@ export default async function handler(req, res) {
       }
 
       if (campanhas && campanhas.length > 0) {
+        campanhas.forEach((c) => {
+          c.mandato_id = c.campanhas_mandatos?.[0]?.mandato_id || 1;
+          c.mandato = c.campanhas_mandatos?.[0]?.mandatos || { id: 1, nome: 'Deputado Estadual', tipo: 'ESTADUAL' };
+        });
+
         const campanhaIds = campanhas.map(c => c.id);
 
         const { data: atendimentos, error: erroAtendimentos } = await supabase
@@ -110,6 +115,47 @@ export default async function handler(req, res) {
       const body = req.body || {};
       const normalizar = (value) => (value === '' ? null : value);
 
+      const mandatoIdSolicitado = parseInt(body.mandato_id || body.mandatoId || 1);
+      if (![1, 2].includes(mandatoIdSolicitado)) {
+        return res.status(400).json({ message: 'Mandato inválido' });
+      }
+
+      // Validar autorização do usuário
+      let userMandates = usuario.mandatos || [];
+      if (usuario.nivel === 'ADMINISTRADOR') {
+        userMandates = [1, 2];
+      } else if (!userMandates.length) {
+        const { data: vinculosUser } = await supabase
+          .from('usuarios_mandatos')
+          .select('mandato_id')
+          .eq('usuario_id', usuario.id);
+        userMandates = (vinculosUser || []).map(v => v.mandato_id);
+      }
+
+      if (!userMandates.includes(mandatoIdSolicitado)) {
+        return res.status(403).json({ message: `Você não possui permissão para cadastrar campanhas no mandato ${mandatoIdSolicitado === 1 ? 'Estadual' : 'Federal'}` });
+      }
+
+      // Validar lideranças selecionadas se houver
+      const liderancosRecebidos = body.liderancos || body.liderancas || [];
+      if (Array.isArray(liderancosRecebidos) && liderancosRecebidos.length > 0) {
+        for (const lid of liderancosRecebidos) {
+          const lidId = parseInt(lid.id || lid);
+          if (!isNaN(lidId)) {
+            const { data: lm } = await supabase
+              .from('liderancas_mandatos')
+              .select('lideranca_id')
+              .eq('lideranca_id', lidId)
+              .eq('mandato_id', mandatoIdSolicitado)
+              .maybeSingle();
+
+            if (!lm) {
+              return res.status(400).json({ message: 'Existem lideranças selecionadas que não pertencem ao mandato da campanha' });
+            }
+          }
+        }
+      }
+
       const payload = {
         nome: normalizar(body.nome),
         descricao: normalizar(body.descricao),
@@ -140,6 +186,11 @@ export default async function handler(req, res) {
       const campanhaCriada = campanha?.[0];
 
       if (campanhaCriada?.id) {
+        // Criar vínculo com campanhas_mandatos
+        await supabase
+          .from('campanhas_mandatos')
+          .insert([{ campanha_id: campanhaCriada.id, mandato_id: mandatoIdSolicitado }]);
+
         const agendaPayload = {
           titulo: campanhaCriada.nome || payload.nome,
           descricao: campanhaCriada.descricao || payload.descricao,
@@ -180,10 +231,10 @@ export default async function handler(req, res) {
       }
 
       // Inserir lideranças associadas se fornecidas
-      if (body.liderancos && Array.isArray(body.liderancos) && body.liderancos.length > 0 && campanhaCriada?.id) {
-        const liderancasPayload = body.liderancos.map(lid => ({
+      if (Array.isArray(liderancosRecebidos) && liderancosRecebidos.length > 0 && campanhaCriada?.id) {
+        const liderancasPayload = liderancosRecebidos.map(lid => ({
           campanha_id: campanhaCriada.id,
-          lideranca_id: parseInt(lid.id) || lid.id, // Garantir que é número
+          lideranca_id: parseInt(lid.id || lid),
           papel: lid.papel || 'APOIO'
         }));
 
@@ -213,12 +264,16 @@ export default async function handler(req, res) {
         }
       }
 
-      // Carregar a campanha completa com lideranças e serviços
+      // Carregar a campanha completa com lideranças, serviços e mandato
       const { data: campanhaCompleta } = await supabase
         .from('campanhas')
-        .select('*, campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))')
+        .select('*, campanhas_mandatos(mandato_id, mandatos(*)), campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))')
         .eq('id', campanhaCriada.id)
         .single();
+
+      if (campanhaCompleta) {
+        campanhaCompleta.mandato_id = mandatoIdSolicitado;
+      }
 
       return res.status(201).json({
         data: campanhaCompleta || campanhaCriada,

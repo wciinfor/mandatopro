@@ -9,14 +9,33 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // GET - Buscar lideranças (com filtro opcional por nome/CPF)
+    // GET - Buscar lideranças (com filtro opcional por nome/CPF e mandato)
     if (req.method === 'GET') {
-      const { search = '', limit = 20 } = req.query;
+      const { search = '', limit = 20, mandato_id, mandatoId } = req.query;
+
+      const mandatoIdFiltro = mandato_id || mandatoId;
+      let liderancaIdsPermitidas = null;
+
+      if (mandatoIdFiltro) {
+        const { data: lmData } = await supabase
+          .from('liderancas_mandatos')
+          .select('lideranca_id')
+          .eq('mandato_id', parseInt(mandatoIdFiltro));
+        liderancaIdsPermitidas = (lmData || []).map(lm => lm.lideranca_id);
+
+        if (!liderancaIdsPermitidas.length) {
+          return res.status(200).json({ data: [] });
+        }
+      }
 
       let query = supabase
         .from('liderancas')
         .select('id, nome, cpf, telefone, influencia, area_atuacao, status')
         .eq('status', 'ATIVO');
+
+      if (liderancaIdsPermitidas) {
+        query = query.in('id', liderancaIdsPermitidas);
+      }
 
       if (search && search.trim().length > 0) {
         query = query.or(`nome.ilike.%${search}%,cpf.ilike.%${search}%`);

@@ -7,12 +7,20 @@ import {
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function NovaCampanha() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError, showWarning, showConfirm } = useModal();
+  const { user } = useAuth();
   const showErrorRef = useRef(showError);
+
+  const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
+  const permiteEstadual = userMandates.includes(1);
+  const permiteFederal = userMandates.includes(2);
+  const mandatoPadrao = user?.mandatoAtivoId && userMandates.includes(user.mandatoAtivoId) ? user.mandatoAtivoId : (userMandates[0] || 1);
+  const [mandatoId, setMandatoId] = useState(mandatoPadrao);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -67,6 +75,10 @@ export default function NovaCampanha() {
         observacoes: data.observacoes || ''
       });
 
+      if (data.mandato_id) {
+        setMandatoId(data.mandato_id);
+      }
+
       // Carregar lideranças associadas
       if (data.campanhas_liderancas) {
         setLiderancasSelecionadas(data.campanhas_liderancas.map(cl => ({
@@ -112,7 +124,8 @@ export default function NovaCampanha() {
       setBuscandoLiderancas(true);
       const params = new URLSearchParams({
         search: liderancasBuscador,
-        limit: 10
+        limit: 10,
+        mandato_id: mandatoId
       });
 
       const response = await fetch(`/api/cadastros/campanhas/liderancas?${params.toString()}`);
@@ -134,7 +147,7 @@ export default function NovaCampanha() {
     } finally {
       setBuscandoLiderancas(false);
     }
-  }, [liderancasBuscador]); // liderancasSelecionadas excluído: causava loop ao adicionar lideranças
+  }, [liderancasBuscador, mandatoId]); // liderancasSelecionadas excluído: causava loop ao adicionar lideranças
 
   // Mantém ref sincronizado sem causar re-render no callback de busca
   useEffect(() => {
@@ -281,6 +294,7 @@ export default function NovaCampanha() {
 
       const payload = {
         ...formData,
+        mandato_id: mandatoId,
         liderancos: liderancasSelecionadas,
         servicos: servicosSelecionados
       };
@@ -369,6 +383,45 @@ export default function NovaCampanha() {
               </div>
 
               <div className="space-y-4">
+                {/* Mandato da Campanha */}
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                  <label className="block text-sm font-bold text-amber-900 mb-2">
+                    MANDATO DA CAMPANHA <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex flex-wrap gap-4">
+                    {permiteEstadual && (
+                      <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                        mandatoId === 1 ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="mandato_id"
+                          value={1}
+                          checked={mandatoId === 1}
+                          onChange={() => setMandatoId(1)}
+                          className="accent-amber-600"
+                        />
+                        🏛️ Deputado Estadual
+                      </label>
+                    )}
+                    {permiteFederal && (
+                      <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                        mandatoId === 2 ? 'bg-amber-600 text-white border-amber-600 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="mandato_id"
+                          value={2}
+                          checked={mandatoId === 2}
+                          onChange={() => setMandatoId(2)}
+                          className="accent-amber-600"
+                        />
+                        🏛️ Deputada Federal
+                      </label>
+                    )}
+                  </div>
+                </div>
+
                 {/* Nome */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
