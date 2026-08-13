@@ -23,6 +23,20 @@ export default async function handler(req, res) {
     exigirUsuario(usuario);
     const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
+    // 0. Validar se a campanha de disparo pertence ao mandato ativo
+    const { data: cmCheck } = await supabase
+      .from('campanhas_mandatos')
+      .select('campanha_id')
+      .eq('campanha_id', id)
+      .eq('mandato_id', contextoMandato.mandatoId)
+      .maybeSingle();
+
+    if (!cmCheck) {
+      return res.status(403).json({
+        error: 'Acesso negado: Esta campanha de disparo não pertence ao seu mandato ativo.'
+      });
+    }
+
     // 1. Busca os eleitores distintos vinculados à campanha política por meio de atendimentos
     const { data: atendimentos, error: errAtend } = await supabase
       .from('atendimentos')

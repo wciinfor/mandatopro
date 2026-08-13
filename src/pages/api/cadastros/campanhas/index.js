@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -11,11 +12,24 @@ export default async function handler(req, res) {
 
     // GET - Listar campanhas
     if (req.method === 'GET') {
+      const contextoMandato = await obterContextoMandato(req, usuario, supabase);
       const { status, search, limit = 100, offset = 0, dataInicio, dataFim, localidade } = req.query;
+
+      // Obter IDs de campanhas autorizadas para o mandato ativo
+      const { data: cmData } = await supabase
+        .from('campanhas_mandatos')
+        .select('campanha_id')
+        .eq('mandato_id', contextoMandato.mandatoId);
+      const campIds = (cmData || []).map(c => c.campanha_id);
+
+      if (!campIds.length) {
+        return res.status(200).json({ data: [], total: 0 });
+      }
 
       let query = supabase
         .from('campanhas')
-        .select('*, campanhas_mandatos(mandato_id, mandatos(*)), campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))', { count: 'exact' });
+        .select('*, campanhas_mandatos(mandato_id, mandatos(*)), campanhas_liderancas(*, liderancas(*)), campanhas_servicos(*, categorias_servicos(*))', { count: 'exact' })
+        .in('id', campIds);
 
       if (status) {
         query = query.eq('status', status);

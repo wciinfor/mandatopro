@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 function normalizeStatus(input) {
   const allowed = new Set(['AGENDADO', 'REALIZADO', 'CANCELADO']);
@@ -17,9 +18,11 @@ function normalizeStatus(input) {
 
 export default async function handler(req, res) {
   const supabase = createServerClient();
+  let usuarioObj = null;
   try {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    usuarioObj = usuario;
   } catch (error) {
     const status = error?.statusCode || 500;
     return res.status(status).json({ error: error.message || 'Erro interno' });
@@ -28,6 +31,7 @@ export default async function handler(req, res) {
   // GET - Buscar todos os atendimentos
   if (req.method === 'GET') {
     try {
+      const contextoMandato = await obterContextoMandato(req, usuarioObj, supabase);
       const { search, status, dataInicio, dataFim } = req.query;
 
       // Query simplificada primeiro - sem joins complexos
@@ -83,7 +87,18 @@ export default async function handler(req, res) {
         query = query.lte('data_atendimento', `${dataFim}T23:59:59`);
       }
 
+      // Isolamento por mandato: inclui atendimentos do mandato ativo + legados (mandato_id NULL)
+      // Legados (NULL) permanecem no Mandato Estadual (ID 1) por retrocompatibilidade.
+      if (contextoMandato.mandatoId === 1) {
+        // Estadual vê: mandato_id = 1 OU mandato_id NULL (legados preservados)
+        query = query.or(`mandato_id.eq.${contextoMandato.mandatoId},mandato_id.is.null`);
+      } else {
+        // Federal vê apenas: mandato_id = 2 (exclui legados NULL por segurança)
+        query = query.eq('mandato_id', contextoMandato.mandatoId);
+      }
+
       let { data, error } = await query.order('data_atendimento', { ascending: false });
+
 
       if (error) {
         console.error('Erro na query principal:', error);

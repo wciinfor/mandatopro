@@ -1,66 +1,59 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
 /**
- * Busca top 10 líderes usando exclusivamente os nomes reais das colunas no banco (snake_case).
+ * Busca top 10 líderes vinculados ao mandato ativo usando liderancas_mandatos.
+ * Contagem de eleitores via eleitores_liderancas_mandatos (sem usar eleitores.lideranca_id).
  */
-async function fetchTopLideres(supabase) {
-  const { data, error } = await supabase
+async function fetchTopLideresPorMandato(supabase, mandatoId) {
+  // 1. Obter IDs de lideranças do mandato ativo
+  const { data: lmData, error: lmErr } = await supabase
+    .from('liderancas_mandatos')
+    .select('lideranca_id')
+    .eq('mandato_id', mandatoId);
+
+  if (lmErr || !lmData?.length) return [];
+
+  const lideresIds = lmData.map(r => r.lideranca_id);
+
+  // 2. Buscar dados das lideranças
+  const { data: liderancas, error: lidErr } = await supabase
     .from('liderancas')
     .select('id, nome, projecao_votos, area_atuacao')
+    .in('id', lideresIds)
     .order('projecao_votos', { ascending: false })
     .limit(10);
 
-  if (!error) {
-    return data || [];
-  }
-
-  // Fallback: se projecao_votos falhar, tenta sem ordenação
-  const fallback = await supabase
-    .from('liderancas')
-    .select('id, nome, projecao_votos, area_atuacao')
-    .limit(10);
-
-  if (!fallback.error) {
-    return fallback.data || [];
-  }
-
-  const basic = await supabase
-    .from('liderancas')
-    .select('id, nome')
-    .limit(10);
-
-  if (basic.error) throw basic.error;
-  return basic.data || [];
+  if (lidErr) throw lidErr;
+  return liderancas || [];
 }
 
 /**
- * Carrega a contagem de eleitores de TODOS os 10 líderes em UMA ÚNICA CONSULTA.
+ * Contagem de eleitores por liderança usando eleitores_liderancas_mandatos
+ * (indexado por mandato_id + lideranca_id — sem usar eleitores.lideranca_id).
  */
-async function fetchContagemEleitoresPorLideres(supabase, lideresIds) {
-  if (!lideresIds || lideresIds.length === 0) {
-    return new Map();
-  }
+async function fetchContagemPorElmMandato(supabase, lideresIds, mandatoId) {
+  if (!lideresIds?.length) return new Map();
 
   const { data, error } = await supabase
-    .from('eleitores')
+    .from('eleitores_liderancas_mandatos')
     .select('lideranca_id')
-    .in('lideranca_id', lideresIds);
+    .in('lideranca_id', lideresIds)
+    .eq('mandato_id', mandatoId);
 
-  if (!error && Array.isArray(data)) {
-    const mapa = new Map();
-    data.forEach((row) => {
-      if (row.lideranca_id) {
-        const key = String(row.lideranca_id);
-        mapa.set(key, (mapa.get(key) || 0) + 1);
-      }
-    });
-    return mapa;
-  }
+  if (error || !Array.isArray(data)) return new Map();
 
-  return new Map();
+  const mapa = new Map();
+  data.forEach((row) => {
+    if (row.lideranca_id) {
+      const key = String(row.lideranca_id);
+      mapa.set(key, (mapa.get(key) || 0) + 1);
+    }
+  });
+  return mapa;
 }
 
 export default async function handler(req, res) {
@@ -73,15 +66,16 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // 1. Busca top 10 lideranças (1 consulta SQL com colunas reais do banco)
-    const lideres = await fetchTopLideres(supabase);
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
 
+    // 1. Top 10 lideranças do mandato ativo (2 consultas indexadas controladas)
+    const lideres = await fetchTopLideresPorMandato(supabase, contextoMandato.mandatoId);
     const lideresIds = lideres.map((l) => l.id).filter(Boolean);
 
-    // 2. Busca contagem para todos os 10 líderes em UMA ÚNICA CONSULTA SQL
-    const contagemMapa = await fetchContagemEleitoresPorLideres(supabase, lideresIds);
+    // 2. Contagem via eleitores_liderancas_mandatos (sem eleitores.lideranca_id)
+    const contagemMapa = await fetchContagemPorElmMandato(supabase, lideresIds, contextoMandato.mandatoId);
 
-    // 3. Mapeia para o formato esperado pelo frontend (camelCase no JSON, nunca no SQL)
+    // 3. Monta resultado final
     const lideresComCadastros = lideres.map((lider) => {
       const cadastros = contagemMapa.get(String(lider.id)) || 0;
       const projecaoVotos = Number(lider?.projecao_votos || 0);
@@ -116,3 +110,4 @@ export default async function handler(req, res) {
     });
   }
 }
+
