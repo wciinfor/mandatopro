@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -292,11 +293,26 @@ async function carregarGeoReferencia() {
   return geoCache;
 }
 
-async function carregarEleitoresMapa(supabase, { isPreview, totalEleitoresBase = 0 }) {
+async function contarEleitoresBase(supabase, pertencimentosPermitidos) {
+  try {
+    let query = supabase.from('eleitores').select('*', { count: 'exact', head: true });
+    if (Array.isArray(pertencimentosPermitidos) && pertencimentosPermitidos.length > 0) {
+      query = query.in('pertencimento', pertencimentosPermitidos);
+    }
+    const { count, error } = await query;
+    if (error) throw error;
+    return count || 0;
+  } catch (error) {
+    console.error('Erro ao contar eleitores base:', error);
+    return 0;
+  }
+}
+
+async function carregarEleitoresMapa(supabase, { pertencimentosPermitidos, isPreview, totalEleitoresBase = 0 }) {
   const tentativas = [
-    'id, id_municipio, municipio, cidade, bairro, uf, estado',
-    'id, cidade, bairro, uf, estado',
-    'id, municipio, bairro, uf, estado',
+    'id, id_municipio, municipio, cidade, bairro, uf, estado, pertencimento',
+    'id, cidade, bairro, uf, estado, pertencimento',
+    'id, municipio, bairro, uf, estado, pertencimento',
     '*'
   ];
 
@@ -308,23 +324,16 @@ async function carregarEleitoresMapa(supabase, { isPreview, totalEleitoresBase =
     ? Math.min(Math.max(Number(totalEleitoresBase || 0), 0), previewMax)
     : Math.max(Number(totalEleitoresBase || 0), 0);
 
-  console.log('[CARREGA-ELEITORES-MAPA] Iniciando:', {
-    isPreview,
-    totalEleitoresBase,
-    totalAlvo,
-    pageSize,
-    concurrency
-  });
-
   if (totalAlvo === 0) {
-    console.log('[CARREGA-ELEITORES-MAPA] Nenhum eleitor para buscar!');
     return [];
   }
 
   async function buscarPagina(selectClause, inicio, fim) {
-    const { data, error } = await supabase
-      .from('eleitores')
-      .select(selectClause)
+    let query = supabase.from('eleitores').select(selectClause);
+    if (Array.isArray(pertencimentosPermitidos) && pertencimentosPermitidos.length > 0) {
+      query = query.in('pertencimento', pertencimentosPermitidos);
+    }
+    const { data, error } = await query
       .order('id', { ascending: true })
       .range(inicio, fim);
 
@@ -361,58 +370,22 @@ async function carregarEleitoresMapa(supabase, { isPreview, totalEleitoresBase =
         }
       }
 
-      console.log('[CARREGA-ELEITORES-MAPA] Tentativa com selectClause sucedeu! Retornando', acumulado.length, 'registros');
       return acumulado;
     } catch (error) {
-      console.log('[CARREGA-ELEITORES-MAPA] Tentativa falhou:', error.message);
       if (!isMissingColumnError(error)) {
         throw error;
       }
     }
   }
 
-  console.log('[CARREGA-ELEITORES-MAPA] Nenhuma tentativa funcionou! Retornando vazio');
   return [];
 }
 
-async function contarEleitoresBase(supabase) {
-  const { count, error } = await supabase
-    .from('eleitores')
-    .select('id', { count: 'exact', head: true });
-
-  if (error) {
-    throw error;
-  }
-
-  return Number(count || 0);
-}
-
-// Chama a função RPC que faz GROUP BY no Postgres e devolve ~200 linhas
-// em vez de buscar todos os 300k+ registros.
-// Retorna null se a função ainda não existir no banco (fallback para paginação).
 async function carregarAgregadosMunicipio(supabase) {
-  const { data, error } = await supabase.rpc('fn_eleitores_agrupados_municipio');
-  if (error) {
-    const msg = String(error?.message || '').toLowerCase();
-    const code = String(error?.code || '').toUpperCase();
-    if (code === 'PGRST202' || msg.includes('could not find function') || msg.includes('does not exist')) {
-      console.log('[MAPA-CALOR] RPC fn_eleitores_agrupados_municipio não encontrada, usando paginação.');
-      return null;
-    }
-    throw error;
-  }
-  return (Array.isArray(data) ? data : []).map((r) => ({
-    id_municipio: r._id_municipio,
-    cidade:       r._cidade,
-    estado:       r._estado,
-    _total:       Number(r._total || 1),
-  }));
+  return null; // fallback para carregarEleitoresMapa com filtro seguro de pertencimento
 }
 
 export default async function handler(req, res) {
-  // [MANUTENÇÃO P0 — 2026-08-06] Módulo desabilitado temporariamente para redução de carga no Supabase
-  return res.status(503).json({ error: 'Módulo temporariamente indisponível para manutenção.' });
-
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
@@ -426,38 +399,27 @@ export default async function handler(req, res) {
       ? Math.min(rankingLimitRaw, 500)
       : 200;
 
-    const chaveCache = cacheKey({ isPreview, rankingLimit });
-    const agora = Date.now();
-    const cache = heatmapCache.get(chaveCache);
-
-    console.log('[MAPA-CALOR] Requisição recebida:', {
-      isPreview,
-      rankingLimit,
-      cacheValido: cache && cache.expireAt > agora,
-      timestamp: new Date().toISOString()
-    });
-
-    if (cache && cache.expireAt > agora) {
-      console.log('[MAPA-CALOR] Usando CACHE');
-      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-      return res.status(200).json(cache.data);
-    }
-
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { pertencimentosPermitidos } = contextoMandato;
+
+    const chaveCache = `${cacheKey({ isPreview, rankingLimit })}:${contextoMandato.mandatoId}`;
+    const agora = Date.now();
+    const cache = heatmapCache.get(chaveCache);
+
+    if (cache && cache.expireAt > agora) {
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      return res.status(200).json(cache.data);
+    }
+
     const geoReferencia = await carregarGeoReferencia();
+    const totalEleitoresBase = await contarEleitoresBase(supabase, pertencimentosPermitidos);
 
-    console.log('[MAPA-CALOR] Contando eleitores base...');
-    const totalEleitoresBase = await contarEleitoresBase(supabase);
-    console.log('[MAPA-CALOR] Total de eleitores no banco:', totalEleitoresBase);
-
-    const agregadosRPC = await carregarAgregadosMunicipio(supabase);
-    const usandoRPC = agregadosRPC !== null;
-    const base = usandoRPC
-      ? agregadosRPC
-      : await carregarEleitoresMapa(supabase, { isPreview, totalEleitoresBase });
+    const usandoRPC = false;
+    const base = await carregarEleitoresMapa(supabase, { pertencimentosPermitidos, isPreview, totalEleitoresBase });
 
     console.log('[MAPA-CALOR] Dados carregados:', base.length, usandoRPC ? 'grupos agregados (RPC)' : 'registros individuais');
 

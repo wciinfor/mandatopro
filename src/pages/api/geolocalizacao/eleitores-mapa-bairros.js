@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -154,7 +155,7 @@ function criarLegenda(maximo) {
   });
 }
 
-async function paginarQuery(supabase, { select, orFilter, isPreview, pageSize = 1000, previewMax = 5000 }) {
+async function paginarQuery(supabase, { select, orFilter, pertencimentosPermitidos, isPreview, pageSize = 1000, previewMax = 5000 }) {
   const acumulado = [];
   let pagina = 0;
 
@@ -162,9 +163,15 @@ async function paginarQuery(supabase, { select, orFilter, isPreview, pageSize = 
     const from = pagina * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('eleitores')
-      .select(select)
+      .select(select);
+
+    if (Array.isArray(pertencimentosPermitidos) && pertencimentosPermitidos.length > 0) {
+      query = query.in('pertencimento', pertencimentosPermitidos);
+    }
+
+    const { data, error } = await query
       .or(orFilter)
       .order('id', { ascending: true })
       .range(from, to);
@@ -183,14 +190,15 @@ async function paginarQuery(supabase, { select, orFilter, isPreview, pageSize = 
   return acumulado;
 }
 
-async function carregarBaseBairros(supabase, { isPreview }) {
+async function carregarBaseBairros(supabase, { pertencimentosPermitidos, isPreview }) {
   // Estratégia 1: filtro só por id_municipio — usa índice, muito rápido.
   // Misturar ILIKE no mesmo OR faz o PostgreSQL ignorar o índice e
   // varrer os 315k registros inteiros.
   try {
     const resultado = await paginarQuery(supabase, {
-      select: 'id, id_municipio, municipio, cidade, bairro, latitude, longitude, uf, estado',
+      select: 'id, id_municipio, municipio, cidade, bairro, latitude, longitude, uf, estado, pertencimento',
       orFilter: 'id_municipio.eq.1501402,id_municipio.eq.1500800',
+      pertencimentosPermitidos,
       isPreview,
     });
     if (resultado.length > 0) return resultado;
@@ -210,13 +218,13 @@ async function carregarBaseBairros(supabase, { isPreview }) {
   ].join(',');
 
   const tentativasIlike = [
-    { select: 'id, municipio, cidade, bairro, latitude, longitude, uf, estado' },
+    { select: 'id, municipio, cidade, bairro, latitude, longitude, uf, estado, pertencimento' },
     { select: '*' },
   ];
 
   for (const tentativa of tentativasIlike) {
     try {
-      return await paginarQuery(supabase, { select: tentativa.select, orFilter: filtrosSemIbge, isPreview });
+      return await paginarQuery(supabase, { select: tentativa.select, orFilter: filtrosSemIbge, pertencimentosPermitidos, isPreview });
     } catch (error) {
       if (!isMissingColumnError(error)) throw error;
     }
@@ -311,9 +319,6 @@ async function carregarAgregadosBairros(supabase) {
 }
 
 export default async function handler(req, res) {
-  // [MANUTENÇÃO P0 — 2026-08-06] Módulo desabilitado temporariamente para redução de carga no Supabase
-  return res.status(503).json({ error: 'Módulo temporariamente indisponível para manutenção.' });
-
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Metodo nao permitido' });
   }
@@ -327,7 +332,14 @@ export default async function handler(req, res) {
       ? Math.min(rankingLimitRaw, 500)
       : 200;
 
-    const chaveCache = cacheKey({ isPreview, rankingLimit });
+    const supabase = createServerClient();
+    const { usuario } = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(usuario);
+
+    const contextoMandato = await obterContextoMandato(req, usuario, supabase);
+    const { pertencimentosPermitidos } = contextoMandato;
+
+    const chaveCache = `${cacheKey({ isPreview, rankingLimit })}:${contextoMandato.mandatoId}`;
     const agora = Date.now();
     const cache = heatmapCache.get(chaveCache);
 
@@ -336,14 +348,9 @@ export default async function handler(req, res) {
       return res.status(200).json(cache.data);
     }
 
-    const supabase = createServerClient();
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
-    const agregadosRPC = await carregarAgregadosBairros(supabase);
-    const usandoRPC = agregadosRPC !== null;
-    const base = usandoRPC
-      ? agregadosRPC
-      : await carregarBaseBairros(supabase, { isPreview });
+    const agregadosRPC = null; // desativar RPC agnóstica para usar filtro seguro de pertencimento
+    const usandoRPC = false;
+    const base = await carregarBaseBairros(supabase, { pertencimentosPermitidos, isPreview });
 
     const agregador = new Map();
     const semBairro = [];
