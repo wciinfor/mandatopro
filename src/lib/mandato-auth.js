@@ -53,9 +53,11 @@ export async function obterContextoMandato(req, usuario, supabase) {
   }
 
   // 4. Mapear os pertencimentos elegíveis para este mandato
+  // Para Mandato Estadual (1): inclui ESTADUAL, AMBOS e legados (NAO_CLASSIFICADO / null)
+  // Para Mandato Federal (2): inclui FEDERAL e AMBOS
   const pertencimentosPermitidos = mandatoIdFinal === 2
     ? ['FEDERAL', 'AMBOS']
-    : ['ESTADUAL', 'AMBOS'];
+    : ['ESTADUAL', 'AMBOS', 'NAO_CLASSIFICADO', null];
 
   const tipo = mandatoIdFinal === 2 ? 'FEDERAL' : 'ESTADUAL';
 
