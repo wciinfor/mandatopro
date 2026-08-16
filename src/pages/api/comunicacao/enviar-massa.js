@@ -5,22 +5,25 @@ import { gerarTraceId } from '@/lib/financeiro-utils';
 import { obterTenantId } from '@/lib/tenant';
 import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 
+import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
+
 export const runtime = 'nodejs';
 
-// Carregar configuração do WhatsApp a partir do Supabase
+// Carregar configuração do WhatsApp a partir do Supabase via Factory
 const carregarConfiguracao = async (supabase, usuario) => {
   try {
     const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
+    if (!conta) return null;
+
     const contaNormalizada = normalizarWhatsappAccount(conta);
-
-    if (!contaNormalizada.isConfigured || !conta?.access_token) return null;
-
-    return {
-      whatsapp: {
-        phoneNumberId: contaNormalizada.phoneNumberId,
-        accessToken: conta.access_token
-      }
+    const providerAccount = {
+      ...conta,
+      ...contaNormalizada,
+      accessToken: conta.access_token || conta.ycloud_api_key,
+      ycloudApiKey: conta.ycloud_api_key
     };
+
+    return createWhatsAppProvider(providerAccount);
   } catch (error) {
     console.error('Erro ao carregar configuração do WhatsApp:', error);
     return null;
@@ -63,32 +66,18 @@ const buscarDestinatarios = async (supabase, tipo, excluirUsuarioId, tenantId) =
   }));
 };
 
-// Enviar por WhatsApp
-const enviarWhatsApp = async (telefone, mensagem, config) => {
-  if (!config?.whatsapp?.phoneNumberId || !config?.whatsapp?.accessToken) {
+// Enviar por WhatsApp via Provider Factory (META ou YCLOUD)
+const enviarWhatsApp = async (telefone, mensagem, provider) => {
+  if (!provider) {
     throw new Error('WhatsApp não configurado');
   }
 
-  const response = await fetch(`https://graph.facebook.com/v21.0/${config.whatsapp.phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.whatsapp.accessToken}`
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: telefone,
-      type: 'text',
-      text: { preview_url: false, body: mensagem }
-    })
+  return await provider.sendMessage({
+    to: telefone,
+    recipient: telefone,
+    message: mensagem,
+    text: mensagem
   });
-
-  if (!response.ok) {
-    throw new Error(`WhatsApp API error: ${response.statusText}`);
-  }
-
-  return await response.json();
 };
 
 async function upsertConversa({ supabase, meuId, otherId, texto }) {
@@ -296,7 +285,7 @@ export default async function handler(req, res) {
               destinatario: destinatario.nome,
               contato: destinatario.telefone,
               status: 'enviado',
-              messageId: resultado.messages?.[0]?.id || `wpp_${Date.now()}`
+              messageId: resultado?.id || resultado?.messages?.[0]?.id || `wpp_${Date.now()}`
             });
           }
           else if (canal === 'email') {
