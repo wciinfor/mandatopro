@@ -79,10 +79,27 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
 
   async sendTemplate(payload) {
     const fromNumber = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
-    return this.service.sendTemplate({
+    const toNumber = payload.to || payload.recipient;
+
+    // Normalização flexível das entradas de template
+    const templateName = payload.templateName || payload.name || payload.template?.name || '';
+    const langCode = payload.idiomaCode || payload.language?.code || payload.language || 'pt_BR';
+    const components = payload.components || payload.template?.components || [];
+
+    const formattedPayload = {
       from: fromNumber,
-      ...payload
-    });
+      to: toNumber,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: {
+          code: typeof langCode === 'object' ? langCode.code : langCode
+        },
+        components: components
+      }
+    };
+
+    return this.service.sendMessage(formattedPayload);
   }
 
   async getStatus() {
