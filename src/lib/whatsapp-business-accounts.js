@@ -15,6 +15,7 @@ export function normalizarWhatsappAccount(row) {
   return {
     id: row?.id || null,
     tenantId: row?.tenant_id || null,
+    provider: row?.provider || 'META',
     nome: row?.nome || '',
     businessManagerId: row?.business_manager_id || '',
     businessManagerName: row?.business_manager_name || '',
@@ -23,17 +24,21 @@ export function normalizarWhatsappAccount(row) {
     wabaName: row?.waba_name || '',
     wabaVerificationStatus: row?.waba_verification_status || '',
     verifyTokenConfigured: Boolean(row?.verify_token),
+    ycloudApiKeyConfigured: Boolean(row?.ycloud_api_key),
+    ycloudWebhookEndpointId: row?.ycloud_webhook_endpoint_id || '',
+    ycloudWebhookSecretConfigured: Boolean(row?.ycloud_webhook_secret),
     phoneNumberId: number?.phone_number_id || '',
     displayPhoneNumber: number?.display_phone_number || '',
     displayName: number?.display_name || '',
     verifiedName: number?.verified_name || '',
+    bsuid: number?.bsuid || '',
     qualityRating: number?.quality_rating || '',
     messagingLimitTier: number?.messaging_limit_tier || '',
     numberStatus: number?.number_status || '',
     countryCode: number?.country_code || '',
     nameStatus: number?.name_status || '',
     profilePictureUrl: number?.profile_picture_url || '',
-    hasAccessToken: Boolean(row?.access_token),
+    hasAccessToken: Boolean(row?.access_token || row?.ycloud_api_key),
     tokenExpiresAt: row?.access_token_expires_at || null,
     tokenObtainedAt: row?.access_token_obtained_at || null,
     tokenType: row?.access_token_type || '',
@@ -58,7 +63,7 @@ export function normalizarWhatsappAccount(row) {
       webhookValidationMessage: row?.webhook_validation_message || ''
     },
     isConfigured: Boolean(row?.production_ready),
-    isConnected: Boolean(row?.access_token && number?.phone_number_id),
+    isConnected: Boolean((row?.access_token || row?.ycloud_api_key) && number?.phone_number_id),
     productionReady: Boolean(row?.production_ready),
     sync: {
       lastSyncedAt: row?.last_synced_at || null,
@@ -80,6 +85,7 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
     .select(`
       id,
       tenant_id,
+      provider,
       nome,
       business_manager_id,
       business_manager_name,
@@ -88,6 +94,9 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
       waba_name,
       waba_verification_status,
       verify_token,
+      ycloud_api_key,
+      ycloud_webhook_endpoint_id,
+      ycloud_webhook_secret,
       access_token,
       access_token_expires_at,
       access_token_obtained_at,
@@ -129,6 +138,7 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
         display_phone_number,
         display_name,
         verified_name,
+        bsuid,
         quality_rating,
         messaging_limit_tier,
         number_status,
@@ -170,6 +180,32 @@ export async function buscarContaWhatsappPorVerifyToken(supabase, verifyToken) {
       webhook_verified
     `)
     .eq('verify_token', token)
+    .eq('status', 'ATIVO')
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+export async function buscarContaWhatsappPorYCloudEndpointId(supabase, endpointId) {
+  const ep = String(endpointId || '').trim();
+  if (!ep) return null;
+
+  const { data, error } = await supabase
+    .from('whatsapp_business_accounts')
+    .select(`
+      id,
+      tenant_id,
+      provider,
+      nome,
+      waba_id,
+      ycloud_webhook_endpoint_id,
+      ycloud_webhook_secret,
+      status
+    `)
+    .eq('ycloud_webhook_endpoint_id', ep)
+    .eq('provider', 'YCLOUD')
     .eq('status', 'ATIVO')
     .limit(1)
     .maybeSingle();
@@ -475,3 +511,92 @@ export async function salvarContaWhatsappPrincipal(supabase, usuario, dados = {}
 
   return buscarContaWhatsappPrincipal(supabase, usuario);
 }
+
+export async function salvarContaWhatsappYCloud(supabase, usuario, dados = {}) {
+  const tenantId = obterTenantId(usuario);
+  if (!tenantId) {
+    const err = new Error('Tenant atual não identificado');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const contaAtual = await buscarContaWhatsappPrincipal(supabase, usuario);
+  const ycloudApiKey = String(dados.ycloudApiKey || '').trim() || contaAtual?.ycloud_api_key || '';
+  const ycloudWebhookEndpointId = String(dados.ycloudWebhookEndpointId || '').trim() || contaAtual?.ycloud_webhook_endpoint_id || '';
+  const ycloudWebhookSecret = String(dados.ycloudWebhookSecret || '').trim() || contaAtual?.ycloud_webhook_secret || '';
+  const phoneNumberId = String(dados.phoneNumberId || dados.displayPhoneNumber || '').trim();
+
+  const contaPayload = {
+    tenant_id: tenantId,
+    provider: 'YCLOUD',
+    nome: String(dados.nome || contaAtual?.nome || 'WhatsApp Business YCloud').trim(),
+    waba_id: dados.wabaId || contaAtual?.waba_id || null,
+    ycloud_api_key: ycloudApiKey,
+    ycloud_webhook_endpoint_id: ycloudWebhookEndpointId,
+    ycloud_webhook_secret: ycloudWebhookSecret,
+    token_validated: Boolean(ycloudApiKey),
+    phone_validated: Boolean(phoneNumberId),
+    production_ready: Boolean(ycloudApiKey && phoneNumberId),
+    status: 'ATIVO',
+    principal: true,
+    atualizado_por_id: usuario?.id || null,
+    updated_at: new Date().toISOString()
+  };
+
+  if (!contaAtual?.id) {
+    contaPayload.criado_por_id = usuario?.id || null;
+  }
+
+  const { data: conta, error: contaError } = contaAtual?.id
+    ? await supabase
+      .from('whatsapp_business_accounts')
+      .update(contaPayload)
+      .eq('id', contaAtual.id)
+      .eq('tenant_id', tenantId)
+      .select('*')
+      .single()
+    : await supabase
+      .from('whatsapp_business_accounts')
+      .insert(contaPayload)
+      .select('*')
+      .single();
+
+  if (contaError) throw contaError;
+
+  if (phoneNumberId) {
+    const numerosAtuais = Array.isArray(contaAtual?.whatsapp_business_numbers)
+      ? contaAtual.whatsapp_business_numbers
+      : [];
+    const numeroAtual = numerosAtuais.find(item => item?.principal && item?.status !== 'INATIVO')
+      || numerosAtuais.find(item => item?.phone_number_id === phoneNumberId)
+      || numerosAtuais[0]
+      || null;
+
+    const numeroPayload = {
+      tenant_id: tenantId,
+      account_id: conta.id,
+      phone_number_id: phoneNumberId,
+      display_phone_number: dados.displayPhoneNumber || phoneNumberId,
+      display_name: dados.displayName || null,
+      bsuid: dados.bsuid || null,
+      status: 'ATIVO',
+      principal: true,
+      updated_at: new Date().toISOString()
+    };
+
+    const numeroResult = numeroAtual?.id
+      ? await supabase
+        .from('whatsapp_business_numbers')
+        .update(numeroPayload)
+        .eq('id', numeroAtual.id)
+        .eq('tenant_id', tenantId)
+      : await supabase
+        .from('whatsapp_business_numbers')
+        .insert(numeroPayload);
+
+    if (numeroResult.error) throw numeroResult.error;
+  }
+
+  return buscarContaWhatsappPrincipal(supabase, usuario);
+}
+

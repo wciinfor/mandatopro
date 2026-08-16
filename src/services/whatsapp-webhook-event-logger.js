@@ -1,4 +1,18 @@
 function extrairEvento(payload = {}) {
+  // YCloud Event Structure
+  if (payload.type || payload.event || payload.whatsappInboundMessage || payload.whatsappMessage) {
+    const inbound = payload.whatsappInboundMessage;
+    const msgStatus = payload.whatsappMessage;
+    return {
+      eventId: payload.id || null,
+      eventType: payload.type || (inbound ? 'whatsapp.inbound_message.received' : msgStatus ? 'whatsapp.message.updated' : 'unknown'),
+      wabaId: inbound?.wabaId || msgStatus?.wabaId || null,
+      phoneNumberId: inbound?.to || msgStatus?.from || null,
+      timestamp: payload.createTime || inbound?.createTime || null
+    };
+  }
+
+  // Meta Event Structure
   const entry = Array.isArray(payload.entry) ? payload.entry[0] : null;
   const change = Array.isArray(entry?.changes) ? entry.changes[0] : null;
   const value = change?.value || {};
@@ -7,6 +21,7 @@ function extrairEvento(payload = {}) {
   const status = Array.isArray(value.statuses) ? value.statuses[0] : null;
 
   return {
+    eventId: payload.id || message?.id || status?.id || null,
     eventType: change?.field || message?.type || status?.status || payload.object || 'unknown',
     wabaId: entry?.id || null,
     phoneNumberId: metadata.phone_number_id || null,
@@ -15,6 +30,8 @@ function extrairEvento(payload = {}) {
 }
 
 function normalizarTimestamp(timestamp) {
+  if (!timestamp) return new Date().toISOString();
+  if (typeof timestamp === 'string' && timestamp.includes('T')) return timestamp;
   const value = Number(timestamp || 0);
   if (!Number.isFinite(value) || value <= 0) return new Date().toISOString();
   return new Date(value * 1000).toISOString();
@@ -25,14 +42,16 @@ export default class WhatsAppWebhookEventLogger {
     this.supabase = supabase;
   }
 
-  async log({ conta = null, payload = {}, validationStatus = 'INVALID', signatureStatus = 'MISSING' }) {
+  async log({ conta = null, payload = {}, validationStatus = 'INVALID', signatureStatus = 'MISSING', eventId = null }) {
     const event = extrairEvento(payload);
+    const finalEventId = eventId || event.eventId;
 
     const { data, error } = await this.supabase
       .from('whatsapp_business_webhook_events')
       .insert({
         tenant_id: conta?.tenant_id || null,
         account_id: conta?.id || null,
+        event_id: finalEventId,
         event_type: event.eventType,
         event_timestamp: normalizarTimestamp(event.timestamp),
         waba_id: event.wabaId,
