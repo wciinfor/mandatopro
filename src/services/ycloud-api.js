@@ -12,7 +12,7 @@ export default class YCloudApiService {
    * @param {string} [config.baseUrl='https://api.ycloud.com/v1'] - URL base da API YCloud
    * @param {number} [config.timeoutMs=15000] - Timeout em milissegundos
    */
-  constructor({ apiKey, baseUrl = 'https://api.ycloud.com/v1', timeoutMs = 15000 } = {}) {
+  constructor({ apiKey, baseUrl = 'https://api.ycloud.com/v2', timeoutMs = 15000 } = {}) {
     this.apiKey = String(apiKey || '').trim();
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.timeoutMs = timeoutMs;
@@ -79,7 +79,7 @@ export default class YCloudApiService {
   }
 
   /**
-   * Método base para envio de mensagens (contrato unificado)
+   * Método base para envio de mensagens (contrato unificado v2)
    */
   async sendMessage(payload) {
     return this.request('/whatsapp/messages', {
@@ -89,7 +89,7 @@ export default class YCloudApiService {
   }
 
   /**
-   * Método base para envio de templates (contrato unificado)
+   * Método base para envio de templates (contrato unificado v2)
    */
   async sendTemplate(payload) {
     return this.request('/whatsapp/messages', {

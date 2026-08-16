@@ -63,11 +63,26 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
   }
 
   async sendMessage(payload) {
-    return this.service.sendMessage(payload);
+    const fromNumber = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
+    const toNumber = payload.to || payload.recipient;
+    const textBody = payload.text?.body || payload.text || payload.message || payload.body;
+
+    const formattedPayload = {
+      from: fromNumber,
+      to: toNumber,
+      type: payload.type || 'text',
+      text: typeof textBody === 'object' ? textBody : { body: textBody }
+    };
+
+    return this.service.sendMessage(formattedPayload);
   }
 
   async sendTemplate(payload) {
-    return this.service.sendTemplate(payload);
+    const fromNumber = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
+    return this.service.sendTemplate({
+      from: fromNumber,
+      ...payload
+    });
   }
 
   async getStatus() {
