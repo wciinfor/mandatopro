@@ -1,8 +1,9 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { MetaGraphClient } from '@/lib/meta-graph-client';
+import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
+import { normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 
 /**
- * API Handler para enviar e persistir mensagens nas tabelas oficiais multicanal utilizando a Graph API da Meta.
+ * API Handler para enviar e persistir mensagens nas tabelas oficiais multicanal utilizando a Factory de Providers (Meta / YCloud).
  */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -30,46 +31,83 @@ export default async function handler(req, res) {
       throw new Error('Conversa não localizada para o envio.');
     }
 
-    // 2. Busca as credenciais oficiais vinculadas ao tenant da conversa
-    const { data: conta, error: errConta } = await supabase
-      .from('communication_accounts')
-      .select('*')
+    // 2. Busca as credenciais oficiais vinculadas ao tenant da conversa na whatsapp_business_accounts
+    const { data: contaWaba, error: errWaba } = await supabase
+      .from('whatsapp_business_accounts')
+      .select('*, whatsapp_business_numbers(*)')
       .eq('tenant_id', conversa.tenant_id)
-      .eq('provider', 'whatsapp')
-      .eq('status', 'ativo')
-      .maybeSingle();
+      .eq('status', 'ATIVO')
+      .order('id', { ascending: true });
 
-    if (errConta || !conta || !conta.access_token || !conta.phone_number_id) {
-      throw new Error('Configuração de credenciais oficiais da Meta não localizada ou inativa para este Tenant.');
+    let contaSelecionada = (contaWaba || []).find(c => String(c.provider).toUpperCase() === 'YCLOUD') 
+      || (contaWaba || []).find(c => String(c.provider).toUpperCase() === 'META')
+      || contaWaba?.[0]
+      || null;
+
+    // Fallback para a tabela legada communication_accounts se whatsapp_business_accounts não retornar
+    if (!contaSelecionada) {
+      const { data: contaLegacy } = await supabase
+        .from('communication_accounts')
+        .select('*')
+        .eq('tenant_id', conversa.tenant_id)
+        .eq('provider', 'whatsapp')
+        .eq('status', 'ativo')
+        .maybeSingle();
+
+      if (contaLegacy) {
+        contaSelecionada = {
+          provider: 'META',
+          access_token: contaLegacy.access_token,
+          phone_number_id: contaLegacy.phone_number_id,
+          waba_id: contaLegacy.waba_id
+        };
+      }
     }
 
-    // 3. Inicializa o cliente oficial da Graph API
-    const client = new MetaGraphClient({
-      accessToken: conta.access_token,
-      phoneNumberId: conta.phone_number_id,
-      wabaId: conta.waba_id
-    });
+    if (!contaSelecionada) {
+      throw new Error('Configuração de credenciais de WhatsApp não localizada ou inativa para este Tenant.');
+    }
 
-    let wamid = `meta-msg-${Date.now()}`;
-    let providerResponse = { mock: true };
+    const contaNormalizada = normalizarWhatsappAccount(contaSelecionada);
+    const providerAccount = {
+      ...contaSelecionada,
+      ...contaNormalizada,
+      accessToken: contaSelecionada.access_token || contaSelecionada.ycloud_api_key,
+      ycloudApiKey: contaSelecionada.ycloud_api_key
+    };
+
+    // 3. Inicializa o provider unificado via Factory
+    const provider = createWhatsAppProvider(providerAccount);
+
+    let wamid = `wpp-msg-${Date.now()}`;
+    let providerResponse = {};
     const textoMensagem = templateParams ? `[Template HSM: ${templateParams.templateNome}]` : (mensagem || '');
 
     // 4. Executa o disparo oficial
     if (templateParams) {
       // Dispara Template HSM
-      const resMeta = await client.enviarTemplate(conversa.contact_id, {
-        templateNome: templateParams.templateNome,
-        idiomaCode: templateParams.idiomaCode || 'pt_BR',
-        componentes: templateParams.componentes || []
-      }, conversa.tenant_id);
+      const resSend = await provider.sendTemplate({
+        to: conversa.contact_id,
+        recipient: conversa.contact_id,
+        templateName: templateParams.templateNome,
+        name: templateParams.templateNome,
+        language: templateParams.idiomaCode || 'pt_BR',
+        components: templateParams.componentes || []
+      });
 
-      wamid = resMeta.messages?.[0]?.id || wamid;
-      providerResponse = resMeta;
+      wamid = resSend?.id || resSend?.messages?.[0]?.id || resSend?.wamid || wamid;
+      providerResponse = resSend;
     } else if (mensagem) {
       // Dispara Texto Simples
-      const resMeta = await client.enviarTexto(conversa.contact_id, mensagem.trim(), conversa.tenant_id);
-      wamid = resMeta.messages?.[0]?.id || wamid;
-      providerResponse = resMeta;
+      const resSend = await provider.sendMessage({
+        to: conversa.contact_id,
+        recipient: conversa.contact_id,
+        message: mensagem.trim(),
+        text: mensagem.trim()
+      });
+
+      wamid = resSend?.id || resSend?.messages?.[0]?.id || resSend?.wamid || wamid;
+      providerResponse = resSend;
     } else {
       return res.status(400).json({ error: 'Conteúdo da mensagem ou templateParams são necessários' });
     }
@@ -81,8 +119,8 @@ export default async function handler(req, res) {
         tenant_id: conversa.tenant_id,
         conversation_id: id,
         provider_message_id: wamid,
-        provider: conversa.provider,
-        channel: conversa.channel,
+        provider: contaSelecionada.provider || conversa.provider || 'whatsapp',
+        channel: conversa.channel || 'whatsapp',
         direction: 'saida',
         mensagem: textoMensagem.trim(),
         meta_dados: {
@@ -109,14 +147,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json(msgInserida);
   } catch (error) {
-    console.error('[EnviarMensagemAPI] Erro no fluxo de envio e persistência oficial:', error);
-    // Emula inserção mockada de retorno seguro se a Graph API ou tabelas não estiverem populadas
-    return res.status(200).json({
-      id: `msg-mock-${Date.now()}`,
-      conversation_id: id,
-      direction: 'saida',
-      mensagem: mensagem?.trim() || '[Mensagem]',
-      created_at: new Date().toISOString()
+    console.error('[EnviarMensagemAPI] Erro no fluxo de envio e persistência oficial:', error?.message || error);
+    return res.status(500).json({
+      error: error?.message || 'Erro ao processar envio de mensagem.'
     });
   }
 }
