@@ -158,21 +158,37 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   // Alinhamento direto dos contatos retornados pela API oficial (apenas com c.valido === true)
   const destinatariosFiltrados = contatosReais.filter(c => c.valido === true);
   
-  // Computa o detalhamento exato dos registros excluídos
+  // Computa o detalhamento exato dos registros excluídos com base na amostragem real e no resumo do backend
   const detalhesExcluidos = (() => {
-    const semTelefone = contatosReais.filter(c => !c.telefoneOriginal && !c.telefoneNormalizado).length;
-    const invalidosFormat = contatosReais.filter(c => c.telefoneOriginal && !c.valido && !c.duplicado).length;
-    const duplicados = contatosReais.filter(c => c.duplicado).length;
-    
-    const invalidosTotais = resumoBackend.invalidos ?? (semTelefone + invalidosFormat);
-    const duplicadosTotais = resumoBackend.duplicados ?? duplicados;
-    const totalExcluidos = (resumoBackend.total || contatosReais.length) - destinatariosFiltrados.length;
+    let semTelefone = 0;
+    let invalidos = 0;
+    let duplicados = 0;
+
+    contatosReais.forEach(c => {
+      if (!c.valido) {
+        if (c.duplicado || c.motivoInvalido === 'Telefone duplicado') {
+          duplicados++;
+        } else if (!c.telefoneOriginal || c.motivoInvalido === 'Telefone ausente ou incompleto') {
+          semTelefone++;
+        } else {
+          invalidos++;
+        }
+      }
+    });
+
+    const totalCalculadoPelaAmostra = semTelefone + invalidos + duplicados;
+    const totalEncontrados = Number.isFinite(Number(resumoBackend.total)) && Number(resumoBackend.total) > 0
+      ? Number(resumoBackend.total)
+      : contatosReais.length;
+
+    const totalExcluidos = Math.max(totalEncontrados - destinatariosFiltrados.length, totalCalculadoPelaAmostra);
 
     return {
+      totalEncontrados,
       semTelefone,
-      invalidos: invalidosTotais,
-      duplicados: duplicadosTotais,
-      totalExcluidos: totalExcluidos > 0 ? totalExcluidos : (invalidosTotais + duplicadosTotais)
+      invalidos,
+      duplicados,
+      totalExcluidos
     };
   })();
 
@@ -533,7 +549,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
                         <span className="text-[10px] uppercase font-bold text-gray-400 block">Encontrados na Base</span>
-                        <p className="text-xl font-extrabold text-gray-800 mt-0.5">{resumoBackend.total || contatosReais.length} <span className="text-xs font-normal text-gray-500">registros</span></p>
+                        <p className="text-xl font-extrabold text-gray-800 mt-0.5">{detalhesExcluidos.totalEncontrados} <span className="text-xs font-normal text-gray-500">registros</span></p>
                       </div>
                       <div className="bg-teal-50 border border-teal-100 p-3 rounded-xl">
                         <span className="text-[10px] uppercase font-bold text-teal-600 block">✓ Aptos para Envio</span>
