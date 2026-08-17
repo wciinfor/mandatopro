@@ -5,6 +5,63 @@ import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
  * API Handler para criar e persistir a Comunicação Oficial na tabela communication_campaigns.
  */
 export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    try {
+      const supabase = createServerClient();
+      const { usuario } = await obterUsuarioAutenticado(req, supabase);
+      const tenantId = usuario?.tenant_id || '00000000-0000-0000-0000-000000000000';
+
+      const { data: campanhas, error } = await supabase
+        .from('communication_campaigns')
+        .select('*, communication_templates(nome), communication_audiences(nome)')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Mapeia campanhas com seus contadores
+      const formatadas = await Promise.all((campanhas || []).map(async (c) => {
+        const { data: itens } = await supabase
+          .from('communication_campaign_items')
+          .select('status')
+          .eq('campaign_id', c.id);
+
+        let enviadas = 0;
+        let entregues = 0;
+        let lidas = 0;
+        let falhas = 0;
+
+        (itens || []).forEach(i => {
+          if (i.status === 'enviado') enviadas++;
+          if (i.status === 'entregue') { entregues++; enviadas++; }
+          if (i.status === 'lida') { lidas++; entregues++; enviadas++; }
+          if (i.status === 'falha') falhas++;
+        });
+
+        return {
+          id: c.id,
+          nome: c.nome,
+          canal: c.canal || 'whatsapp',
+          template: c.communication_templates?.nome || 'Informativo',
+          publico: c.communication_audiences?.nome || 'Destinatários',
+          status: c.status,
+          agendamento: c.agendado_para,
+          total_destinatarios: c.total_destinatarios || (itens || []).length || 0,
+          enviadas,
+          entregues,
+          lidas,
+          falhas,
+          created_at: c.created_at
+        };
+      }));
+
+      return res.status(200).json(formatadas);
+    } catch (err) {
+      console.error('[SalvarComunicacaoAPI GET] Erro ao listar campanhas:', err);
+      return res.status(200).json([]);
+    }
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

@@ -61,60 +61,36 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const [resumoDestinatarios, setResumoDestinatarios] = useState(null);
   const [carregandoDestinatarios, setCarregandoDestinatarios] = useState(false);
 
-  // Estados dos filtros locais do público
+  // Estados dos filtros da Base MandatoPRO
+  const [mandatoOrigem, setMandatoOrigem] = useState('eleitores');
+  const [mandatoCampanhaId, setMandatoCampanhaId] = useState('');
+  const [mandatoPresencaCampanha, setMandatoPresencaCampanha] = useState('');
+  
+  const [filtroCidade, setFiltroCidade] = useState('');
   const [filtroBairro, setFiltroBairro] = useState('');
   const [filtroSexo, setFiltroSexo] = useState('');
   const [filtroSituacao, setFiltroSituacao] = useState('');
-  const [filtroLideranca, setFiltroLideranca] = useState('');
-  const [filtroPossuiWhatsApp, setFiltroPossuiWhatsApp] = useState('all');
+  const [filtroPossuiWhatsApp, setFiltroPossuiWhatsApp] = useState('sim');
+  const [mandatoLimite, setMandatoLimite] = useState(1000);
 
-  // Filtros locais aplicados em memória sobre a base de destinatários carregada
-  const destinatariosFiltrados = destinatarios.filter(d => {
-    const matchBairro = !filtroBairro || (d.bairro && d.bairro.toLowerCase().includes(filtroBairro.toLowerCase()));
-    const matchSexo = !filtroSexo || (d.sexo && d.sexo.toUpperCase() === filtroSexo.toUpperCase());
-    const matchSituacao = !filtroSituacao || (d.situacao && d.situacao.toLowerCase().includes(filtroSituacao.toLowerCase()));
-    const matchLideranca = !filtroLideranca || (d.lideranca_id && String(d.lideranca_id) === String(filtroLideranca));
-    
-    let matchWhatsApp = true;
-    if (filtroPossuiWhatsApp === 'sim') {
-      matchWhatsApp = d.status_telefone === 'valido';
-    } else if (filtroPossuiWhatsApp === 'nao') {
-      matchWhatsApp = d.status_telefone !== 'valido';
-    }
+  const [contatosReais, setContatosReais] = useState([]);
+  const [resumoBackend, setResumoBackend] = useState({ total: 0, validos: 0, invalidos: 0, duplicados: 0 });
+  const [carregandoContatos, setCarregandoContatos] = useState(false);
+  const [erroContatos, setErroContatos] = useState(null);
 
-    return matchBairro && matchSexo && matchSituacao && matchLideranca && matchWhatsApp;
-  });
-
-  const totalExcluidos = destinatarios.length - destinatariosFiltrados.length;
-
+  // Carrega a lista de campanhas para o select através da API real existente
   const carregarCampanhasCRM = async () => {
     setCarregandoCampanhas(true);
     try {
-      const res = await fetch('/api/cadastros/campanhas/ativas');
-      if (res.ok) {
-        const data = await res.json();
-        setCampanhasCRM(data || []);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar campanhas ativas do CRM:', err);
-    } finally {
-      setCarregandoCampanhas(false);
-    }
-  };
-
-  const carregarDestinatariosCampanha = async (campanhaId) => {
-    setCarregandoDestinatarios(true);
-    try {
-      const res = await fetch(`/api/comunicacao-oficial/campanhas/${campanhaId}/destinatarios`);
+      const res = await fetch('/api/disparos/contatos/campanhas?limit=200');
       if (res.ok) {
         const payload = await res.json();
-        setDestinatarios(payload.destinatarios || []);
-        setResumoDestinatarios(payload.resumo || null);
+        setCampanhasCRM(payload.data || []);
       }
     } catch (err) {
-      console.error('Erro ao carregar destinatários da campanha:', err);
+      console.error('Erro ao carregar campanhas para disparo:', err);
     } finally {
-      setCarregandoDestinatarios(false);
+      setCarregandoCampanhas(false);
     }
   };
 
@@ -122,14 +98,66 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     carregarCampanhasCRM();
   }, []);
 
+  // Atualiza contatos e resumo com debouncing via GET /api/disparos/contatos/preview
   useEffect(() => {
-    if (campanhaSelecionada?.id) {
-      carregarDestinatariosCampanha(campanhaSelecionada.id);
-    } else {
-      setDestinatarios([]);
-      setResumoDestinatarios(null);
-    }
-  }, [campanhaSelecionada]);
+    if (origemDestinatarios !== 'campanha_politica') return;
+
+    let active = true;
+    setCarregandoContatos(true);
+    setErroContatos(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const baseParams = {
+          origem: mandatoOrigem,
+          cidade: filtroCidade,
+          bairro: filtroBairro,
+          status: filtroSituacao,
+          limit: String(mandatoLimite),
+          campanhaId: mandatoCampanhaId,
+          presencaCampanha: mandatoPresencaCampanha
+        };
+
+        // 1. Busca os contatos da lista para o preview
+        const paramsPreview = new URLSearchParams(baseParams);
+        const res = await fetch(`/api/disparos/contatos/preview?${paramsPreview.toString()}`);
+        if (!res.ok) throw new Error('Falha ao calcular contatos da base.');
+        const payload = await res.json();
+
+        // 2. Busca também a contagem exata otimizada via countOnly=true
+        const paramsCount = new URLSearchParams({ ...baseParams, countOnly: 'true' });
+        const resCount = await fetch(`/api/disparos/contatos/preview?${paramsCount.toString()}`);
+        const payloadCount = resCount.ok ? await resCount.json() : null;
+
+        if (active) {
+          const lista = payload.data || [];
+          setContatosReais(lista);
+          setResumoBackend({
+            total: payloadCount?.resumo?.total ?? payload.resumo?.total ?? lista.length,
+            validos: payload.resumo?.validos ?? lista.filter(c => c.valido).length,
+            invalidos: payload.resumo?.invalidos ?? lista.filter(c => !c.valido).length,
+            duplicados: payload.resumo?.duplicados ?? lista.filter(c => c.duplicado).length
+          });
+        }
+      } catch (err) {
+        if (active) {
+          console.error('Erro ao buscar preview de contatos:', err);
+          setErroContatos(err.message);
+        }
+      } finally {
+        if (active) setCarregandoContatos(false);
+      }
+    }, 450);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [origemDestinatarios, mandatoOrigem, mandatoCampanhaId, mandatoPresencaCampanha, filtroCidade, filtroBairro, filtroSituacao, mandatoLimite]);
+
+  // Alinhamento direto dos contatos retornados pela API oficial (apenas com c.valido === true)
+  const destinatariosFiltrados = contatosReais.filter(c => c.valido === true);
+  const totalExcluidos = (resumoBackend.invalidos || 0) + (resumoBackend.duplicados || 0);
 
   // Identifica variáveis presentes no template de forma dinâmica (procura por {{N}})
   useEffect(() => {
@@ -175,22 +203,20 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     if (step === 1) return null;
     
     if (origemDestinatarios === 'campanha_politica') {
-      if (step === 2 && !campanhaSelecionada) return 'Selecione uma Campanha Política do CRM.';
-      if (step === 3 && !nome.trim()) return 'Insira o nome do disparo.';
-      if (step === 4 && destinatarios.length === 0) return 'A campanha selecionada não possui destinatários válidos.';
-      if (step === 5) {
+      if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
+      if (step === 3 && destinatariosFiltrados.length === 0 && !carregandoContatos) return 'A base selecionada não retornou destinatários aptos para envio.';
+      if (step === 4) {
         if (!templateSelecionado) return 'Selecione um template.';
         if (templateSelecionado.status !== 'APPROVED') return 'O template selecionado precisa estar APROVADO pela Meta.';
       }
-      if (step === 6) {
+      if (step === 5) {
         const variaveisVazias = Object.values(variaveis).some(v => !v.trim());
         if (variaveisVazias) return 'Preencha todas as variáveis obrigatórias do template.';
       }
-      if (step === 8 && agendado && !dataAgendamento) return 'Selecione data e hora para o agendamento.';
+      if (step === 7 && agendado && !dataAgendamento) return 'Selecione data e hora para o agendamento.';
     } else {
       // Fluxo CSV
       if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
-      // Passo 3 é o Upload do CSV que nesta etapa é simulado
       if (step === 4) {
         if (!templateSelecionado) return 'Selecione um template.';
         if (templateSelecionado.status !== 'APPROVED') return 'O template selecionado precisa estar APROVADO pela Meta.';
@@ -214,19 +240,29 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   const handleSalvar = () => {
     if (erroAtual) return;
+
+    const listaFinal = origemDestinatarios === 'campanha_politica'
+      ? destinatariosFiltrados.map(c => ({
+          id: c.origemId || c.id,
+          nome: c.nome || 'Contato',
+          telefone_limpo: c.telefoneNormalizado || c.phone,
+          telefone_original: c.telefoneOriginal || c.phone
+        }))
+      : [];
+
     onSave({
       nome,
       canal,
       origemDestinatarios,
       publico: origemDestinatarios === 'campanha_politica' 
-        ? `${campanhaSelecionada.nome} - Público Filtrado`
+        ? `Base ${mandatoOrigem.toUpperCase()} - ${destinatariosFiltrados.length} contatos`
         : 'Upload de Lista CSV',
       template: templateSelecionado.nome,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
       total_destinatarios: origemDestinatarios === 'campanha_politica' ? destinatariosFiltrados.length : 0,
-      campaign_id: campanhaSelecionada?.id || null,
-      destinatarios: origemDestinatarios === 'campanha_politica' ? destinatariosFiltrados : [],
+      campaign_id: mandatoCampanhaId || null,
+      destinatarios: listaFinal,
       enviadas: 0,
       entregues: 0,
       lidas: 0,
@@ -251,16 +287,15 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
               <h3 className="font-bold text-gray-800 text-lg">
                 {step === 1 && 'Origem dos Destinatários'}
                 
-                {/* Títulos do fluxo com Campanha */}
+                {/* Títulos do fluxo com Campanha / Base MandatoPRO */}
                 {origemDestinatarios === 'campanha_politica' && (
                   <>
-                    {step === 2 && 'Selecionar Campanha do CRM'}
-                    {step === 3 && 'Informações do Disparo'}
-                    {step === 4 && 'Selecionar Público'}
-                    {step === 5 && 'Selecionar Template'}
-                    {step === 6 && 'Configurar Variáveis'}
-                    {step === 7 && 'Revisão da Comunicação'}
-                    {step === 8 && 'Configurar Agendamento'}
+                    {step === 2 && 'Informações do Disparo'}
+                    {step === 3 && 'Selecionar Público da Base MandatoPRO'}
+                    {step === 4 && 'Selecionar Template'}
+                    {step === 5 && 'Configurar Variáveis'}
+                    {step === 6 && 'Revisão da Comunicação'}
+                    {step === 7 && 'Configurar Agendamento'}
                   </>
                 )}
 
@@ -364,7 +399,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           )}
 
           {/* Nome e Canal de Disparo */}
-          {((step === 2 && origemDestinatarios === 'csv') || (step === 3 && origemDestinatarios === 'campanha_politica')) && (
+          {step === 2 && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Nome do Disparo / Comunicação</label>
@@ -389,12 +424,77 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
-          {/* Resumo dos Destinatários no fluxo de Campanha com Filtros locais */}
-          {step === 4 && origemDestinatarios === 'campanha_politica' && (
+          {/* Resumo dos Destinatários na Base do MandatoPRO com Filtros Reais */}
+          {step === 3 && origemDestinatarios === 'campanha_politica' && (
             <div className="space-y-4">
-              <label className="block text-xs font-semibold text-gray-700">Filtros Opcionais de Segmentação</label>
+              <label className="block text-xs font-semibold text-gray-700">Filtros da Base do MandatoPRO</label>
               
               <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Origem</label>
+                  <select
+                    value={mandatoOrigem}
+                    onChange={(e) => setMandatoOrigem(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none"
+                  >
+                    <option value="eleitores">Eleitores</option>
+                    <option value="liderancas">Lideranças</option>
+                    <option value="funcionarios">Funcionários</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Campanha</label>
+                  <select
+                    value={mandatoCampanhaId}
+                    onChange={(e) => setMandatoCampanhaId(e.target.value)}
+                    disabled={mandatoOrigem !== 'eleitores'}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
+                  >
+                    <option value="">Todas as campanhas</option>
+                    {campanhasCRM.map(c => (
+                      <option key={c.id} value={c.id}>{c.nome}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Presença</label>
+                  <select
+                    value={mandatoPresencaCampanha}
+                    onChange={(e) => setMandatoPresencaCampanha(e.target.value)}
+                    disabled={mandatoOrigem !== 'eleitores' || !mandatoCampanhaId}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
+                  >
+                    <option value="">Todos</option>
+                    <option value="presentes">Presentes na campanha</option>
+                    <option value="ausentes">Ausentes na campanha</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Limite Máximo</label>
+                  <input
+                    type="number"
+                    value={mandatoLimite}
+                    onChange={(e) => setMandatoLimite(e.target.value)}
+                    min="1"
+                    max="50000"
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade</label>
+                  <input
+                    type="text"
+                    value={filtroCidade}
+                    onChange={(e) => setFiltroCidade(e.target.value)}
+                    placeholder="Filtrar por cidade..."
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bairro</label>
                   <input
@@ -405,59 +505,25 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Sexo</label>
-                  <select
-                    value={filtroSexo}
-                    onChange={(e) => setFiltroSexo(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-1.5 focus:outline-none"
-                  >
-                    <option value="">Todos</option>
-                    <option value="M">Masculino</option>
-                    <option value="F">Feminino</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Situação</label>
-                  <input
-                    type="text"
-                    value={filtroSituacao}
-                    onChange={(e) => setFiltroSituacao(e.target.value)}
-                    placeholder="Ex: Regular"
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">WhatsApp</label>
-                  <select
-                    value={filtroPossuiWhatsApp}
-                    onChange={(e) => setFiltroPossuiWhatsApp(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-1.5 focus:outline-none"
-                  >
-                    <option value="all">Todos</option>
-                    <option value="sim">Apenas com WhatsApp</option>
-                    <option value="nao">Sem WhatsApp válido</option>
-                  </select>
-                </div>
               </div>
 
               <div className="border-t border-gray-100 pt-3 mt-3">
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Painel de Conferência de Destinatários</label>
-                {carregandoDestinatarios ? (
-                  <p className="text-center py-4 text-xs text-gray-400">Filtrando contatos...</p>
+                <label className="block text-xs font-semibold text-gray-700 mb-2">Painel de Conferência de Destinatários Reais</label>
+                {carregandoContatos ? (
+                  <p className="text-center py-4 text-xs text-gray-400">Calculando e filtrando contatos da base...</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl text-center">
-                      <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Carregado</span>
-                      <p className="text-lg font-bold text-gray-800 mt-0.5">{destinatarios.length}</p>
+                      <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Encontrado</span>
+                      <p className="text-lg font-bold text-gray-800 mt-0.5">{resumoBackend.total || contatosReais.length}</p>
                     </div>
                     <div className="bg-teal-50 border border-teal-100 p-3 rounded-xl text-center">
                       <span className="text-[9px] uppercase font-bold text-teal-600 block">Aptos para Envio</span>
                       <p className="text-lg font-bold text-teal-800 mt-0.5">{destinatariosFiltrados.length}</p>
                     </div>
                     <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl text-center">
-                      <span className="text-[9px] uppercase font-bold text-rose-600 block">Excluídos Filtro</span>
-                      <p className="text-lg font-bold text-rose-800 mt-0.5">{totalExcluidos}</p>
+                      <span className="text-[9px] uppercase font-bold text-rose-600 block">Inválidos / Excluídos</span>
+                      <p className="text-lg font-bold text-rose-800 mt-0.5">{totalExcluidos + (resumoBackend.invalidos || 0)}</p>
                     </div>
                   </div>
                 )}
@@ -477,7 +543,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           )}
 
           {/* Selecionar Template */}
-          {((step === 4 && origemDestinatarios === 'csv') || (step === 5 && origemDestinatarios === 'campanha_politica')) && (
+          {step === 4 && (
             <div className="space-y-3">
               <label className="block text-xs font-semibold text-gray-700">Selecione o Template Oficial</label>
               {TEMPLATES_MOCK.map(tmpl => (

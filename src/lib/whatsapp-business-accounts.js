@@ -80,7 +80,7 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
   const tenantId = obterTenantId(usuario);
   if (!tenantId) return null;
 
-  const { data, error } = await supabase
+  const { data: contas, error } = await supabase
     .from('whatsapp_business_accounts')
     .select(`
       id,
@@ -157,11 +157,18 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
       )
     `)
     .eq('tenant_id', tenantId)
-    .eq('principal', true)
-    .maybeSingle();
+    .eq('status', 'ATIVO')
+    .order('principal', { ascending: false })
+    .order('id', { ascending: true });
 
   if (error) throw error;
-  return data || null;
+
+  if (!contas || contas.length === 0) return null;
+
+  // Priorizar contas que possuam credencial configurada (access_token para META, ycloud_api_key para YCLOUD)
+  const contaComCredencial = contas.find(row => Boolean(row.access_token || row.ycloud_api_key));
+
+  return contaComCredencial || contas[0];
 }
 
 export async function buscarContaWhatsappPorVerifyToken(supabase, verifyToken) {

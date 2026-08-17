@@ -1,53 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBullhorn, faPlus, faFilter, faInbox } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faPlus, faFilter, faInbox, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { CampanhaCard } from '@/components/CampanhaCard';
 import AssistenteCampanha from '@/components/AssistenteCampanha';
 
-// Mocks de campanhas estruturadas
-const MOCK_CAMPANHAS = [
-  {
-    id: 'camp-1',
-    nome: 'Informativo Obras Verão',
-    canal: 'whatsapp',
-    template: 'obras_praca_central',
-    publico: 'Bairro Centro - Opt-in',
-    status: 'concluido',
-    agendamento: null,
-    total_destinatarios: 450,
-    enviadas: 450,
-    entregues: 442,
-    lidas: 380,
-    falhas: 8,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'camp-2',
-    nome: 'Gabinete Itinerante - Convite',
-    canal: 'whatsapp',
-    template: 'convite_gabinete_bairro',
-    publico: 'Bairro Liberdade - Geral',
-    status: 'agendado',
-    agendamento: new Date(Date.now() + 86400000 * 2).toISOString(),
-    total_destinatarios: 1200,
-    enviadas: 0,
-    entregues: 0,
-    lidas: 0,
-    falhas: 0,
-    created_at: new Date().toISOString()
-  }
-];
-
 export default function CampanhasOficiaisPage() {
-  const [campanhas, setCampanhas] = useState(MOCK_CAMPANHAS);
+  const [campanhas, setCampanhas] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [criando, setCriando] = useState(false);
 
+  const carregarCampanhasReais = async () => {
+    setLoading(true);
+    try {
+      // Busca diretamente as campanhas oficiais cadastradas
+      const res = await fetch('/api/comunicacao-oficial/salvar-comunicacao');
+      if (res.ok) {
+        const data = await res.json();
+        setCampanhas(data || []);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar lista de campanhas:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarCampanhasReais();
+  }, []);
+
   const filtrarCampanhas = campanhas.filter((c) => 
-    c.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    c.template.toLowerCase().includes(busca.toLowerCase())
+    (c.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
+    (c.template || '').toLowerCase().includes(busca.toLowerCase())
   );
 
   const handleSalvarNovaCampanha = async (novaCamp) => {
@@ -58,24 +45,7 @@ export default function CampanhasOficiaisPage() {
         body: JSON.stringify(novaCamp)
       });
       if (res.ok) {
-        const campSalva = await res.json();
-        // Mapeia para exibição no card
-        const campFormatada = {
-          id: campSalva.id,
-          nome: campSalva.nome,
-          canal: campSalva.canal,
-          template: novaCamp.template,
-          publico: novaCamp.publico,
-          status: campSalva.status,
-          agendamento: campSalva.agendado_para,
-          total_destinatarios: campSalva.total_destinatarios || 0,
-          enviadas: 0,
-          entregues: 0,
-          lidas: 0,
-          falhas: 0,
-          created_at: campSalva.created_at
-        };
-        setCampanhas(prev => [campFormatada, ...prev]);
+        await carregarCampanhasReais();
       }
     } catch (err) {
       console.error('Erro ao salvar comunicação oficial:', err);
@@ -131,7 +101,12 @@ export default function CampanhasOficiaisPage() {
             </div>
 
             {/* Lista de cards */}
-            {filtrarCampanhas.length > 0 ? (
+            {loading ? (
+              <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
+                <FontAwesomeIcon icon={faSpinner} spin className="text-4xl text-teal-600 mb-3" />
+                <p className="text-sm font-semibold text-gray-600">Carregando comunicações de transmissão...</p>
+              </div>
+            ) : filtrarCampanhas.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtrarCampanhas.map((camp) => (
                   <CampanhaCard key={camp.id} campanha={camp} />

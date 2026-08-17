@@ -1,6 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
-import { normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
+import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 
 /**
  * API Handler para enviar e persistir mensagens nas tabelas oficiais multicanal utilizando a Factory de Providers (Meta / YCloud).
@@ -31,38 +31,8 @@ export default async function handler(req, res) {
       throw new Error('Conversa não localizada para o envio.');
     }
 
-    // 2. Busca as credenciais oficiais vinculadas ao tenant da conversa na whatsapp_business_accounts
-    const { data: contaWaba, error: errWaba } = await supabase
-      .from('whatsapp_business_accounts')
-      .select('*, whatsapp_business_numbers(*)')
-      .eq('tenant_id', conversa.tenant_id)
-      .eq('status', 'ATIVO')
-      .order('id', { ascending: true });
-
-    let contaSelecionada = (contaWaba || []).find(c => String(c.provider).toUpperCase() === 'YCLOUD') 
-      || (contaWaba || []).find(c => String(c.provider).toUpperCase() === 'META')
-      || contaWaba?.[0]
-      || null;
-
-    // Fallback para a tabela legada communication_accounts se whatsapp_business_accounts não retornar
-    if (!contaSelecionada) {
-      const { data: contaLegacy } = await supabase
-        .from('communication_accounts')
-        .select('*')
-        .eq('tenant_id', conversa.tenant_id)
-        .eq('provider', 'whatsapp')
-        .eq('status', 'ativo')
-        .maybeSingle();
-
-      if (contaLegacy) {
-        contaSelecionada = {
-          provider: 'META',
-          access_token: contaLegacy.access_token,
-          phone_number_id: contaLegacy.phone_number_id,
-          waba_id: contaLegacy.waba_id
-        };
-      }
-    }
+    // 2. Busca a conta WhatsApp oficial ativa do tenant usando o resolver centralizado
+    const contaSelecionada = await buscarContaWhatsappPrincipal(supabase, { tenant_id: conversa.tenant_id });
 
     if (!contaSelecionada) {
       throw new Error('Configuração de credenciais de WhatsApp não localizada ou inativa para este Tenant.');

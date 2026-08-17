@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
-import { MetaGraphClient } from '@/lib/meta-graph-client';
+import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
+import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
 
 /**
  * API Handler para processamento assíncrono em lote da fila de disparos oficiais (communication_campaign_items).
@@ -60,17 +61,11 @@ export default async function handler(req, res) {
           throw new Error(`Campanha ${item.campaign_id} não localizada.`);
         }
 
-        // 4. Busca as credenciais da Meta correspondentes ao tenant
-        const { data: conta, error: errConta } = await supabase
-          .from('communication_accounts')
-          .select('*')
-          .eq('tenant_id', campanha.tenant_id)
-          .eq('provider', 'whatsapp')
-          .eq('status', 'ativo')
-          .maybeSingle();
+        // 4. Busca a conta WhatsApp oficial ativa do tenant usando o resolver centralizado
+        const contaSelecionada = await buscarContaWhatsappPrincipal(supabase, { tenant_id: campanha.tenant_id });
 
-        if (errConta || !conta || !conta.access_token || !conta.phone_number_id) {
-          throw new Error('Credenciais de disparo da Meta ausentes para este tenant.');
+        if (!contaSelecionada) {
+          throw new Error(`Credenciais de disparo de WhatsApp ausentes para este tenant (${campanha.tenant_id}).`);
         }
 
         const { registrarEventoTimeline } = require('@/lib/timeline-helper');
@@ -83,18 +78,22 @@ export default async function handler(req, res) {
           });
         }
 
-        // 5. Inicializa o cliente da Graph API
-        const client = new MetaGraphClient({
-          accessToken: conta.access_token,
-          phoneNumberId: conta.phone_number_id,
-          wabaId: conta.waba_id
-        });
+        const contaNormalizada = normalizarWhatsappAccount(contaSelecionada);
+        const providerAccount = {
+          ...contaSelecionada,
+          ...contaNormalizada,
+          accessToken: contaSelecionada.access_token || contaSelecionada.ycloud_api_key,
+          ycloudApiKey: contaSelecionada.ycloud_api_key
+        };
+
+        // 5. Inicializa o provider unificado via Factory (META ou YCLOUD)
+        const provider = createWhatsAppProvider(providerAccount);
 
         const templateNome = campanha.communication_templates?.nome || item.template_id || 'default';
         const destinatarioNome = item.variaveis_mapeadas?.nome || 'Eleitor';
 
         // 5.1 Localiza ou cria a conversa na Central de Atendimento
-        let { data: conversa, error: errConv } = await supabase
+        let { data: conversa } = await supabase
           .from('communication_conversations')
           .select('id')
           .eq('contact_id', item.contact_id)
@@ -120,11 +119,13 @@ export default async function handler(req, res) {
           conversa = novaConv;
         }
 
-        // 6. Executa disparo do template HSM na API oficial
-        const resMeta = await client.enviarTemplate(item.contact_id, {
-          templateNome: templateNome,
+        // 6. Executa disparo do template HSM via Provider Factory (Meta ou YCloud)
+        const resProvider = await provider.sendTemplate({
+          to: item.contact_id,
+          recipient: item.contact_id,
+          templateName: templateNome,
           idiomaCode: 'pt_BR',
-          componentes: [
+          components: [
             {
               type: 'body',
               parameters: [
@@ -132,9 +133,9 @@ export default async function handler(req, res) {
               ]
             }
           ]
-        }, campanha.tenant_id);
+        });
 
-        const wamid = resMeta.messages?.[0]?.id || `wamid-cron-${Date.now()}`;
+        const wamid = resProvider?.id || resProvider?.messages?.[0]?.id || `wamid-cron-${Date.now()}`;
         const textoMensagem = `[Disparo Oficial Template: ${templateNome}] Olá ${destinatarioNome}`;
 
         // 6.1 Registra a mensagem de saída na Central de Atendimento
