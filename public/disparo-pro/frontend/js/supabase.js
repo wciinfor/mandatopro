@@ -1,5 +1,5 @@
 /**
- * Mandato Connect - SUPABASE CONFIG
+ * Disparo PRO - SUPABASE CONFIG
  * Configure as variáveis abaixo com os dados do seu projeto Supabase.
  * Acesse: https://supabase.com/dashboard → Settings → API
  */

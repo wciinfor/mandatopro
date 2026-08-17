@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="light">
+<html lang="pt-BR" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
@@ -28,18 +28,18 @@
         media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
 
     <!-- Bootstrap CSS -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css?v=1779664871766" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css?v=1787009695935" rel="stylesheet">
 
     <!-- Bootstrap Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css?v=1779664871766"
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.0/font/bootstrap-icons.min.css?v=1787009695935"
         rel="stylesheet">
 
-    <link href="frontend/css/layout.css?v=20260706-contact-remove" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js?v=1779664871766"></script>
+    <link href="frontend/css/layout.css?v=123" rel="stylesheet">
+<!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js?v=1787009695935"></script>
 
     <!-- SheetJS para Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js?v=1779664871766"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js?v=1787009695935"></script>
 
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -58,7 +58,6 @@
                 <div class="mt-2">
                     <small class="text-white-50">Versão 3.0</small>
                 </div>
-
             </div>
 
             <div class="sidebar-nav">
@@ -121,6 +120,12 @@
                     </a>
                 </div>
 
+                <div class="nav-item">
+                    <a class="nav-link" data-section="backup">
+                        <i class="bi bi-shield-check"></i>
+                        Backup & Restore
+                    </a>
+                </div>
             </div>
 
             <div class="sidebar-footer">
@@ -157,19 +162,26 @@
 
                         <div class="d-flex align-items-center text-white">
                             <i class="bi bi-server me-2"></i>
-                            <span class="me-2">Instâncias:</span>
+                            <span class="me-2">Instâncias Ativas:</span>
                             <span id="activeInstancesCount" class="badge bg-success">0</span>
                         </div>
                     </div>
 
-                    <!-- Segunda Linha: Tema + Sair -->
+                    <!-- Segunda Linha: Tema + Perfil + Sair -->
                     <div class="header-bottom-row">
                         <button id="themeToggle" class="btn btn-outline-light btn-sm">
                             <i class="bi bi-moon-fill me-2" id="themeIcon"></i>Tema
                         </button>
+                        <button id="profileBtn" class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-person-circle me-1"></i>
+                            <span id="userDisplayName">Perfil</span>
+                            <span id="userPlanBadge" class="badge bg-secondary ms-1">Free</span>
+                        </button>
+                        <button id="logoutBtn" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-box-arrow-right me-2"></i>Sair
+                        </button>
                     </div>
                 </div>
-
             </div>
 
             <!-- Dashboard Section -->
@@ -374,8 +386,8 @@
                                 <input type="text" class="form-control" id="newInstanceName" placeholder="Ex: gabinete-fortaleza">
                             </div>
                             <div class="col-md-5">
-                                <label for="newInstanceAPIKEY" class="form-label">Token da instância</label>
-                                <input type="password" class="form-control" id="newInstanceAPIKEY" placeholder="Cole o token da instância">
+                                <label for="newInstanceAPIKEY" class="form-label">Token / API key Evolution</label>
+                                <input type="password" class="form-control" id="newInstanceAPIKEY" placeholder="Cole o token da instancia">
                             </div>
                             <div class="col-md-2">
                                 <button type="button" class="btn btn-primary w-100" id="addInstanceBtn">
@@ -383,7 +395,7 @@
                                 </button>
                             </div>
                         </div>
-                        <small class="text-muted d-block mt-2">Cadastre o nome e o token da instância para uso nos envios.</small>
+                        <small class="text-muted d-block mt-2">A instancia deve existir primeiro na Evolution API. Aqui voce vincula o nome e token para uso nos envios.</small>
                     </div>
                 </div>
 
@@ -391,7 +403,7 @@
                     <div
                         class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-server me-2"></i>Instâncias</h5>
-                        <small class="text-white-50">Cadastre suas instâncias para usar nos envios</small>
+                        <small class="text-white-50">Cadastre a instancia criada na Evolution API</small>
                     </div>
 
                     <!-- Lista de instâncias cadastradas -->
@@ -1284,34 +1296,6 @@
                     <p>Visualize estatísticas e métricas detalhadas dos seus envios</p>
                 </div>
 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-lg-6">
-                                <label class="form-label">Campanha</label>
-                                <select id="resultsCampaignSelect" class="form-control">
-                                    <option value="">Sessao atual</option>
-                                </select>
-                            </div>
-                            <div class="col-lg-3">
-                                <label class="form-label">Status</label>
-                                <div id="resultsCampaignStatus" class="form-control bg-light">-</div>
-                            </div>
-                            <div class="col-lg-3 d-grid gap-2 d-lg-flex">
-                                <button type="button" class="btn btn-primary flex-fill" id="refreshResultsBtn">
-                                    <i class="bi bi-arrow-clockwise me-2"></i>Atualizar
-                                </button>
-                                <button type="button" class="btn btn-outline-success flex-fill" id="exportResultsCsvBtn">
-                                    <i class="bi bi-download me-2"></i>CSV
-                                </button>
-                            </div>
-                        </div>
-                        <small id="resultsSourceInfo" class="text-muted d-block mt-2">
-                            Selecione uma campanha para consultar resultados consolidados do banco.
-                        </small>
-                    </div>
-                </div>
-
                 <div class="row">
                     <!-- Métricas Principais -->
                     <div class="col-lg-2 col-md-6 mb-4">
@@ -1403,28 +1387,6 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="card">
-                    <div class="card-header bg-gradient-primary text-white">
-                        <h5 class="m-2"><i class="bi bi-exclamation-triangle me-2"></i>Principais Ocorrencias</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="resultsErrorsEmpty" class="text-muted text-center py-3">
-                            Nenhuma falha registrada para a campanha selecionada.
-                        </div>
-                        <div class="table-responsive" id="resultsErrorsTableWrap" style="display: none;">
-                            <table class="table table-sm align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Ocorrencia</th>
-                                        <th class="text-end">Quantidade</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="resultsErrorsTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Histórico Section -->
@@ -1432,47 +1394,6 @@
                 <div class="content-header">
                     <h2><i class="bi bi-clock-history me-2"></i>Histórico de Envios</h2>
                     <p>Consulte todos os envios realizados anteriormente</p>
-                </div>
-
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-lg-4">
-                                <label class="form-label">Buscar campanha</label>
-                                <input type="text" class="form-control" id="historySearchInput"
-                                    placeholder="Nome da campanha">
-                            </div>
-                            <div class="col-lg-3">
-                                <label class="form-label">Status</label>
-                                <select id="historyStatusFilter" class="form-control">
-                                    <option value="">Todos</option>
-                                    <option value="rascunho">Rascunho</option>
-                                    <option value="preparada">Preparada</option>
-                                    <option value="em_andamento">Em andamento</option>
-                                    <option value="concluida">Concluida</option>
-                                    <option value="pausada">Pausada</option>
-                                    <option value="cancelada">Cancelada</option>
-                                </select>
-                            </div>
-                            <div class="col-lg-2">
-                                <label class="form-label">Periodo</label>
-                                <select id="historyPeriodFilter" class="form-control">
-                                    <option value="">Tudo</option>
-                                    <option value="today">Hoje</option>
-                                    <option value="7">7 dias</option>
-                                    <option value="30">30 dias</option>
-                                </select>
-                            </div>
-                            <div class="col-lg-3 d-grid">
-                                <button type="button" class="btn btn-primary" id="refreshHistoryBtn">
-                                    <i class="bi bi-arrow-clockwise me-2"></i>Atualizar Historico
-                                </button>
-                            </div>
-                        </div>
-                        <small id="historySourceInfo" class="text-muted d-block mt-2">
-                            O historico consolidado usa campanhas registradas no banco.
-                        </small>
-                    </div>
                 </div>
 
                 <div class="card">
@@ -1495,12 +1416,12 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Data/Hora</th>
-                                        <th>Campanha</th>
+                                        <th>Instância</th>
                                         <th>Total Contatos</th>
-                                        <th>Enviados</th>
-                                        <th>Falhas</th>
+                                        <th>Sucessos</th>
+                                        <th>Erros</th>
                                         <th>Taxa Sucesso</th>
-                                        <th>Acoes</th>
+                                        <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="historyTableBody">
@@ -1512,6 +1433,99 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backup Section -->
+            <div class="content-section" id="backup-section">
+                <div class="content-header">
+                    <h2><i class="bi bi-shield-check me-2"></i>Backup & Restore</h2>
+                    <p>Faça backup de seus dados e restaure configurações anteriores</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-gradient-primary text-white">
+                        <h5 class="m-2"><i class="bi bi-shield-check me-2"></i>Gerenciamento de Dados</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>O backup inclui:</strong> Histórico completo, lista de contatos, configurações da
+                            instância, mensagens e arquivos de mídia.
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-download fs-1 text-primary mb-3"></i>
+                                        <h6>Fazer Backup</h6>
+                                        <p class="text-muted small">
+                                            Exporte todos os seus dados em um arquivo seguro
+                                            para restaurar posteriormente.
+                                        </p>
+                                        <button type="button" class="btn btn-primary" id="exportBackupBtn">
+                                            <i class="bi bi-download me-2"></i>Fazer Backup Completo
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-upload fs-1 text-secondary mb-3"></i>
+                                        <h6>Restaurar Backup</h6>
+                                        <p class="text-muted small">
+                                            Importe um backup anterior para restaurar todos os
+                                            seus dados e configurações.
+                                        </p>
+                                        <button type="button" class="btn btn-secondary" id="importBackupBtn">
+                                            <i class="bi bi-upload me-2"></i>Restaurar Backup
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- NOVO CARD PARA GERENCIAR DADOS DA SESSÃO -->
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-save fs-1 text-success mb-3"></i>
+                                        <h6>Dados da Sessão</h6>
+                                        <p class="text-muted small">
+                                            Gerencie os dados salvos automaticamente durante
+                                            o uso da aplicação.
+                                        </p>
+                                        <div class="d-grid gap-2">
+                                            <button type="button" class="btn btn-outline-info btn-sm" id="showStorageInfoBtn">
+                                                <i class="bi bi-info-circle me-1"></i>Ver Info
+                                            </button>
+                                            <button type="button" class="btn btn-outline-warning btn-sm" id="clearSessionDataBtn">
+                                                <i class="bi bi-trash3 me-1"></i>Limpar Dados
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-trash fs-1 text-warning mb-3"></i>
+                                        <h6>Limpar Cache</h6>
+                                        <p class="text-muted small">
+                                            Remove dados temporários e cache do navegador para
+                                            melhorar a performance. Resetar completamente o sistema.
+                                        </p>
+                                        <button type="button" class="btn btn-outline-warning" id="clearSettingsBtn">
+                                            <i class="bi bi-trash me-2"></i>Limpar Cache
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1854,15 +1868,15 @@
     </div>
 
     <!-- Bootstrap JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js?v=1779664871766"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js?v=1779664871766"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js?v=1787009695935"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js?v=1787009695935"></script>
 
     <!-- jsPDF para geração de PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js?v=1779664871766"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js?v=1779664871766"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js?v=1787009695935"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js?v=1787009695935"></script>
 
     <!-- Notiflix JS -->
-    <script src="frontend/assets/notiflix/dist/notiflix-aio-3.2.8.min.js?v=1779664871766"></script>
+    <script src="frontend/assets/notiflix/dist/notiflix-aio-3.2.8.min.js?v=1787009695935"></script>
 
     <script>
       window.APP_ENV = {
@@ -1874,29 +1888,63 @@
         MANDATOPRO_CONTACTS_ENDPOINT: "/api/disparos/contatos/export"
       };
     </script>
-    <script src="config/env.js?v=1779664871766"></script>
-    <script src="frontend/js/supabase.js?v=1779664871766"></script>
-    <script src="frontend/js/integracao.js?v=1779664871766"></script>
-    <script src="frontend/js/services/notification.service.js?v=1779664871766"></script>
-    <script src="frontend/js/services/storage.service.js?v=1779664871766"></script>
-    <script src="frontend/js/services/http.service.js?v=1779664871766"></script>
-    <script src="frontend/js/services/n8n.service.js?v=1779664871766"></script>
-    <script src="frontend/js/services/supabase.service.js?v=1779664871766"></script>
-    <script src="frontend/js/services/api.service.js?v=1779664871766"></script>
-    <script src="frontend/js/modules/integrations.js?v=20260706-instance-login-check"></script>
-    <script src="frontend/js/modules/dashboard.js?v=20260611-results-panel"></script>
-    <script src="frontend/js/modules/contacts.js?v=20260706-contact-remove"></script>
-    <script src="frontend/js/modules/reports.js?v=20260611-history-panel"></script>
-    <script src="frontend/js/modules/profile.js?v=1779664871766"></script>
-    <script src="frontend/js/modules/settings.js?v=20260611-history-panel"></script>
-    <script src="frontend/js/modules/instances.js?v=20260706-instance-login-check"></script>
-    <script src="frontend/js/modules/campaigns.js?v=20260706-message-sync"></script>
-    <script src="frontend/js/auth.js?v=20260706-instance-login-check"></script>
-    <script src="mandatopro-embed.js?v=20260708-campaign-presence-filter"></script>
-    <script src="frontend/js/navigation.js?v=20260611-history-panel"></script>
-    <script src="frontend/js/ui.js?v=mandatopro-20260525-safe-config"></script>
-    <script src="frontend/js/app.js?v=1779664871766"></script>
-    <script src="frontend/js/main.js?v=1779664871766"></script>
+    <script src="config/env.js?v=1787009695935"></script>
+    <script src="frontend/js/supabase.js?v=1787009695935"></script>
+    <script src="frontend/js/integracao.js?v=1787009695935"></script>
+    <script src="frontend/js/services/notification.service.js?v=1787009695935"></script>
+    <script src="frontend/js/services/storage.service.js?v=1787009695935"></script>
+    <script src="frontend/js/services/http.service.js?v=1787009695935"></script>
+    <script src="frontend/js/services/n8n.service.js?v=1787009695935"></script>
+    <script src="frontend/js/services/supabase.service.js?v=1787009695935"></script>
+    <script src="frontend/js/services/api.service.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/integrations.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/dashboard.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/contacts.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/reports.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/profile.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/settings.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/instances.js?v=1787009695935"></script>
+    <script src="frontend/js/modules/campaigns.js?v=1787009695935"></script>
+<script src="frontend/js/auth.js?v=1787009695935"></script>
+    <script src="mandatopro-embed.js?v=1787009695935"></script>
+    <script src="frontend/js/navigation.js?v=1787009695935"></script>
+    <script src="frontend/js/ui.js?v=1787009695935"></script>
+    <script src="frontend/js/app.js?v=1787009695935"></script>
+    <script src="frontend/js/main.js?v=1787009695935"></script>
+    <!-- Modal Perfil do Usuário -->
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-circle me-2"></i>Meu Perfil</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center mb-3" style="width:72px;height:72px">
+                            <i class="bi bi-person-fill text-white" style="font-size:2rem"></i>
+                        </div>
+                        <h5 class="mb-0" id="profileName">—</h5>
+                        <small class="text-muted" id="profileEmail">—</small><br>
+                        <span id="profilePlan" class="badge bg-secondary fs-6 mt-2">Free</span>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nome de exibição</label>
+                        <input type="text" id="profileNameInput" class="form-control" placeholder="Seu nome completo">
+                    </div>
+                    <div id="profileAlert" class="d-none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" id="profileSaveBtn" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

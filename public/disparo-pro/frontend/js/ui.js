@@ -38,13 +38,13 @@ const UiManager = {
             const elements = document.querySelectorAll(item.selector);
             elements.forEach(el => {
                 if (item.type === 'text') {
-                    if (el.textContent.includes('Mandato Connect')) {
-                        el.textContent = el.textContent.replace(/Mandato Connect/g, systemName);
+                    if (el.textContent.includes('Disparo PRO')) {
+                        el.textContent = el.textContent.replace(/Disparo PRO/g, systemName);
                     }
                 } else if (item.type === 'attr' && item.attr) {
                     const attrValue = el.getAttribute(item.attr);
-                    if (attrValue && attrValue.includes('Mandato Connect')) {
-                        el.setAttribute(item.attr, attrValue.replace(/Mandato Connect/g, systemName));
+                    if (attrValue && attrValue.includes('Disparo PRO')) {
+                        el.setAttribute(item.attr, attrValue.replace(/Disparo PRO/g, systemName));
                     }
                 }
             });
@@ -212,17 +212,6 @@ const UiManager = {
     },
 
     startSafeConfiguration() {
-        const configLink = document.querySelector('.nav-link[data-section="configuracoes"]');
-        if (configLink) {
-            configLink.click();
-        }
-
-        const modalElement = document.getElementById('safetyTipsModal');
-        const modal = modalElement && window.bootstrap?.Modal?.getInstance(modalElement);
-        if (modal) {
-            modal.hide();
-        }
-
         const minInterval = document.getElementById('minInterval');
         const maxInterval = document.getElementById('maxInterval');
         const enableBatchPause = document.getElementById('enableBatchPause');

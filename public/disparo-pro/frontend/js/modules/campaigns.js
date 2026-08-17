@@ -52,17 +52,17 @@ const SendingManager = {
         this.switchToProgressSection();
 
         if (AppState.activeInstances.length > 0) {
-            UI.showInfo(`Iniciando envio com ${AppState.activeInstances.length} instância(s) conectada(s)...`);
+            UI.showInfo(`Iniciando disparo com ${AppState.activeInstances.length} instância(s) conectada(s)...`);
         } else {
             const instanceName = document.getElementById('instanceName')?.value || 'Manual';
-            UI.showInfo(`Iniciando envio no modo manual com instância: ${instanceName}...`);
+            UI.showInfo(`Iniciando disparo no modo manual com instância: ${instanceName}...`);
         }
 
         const { instanceName, instanceAPIKEY } = Validators.instanceData();
         const ia = document.getElementById('ia')?.value || '';
         const { min: minInterval, max: maxInterval } = Validators.intervals();
 
-        UI.showInfo('Iniciando envio para contatos selecionados...');
+        UI.showInfo('Iniciando disparo em massa...');
 
         for (let i = 0; i < AppState.contacts.length; i++) {
             if (AppState.stopSending) break;
@@ -108,7 +108,7 @@ const SendingManager = {
 
                 TimerManager.startCountdown(delay, i + 1, AppState.contacts.length);
 
-                await this.waitInterruptible(delay);
+                await Utils.sleep(delay);
 
                 TimerManager.hide();
             }
@@ -210,7 +210,6 @@ const SendingManager = {
             }
 
             console.log('📝 Validando mensagens (única chamada)...');
-            if (typeof Validators !== 'undefined') Validators._lastValidation = null;
             const messagesValidation = Validators.messages();
             if (!messagesValidation.valid) {
                 return {
@@ -762,36 +761,11 @@ const SendingManager = {
         }
     },
 
-    async waitInterruptible(durationMs, stepMs = 250) {
-        const startedAt = Date.now();
-        while (!AppState.stopSending && Date.now() - startedAt < durationMs) {
-            await this.waitWhilePaused();
-            if (AppState.stopSending) break;
-            const remaining = durationMs - (Date.now() - startedAt);
-            await Utils.sleep(Math.min(stepMs, Math.max(0, remaining)));
-        }
-    },
-
     stop() {
-        if (!AppState.sendingInProgress && !AppState.isPaused && !AppState.batchPauseActive) {
-            UI.showInfo('Nenhum envio em andamento para interromper');
-            return;
-        }
-
         AppState.stopSending = true;
         AppState.isPaused = false;
-        AppState.batchPauseActive = false;
-        BatchManager.hideBatchStatus();
         TimerManager.showStopped();
         ActiveDispatchManager.clearDispatchState();
-        this.updatePauseButton();
-
-        const stopButton = document.getElementById('stopButton');
-        if (stopButton) {
-            stopButton.disabled = true;
-            stopButton.innerHTML = '<i class="bi bi-stop-circle me-2"></i>Parando...';
-        }
-
         UI.showWarning('Parando envio...');
     },
 
@@ -1013,7 +987,7 @@ const SendingManager = {
 
         const displayName = profile.full_name || profile.email || 'Usuario';
         const messageLines = [
-            'Envio concluido!',
+            'Disparo concluido!',
             `Total: ${sessionData.totalContacts || 0}`,
             `Sucesso: ${sessionData.successCount || 0}`,
             `Erros: ${sessionData.errorCount || 0}`,
@@ -1058,15 +1032,10 @@ const SendingManager = {
     finishSending() {
         AppState.isPaused = false;
         document.getElementById('pauseButton').style.display = 'none';
-        const stopButton = document.getElementById('stopButton');
-        if (stopButton) {
-            stopButton.disabled = false;
-            stopButton.innerHTML = '<i class="bi bi-stop-circle me-2"></i>Parar Envio';
-        }
 
         const totalDuration = AppState.startTime ? Date.now() - AppState.startTime : 0;
 
-        console.log('⏱️ Envio finalizado:', {
+        console.log('⏱️ Disparo finalizado:', {
             startTime: AppState.startTime ? new Date(AppState.startTime).toLocaleTimeString() : 'N/A',
             endTime: new Date().toLocaleTimeString(),
             duracaoReal: Utils.formatTime(totalDuration),
@@ -1100,7 +1069,7 @@ const SendingManager = {
         if (AppState.stopSending) {
             UI.showWarning('Envio interrompido pelo usuário');
         } else {
-            UI.showSuccess('Envio concluído!');
+            UI.showSuccess('Disparo concluído!');
         }
     }
 };
@@ -1155,7 +1124,7 @@ const ScheduleManager = {
         this.saveScheduledDispatches();
         this.updateScheduledTable();
 
-        UI.showSuccess(`Envio agendado para ${validation.scheduledDateTime.toLocaleString('pt-BR')}`);
+        UI.showSuccess(`Disparo agendado para ${validation.scheduledDateTime.toLocaleString('pt-BR')}`);
 
         const enableSchedulingCheckbox = document.getElementById('enableScheduling');
         if (enableSchedulingCheckbox) {
@@ -1174,7 +1143,7 @@ const ScheduleManager = {
                 const timeUntil = dispatch.scheduledDateTime - now;
 
                 if (timeUntil <= 5 * 60 * 1000 && timeUntil > 4 * 60 * 1000 && !dispatch.warned) {
-                    UI.showInfo('Envio será executado em 5 minutos');
+                    UI.showInfo('Disparo será executado em 5 minutos');
                     dispatch.warned = true;
                     this.saveScheduledDispatches();
                 }
@@ -1190,7 +1159,7 @@ const ScheduleManager = {
 
     async executeScheduledDispatch(scheduledDispatch) {
         if (AppState.sendingInProgress) {
-            UI.showWarning('Outro envio está em andamento. Reagendando...');
+            UI.showWarning('Outro disparo está em andamento. Reagendando...');
             scheduledDispatch.scheduledDateTime = new Date(Date.now() + 5 * 60 * 1000);
             this.saveScheduledDispatches();
             return;
@@ -1220,14 +1189,14 @@ const ScheduleManager = {
             ContactManager.updateContactsList();
         }
 
-        UI.showInfo('Executando envio agendado...');
+        UI.showInfo('Executando disparo agendado...');
 
         try {
             await SendingManager.start();
             scheduledDispatch.status = 'concluído';
         } catch (error) {
             scheduledDispatch.status = 'erro';
-            UI.showError('Erro ao executar envio agendado: ' + error.message);
+            UI.showError('Erro ao executar disparo agendado: ' + error.message);
         }
 
         this.saveScheduledDispatches();
@@ -1449,30 +1418,6 @@ const BatchManager = {
         this.showBatchStatus(pauseMs);
         UI.showWarning(`Pausa entre lotes ativa: ${pauseDuration} minutos`);
 
-        return new Promise((resolve) => {
-            const startedAt = Date.now();
-
-            AppState.batchTimer = setInterval(() => {
-                const elapsed = Date.now() - startedAt;
-                if (AppState.stopSending || elapsed >= pauseMs) {
-                    clearInterval(AppState.batchTimer);
-                    AppState.batchTimer = null;
-                    AppState.batchPauseActive = false;
-                    this.hideBatchStatus();
-
-                    if (!AppState.stopSending) {
-                        UI.showInfo('Pausa entre lotes finalizada - continuando envio...');
-                        console.log('â–¶ï¸ Pausa entre lotes finalizada');
-                    }
-
-                    resolve();
-                }
-            }, 250);
-        });
-    },
-
-    _legacyStartBatchPauseDisabled() {
-        return Promise.resolve();
         return new Promise((resolve) => {
             AppState.batchTimer = setTimeout(() => {
                 AppState.batchPauseActive = false;
@@ -2082,7 +2027,6 @@ const MultipleMessagesManager = {
             if (enabledCheckbox) {
                 enabledCheckbox.addEventListener('change', (e) => {
                     AppState.messagesConfig[msgId].enabled = e.target.checked;
-                    if (typeof Validators !== 'undefined') Validators._lastValidation = null;
                     debouncedUpdate();
                     this.updateMessageStatus(msgId);
                     this.updateMainPreview(msgId);
@@ -2093,7 +2037,6 @@ const MultipleMessagesManager = {
             if (textInput) {
                 textInput.addEventListener('input', (e) => {
                     AppState.messagesConfig[msgId].text = e.target.value;
-                    if (typeof Validators !== 'undefined') Validators._lastValidation = null;
                     debouncedUpdate();
                     this.updateMainPreview(msgId);
                     this.updateMessageStatus(msgId);
@@ -2445,28 +2388,7 @@ const MultipleMessagesManager = {
         }
     },
 
-    syncMessagesConfigFromUI() {
-        ['msg1', 'msg2', 'msg3'].forEach(msgId => {
-            if (!AppState.messagesConfig[msgId]) {
-                AppState.messagesConfig[msgId] = { enabled: false, text: '', media: null };
-            }
-
-            const enabledCheckbox = document.getElementById(`${msgId}-enabled`);
-            const textInput = document.getElementById(`${msgId}-text`);
-
-            if (enabledCheckbox) {
-                AppState.messagesConfig[msgId].enabled = enabledCheckbox.checked;
-            }
-
-            if (textInput) {
-                AppState.messagesConfig[msgId].text = textInput.value || '';
-            }
-        });
-    },
-
     updateActiveMessagesInfo() {
-        this.syncMessagesConfigFromUI();
-
         if (this._isUpdatingCount) {
             console.log('🔄 Verificação já em andamento, pulando...');
             return;
@@ -2521,8 +2443,6 @@ const MultipleMessagesManager = {
     },
 
     getRandomActiveMessage() {
-        this.syncMessagesConfigFromUI();
-
         const activeMessages = Object.entries(AppState.messagesConfig)
             .filter(([id, config]) => config.enabled && (config.text.trim() || config.media));
 
@@ -2580,8 +2500,6 @@ const MultipleMessagesManager = {
     },
 
     validateMessages() {
-        this.syncMessagesConfigFromUI();
-
         const activeMessages = Object.values(AppState.messagesConfig)
             .filter(config => config.enabled);
 
@@ -2891,8 +2809,6 @@ const MultipleMessagesManager = {
     },
 
     getRandomActiveMessage() {
-        this.syncMessagesConfigFromUI();
-
         const activeMessages = Object.entries(AppState.messagesConfig)
             .filter(([id, config]) => config.enabled && (config.text.trim() || config.media));
 
@@ -3120,6 +3036,9 @@ const EventManager = {
         const events = [
             { id: 'exportHistoryBtn', handler: () => DataManager.exportHistoryToExcel() },
             { id: 'exportContactsBtn', handler: () => DataManager.exportContactsToExcel() },
+            { id: 'exportBackupBtn', handler: () => DataManager.exportBackupData() },
+            { id: 'importBackupBtn', handler: () => DataManager.importBackupData() },
+            { id: 'clearSettingsBtn', handler: () => SettingsManager.clearSavedSettings() },
             { id: 'downloadModelBtn', handler: () => ModeloManager.downloadModel() }
         ];
 
@@ -3207,18 +3126,8 @@ const EventManager = {
                 const viewBtn = e.target.closest('.view-details-btn');
                 const reportBtn = e.target.closest('.generate-report-btn');
                 const deleteBtn = e.target.closest('.delete-entry-btn');
-                const resultsBtn = e.target.closest('.history-results-btn');
-                const exportBtn = e.target.closest('.history-export-btn');
 
-                if (resultsBtn) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    HistoryManager.openCampaignResults(resultsBtn.dataset.campaignId);
-                } else if (exportBtn) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    HistoryManager.exportCampaignCsv(exportBtn.dataset.campaignId);
-                } else if (viewBtn) {
+                if (viewBtn) {
                     e.preventDefault();
                     e.stopPropagation();
                     const entryId = parseInt(viewBtn.dataset.entryId);
@@ -3442,7 +3351,7 @@ const FormManager = {
     },
 
     showConfirmationDialog() {
-        console.log('🔍 Coletando dados do envio...');
+        console.log('🔍 Coletando dados do disparo...');
 
         const instanceName = document.getElementById('instanceName')?.value || 'Instâncias Múltiplas';
 
@@ -3456,7 +3365,7 @@ const FormManager = {
 
         const confirmText = `
         <div class="text-start">
-            <h6>Confirme os dados do envio</h6>
+            <h6>Confirme os dados do disparo</h6>
             <p><strong>Instância:</strong> ${instanceName}</p>
             <p><strong>Contatos:</strong> ${AppState.contacts.length}</p>
             <p><strong>Mensagens ativas:</strong> ${messageCount}</p>
@@ -3466,10 +3375,10 @@ const FormManager = {
 
         console.log('🔍 Mostrando diálogo de confirmação...');
         UI.confirm(
-            'Confirmar Envio',
+            'Confirmar Disparo',
             confirmText,
             () => {
-                console.log('✅ Usuário confirmou o envio');
+                console.log('✅ Usuário confirmou o disparo');
                 SendingManager.start();
             }
         );

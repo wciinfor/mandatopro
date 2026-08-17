@@ -385,24 +385,6 @@ body {
     transform: translateX(5px);
 }
 
-.contact-item .remove-contact-btn {
-    flex: 0 0 auto;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-}
-
-.contact-item:hover .text-muted,
-.contact-item:hover .contact-index {
-    color: rgba(255, 255, 255, 0.78) !important;
-}
-
-.contact-item:hover .remove-contact-btn {
-    background: #fff;
-    border-color: #fff;
-    color: #dc3545;
-}
-
 #contactsList {
     background-color: var(--contact-bg) !important;
     border-color: var(--border-color) !important;
@@ -2269,9 +2251,7 @@ body {
     box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
-[data-theme="dark"] .sidebar {
-    background: var(--mp-teal-950);
-}
+[data-theme="dark"] .sidebar { background: var(--mp-teal-950); }
 
 .sidebar-header {
     padding: 1.25rem 1rem;
@@ -2287,13 +2267,8 @@ body {
     line-height: 1.2;
 }
 
-.sidebar-header small {
-    color: rgba(255, 255, 255, 0.72) !important;
-}
-
-.nav-item {
-    margin: 0.25rem 0.75rem;
-}
+.sidebar-header small { color: rgba(255, 255, 255, 0.72) !important; }
+.nav-item { margin: 0.25rem 0.75rem; }
 
 .nav-link {
     border-radius: 8px;
@@ -2313,9 +2288,7 @@ body {
     font-weight: 700;
 }
 
-.nav-link.active i {
-    color: var(--mp-teal-700);
-}
+.nav-link.active i { color: var(--mp-teal-700); }
 
 .sidebar-footer {
     background: rgba(3, 46, 53, 0.28);
@@ -2327,9 +2300,7 @@ body {
     background: #eef8f7;
 }
 
-[data-theme="dark"] .main-content {
-    background: #092f34;
-}
+[data-theme="dark"] .main-content { background: #092f34; }
 
 .top-header {
     background: #ffffff;
@@ -2345,15 +2316,11 @@ body {
 
 .top-header h4,
 .top-header .text-white,
-.top-header .text-light {
-    color: var(--mp-teal-800) !important;
-}
+.top-header .text-light { color: var(--mp-teal-800) !important; }
 
 [data-theme="dark"] .top-header h4,
 [data-theme="dark"] .top-header .text-white,
-[data-theme="dark"] .top-header .text-light {
-    color: #edfafa !important;
-}
+[data-theme="dark"] .top-header .text-light { color: #edfafa !important; }
 
 .top-header .btn-outline-light {
     border-color: var(--mp-border);
@@ -2367,9 +2334,7 @@ body {
     color: var(--mp-teal-900);
 }
 
-.content-section {
-    padding: 1.5rem;
-}
+.content-section { padding: 1.5rem; }
 
 .content-header {
     margin-bottom: 1.25rem;
@@ -2382,14 +2347,8 @@ body {
     font-size: 1.55rem;
 }
 
-[data-theme="dark"] .content-header h2 {
-    color: #e4fffb;
-}
-
-.content-header p {
-    color: var(--mp-secondary);
-    font-size: 0.95rem;
-}
+[data-theme="dark"] .content-header h2 { color: #e4fffb; }
+.content-header p { color: var(--mp-secondary); font-size: 0.95rem; }
 
 .card {
     border-radius: 8px;
@@ -2430,9 +2389,7 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(20, 184, 166, 0.18);
 }
 
-.btn {
-    border-radius: 8px;
-}
+.btn { border-radius: 8px; }
 
 .btn-primary,
 .btn-whatsapp {
@@ -2462,45 +2419,16 @@ body {
 }
 
 .badge.bg-primary,
-.badge-counter {
-    background: var(--mp-teal-600) !important;
-}
-
-.stats-card {
-    background: var(--mp-teal-700);
-}
-
-.instance-card::after {
-    background: var(--mp-teal-500);
-    opacity: 0.75;
-}
-
-.instance-card.connected::after {
-    background: #16a34a;
-}
-
-.instance-card.disconnected::after {
-    background: #ef4444;
-}
-
-.file-upload-area:hover {
-    border-color: var(--mp-teal-500);
-    background-color: #f0fdfa;
-}
-
-.contact-item {
-    border-left-color: var(--mp-teal-500);
-}
-
-.contact-item:hover {
-    background: var(--mp-teal-600);
-}
-
+.badge-counter { background: var(--mp-teal-600) !important; }
+.stats-card { background: var(--mp-teal-700); }
+.instance-card::after { background: var(--mp-teal-500); opacity: 0.75; }
+.instance-card.connected::after { background: #16a34a; }
+.instance-card.disconnected::after { background: #ef4444; }
+.file-upload-area:hover { border-color: var(--mp-teal-500); background-color: #f0fdfa; }
+.contact-item { border-left-color: var(--mp-teal-500); }
+.contact-item:hover { background: var(--mp-teal-600); }
 .progress-bar.bg-primary,
-.progress-bar {
-    background: var(--mp-teal-600);
-}
-
+.progress-bar { background: var(--mp-teal-600); }
 .toolbar-tag-btn.active,
 .btn-group .btn-check:checked+.btn {
     background-color: var(--mp-teal-600) !important;
@@ -2508,16 +2436,12 @@ body {
 }
 
 @media (max-width: 768px) {
-    .main-content {
-        margin-left: 0;
-    }
-
-    .content-section {
-        padding: 1rem;
-    }
+    .main-content { margin-left: 0; }
+    .content-section { padding: 1rem; }
 }
 
-/* MandatoPro controla o menu lateral quando o Mandato Connect roda no iframe. */
+
+/* MANDATOPRO EMBED MENU OVERRIDES */
 .mandatopro-embedded .sidebar {
     display: none !important;
 }

@@ -26,12 +26,6 @@ const NavigationManager = {
                 onEnter: () => window.InboxModule?.onEnter(),
                 onLeave: () => window.InboxModule?.onLeave(),
             },
-            resultados: {
-                onEnter: () => window.ResultsManager?.initialize(),
-            },
-            historico: {
-                onEnter: () => window.HistoryManager?.initialize(),
-            },
         };
 
         if (navLinks.length && contentSections.length) {

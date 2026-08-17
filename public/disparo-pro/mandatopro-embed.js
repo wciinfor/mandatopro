@@ -25,7 +25,9 @@
       if (typeof window.SupabaseDataManager?.loadUserInstances === 'function') {
         await window.SupabaseDataManager.loadUserInstances();
       }
-      // Perfil interno removido do embed MandatoPro.
+      if (typeof window.ProfileManager?.loadProfile === 'function') {
+        window.ProfileManager.loadProfile();
+      }
     };
 
     window.AuthManager.requireAuth = () => true;
@@ -57,8 +59,7 @@
         const url = window.APP_ENV?.SUPABASE_URL || '';
         const ref = url.replace(/^https?:\/\//, '').split('.')[0];
         if (!ref) return '';
-        const key = `sb-${ref}-auth-token`;
-        const raw = window.localStorage.getItem(key);
+        const raw = window.localStorage.getItem(`sb-${ref}-auth-token`);
         const parsed = raw ? JSON.parse(raw) : null;
         return parsed?.access_token || '';
       } catch {
@@ -683,7 +684,8 @@
 
   function updateMandatoInstanceBadges() {
     const total = window.AppState?.instances?.length || 0;
-    const active = total;
+    const active = window.AppState?.activeInstances?.length
+      || (window.AppState?.instances || []).filter((instance) => instance.status === 'connected').length;
 
     const instanceBadge = document.getElementById('instanceCountBadge');
     if (instanceBadge) {
@@ -779,34 +781,6 @@
         return result;
       };
     }
-  }
-
-  function patchInstanceManagerInit() {
-    const manager = getInstanceManager();
-    if (!manager || manager.__mandatoInitPatched) return;
-
-    manager.__mandatoInitPatched = true;
-    const originalInitialize = manager.initialize?.bind(manager);
-    const originalLoadInstances = manager.loadInstances?.bind(manager);
-
-    if (typeof originalInitialize !== 'function') return;
-
-    if (typeof originalLoadInstances === 'function') {
-      manager.loadInstances = function loadMandatoInstances(...args) {
-        if (window.APP_ENV?.MANDATOPRO_EMBED && window.AppState?.__mandatoLoaded) {
-          return;
-        }
-        return originalLoadInstances(...args);
-      };
-    }
-
-    manager.initialize = async function initializeMandatoInstanceManager(...args) {
-      const result = await originalInitialize(...args);
-      if (window.SupabaseDataManager?.loadUserInstances) {
-        setTimeout(() => window.SupabaseDataManager.loadUserInstances(), 400);
-      }
-      return result;
-    };
   }
 
   function patchUiBadges() {
@@ -1017,41 +991,12 @@
 
     window.SupabaseDataManager.__mandatoPatched = true;
 
-    const ensureInstancesRendered = (attempt = 0) => {
-      if (window.InstanceManager?.updateInstancesList && document.getElementById('instancesList')) {
-        window.InstanceManager.updateInstancesList();
-        updateMandatoInstanceBadges();
-        return;
-      }
-      if (attempt < 15) {
-        setTimeout(() => ensureInstancesRendered(attempt + 1), 200);
-      }
-    };
-
-    window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances(retryCount = 0) {
-      if (!window.AppState || !Array.isArray(window.AppState.instances)) {
-        if (retryCount < 10) {
-          setTimeout(() => this.loadUserInstances(retryCount + 1), 200);
-        }
-        return;
-      }
+    window.SupabaseDataManager.loadUserInstances = async function loadMandatoInstances() {
       try {
-        let storageInstances = [];
-        const rawLocal = window.localStorage?.getItem('disparador_instances');
-        const parsedLocal = rawLocal ? JSON.parse(rawLocal) : null;
-        if (Array.isArray(parsedLocal)) {
-          storageInstances = parsedLocal;
-        } else {
-          const parsed = window.StorageService?.getLocalJson?.('disparador_instances');
-          if (Array.isArray(parsed)) storageInstances = parsed;
-        }
-
         const localInstances = window.AppState?.instances?.length
           ? window.AppState.instances
-          : storageInstances;
-        const response = await fetch('/api/disparos/instancias-runtime', {
-          credentials: 'include'
-        });
+          : (window.StorageService?.getLocalJson?.('disparador_instances') || []);
+        const response = await fetch('/api/disparos/instancias-runtime');
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar instancias');
 
@@ -1061,14 +1006,9 @@
             ...instance,
             lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
           }));
-          window.AppState.__mandatoLoaded = true;
-          ensureInstancesRendered();
+          window.InstanceManager?.updateInstancesList?.();
+          updateMandatoInstanceBadges();
           await Promise.allSettled(window.AppState.instances.map((instance) => this.saveInstance(instance)));
-          return;
-        }
-
-        if (remoteInstances.length === 0) {
-          ensureInstancesRendered();
           return;
         }
 
@@ -1076,31 +1016,12 @@
           ...instance,
           lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
         }));
-        window.AppState.__mandatoLoaded = true;
 
         window.StorageService?.setLocalJson?.('disparador_instances', window.AppState.instances);
-        ensureInstancesRendered();
+        window.InstanceManager?.updateInstancesList?.();
+        updateMandatoInstanceBadges();
       } catch (error) {
         console.error('Erro ao carregar instancias do MandatoPro:', error);
-
-        let storageInstances = [];
-        const rawLocal = window.localStorage?.getItem('disparador_instances');
-        const parsedLocal = rawLocal ? JSON.parse(rawLocal) : null;
-        if (Array.isArray(parsedLocal)) {
-          storageInstances = parsedLocal;
-        } else {
-          const parsed = window.StorageService?.getLocalJson?.('disparador_instances');
-          if (Array.isArray(parsed)) storageInstances = parsed;
-        }
-
-        if (storageInstances.length > 0) {
-          window.AppState.instances = storageInstances.map((instance) => ({
-            ...instance,
-            lastCheck: instance.lastCheck ? new Date(instance.lastCheck) : new Date()
-          }));
-          window.AppState.__mandatoLoaded = true;
-          ensureInstancesRendered();
-        }
       }
     };
 
@@ -1109,7 +1030,6 @@
         const response = await fetch('/api/disparos/instancias-runtime', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify(instance)
         });
         const payload = await response.json();
@@ -1119,7 +1039,6 @@
           instance.id = payload.data.id;
           instance._supabaseId = payload.data._supabaseId;
           instance.lastCheck = payload.data.lastCheck ? new Date(payload.data.lastCheck) : instance.lastCheck;
-          window.InstanceManager?.updateInstancesList?.();
         }
         updateMandatoInstanceBadges();
         return payload.data?._supabaseId || payload.data?.id || null;
@@ -1134,8 +1053,7 @@
       if (!id) return;
       try {
         const response = await fetch(`/api/disparos/instancias-runtime?id=${encodeURIComponent(id)}`, {
-          method: 'DELETE',
-          credentials: 'include'
+          method: 'DELETE'
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
@@ -1238,7 +1156,6 @@
     patchInstancePersistence();
     patchUiBadges();
     patchInstanceManagerActions();
-    patchInstanceManagerInit();
     patchMandatoContactsPersistence();
     restoreMandatoSettingsState();
     bindMandatoSettingsPersistence();
@@ -1256,12 +1173,10 @@
     setTimeout(restoreMandatoCampaignState, 900);
     setTimeout(bindMandatoCampaignPersistence, 900);
     setTimeout(patchInstanceManagerActions, 500);
-    setTimeout(patchInstanceManagerInit, 500);
     setTimeout(patchMandatoContactsPersistence, 500);
     setTimeout(loadMandatoContactsState, 900);
     setTimeout(patchUiBadges, 1200);
     setTimeout(patchInstanceManagerActions, 1200);
-    setTimeout(patchInstanceManagerInit, 1200);
     setTimeout(patchMandatoContactsPersistence, 1200);
     setTimeout(restoreMandatoSettingsState, 1800);
     setTimeout(bindMandatoSettingsPersistence, 1800);
