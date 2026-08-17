@@ -157,7 +157,24 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   // Alinhamento direto dos contatos retornados pela API oficial (apenas com c.valido === true)
   const destinatariosFiltrados = contatosReais.filter(c => c.valido === true);
-  const totalExcluidos = (resumoBackend.invalidos || 0) + (resumoBackend.duplicados || 0);
+  
+  // Computa o detalhamento exato dos registros excluídos
+  const detalhesExcluidos = (() => {
+    const semTelefone = contatosReais.filter(c => !c.telefoneOriginal && !c.telefoneNormalizado).length;
+    const invalidosFormat = contatosReais.filter(c => c.telefoneOriginal && !c.valido && !c.duplicado).length;
+    const duplicados = contatosReais.filter(c => c.duplicado).length;
+    
+    const invalidosTotais = resumoBackend.invalidos ?? (semTelefone + invalidosFormat);
+    const duplicadosTotais = resumoBackend.duplicados ?? duplicados;
+    const totalExcluidos = (resumoBackend.total || contatosReais.length) - destinatariosFiltrados.length;
+
+    return {
+      semTelefone,
+      invalidos: invalidosTotais,
+      duplicados: duplicadosTotais,
+      totalExcluidos: totalExcluidos > 0 ? totalExcluidos : (invalidosTotais + duplicadosTotais)
+    };
+  })();
 
   // Identifica variáveis presentes no template de forma dinâmica (procura por {{N}})
   useEffect(() => {
@@ -507,23 +524,33 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 </div>
               </div>
 
-              <div className="border-t border-gray-100 pt-3 mt-3">
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Painel de Conferência de Destinatários Reais</label>
+              <div className="border-t border-gray-100 pt-3 mt-3 space-y-3">
+                <label className="block text-xs font-semibold text-gray-700">Painel de Conferência de Destinatários Reais</label>
                 {carregandoContatos ? (
                   <p className="text-center py-4 text-xs text-gray-400">Calculando e filtrando contatos da base...</p>
                 ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl text-center">
-                      <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Encontrado</span>
-                      <p className="text-lg font-bold text-gray-800 mt-0.5">{resumoBackend.total || contatosReais.length}</p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-gray-400 block">Encontrados na Base</span>
+                        <p className="text-xl font-extrabold text-gray-800 mt-0.5">{resumoBackend.total || contatosReais.length} <span className="text-xs font-normal text-gray-500">registros</span></p>
+                      </div>
+                      <div className="bg-teal-50 border border-teal-100 p-3 rounded-xl">
+                        <span className="text-[10px] uppercase font-bold text-teal-600 block">✓ Aptos para Envio</span>
+                        <p className="text-xl font-extrabold text-teal-800 mt-0.5">{destinatariosFiltrados.length} <span className="text-xs font-normal text-teal-600">com telefone único</span></p>
+                      </div>
                     </div>
-                    <div className="bg-teal-50 border border-teal-100 p-3 rounded-xl text-center">
-                      <span className="text-[9px] uppercase font-bold text-teal-600 block">Aptos para Envio</span>
-                      <p className="text-lg font-bold text-teal-800 mt-0.5">{destinatariosFiltrados.length}</p>
-                    </div>
-                    <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl text-center">
-                      <span className="text-[9px] uppercase font-bold text-rose-600 block">Inválidos / Excluídos</span>
-                      <p className="text-lg font-bold text-rose-800 mt-0.5">{totalExcluidos + (resumoBackend.invalidos || 0)}</p>
+
+                    <div className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl text-xs space-y-1.5">
+                      <div className="flex items-center justify-between font-bold text-amber-900">
+                        <span>⚠ {detalhesExcluidos.totalExcluidos} registros não serão enviados</span>
+                        <span className="text-[10px] bg-amber-100 px-2 py-0.5 rounded text-amber-800">Detalhamento</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 text-[10px] text-amber-800 border-t border-amber-100/60 pt-1.5 mt-1">
+                        <div>• Sem Telefone: <strong>{detalhesExcluidos.semTelefone}</strong></div>
+                        <div>• Telefone Inválido: <strong>{detalhesExcluidos.invalidos}</strong></div>
+                        <div>• Duplicados: <strong>{detalhesExcluidos.duplicados}</strong></div>
+                      </div>
                     </div>
                   </div>
                 )}
