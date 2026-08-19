@@ -74,10 +74,10 @@ export default function AtendimentoConnect() {
 
   // Ref para o container de mensagens (auto-scroll)
   const containerMensagensRef = useRef(null);
-  const deveFazerAutoScrollRef = useRef(true);
 
-  const carregarConversas = useCallback(async (signal) => {
-    setLoading(true);
+  const carregarConversas = useCallback(async (options = {}) => {
+    const { signal, quiet = false } = typeof options === 'object' && options !== null ? options : {};
+    if (!quiet) setLoading(true);
     setErro('');
     try {
       const params = new URLSearchParams();
@@ -93,7 +93,7 @@ export default function AtendimentoConnect() {
     } catch (error) {
       if (error?.name !== 'AbortError') setErro(error.message || 'Erro ao carregar atendimentos');
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted && !quiet) setLoading(false);
     }
   }, [busca]);
 
@@ -127,9 +127,20 @@ export default function AtendimentoConnect() {
     }
   }, []);
 
+  // Refs para manter funções sempre atualizadas sem forçar re-subscribe do Realtime
+  const carregarConversasRef = useRef(carregarConversas);
+  useEffect(() => {
+    carregarConversasRef.current = carregarConversas;
+  }, [carregarConversas]);
+
+  const carregarMensagensRef = useRef(carregarMensagens);
+  useEffect(() => {
+    carregarMensagensRef.current = carregarMensagens;
+  }, [carregarMensagens]);
+
   useEffect(() => {
     const controller = new AbortController();
-    carregarConversas(controller.signal);
+    carregarConversas({ signal: controller.signal });
     return () => controller.abort();
   }, [carregarConversas]);
 
@@ -142,17 +153,19 @@ export default function AtendimentoConnect() {
     const supabase = createClient();
     if (!supabase) return;
 
-    console.log('[ATENDIMENTO CONNECT REALTIME] Conectando canal...');
+    console.log('[ATENDIMENTO CONNECT REALTIME] Conectando canal estavel...');
 
-    // Subscrição única no canal para evitar duplicados
+    // Subscrição única no canal criada apenas uma vez no mount
     const channel = supabase
-      .channel('realtime-atendimento-connect-v2')
+      .channel('realtime-atendimento-connect-v3')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'atendimento_connect_conversas' },
         (payload) => {
           console.log('[ATENDIMENTO CONNECT REALTIME] Evento conversa:', payload.eventType);
-          carregarConversas();
+          if (carregarConversasRef.current) {
+            carregarConversasRef.current({ quiet: true });
+          }
         }
       )
       .on(
@@ -160,14 +173,18 @@ export default function AtendimentoConnect() {
         { event: 'INSERT', schema: 'public', table: 'atendimento_connect_mensagens' },
         (payload) => {
           const novaMsg = payload.new;
-          console.log('[ATENDIMENTO CONNECT REALTIME] Nova mensagem inserida:', novaMsg?.id);
+          console.log('[ATENDIMENTO CONNECT REALTIME] Nova mensagem inserida id=', novaMsg?.id, 'conversa_id=', novaMsg?.conversa_id);
           if (!novaMsg) return;
 
-          carregarConversas();
+          if (carregarConversasRef.current) {
+            carregarConversasRef.current({ quiet: true });
+          }
 
-          const conversaAtualId = ativaRef.current?.id;
-          if (conversaAtualId && Number(novaMsg.conversa_id) === Number(conversaAtualId)) {
-            carregarMensagens(ativaRef.current, true);
+          const conversaAtual = ativaRef.current;
+          if (conversaAtual?.id && Number(novaMsg.conversa_id) === Number(conversaAtual.id)) {
+            if (carregarMensagensRef.current) {
+              carregarMensagensRef.current(conversaAtual, true);
+            }
           }
         }
       )
@@ -178,16 +195,18 @@ export default function AtendimentoConnect() {
           const msgAtualizada = payload.new;
           if (!msgAtualizada) return;
 
-          const conversaAtualId = ativaRef.current?.id;
-          if (conversaAtualId && Number(msgAtualizada.conversa_id) === Number(conversaAtualId)) {
-            carregarMensagens(ativaRef.current, true);
+          const conversaAtual = ativaRef.current;
+          if (conversaAtual?.id && Number(msgAtualizada.conversa_id) === Number(conversaAtual.id)) {
+            if (carregarMensagensRef.current) {
+              carregarMensagensRef.current(conversaAtual, true);
+            }
           }
         }
       )
       .subscribe((status, err) => {
         console.log(`[ATENDIMENTO CONNECT REALTIME] Subscription status: ${status}`, err || '');
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[ATENDIMENTO CONNECT REALTIME] Falha na conexao Realtime. Tentando reconectar...');
+          console.warn('[ATENDIMENTO CONNECT REALTIME] Falha na conexao Realtime. Aguardando reconexao...');
         }
       });
 
@@ -195,7 +214,7 @@ export default function AtendimentoConnect() {
       console.log('[ATENDIMENTO CONNECT REALTIME] Desconectando canal...');
       supabase.removeChannel(channel);
     };
-  }, [carregarConversas, carregarMensagens]);
+  }, []);
 
   const porStatus = useMemo(() => {
     return COLUNAS.reduce((acc, coluna) => {
