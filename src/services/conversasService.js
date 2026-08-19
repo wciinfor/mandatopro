@@ -58,19 +58,28 @@ export class ConversasService {
   }
 
   /**
-   * Encaminha o evento normalizado da Meta para processamento e gravação física no banco
+   * Processa o evento normalizado da Meta diretamente no servidor,
+   * sem autochamada HTTP entre APIs internas (elimina fetch relativo).
+   * Compatível com ambiente Serverless/Vercel (Node.js runtime).
    * @param {Object} eventoNormalizado
    */
   static async processarEventoMeta(eventoNormalizado) {
-    const response = await fetch('/api/comunicacao-oficial/processar-evento', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(eventoNormalizado)
-    });
-    if (!response.ok) {
-      throw new Error('Falha ao processar evento normalizado da Meta no servidor.');
+    // Importação dinâmica garante que este código só execute no servidor (Node.js)
+    // e não cause erros de bundle no lado do cliente
+    const { createServerClient } = await import('@/lib/supabase-server');
+    const { processarEventoMensagem, processarEventoStatus } = await import('@/services/processarEventoComunicacao');
+
+    const supabase = createServerClient();
+
+    if (eventoNormalizado.tipo === 'mensagem') {
+      return processarEventoMensagem(supabase, eventoNormalizado);
     }
-    return response.json();
+
+    if (eventoNormalizado.tipo === 'status') {
+      return processarEventoStatus(supabase, eventoNormalizado);
+    }
+
+    return { success: false, error: 'Tipo de evento não reconhecido' };
   }
 
   /**
