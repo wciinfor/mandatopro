@@ -88,8 +88,19 @@ export default function AtendimentoConnect() {
       if (payload.configurado === false) {
         setErro('As tabelas do Atendimento Connect ainda nao foram aplicadas no Supabase.');
       }
-      setConversas(payload.data || []);
+      const novasConversas = payload.data || [];
+      setConversas(novasConversas);
       setCounts(payload.counts || {});
+
+      // Sincroniza a conversa ativa existente com os dados atualizados do servidor sem fechar
+      if (ativaRef.current?.id) {
+        const idAtivo = Number(ativaRef.current.id);
+        const atualizada = novasConversas.find(c => Number(c.id) === idAtivo);
+        if (atualizada) {
+          setAtiva(atualizada);
+          ativaRef.current = atualizada;
+        }
+      }
     } catch (error) {
       if (error?.name !== 'AbortError') setErro(error.message || 'Erro ao carregar atendimentos');
     } finally {
@@ -182,6 +193,43 @@ export default function AtendimentoConnect() {
 
           const conversaAtual = ativaRef.current;
           if (conversaAtual?.id && Number(novaMsg.conversa_id) === Number(conversaAtual.id)) {
+            // Formata a mensagem para o formato consumido pela UI
+            const msgFormatada = {
+              id: novaMsg.id,
+              conversaId: novaMsg.conversa_id,
+              direcao: novaMsg.direcao,
+              mensagem: novaMsg.mensagem,
+              mediaUrl: novaMsg.media_url || null,
+              mediaTipo: novaMsg.media_tipo || null,
+              providerMessageId: novaMsg.provider_message_id || null,
+              status: novaMsg.status || 'registrada',
+              usuarioId: novaMsg.usuario_id || null,
+              createdAt: novaMsg.created_at || new Date().toISOString(),
+              usuario: null
+            };
+
+            // Adiciona imediatamente ao estado evitando duplicados por id ou providerMessageId
+            setMensagens((prev) => {
+              const existe = prev.some(m =>
+                (m.id && novaMsg.id && Number(m.id) === Number(novaMsg.id)) ||
+                (m.providerMessageId && novaMsg.provider_message_id && m.providerMessageId === novaMsg.provider_message_id)
+              );
+              if (existe) return prev;
+              return [...prev, msgFormatada];
+            });
+
+            // Scroll automático para o final da mensagem
+            setTimeout(() => {
+              const el = containerMensagensRef.current;
+              if (el) {
+                const estaPertoDoFinal = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+                if (estaPertoDoFinal) {
+                  el.scrollTop = el.scrollHeight;
+                }
+              }
+            }, 50);
+
+            // Sincronização HTTP posterior sem sobrescrever mensagem recente
             if (carregarMensagensRef.current) {
               carregarMensagensRef.current(conversaAtual, true);
             }
