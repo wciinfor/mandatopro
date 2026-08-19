@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowsRotate,
@@ -18,6 +18,7 @@ import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { MODULES } from '@/utils/permissions';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabaseClient';
 
 const CANAL_CONFIGS = {
   whatsapp: { label: 'WhatsApp Business', icon: faWhatsapp, bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
@@ -65,6 +66,12 @@ export default function AtendimentoConnect() {
   const [resposta, setResposta] = useState('');
   const [modoResposta, setModoResposta] = useState('nota');
 
+  // Ref para ter acesso seguro ao id da conversa ativa nas callbacks do Realtime
+  const ativaRef = useRef(null);
+  useEffect(() => {
+    ativaRef.current = ativa;
+  }, [ativa]);
+
   const carregarConversas = useCallback(async (signal) => {
     setLoading(true);
     setErro('');
@@ -111,6 +118,59 @@ export default function AtendimentoConnect() {
   useEffect(() => {
     if (ativa) carregarMensagens(ativa);
   }, [ativa, carregarMensagens]);
+
+  // ─── SUPABASE REALTIME SUBSCRIPTIONS ───────────────────────────────────────
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+
+    // Subscrição única no canal para evitar duplicados
+    const channel = supabase
+      .channel('realtime-atendimento-connect')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'atendimento_connect_conversas' },
+        () => {
+          // Quando qualquer conversa for criada ou atualizada, recarrega a lista de conversas e contadores
+          carregarConversas();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'atendimento_connect_mensagens' },
+        (payload) => {
+          const novaMsg = payload.new;
+          if (!novaMsg) return;
+
+          // Recarrega lista e contadores no Kanban
+          carregarConversas();
+
+          // Se a nova mensagem pertence à conversa atualmente selecionada no painel, recarrega as mensagens do chat
+          const conversaAtualId = ativaRef.current?.id;
+          if (conversaAtualId && Number(novaMsg.conversa_id) === Number(conversaAtualId)) {
+            carregarMensagens(ativaRef.current);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'atendimento_connect_mensagens' },
+        (payload) => {
+          const msgAtualizada = payload.new;
+          if (!msgAtualizada) return;
+
+          const conversaAtualId = ativaRef.current?.id;
+          if (conversaAtualId && Number(msgAtualizada.conversa_id) === Number(conversaAtualId)) {
+            carregarMensagens(ativaRef.current);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [carregarConversas, carregarMensagens]);
 
   const porStatus = useMemo(() => {
     return COLUNAS.reduce((acc, coluna) => {
