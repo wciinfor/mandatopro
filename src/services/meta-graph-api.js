@@ -344,6 +344,33 @@ export default class MetaGraphApiService {
       phone
     };
   }
+
+  async inscreverAppNaWaba(accessToken, wabaId) {
+    const id = String(wabaId || '').trim();
+    if (!id) {
+      throw new MetaGraphApiError('WABA ID nao informado para inscricao do app.');
+    }
+    if (!accessToken) {
+      throw new MetaGraphApiError('Access token nao informado para inscricao da WABA.');
+    }
+
+    console.log(`[META GRAPH API] Inscrevendo app na WABA wabaId=${id}`);
+
+    const data = await this.request(`${id}/subscribed_apps`, {
+      method: 'POST',
+      accessToken
+    });
+
+    if (data?.success !== true && !data?.data) {
+      throw new MetaGraphApiError('A Meta nao confirmou a inscricao do app na WABA.', data);
+    }
+
+    console.log(`[META GRAPH API] App inscrito com sucesso na WABA wabaId=${id}`);
+    return {
+      success: true,
+      data
+    };
+  }
 }
 
 export function createMetaGraphApiService(options = {}) {
