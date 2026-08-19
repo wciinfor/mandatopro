@@ -81,8 +81,13 @@ export async function gerarDiagnosticoWhatsappBusiness(conta, options = {}) {
     ? numbersResult.data.some(item => String(item?.id || '') === String(phoneNumberId))
     : false;
 
-  const scopes = tokenValidation?.scopes || [];
-  const missingScopes = REQUIRED_SCOPES.filter(scope => !hasScope(scopes, scope));
+  const debugExecuted = Boolean(debugData && typeof debugData === 'object');
+  const debugError = debugResult.error?.message || null;
+  const scopes = debugExecuted && Array.isArray(debugData.scopes) ? debugData.scopes : null;
+  const missingScopes = Array.isArray(scopes)
+    ? REQUIRED_SCOPES.filter(scope => !hasScope(scopes, scope))
+    : [];
+
   const expiresAt = tokenValidation?.expiresAt || conta?.access_token_expires_at || null;
   const expiresSoon = expiresAt
     ? new Date(expiresAt).getTime() - Date.now() < 1000 * 60 * 60 * 24 * 30
@@ -95,6 +100,19 @@ export async function gerarDiagnosticoWhatsappBusiness(conta, options = {}) {
     && wabaResult.data
     && phoneBelongsToWaba
   );
+
+  let scopesStatus = 'OK';
+  let scopesDescription = 'Scopes obrigatórios concedidos.';
+
+  if (!debugExecuted) {
+    scopesStatus = 'Atenção';
+    scopesDescription = debugError
+      ? `Não foi possível validar os scopes via debug_token: ${debugError}`
+      : 'Inspeção de scopes via debug_token não pôde ser executada (META_APP_ID/META_APP_SECRET não disponíveis no ambiente).';
+  } else if (missingScopes.length > 0) {
+    scopesStatus = 'Erro';
+    scopesDescription = `Scopes ausentes: ${missingScopes.join(', ')}.`;
+  }
 
   const indicators = [
     indicator(
@@ -118,22 +136,24 @@ export async function gerarDiagnosticoWhatsappBusiness(conta, options = {}) {
     indicator(
       'token',
       'Token',
-      tokenValidation?.valid ? (expiresSoon ? 'Atenção' : 'OK') : 'Erro',
+      tokenValidation?.valid
+        ? (expiresSoon ? 'Atenção' : 'OK')
+        : (accessToken ? (debugError ? 'Atenção' : 'Erro') : 'Erro'),
       tokenValidation?.valid
         ? (expiresAt ? `Token válido até ${new Date(expiresAt).toLocaleDateString('pt-BR')}.` : 'Token válido sem expiração informada pela Meta.')
-        : debugResult.error?.message || tokenValidation?.errors?.join(' ') || 'Token ausente ou inválido.',
+        : (accessToken
+            ? (debugError ? `Validação debug_token não executada: ${debugError}` : (tokenValidation?.errors?.join(' ') || 'Token ausente ou inválido.'))
+            : 'Token de acesso não configurado.'),
       checkedAt,
       { expiresAt, tokenType: tokenValidation?.tokenType || conta?.access_token_type || null }
     ),
     indicator(
       'scopes',
       'Permissões (Scopes)',
-      missingScopes.length ? 'Erro' : 'OK',
-      missingScopes.length
-        ? `Scopes ausentes: ${missingScopes.join(', ')}.`
-        : 'Scopes obrigatórios concedidos.',
+      scopesStatus,
+      scopesDescription,
       checkedAt,
-      { scopes, granularScopes: tokenValidation?.granularScopes || [] }
+      { scopes: scopes || [], granularScopes: tokenValidation?.granularScopes || [] }
     ),
     indicator(
       'business_manager',
