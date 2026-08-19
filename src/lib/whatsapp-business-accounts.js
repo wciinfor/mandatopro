@@ -439,12 +439,39 @@ export async function salvarContaWhatsappPrincipal(supabase, usuario, dados = {}
     throw err;
   }
 
-  const contaAtual = await buscarContaWhatsappPrincipal(supabase, usuario);
+  // Localiza a conta principal existente do tenant (com ou sem credencial, ativa ou não) para evitar duplicidade de principal
+  const { data: contasExistentes } = await supabase
+    .from('whatsapp_business_accounts')
+    .select(`
+      id,
+      tenant_id,
+      provider,
+      nome,
+      business_manager_id,
+      waba_id,
+      verify_token,
+      access_token,
+      access_token_obtained_at,
+      status,
+      principal,
+      whatsapp_business_numbers (
+        id,
+        phone_number_id,
+        status,
+        principal
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .order('principal', { ascending: false })
+    .order('id', { ascending: true });
+
+  const contaAtual = contasExistentes?.find(c => c.principal) || contasExistentes?.[0] || null;
   const accessToken = String(dados.accessToken || '').trim() || contaAtual?.access_token || '';
   const phoneNumberId = String(dados.phoneNumberId || '').trim();
 
   const contaPayload = {
     tenant_id: tenantId,
+    provider: 'META',
     nome: String(dados.nome || contaAtual?.nome || 'WhatsApp Business').trim(),
     business_manager_id: dados.businessManagerId || contaAtual?.business_manager_id || null,
     waba_id: dados.wabaId || contaAtual?.waba_id || null,
