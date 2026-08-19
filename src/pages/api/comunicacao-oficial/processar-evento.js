@@ -1,4 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
+import { buscarContaWhatsappPorWabaOuNumero } from '@/lib/whatsapp-business-accounts';
+import { normalizarTelefone } from '@/lib/atendimento-connect';
 
 /**
  * API Handler para processamento de eventos do webhook com RLS e persistência atômica.
@@ -19,20 +21,74 @@ export default async function handler(req, res) {
 
     // 1. PROCESSAMENTO DE MENSAGENS DE ENTRADA
     if (evento.tipo === 'mensagem') {
-      // Idempotência: Verifica se o provider_message_id já existe
-      const { data: msgExistente, error: errIdem } = await supabase
+      // Idempotência: Verifica se o provider_message_id já existe em communication_messages ou atendimento_connect_mensagens
+      const { data: msgExistenteComm } = await supabase
         .from('communication_messages')
         .select('id')
         .eq('provider_message_id', evento.provider_message_id)
         .maybeSingle();
 
-      if (msgExistente) {
+      const { data: msgExistenteConnect } = await supabase
+        .from('atendimento_connect_mensagens')
+        .select('id')
+        .eq('provider_message_id', evento.provider_message_id)
+        .maybeSingle();
+
+      if (msgExistenteComm || msgExistenteConnect) {
         console.log(`[WebhookProcessar] Mensagem ${evento.provider_message_id} já processada (idempotência ativa).`);
         return res.status(200).json({ success: true, duplicated: true });
       }
 
-      // Procura conversa ativa (diferente de 'finalizada') para o contato/canal
-      let { data: conversa, error: errConv } = await supabase
+      // 1.1 Resolução do Tenant ID real através da conta WhatsApp Meta
+      let tenantId = null;
+      try {
+        const contaMeta = await buscarContaWhatsappPorWabaOuNumero(supabase, {
+          wabaId: evento.waba_id,
+          phoneNumberId: evento.phone_number_id
+        });
+        tenantId = contaMeta?.tenant_id || null;
+      } catch (errConta) {
+        console.warn('[WebhookProcessar] Falha ao resolver conta Meta por WABA/Número:', errConta?.message);
+      }
+
+      if (!tenantId) {
+        const { data: contaFallback } = await supabase
+          .from('whatsapp_business_accounts')
+          .select('tenant_id')
+          .eq('status', 'ATIVO')
+          .order('principal', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        tenantId = contaFallback?.tenant_id || 1;
+      }
+
+      // 1.2 Localização do Eleitor pelo Telefone Normalizado
+      const telefoneLimpo = normalizarTelefone(evento.contact_id || '');
+      let eleitorId = null;
+      let contatoNome = evento.contato_nome || evento.contact_id || 'Contato sem nome';
+
+      if (telefoneLimpo) {
+        // Busca eleitor por telefone, celular ou whatsapp (considerando DDD ou número com/sem 55)
+        const dddNumero = telefoneLimpo.length >= 10 ? telefoneLimpo.slice(-11) : telefoneLimpo;
+        const dddNumeroSemNono = (dddNumero.length === 11)
+          ? `${dddNumero.slice(0, 2)}${dddNumero.slice(3)}`
+          : dddNumero;
+
+        const { data: eleitor } = await supabase
+          .from('eleitores')
+          .select('id, nome, whatsapp, celular, telefone')
+          .or(`whatsapp.ilike.%${dddNumero}%,celular.ilike.%${dddNumero}%,telefone.ilike.%${dddNumero}%,whatsapp.ilike.%${dddNumeroSemNono}%,celular.ilike.%${dddNumeroSemNono}%,telefone.ilike.%${dddNumeroSemNono}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (eleitor?.id) {
+          eleitorId = eleitor.id;
+          contatoNome = eleitor.nome || contatoNome;
+        }
+      }
+
+      // 1.3 Persistência em communication_conversations & communication_messages (Comunicação Oficial)
+      let { data: conversaComm } = await supabase
         .from('communication_conversations')
         .select('*')
         .eq('contact_id', evento.contact_id)
@@ -40,11 +96,8 @@ export default async function handler(req, res) {
         .limit(1)
         .maybeSingle();
 
-      const tenantId = '00000000-0000-0000-0000-000000000000'; // Default Tenant para fins de sandbox/auditoria
-
-      // Se não houver conversa ativa, cria uma nova
-      if (!conversa) {
-        const { data: novaConv, error: errCriaConv } = await supabase
+      if (!conversaComm) {
+        const { data: novaConvComm, error: errCriaConvComm } = await supabase
           .from('communication_conversations')
           .insert({
             tenant_id: tenantId,
@@ -58,41 +111,129 @@ export default async function handler(req, res) {
           .select('*')
           .single();
 
-        if (errCriaConv) throw errCriaConv;
-        conversa = novaConv;
+        if (errCriaConvComm) throw errCriaConvComm;
+        conversaComm = novaConvComm;
       } else {
-        // Se já existe, atualiza metadados e incrementa o contador de não lidas
-        const novoUnread = (conversa.unread_count || 0) + 1;
-        const { error: errUpdate } = await supabase
+        const novoUnread = (conversaComm.unread_count || 0) + 1;
+        const { error: errUpdateComm } = await supabase
           .from('communication_conversations')
           .update({
             last_message_preview: evento.conteudo,
             last_message_at: evento.timestamp,
             unread_count: novoUnread
           })
-          .eq('id', conversa.id);
+          .eq('id', conversaComm.id);
 
-        if (errUpdate) throw errUpdate;
+        if (errUpdateComm) throw errUpdateComm;
       }
 
-      // Insere a nova mensagem no histórico
-      const { data: msgInserida, error: errMsg } = await supabase
+      const { data: msgInseridaComm, error: errMsgComm } = await supabase
         .from('communication_messages')
         .insert({
           tenant_id: tenantId,
-          conversation_id: conversa.id,
+          conversation_id: conversaComm.id,
           provider_message_id: evento.provider_message_id,
           provider: 'whatsapp',
-          channel: conversa.channel,
+          channel: conversaComm.channel || 'whatsapp',
           direction: 'entrada',
           mensagem: evento.conteudo
         })
         .select('*')
         .single();
 
-      if (errMsg) throw errMsg;
+      if (errMsgComm) throw errMsgComm;
 
-      return res.status(200).json({ success: true, mensagem: msgInserida });
+      // 1.4 Sincronização em atendimento_connect_conversas & atendimento_connect_mensagens (Atendimento Connect)
+      try {
+        const now = evento.timestamp || new Date().toISOString();
+
+        // Localiza conversa existente para o telefone + canal whatsapp
+        const { data: conversaConnectExistente } = await supabase
+          .from('atendimento_connect_conversas')
+          .select('*')
+          .eq('canal', 'whatsapp')
+          .eq('contato_telefone', telefoneLimpo)
+          .maybeSingle();
+
+        let conversaConnectId = conversaConnectExistente?.id;
+
+        const connectMetadata = {
+          ...(conversaConnectExistente?.metadata || {}),
+          origem: 'whatsapp_meta',
+          provider: 'META',
+          wabaId: evento.waba_id || null,
+          phoneNumberId: evento.phone_number_id || null,
+          lastProviderMessageId: evento.provider_message_id
+        };
+
+        if (!conversaConnectExistente) {
+          const { data: novaConvConnect, error: errNovaConnect } = await supabase
+            .from('atendimento_connect_conversas')
+            .insert({
+              contato_nome: contatoNome,
+              contato_telefone: telefoneLimpo,
+              canal: 'whatsapp',
+              status: 'nova',
+              eleitor_id: eleitorId,
+              unread_count: 1,
+              ultima_mensagem: evento.conteudo,
+              ultima_mensagem_em: now,
+              metadata: connectMetadata
+            })
+            .select('*')
+            .single();
+
+          if (errNovaConnect) {
+            console.error('[WebhookProcessar] Erro ao inserir atendimento_connect_conversas:', errNovaConnect);
+          } else {
+            conversaConnectId = novaConvConnect?.id;
+          }
+        } else {
+          // Se conversa já existe, reabre se estiver concluída e atualiza contadores/eleitor
+          const statusAtual = conversaConnectExistente.status;
+          const novoStatus = statusAtual === 'concluida' ? 'nova' : statusAtual;
+          const novoUnread = (conversaConnectExistente.unread_count || 0) + 1;
+
+          const { error: errUpdateConnect } = await supabase
+            .from('atendimento_connect_conversas')
+            .update({
+              contato_nome: contatoNome,
+              status: novoStatus,
+              eleitor_id: eleitorId || conversaConnectExistente.eleitor_id || null,
+              unread_count: novoUnread,
+              ultima_mensagem: evento.conteudo,
+              ultima_mensagem_em: now,
+              metadata: connectMetadata,
+              updated_at: now
+            })
+            .eq('id', conversaConnectExistente.id);
+
+          if (errUpdateConnect) {
+            console.error('[WebhookProcessar] Erro ao atualizar atendimento_connect_conversas:', errUpdateConnect);
+          }
+        }
+
+        // Insere a mensagem inbound em atendimento_connect_mensagens
+        if (conversaConnectId) {
+          const { error: errMsgConnect } = await supabase
+            .from('atendimento_connect_mensagens')
+            .insert({
+              conversa_id: conversaConnectId,
+              direcao: 'entrada',
+              mensagem: evento.conteudo,
+              provider_message_id: evento.provider_message_id,
+              raw_payload: evento
+            });
+
+          if (errMsgConnect) {
+            console.error('[WebhookProcessar] Erro ao inserir atendimento_connect_mensagens:', errMsgConnect);
+          }
+        }
+      } catch (errConnect) {
+        console.error('[WebhookProcessar] Falha na sincronização do Atendimento Connect:', errConnect);
+      }
+
+      return res.status(200).json({ success: true, mensagem: msgInseridaComm });
     }
 
     // 2. PROCESSAMENTO DE ALTERAÇÃO DE STATUS
