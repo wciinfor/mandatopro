@@ -270,8 +270,26 @@ class WhatsAppBusinessService {
 
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao obter info do número:', error.response?.data || error.message);
-      throw new Error(error.message);
+      const metaError = error.response?.data?.error;
+      let mensagemErro = error.message;
+
+      if (metaError && typeof metaError === 'object') {
+        const partes = [];
+        if (metaError.message) partes.push(metaError.message);
+        if (metaError.code !== undefined) partes.push(`code: ${metaError.code}`);
+        if (metaError.error_subcode !== undefined) partes.push(`subcode: ${metaError.error_subcode}`);
+        if (metaError.fbtrace_id) partes.push(`fbtrace_id: ${metaError.fbtrace_id}`);
+        mensagemErro = `Meta API (${partes.join(', ')})`;
+      }
+
+      console.error('❌ Erro detalhado da Meta ao obter info do número:', {
+        code: metaError?.code,
+        error_subcode: metaError?.error_subcode,
+        message: metaError?.message,
+        fbtrace_id: metaError?.fbtrace_id
+      });
+
+      throw new Error(mensagemErro);
     }
   }
 
