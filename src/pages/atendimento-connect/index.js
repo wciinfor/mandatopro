@@ -72,6 +72,10 @@ export default function AtendimentoConnect() {
     ativaRef.current = ativa;
   }, [ativa]);
 
+  // Ref para o container de mensagens (auto-scroll)
+  const containerMensagensRef = useRef(null);
+  const deveFazerAutoScrollRef = useRef(true);
+
   const carregarConversas = useCallback(async (signal) => {
     setLoading(true);
     setErro('');
@@ -93,7 +97,7 @@ export default function AtendimentoConnect() {
     }
   }, [busca]);
 
-  const carregarMensagens = useCallback(async (conversa) => {
+  const carregarMensagens = useCallback(async (conversa, preservarScroll = false) => {
     if (!conversa?.id) return;
     setCarregandoMensagens(true);
     try {
@@ -101,6 +105,20 @@ export default function AtendimentoConnect() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar conversa');
       setMensagens(payload.data || []);
+
+      // Auto-scroll condicional: se o usuário já estava perto do final ou se e uma troca de conversa
+      setTimeout(() => {
+        const el = containerMensagensRef.current;
+        if (!el) return;
+        if (!preservarScroll) {
+          el.scrollTop = el.scrollHeight;
+        } else {
+          const estaPertoDoFinal = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+          if (estaPertoDoFinal) {
+            el.scrollTop = el.scrollHeight;
+          }
+        }
+      }, 50);
     } catch (error) {
       setErro(error.message || 'Erro ao carregar conversa');
       setMensagens([]);
@@ -116,7 +134,7 @@ export default function AtendimentoConnect() {
   }, [carregarConversas]);
 
   useEffect(() => {
-    if (ativa) carregarMensagens(ativa);
+    if (ativa) carregarMensagens(ativa, false);
   }, [ativa, carregarMensagens]);
 
   // ─── SUPABASE REALTIME SUBSCRIPTIONS ───────────────────────────────────────
@@ -124,14 +142,16 @@ export default function AtendimentoConnect() {
     const supabase = createClient();
     if (!supabase) return;
 
+    console.log('[ATENDIMENTO CONNECT REALTIME] Conectando canal...');
+
     // Subscrição única no canal para evitar duplicados
     const channel = supabase
-      .channel('realtime-atendimento-connect')
+      .channel('realtime-atendimento-connect-v2')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'atendimento_connect_conversas' },
-        () => {
-          // Quando qualquer conversa for criada ou atualizada, recarrega a lista de conversas e contadores
+        (payload) => {
+          console.log('[ATENDIMENTO CONNECT REALTIME] Evento conversa:', payload.eventType);
           carregarConversas();
         }
       )
@@ -140,15 +160,14 @@ export default function AtendimentoConnect() {
         { event: 'INSERT', schema: 'public', table: 'atendimento_connect_mensagens' },
         (payload) => {
           const novaMsg = payload.new;
+          console.log('[ATENDIMENTO CONNECT REALTIME] Nova mensagem inserida:', novaMsg?.id);
           if (!novaMsg) return;
 
-          // Recarrega lista e contadores no Kanban
           carregarConversas();
 
-          // Se a nova mensagem pertence à conversa atualmente selecionada no painel, recarrega as mensagens do chat
           const conversaAtualId = ativaRef.current?.id;
           if (conversaAtualId && Number(novaMsg.conversa_id) === Number(conversaAtualId)) {
-            carregarMensagens(ativaRef.current);
+            carregarMensagens(ativaRef.current, true);
           }
         }
       )
@@ -161,13 +180,19 @@ export default function AtendimentoConnect() {
 
           const conversaAtualId = ativaRef.current?.id;
           if (conversaAtualId && Number(msgAtualizada.conversa_id) === Number(conversaAtualId)) {
-            carregarMensagens(ativaRef.current);
+            carregarMensagens(ativaRef.current, true);
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log(`[ATENDIMENTO CONNECT REALTIME] Subscription status: ${status}`, err || '');
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[ATENDIMENTO CONNECT REALTIME] Falha na conexao Realtime. Tentando reconectar...');
+        }
+      });
 
     return () => {
+      console.log('[ATENDIMENTO CONNECT REALTIME] Desconectando canal...');
       supabase.removeChannel(channel);
     };
   }, [carregarConversas, carregarMensagens]);
@@ -222,6 +247,11 @@ export default function AtendimentoConnect() {
       setMensagens((prev) => [...prev, payload.data]);
       setResposta('');
       await carregarConversas();
+      setTimeout(() => {
+        if (containerMensagensRef.current) {
+          containerMensagensRef.current.scrollTop = containerMensagensRef.current.scrollHeight;
+        }
+      }, 50);
     } catch (error) {
       setErro(error.message || 'Erro ao registrar resposta');
     }
@@ -230,8 +260,8 @@ export default function AtendimentoConnect() {
   return (
     <ProtectedRoute module={MODULES.ATENDIMENTO_CONNECT}>
       <Layout titulo="Atendimento Connect">
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="flex flex-col h-[calc(100vh-120px)] space-y-4 overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm p-4 shrink-0">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div>
                 <h1 className="text-xl font-bold text-teal-900">Fila de respostas dos eleitores</h1>
@@ -260,16 +290,16 @@ export default function AtendimentoConnect() {
           </div>
 
           {erro && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm shrink-0">
               {erro}
             </div>
           )}
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4 flex-1 min-h-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3 overflow-y-auto pr-1">
               {COLUNAS.map((coluna) => (
-                <section key={coluna.id} className={`bg-white rounded-lg shadow-sm border-t-4 ${coluna.color} min-h-[520px]`}>
-                  <header className="px-3 py-3 border-b flex items-center justify-between">
+                <section key={coluna.id} className={`bg-white rounded-lg shadow-sm border-t-4 ${coluna.color} flex flex-col h-full`}>
+                  <header className="px-3 py-3 border-b flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <FontAwesomeIcon icon={coluna.icon} className="text-teal-700" />
                       <h2 className="font-bold text-sm text-gray-800 truncate">{coluna.titulo}</h2>
@@ -279,7 +309,7 @@ export default function AtendimentoConnect() {
                     </span>
                   </header>
 
-                  <div className="p-2 space-y-2">
+                  <div className="p-2 space-y-2 flex-1 overflow-y-auto">
                     {loading ? (
                       <div className="text-sm text-gray-500 px-2 py-6 text-center">Carregando...</div>
                     ) : porStatus[coluna.id]?.length ? (
@@ -359,10 +389,10 @@ export default function AtendimentoConnect() {
               ))}
             </div>
 
-            <aside className="bg-white rounded-lg shadow-sm min-h-[520px] flex flex-col">
+            <aside className="bg-white rounded-lg shadow-sm flex flex-col h-full min-h-0">
               {ativa ? (
                 <>
-                  <header className="p-4 border-b">
+                  <header className="p-4 border-b shrink-0">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
@@ -390,7 +420,7 @@ export default function AtendimentoConnect() {
                     </div>
                   </header>
 
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                  <div ref={containerMensagensRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0">
                     {carregandoMensagens ? (
                       <div className="text-sm text-gray-500 text-center py-8">Carregando conversa...</div>
                     ) : mensagens.length ? (
@@ -416,7 +446,7 @@ export default function AtendimentoConnect() {
                     )}
                   </div>
 
-                  <footer className="p-4 border-t space-y-3">
+                  <footer className="p-4 border-t space-y-3 shrink-0">
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -433,11 +463,6 @@ export default function AtendimentoConnect() {
                         Resposta
                       </button>
                     </div>
-                    {modoResposta === 'saida' && (
-                      <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                        A resposta fica registrada como pendente de envio ate ligarmos este painel ao endpoint de saida da Evolution/N8N.
-                      </div>
-                    )}
                     <textarea
                       value={resposta}
                       onChange={(event) => setResposta(event.target.value)}
