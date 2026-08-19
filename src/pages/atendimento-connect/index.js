@@ -193,10 +193,11 @@ export default function AtendimentoConnect() {
 
           const conversaAtual = ativaRef.current;
           if (conversaAtual?.id && Number(novaMsg.conversa_id) === Number(conversaAtual.id)) {
-            // Formata a mensagem para o formato consumido pela UI
+            // Formata a mensagem garantindo compatibilidade com camelCase e snake_case da UI
             const msgFormatada = {
               id: novaMsg.id,
               conversaId: novaMsg.conversa_id,
+              conversa_id: novaMsg.conversa_id,
               direcao: novaMsg.direcao,
               mensagem: novaMsg.mensagem,
               mediaUrl: novaMsg.media_url || null,
@@ -205,6 +206,7 @@ export default function AtendimentoConnect() {
               status: novaMsg.status || 'registrada',
               usuarioId: novaMsg.usuario_id || null,
               createdAt: novaMsg.created_at || new Date().toISOString(),
+              created_at: novaMsg.created_at || new Date().toISOString(),
               usuario: null
             };
 
