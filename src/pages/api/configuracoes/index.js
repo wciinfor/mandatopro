@@ -1,4 +1,5 @@
 // API para gerenciar configurações do sistema — armazenamento no Supabase
+// API para gerenciar configurações do sistema — armazenamento no Supabase
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario, exigirAdministrador } from '@/lib/api-auth';
 import { lerConfiguracoes, salvarConfiguracoes } from '@/lib/configuracoes';
@@ -8,7 +9,7 @@ export const runtime = 'nodejs';
 // Chaves armazenadas na tabela configuracoes_sistema
 const CHAVES_SISTEMA = [
   'nome_orgao', 'sigla', 'logo', 'cnpj', 'endereco', 'telefone',
-  'email_orgao', 'website', 'cargo', 'nome_parlamentar',
+  'email_orgao', 'website', 'cargo', 'nome_parlamentar', 'parlamentares',
   'cor_principal', 'cor_secundaria',
   'openai_provider', 'openai_api_key', 'openai_model',
   'groq_api_key', 'groq_model', 'openai_enabled'
@@ -23,6 +24,46 @@ function normalizarProviderIa(value) {
   return provider === 'grok' ? 'groq' : provider;
 }
 
+function parseParlamentares(rawJson, legacyNome, legacyCargo) {
+  let list = [];
+  if (rawJson) {
+    try {
+      const parsed = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        list = parsed.map((item, idx) => ({
+          id: item.id || `parlamentar-${idx + 1}`,
+          nome: String(item.nome || '').trim(),
+          cargo: String(item.cargo || '').trim(),
+          ativo: item.ativo !== false,
+          padrao: Boolean(item.padrao)
+        })).filter(item => Boolean(item.nome));
+      }
+    } catch {
+      list = [];
+    }
+  }
+
+  if (list.length === 0 && legacyNome) {
+    list = [
+      {
+        id: 'parlamentar-1',
+        nome: legacyNome,
+        cargo: legacyCargo || '',
+        ativo: true,
+        padrao: true
+      }
+    ];
+  }
+
+  // Garante que haja ao menos um padrão selecionado se houver itens
+  if (list.length > 0 && !list.some(p => p.padrao && p.ativo)) {
+    const primeiroAtivo = list.find(p => p.ativo) || list[0];
+    primeiroAtivo.padrao = true;
+  }
+
+  return list;
+}
+
 function rowsToMap(rows) {
   const map = {};
   for (const row of (rows || [])) {
@@ -33,6 +74,12 @@ function rowsToMap(rows) {
 
 function rowsToConfig(rows) {
   const map = rowsToMap(rows);
+  const legacyNome = map.nome_parlamentar || '';
+  const legacyCargo = map.cargo || '';
+  const parlamentares = parseParlamentares(map.parlamentares, legacyNome, legacyCargo);
+
+  const principal = parlamentares.find(p => p.padrao) || parlamentares[0] || { nome: legacyNome, cargo: legacyCargo };
+
   return {
     nomeOrgao: map.nome_orgao || '',
     sigla: map.sigla || '',
@@ -42,8 +89,9 @@ function rowsToConfig(rows) {
     telefone: map.telefone || '',
     email: map.email_orgao || '',
     website: map.website || '',
-    cargo: map.cargo || '',
-    nomeParlamentar: map.nome_parlamentar || '',
+    cargo: principal.cargo || legacyCargo,
+    nomeParlamentar: principal.nome || legacyNome,
+    parlamentares: parlamentares,
     corPrincipal: map.cor_principal || '#14b8a6',
     corSecundaria: map.cor_secundaria || '#0d9488'
   };
@@ -109,6 +157,33 @@ export default async function handler(req, res) {
       }
 
       if (tipo === 'sistema') {
+        const parlamentaresList = Array.isArray(dados.parlamentares) && dados.parlamentares.length > 0
+          ? dados.parlamentares.map((p, idx) => ({
+              id: p.id || `parlamentar-${idx + 1}`,
+              nome: String(p.nome || '').trim(),
+              cargo: String(p.cargo || '').trim(),
+              ativo: p.ativo !== false,
+              padrao: Boolean(p.padrao)
+            })).filter(p => Boolean(p.nome))
+          : [
+              {
+                id: 'parlamentar-1',
+                nome: dados.nomeParlamentar || '',
+                cargo: dados.cargo || '',
+                ativo: true,
+                padrao: true
+              }
+            ].filter(p => Boolean(p.nome));
+
+        if (parlamentaresList.length > 0 && !parlamentaresList.some(p => p.padrao && p.ativo)) {
+          const primeiroAtivo = parlamentaresList.find(p => p.ativo) || parlamentaresList[0];
+          primeiroAtivo.padrao = true;
+        }
+
+        const principal = parlamentaresList.find(p => p.padrao) || parlamentaresList[0] || {};
+        const nomePrincipal = principal.nome || dados.nomeParlamentar || '';
+        const cargoPrincipal = principal.cargo || dados.cargo || '';
+
         const upserts = [
           { chave: 'nome_orgao', valor: dados.nomeOrgao ?? '', tipo: 'STRING', editavel: true },
           { chave: 'sigla', valor: dados.sigla ?? '', tipo: 'STRING', editavel: true },
@@ -118,8 +193,9 @@ export default async function handler(req, res) {
           { chave: 'telefone', valor: dados.telefone ?? '', tipo: 'STRING', editavel: true },
           { chave: 'email_orgao', valor: dados.email ?? '', tipo: 'STRING', editavel: true },
           { chave: 'website', valor: dados.website ?? '', tipo: 'STRING', editavel: true },
-          { chave: 'cargo', valor: dados.cargo ?? '', tipo: 'STRING', editavel: true },
-          { chave: 'nome_parlamentar', valor: dados.nomeParlamentar ?? '', tipo: 'STRING', editavel: true },
+          { chave: 'cargo', valor: cargoPrincipal, tipo: 'STRING', editavel: true },
+          { chave: 'nome_parlamentar', valor: nomePrincipal, tipo: 'STRING', editavel: true },
+          { chave: 'parlamentares', valor: JSON.stringify(parlamentaresList), tipo: 'JSON', editavel: true },
           { chave: 'cor_principal', valor: dados.corPrincipal ?? '#14b8a6', tipo: 'STRING', editavel: true },
           { chave: 'cor_secundaria', valor: dados.corSecundaria ?? '#0d9488', tipo: 'STRING', editavel: true },
         ];

@@ -262,9 +262,37 @@ function buildEmbedScript() {
         headers.set('Authorization', \`Bearer \${token}\`);
       }
 
+      let body = init.body;
+      if (url.includes('/api/disparos/n8n') && typeof body === 'string') {
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed?.action === 'enviar_mensagem') {
+            const templateSelect = document.getElementById('mandatoTemplateSelect');
+            const beneficioInput = document.getElementById('mandatoBeneficioInput');
+            const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
+
+            if (templateSelect && templateSelect.value) {
+              parsed.templateName = templateSelect.value;
+              parsed.beneficio = beneficioInput?.value?.trim() || 'Óculos';
+              parsed.servico = parsed.beneficio;
+              if (parlamentarSelect && parlamentarSelect.value) {
+                parsed.parlamentar = {
+                  nome: parlamentarSelect.value
+                };
+                parsed.nomeParlamentar = parlamentarSelect.value;
+              }
+              body = JSON.stringify(parsed);
+            }
+          }
+        } catch {
+          // Mantém body original
+        }
+      }
+
       return originalFetch(input, {
         ...init,
         headers,
+        body,
         credentials: init.credentials || 'include'
       });
     };
@@ -384,31 +412,99 @@ function buildEmbedScript() {
 
   async function updateMandatoContactsPreview() {
     const countBox = document.getElementById('mandatoContactsCount');
+    const importBtn = document.getElementById('mandatoImportBtn');
     if (!countBox) return;
 
     const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
     const label = origem === 'eleitores' ? 'eleitores' : origem === 'liderancas' ? 'lideranças' : 'funcionários';
     countBox.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Calculando quantidade...';
+    if (importBtn && !importBtn.dataset.importing) {
+      importBtn.disabled = true;
+    }
 
     try {
       const params = getMandatoContactParams({ preview: true });
-      params.set('countOnly', 'true');
       const response = await fetch(\`/api/disparos/contatos/preview?\${params.toString()}\`, {
         credentials: 'include'
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.message || 'Erro ao calcular contatos');
 
+      const contatos = Array.isArray(payload.data) ? payload.data : [];
       const resumo = payload.resumo || {};
-      const validos = Number.isFinite(Number(resumo.validos))
-        ? \`<span class="text-muted ms-2">(\${resumo.validos} com telefone válido)</span>\`
-        : '';
+
+      let encontrados = Number(resumo.total || contatos.length || 0);
+      let aptos = 0;
+      let semTelefone = 0;
+      let invalidosFormat = 0;
+      let compartilhados = 0;
+
+      if (contatos.length > 0) {
+        for (const c of contatos) {
+          const hasValidPhone = Boolean(c.telefoneNormalizado || (c.valido && c.phone));
+          if (hasValidPhone || c.duplicado) {
+            aptos++;
+            if (c.duplicado || c.motivoInvalido === 'Telefone duplicado') {
+              compartilhados++;
+            }
+          } else {
+            if (!c.telefoneOriginal || c.motivoInvalido === 'Telefone ausente ou incompleto') {
+              semTelefone++;
+            } else {
+              invalidosFormat++;
+            }
+          }
+        }
+      } else {
+        aptos = Number(resumo.validos || 0);
+        compartilhados = Number(resumo.duplicados || 0);
+        const naoEnviadosTotal = Math.max(0, encontrados - aptos);
+        semTelefone = naoEnviadosTotal;
+      }
+
+      const naoEnviados = Math.max(0, encontrados - aptos);
+      const hasContacts = aptos > 0;
+
+      if (importBtn && !importBtn.dataset.importing) {
+        importBtn.disabled = !hasContacts;
+      }
+
+      countBox.className = 'alert alert-light border mt-3 mb-0 p-3';
       countBox.innerHTML = \`
-        <i class="bi bi-people me-2"></i>
-        <strong>\${Number(resumo.total || 0).toLocaleString('pt-BR')}</strong> \${label} encontrados
-        \${validos}
+        <div class="d-flex flex-column gap-2">
+          <div class="d-flex align-items-center justify-content-between pb-2 border-bottom">
+            <span class="fw-bold text-dark fs-6">
+              <i class="bi bi-people-fill text-primary me-2"></i>👥 \${encontrados.toLocaleString('pt-BR')} \${label} encontrados
+            </span>
+          </div>
+          <div class="row g-2 text-center my-1">
+            <div class="col-6">
+              <div class="p-2 rounded bg-success-subtle border border-success-subtle text-success-emphasis">
+                <span class="d-block fw-bold fs-5">✓ \${aptos.toLocaleString('pt-BR')}</span>
+                <small class="fw-semibold">aptos para envio</small>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-2 rounded bg-warning-subtle border border-warning-subtle text-warning-emphasis">
+                <span class="d-block fw-bold fs-5">⚠ \${naoEnviados.toLocaleString('pt-BR')}</span>
+                <small class="fw-semibold">não serão enviados</small>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap justify-content-around text-muted small pt-1 border-top">
+            <span>Sem telefone: <strong class="text-dark">\${semTelefone.toLocaleString('pt-BR')}</strong></span>
+            <span class="text-secondary">|</span>
+            <span>Inválidos: <strong class="text-dark">\${invalidosFormat.toLocaleString('pt-BR')}</strong></span>
+            <span class="text-secondary">|</span>
+            <span>Tel. Compartilhado: <strong class="text-dark">\${compartilhados.toLocaleString('pt-BR')}</strong></span>
+          </div>
+        </div>
       \`;
     } catch (error) {
+      if (importBtn && !importBtn.dataset.importing) {
+        importBtn.disabled = true;
+      }
+      countBox.className = 'alert alert-danger border mt-3 mb-0 py-2';
       countBox.innerHTML = \`<i class="bi bi-exclamation-triangle me-2"></i>\${error.message || 'Erro ao calcular contatos'}\`;
     }
   }
@@ -713,6 +809,124 @@ function buildEmbedScript() {
       window.AutoSaveManager?.saveSessionData?.();
     } catch (error) {
       console.error('Erro ao restaurar campanha do Mandato Connect:', error);
+    }
+  }
+
+  function addMandatoTemplateBox() {
+    const editorCard = document.querySelector('#campanha-section .card-body');
+    if (!editorCard || document.getElementById('mandatoTemplateContainer')) return;
+
+    const container = document.createElement('div');
+    container.id = 'mandatoTemplateContainer';
+    container.className = 'card mb-4 border-info';
+    container.innerHTML = \`
+      <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-file-earmark-check me-2"></i>Template Oficial WhatsApp (Meta HSM / YCloud)</h6>
+        <span class="badge bg-light text-dark">Opcional</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Modelo de Template Homologado</label>
+            <select id="mandatoTemplateSelect" class="form-control">
+              <option value="">Nenhum (Mensagem de Texto Livre)</option>
+              <option value="aviso_beneficio_eleitor">Aviso de Benefício (aviso_beneficio_eleitor)</option>
+            </select>
+            <small class="text-muted">Garante entrega fora da janela de 24h.</small>
+          </div>
+          <div class="col-md-4" id="mandatoParlamentarWrapper" style="display: none;">
+            <label class="form-label fw-bold">Parlamentar / Mandato ({{2}})</label>
+            <select id="mandatoParlamentarSelect" class="form-control">
+              <option value="">Carregando...</option>
+            </select>
+            <small class="text-muted">Identidade utilizada no disparo.</small>
+          </div>
+          <div class="col-md-4" id="mandatoBeneficioWrapper" style="display: none;">
+            <label class="form-label fw-bold">Benefício / Serviço ({{3}})</label>
+            <input type="text" id="mandatoBeneficioInput" class="form-control" placeholder="Ex: Óculos, Atendimento médico" value="Óculos">
+            <small class="text-muted">Substituído na variável {{3}}.</small>
+          </div>
+        </div>
+        <div id="mandatoTemplatePreviewAlert" class="alert alert-success mt-3 mb-0" style="display: none;">
+          <i class="bi bi-info-circle me-2"></i><strong>Estrutura Oficial:</strong> 
+          <span id="mandatoTemplatePreviewText">"Olá, {{1}}! Mandato informa que seu benefício (Óculos) já está disponível. Obrigado!"</span>
+        </div>
+      </div>
+    \`;
+
+    editorCard.insertBefore(container, editorCard.firstChild);
+    bindMandatoTemplateEvents();
+    loadMandatoParlamentaresOptions();
+  }
+
+  async function loadMandatoParlamentaresOptions() {
+    const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
+    if (!parlamentarSelect) return;
+
+    try {
+      const response = await fetch('/api/configuracoes');
+      if (!response.ok) return;
+      const json = await response.json();
+      const list = json?.data?.parlamentares || [];
+
+      if (list.length > 0) {
+        parlamentarSelect.innerHTML = list
+          .filter(p => p.ativo !== false)
+          .map(p => \`<option value="\${p.nome}" \${p.padrao ? 'selected' : ''}>\${p.nome}\${p.cargo ? ' (' + p.cargo + ')' : ''}</option>\`)
+          .join('');
+      } else if (json?.data?.nomeParlamentar) {
+        parlamentarSelect.innerHTML = \`<option value="\${json.data.nomeParlamentar}" selected>\${json.data.nomeParlamentar}</option>\`;
+      } else {
+        parlamentarSelect.innerHTML = \`<option value="Mandato" selected>Mandato</option>\`;
+      }
+
+      // Trigger update UI
+      document.getElementById('mandatoTemplateSelect')?.dispatchEvent(new Event('change'));
+    } catch {
+      parlamentarSelect.innerHTML = \`<option value="Mandato" selected>Mandato</option>\`;
+    }
+  }
+
+  function bindMandatoTemplateEvents() {
+    const templateSelect = document.getElementById('mandatoTemplateSelect');
+    const beneficioWrapper = document.getElementById('mandatoBeneficioWrapper');
+    const beneficioInput = document.getElementById('mandatoBeneficioInput');
+    const parlamentarWrapper = document.getElementById('mandatoParlamentarWrapper');
+    const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
+    const previewAlert = document.getElementById('mandatoTemplatePreviewAlert');
+    const previewText = document.getElementById('mandatoTemplatePreviewText');
+
+    if (!templateSelect || templateSelect.dataset.mandatoTemplateBound === 'true') return;
+    templateSelect.dataset.mandatoTemplateBound = 'true';
+
+    function updateTemplateUi() {
+      const isTemplate = templateSelect.value === 'aviso_beneficio_eleitor';
+      if (beneficioWrapper) beneficioWrapper.style.display = isTemplate ? 'block' : 'none';
+      if (parlamentarWrapper) parlamentarWrapper.style.display = isTemplate ? 'block' : 'none';
+      if (previewAlert) previewAlert.style.display = isTemplate ? 'block' : 'none';
+
+      if (isTemplate) {
+        const ben = beneficioInput?.value?.trim() || 'Óculos';
+        const parl = parlamentarSelect?.value?.trim() || 'Mandato';
+        if (previewText) {
+          previewText.textContent = \`Olá, {{1}}! \${parl} informa que seu benefício (\${ben}) já está disponível. Obrigado!\`;
+        }
+
+        // Preenche o campo de texto da Mensagem 1 como espelho visual
+        const textMsg1 = document.getElementById('msg1-text');
+        if (textMsg1) {
+          textMsg1.value = \`Olá, {nome}! \${parl} informa que seu benefício (\${ben}) já está disponível. Obrigado!\`;
+          textMsg1.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    }
+
+    templateSelect.addEventListener('change', updateTemplateUi);
+    if (beneficioInput) {
+      beneficioInput.addEventListener('input', updateTemplateUi);
+    }
+    if (parlamentarSelect) {
+      parlamentarSelect.addEventListener('change', updateTemplateUi);
     }
   }
 
@@ -1145,10 +1359,34 @@ function buildEmbedScript() {
           return;
         }
 
+        const templateSelect = document.getElementById('mandatoTemplateSelect');
+        const beneficioInput = document.getElementById('mandatoBeneficioInput');
+        const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
+        const isTemplate = templateSelect && templateSelect.value === 'aviso_beneficio_eleitor';
+        const beneficio = beneficioInput?.value?.trim() || 'Óculos';
+        const parlamentar = parlamentarSelect?.value?.trim() || 'Mandato';
+
         const isScheduled = document.getElementById('enableScheduling')?.checked;
         if (isScheduled && typeof ScheduleManager !== 'undefined') {
           const dispatchData = FormManager.collectDispatchData();
           ScheduleManager.scheduleDispatch(dispatchData);
+        } else if (isTemplate) {
+          const confirmHtml = \`
+            <div class="text-start">
+              <h6 class="text-success mb-2"><i class="bi bi-patch-check-fill me-2"></i>Envio via Template Oficial WhatsApp</h6>
+              <p class="mb-1"><strong>Template:</strong> <code>aviso_beneficio_eleitor</code> (UTILITY)</p>
+              <p class="mb-1"><strong>Parlamentar ({{2}}):</strong> <span class="badge bg-info text-dark">\${parlamentar}</span></p>
+              <p class="mb-1"><strong>Benefício/Serviço ({{3}}):</strong> <span class="badge bg-primary">\${beneficio}</span></p>
+              <p class="mb-1"><strong>Total de Contatos:</strong> \${window.AppState?.contacts?.length || 0}</p>
+              <p class="mb-1"><strong>Entrega garantida fora da janela de 24h:</strong> <span class="text-success fw-bold">SIM</span></p>
+              <div class="alert alert-light border mt-2 mb-0 p-2 small">
+                <strong>Preview:</strong> "Olá, {{1}}! \${parlamentar} informa que seu benefício (\${beneficio}) já está disponível. Obrigado!"
+              </div>
+            </div>
+          \`;
+          window.UI?.confirm?.('Confirmar Disparo de Template', confirmHtml, () => {
+            SendingManager.start();
+          });
         } else {
           FormManager.showConfirmationDialog();
         }
@@ -1247,27 +1485,46 @@ function buildEmbedScript() {
   }
 
   async function importMandatoContacts() {
+    const importBtn = document.getElementById('mandatoImportBtn');
+    const originalContent = importBtn ? importBtn.innerHTML : '<i class="bi bi-cloud-download me-2"></i>Importar';
+
+    if (importBtn) {
+      importBtn.dataset.importing = 'true';
+      importBtn.disabled = true;
+      importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Carregando...';
+    }
+
     const params = getMandatoContactParams();
     window.UI?.showLoading?.('Importando contatos do MandatoPro...');
 
     try {
-      const response = await fetch(\`\${window.APP_ENV.MANDATOPRO_CONTACTS_ENDPOINT}?\${params.toString()}\`, {
+      const response = await fetch(\`/api/disparos/contatos/preview?\${params.toString()}\`, {
         credentials: 'include'
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.message || 'Erro ao importar contatos');
 
-      window.AppState.contacts = (payload.data || []).map((contact, index) => ({
-        name: contact.name,
-        phone: contact.phone,
-        email: contact.email || '',
-        rawPhone: contact.phone,
-        isValid: Boolean(contact.phone),
-        error: null,
-        row: index + 1,
-        source: contact.source,
-        sourceId: contact.sourceId
-      }));
+      const rawList = Array.isArray(payload.data) ? payload.data : [];
+
+      const contatosValidos = rawList.filter((contact) => {
+        const phone = contact.telefoneNormalizado || contact.phone || '';
+        return Boolean(phone);
+      });
+
+      window.AppState.contacts = contatosValidos.map((contact, index) => {
+        const phone = contact.telefoneNormalizado || contact.phone || '';
+        return {
+          name: contact.nome || contact.name || 'Sem nome',
+          phone: phone,
+          email: contact.email || '',
+          rawPhone: contact.telefoneOriginal || contact.rawPhone || phone,
+          isValid: Boolean(phone),
+          error: null,
+          row: index + 1,
+          source: contact.origem || contact.source || 'eleitor',
+          sourceId: contact.origemId || contact.sourceId || null
+        };
+      });
 
       getContactManager()?.updateContactsList?.();
       getTimeEstimator()?.update?.();
@@ -1277,6 +1534,12 @@ function buildEmbedScript() {
     } catch (error) {
       window.UI?.hideLoading?.();
       window.UI?.showError?.(error.message || 'Erro ao importar contatos do MandatoPro');
+    } finally {
+      if (importBtn) {
+        delete importBtn.dataset.importing;
+        importBtn.disabled = false;
+        importBtn.innerHTML = originalContent;
+      }
     }
   }
 
@@ -1370,6 +1633,9 @@ function buildEmbedScript() {
     setTimeout(addMandatoContactsButton, 1200);
     setTimeout(addMandatoContactsButton, 2500);
     setInterval(addMandatoContactsButton, 3000);
+    setTimeout(addMandatoTemplateBox, 1200);
+    setTimeout(addMandatoTemplateBox, 2500);
+    setInterval(addMandatoTemplateBox, 3000);
   }
 
   if (document.readyState === 'loading') {
@@ -1613,16 +1879,17 @@ if (typeof PreviewManager !== 'undefined') window.PreviewManager = PreviewManage
     --instance-card-shadow: 0 10px 24px rgba(10, 76, 83, 0.08);
 }
 
-[data-theme="dark"] {
-    --bg-primary: linear-gradient(135deg, #032e35 0%, #0a4c53 100%);
-    --bg-body: #092f34;
-    --bg-card: #113f45;
-    --text-primary: #edfafa;
-    --text-secondary: #b9d1d4;
-    --border-color: rgba(255, 255, 255, 0.14);
-    --sidebar-bg: #032e35;
-    --upload-hover: #0f3b41;
-    --contact-list: #164a51;
+[data-theme="dark"],
+[data-theme="light"] {
+    --bg-primary: linear-gradient(135deg, var(--mp-teal-800) 0%, var(--mp-teal-600) 100%);
+    --bg-body: #f8fafc;
+    --bg-card: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --sidebar-bg: var(--mp-teal-800);
+    --upload-hover: #f1f5f9;
+    --contact-list: #f8fafc;
 }
 
 body {
@@ -1636,7 +1903,7 @@ body {
     box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
-[data-theme="dark"] .sidebar { background: var(--mp-teal-950); }
+[data-theme="dark"] .sidebar { background: var(--mp-teal-800); }
 
 .sidebar-header {
     padding: 1.25rem 1rem;
@@ -1682,10 +1949,10 @@ body {
 
 .main-content {
     margin-left: 272px;
-    background: #eef8f7;
+    background: #f8fafc;
 }
 
-[data-theme="dark"] .main-content { background: #092f34; }
+[data-theme="dark"] .main-content { background: #f8fafc; }
 
 .top-header {
     background: #ffffff;
@@ -1695,8 +1962,8 @@ body {
 }
 
 [data-theme="dark"] .top-header {
-    background: #0b353b;
-    border-bottom-color: rgba(255, 255, 255, 0.12);
+    background: #ffffff;
+    border-bottom-color: var(--mp-border);
 }
 
 .top-header h4,
@@ -1705,7 +1972,7 @@ body {
 
 [data-theme="dark"] .top-header h4,
 [data-theme="dark"] .top-header .text-white,
-[data-theme="dark"] .top-header .text-light { color: #edfafa !important; }
+[data-theme="dark"] .top-header .text-light { color: var(--mp-teal-800) !important; }
 
 .top-header .btn-outline-light {
     border-color: var(--mp-border);
@@ -1732,7 +1999,7 @@ body {
     font-size: 1.55rem;
 }
 
-[data-theme="dark"] .content-header h2 { color: #e4fffb; }
+[data-theme="dark"] .content-header h2 { color: var(--mp-teal-800); }
 .content-header p { color: var(--mp-secondary); font-size: 0.95rem; }
 
 .card {
@@ -1757,8 +2024,8 @@ body {
 
 [data-theme="dark"] .card-header,
 [data-theme="dark"] .card-header.bg-gradient-primary {
-    background: #123f45 !important;
-    color: #edfafa !important;
+    background: #ffffff !important;
+    color: var(--mp-teal-800) !important;
 }
 
 .form-control,

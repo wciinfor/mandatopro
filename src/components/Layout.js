@@ -88,7 +88,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
   }, [loading, router.pathname, user?.id]);
 
   return (
-    <div className="min-h-screen bg-teal-50 flex">
+    <div className="min-h-screen bg-slate-100/60 flex">
       <Sidebar
         sidebarAberto={sidebarAberto}
         setSidebarAberto={setSidebarAberto}
@@ -96,8 +96,8 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
         setModuloAtivo={() => {}}
       />
 
-      <main className="flex-1 transition-all duration-300 ease-in-out lg:ml-0">
-        <div className="bg-white shadow-sm p-3 lg:p-4">
+      <main className="flex-1 transition-all duration-300 ease-in-out lg:ml-0 flex flex-col">
+        <div className="bg-white shadow-sm p-3 lg:p-4 shrink-0">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <button
@@ -138,7 +138,7 @@ export default function Layout({ children, titulo = 'MandatoPro' }) {
           </div>
         </div>
 
-        <div className="p-4 lg:p-6">
+        <div className="p-4 lg:p-6 flex-1 flex flex-col min-h-0">
           {children}
         </div>
         <AIChatWidget />

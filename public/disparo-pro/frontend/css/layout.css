@@ -2228,16 +2228,17 @@ small {
     --instance-card-shadow: 0 10px 24px rgba(10, 76, 83, 0.08);
 }
 
-[data-theme="dark"] {
-    --bg-primary: linear-gradient(135deg, #032e35 0%, #0a4c53 100%);
-    --bg-body: #092f34;
-    --bg-card: #113f45;
-    --text-primary: #edfafa;
-    --text-secondary: #b9d1d4;
-    --border-color: rgba(255, 255, 255, 0.14);
-    --sidebar-bg: #032e35;
-    --upload-hover: #0f3b41;
-    --contact-list: #164a51;
+[data-theme="dark"],
+[data-theme="light"] {
+    --bg-primary: linear-gradient(135deg, var(--mp-teal-800) 0%, var(--mp-teal-600) 100%);
+    --bg-body: #f8fafc;
+    --bg-card: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --sidebar-bg: var(--mp-teal-800);
+    --upload-hover: #f1f5f9;
+    --contact-list: #f8fafc;
 }
 
 body {
@@ -2251,7 +2252,7 @@ body {
     box-shadow: 1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
-[data-theme="dark"] .sidebar { background: var(--mp-teal-950); }
+[data-theme="dark"] .sidebar { background: var(--mp-teal-800); }
 
 .sidebar-header {
     padding: 1.25rem 1rem;
@@ -2297,10 +2298,10 @@ body {
 
 .main-content {
     margin-left: 272px;
-    background: #eef8f7;
+    background: #f8fafc;
 }
 
-[data-theme="dark"] .main-content { background: #092f34; }
+[data-theme="dark"] .main-content { background: #f8fafc; }
 
 .top-header {
     background: #ffffff;
@@ -2310,8 +2311,8 @@ body {
 }
 
 [data-theme="dark"] .top-header {
-    background: #0b353b;
-    border-bottom-color: rgba(255, 255, 255, 0.12);
+    background: #ffffff;
+    border-bottom-color: var(--mp-border);
 }
 
 .top-header h4,
@@ -2320,7 +2321,7 @@ body {
 
 [data-theme="dark"] .top-header h4,
 [data-theme="dark"] .top-header .text-white,
-[data-theme="dark"] .top-header .text-light { color: #edfafa !important; }
+[data-theme="dark"] .top-header .text-light { color: var(--mp-teal-800) !important; }
 
 .top-header .btn-outline-light {
     border-color: var(--mp-border);
@@ -2347,7 +2348,7 @@ body {
     font-size: 1.55rem;
 }
 
-[data-theme="dark"] .content-header h2 { color: #e4fffb; }
+[data-theme="dark"] .content-header h2 { color: var(--mp-teal-800); }
 .content-header p { color: var(--mp-secondary); font-size: 0.95rem; }
 
 .card {
@@ -2372,8 +2373,8 @@ body {
 
 [data-theme="dark"] .card-header,
 [data-theme="dark"] .card-header.bg-gradient-primary {
-    background: #123f45 !important;
-    color: #edfafa !important;
+    background: #ffffff !important;
+    color: var(--mp-teal-800) !important;
 }
 
 .form-control,

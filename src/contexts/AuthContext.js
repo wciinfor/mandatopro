@@ -187,24 +187,24 @@ async function obterUsuarioLogado(email) {
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
       try {
         response = await fetch('/api/usuarios/me', { signal: controller.signal });
-        result = await response.json();
+        result = await response.json().catch(() => null);
         break;
       } catch (error) {
         if (attempt === 1 || (error?.name !== 'AbortError' && error?.name !== 'TypeError')) {
-          throw error;
+          return null;
         }
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       } finally {
         clearTimeout(timeoutId);
       }
     }
 
-    if (!response?.ok) {
-      throw new Error(result?.message || 'Erro ao obter usuario logado');
+    if (!response?.ok || !result?.data) {
+      return null;
     }
 
     if (email && result.data?.email && result.data.email !== email) {
@@ -213,7 +213,6 @@ async function obterUsuarioLogado(email) {
 
     return result.data;
   } catch (error) {
-    console.error('Erro ao obter usuário logado:', error);
     return null;
   }
 }

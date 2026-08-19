@@ -119,7 +119,7 @@ export default function Disparos() {
 
   return (
     <Layout titulo="Mandato Connect">
-      <div className="-m-4 lg:-m-6 min-h-[calc(100vh-64px)] bg-gray-50">
+      <div className="-m-4 lg:-m-6 flex-1 min-h-[calc(100vh-140px)] bg-white overflow-hidden">
         {iframeSrc ? (
           <iframe
             ref={iframeRef}
@@ -131,7 +131,7 @@ export default function Disparos() {
                 section: activeSection
               }, window.location.origin);
             }}
-            className="w-full h-[calc(100vh-64px)] border-0 bg-white block"
+            className="w-full h-full min-h-[calc(100vh-140px)] border-0 bg-white block"
           />
         ) : null}
       </div>

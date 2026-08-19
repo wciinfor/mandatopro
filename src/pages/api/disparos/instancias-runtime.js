@@ -53,7 +53,10 @@ export default async function handler(req, res) {
     exigirAcessoMandatoConnect(usuario);
 
     if (req.method === 'GET') {
-      const { data, error } = await supabase
+      const { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } = await import('@/lib/whatsapp-business-accounts');
+      const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
+
+      const { data: dbInstances, error } = await supabase
         .from('instances')
         .select('*')
         .eq('user_id', usuario.id)
@@ -61,9 +64,28 @@ export default async function handler(req, res) {
 
       if (error) throw error;
 
+      const instancesList = (dbInstances || []).map(toClientInstance);
+
+      if (conta) {
+        const norm = normalizarWhatsappAccount(conta);
+        const ycloudInstance = {
+          id: `waba-${conta.id}`,
+          name: norm.displayPhoneNumber || norm.displayName || conta.nome || 'YCloud Oficial',
+          apikey: 'ycloud-active',
+          status: 'connected',
+          totalSent: 0,
+          successCount: 0,
+          errorCount: 0,
+          lastCheck: new Date().toISOString(),
+          _supabaseId: `waba-${conta.id}`
+        };
+        // Adiciona ou prioriza a conta YCloud ativa no topo
+        instancesList.unshift(ycloudInstance);
+      }
+
       return res.status(200).json({
         success: true,
-        data: (data || []).map(toClientInstance)
+        data: instancesList
       });
     }
 

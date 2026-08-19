@@ -28,7 +28,9 @@ import {
   faShieldAlt,
   faClipboardCheck,
   faInfoCircle,
-  faCalendarAlt
+  faCalendarAlt,
+  faPlus,
+  faTrashAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 const WHATSAPP_WIZARD_STEPS = [
@@ -192,6 +194,7 @@ export default function ConfiguracaoSistema() {
   const [syncHistory, setSyncHistory] = useState([]);
   const [syncHistoryLoading, setSyncHistoryLoading] = useState(false);
   const [isSyncHistoryModalOpen, setIsSyncHistoryModalOpen] = useState(false);
+  const [showAdvancedWhatsapp, setShowAdvancedWhatsapp] = useState(false);
   const metaSignupResultRef = useRef(null);
   const metaSignupCodeRef = useRef('');
   const metaSignupSavedRef = useRef(false);
@@ -218,12 +221,14 @@ export default function ConfiguracaoSistema() {
     website: '',
     cargo: '',
     nomeParlamentar: '',
+    parlamentares: [],
     corPrincipal: '#14b8a6',
     corSecundaria: '#0d9488'
   });
 
   // Dados WhatsApp Business
   const [whatsapp, setWhatsapp] = useState({
+    wabaId: '',
     phoneNumberId: '',
     accessToken: '',
     verifyToken: '',
@@ -472,6 +477,7 @@ export default function ConfiguracaoSistema() {
       }
       setWhatsapp(prev => ({
         ...prev,
+        wabaId: data.wabaId || '',
         phoneNumberId: data.phoneNumberId || '',
         accessToken: '',
         verifyToken: '',
@@ -638,6 +644,18 @@ export default function ConfiguracaoSistema() {
       const result = await response.json();
       
       if (result.success && result.data) {
+        const parlamentaresData = Array.isArray(result.data.parlamentares) && result.data.parlamentares.length > 0
+          ? result.data.parlamentares
+          : (result.data.nomeParlamentar ? [{
+              id: 'parlamentar-1',
+              nome: result.data.nomeParlamentar,
+              cargo: result.data.cargo || '',
+              ativo: true,
+              padrao: true
+            }] : []);
+
+        const principal = parlamentaresData.find(p => p.padrao) || parlamentaresData[0] || {};
+
         setSistema({
           nomeOrgao: result.data.nomeOrgao || '',
           sigla: result.data.sigla || '',
@@ -647,8 +665,9 @@ export default function ConfiguracaoSistema() {
           telefone: result.data.telefone || '',
           email: result.data.email || '',
           website: result.data.website || '',
-          cargo: result.data.cargo || '',
-          nomeParlamentar: result.data.nomeParlamentar || '',
+          cargo: principal.cargo || result.data.cargo || '',
+          nomeParlamentar: principal.nome || result.data.nomeParlamentar || '',
+          parlamentares: parlamentaresData,
           corPrincipal: result.data.corPrincipal || '#14b8a6',
           corSecundaria: result.data.corSecundaria || '#0d9488'
         });
@@ -717,10 +736,94 @@ export default function ConfiguracaoSistema() {
     }
   };
 
-  // Manipular mudanças no Sistema
+  function formatarCnpj(valor) {
+    const limpo = String(valor || '').replace(/\D/g, '').slice(0, 14);
+    if (limpo.length <= 2) return limpo;
+    if (limpo.length <= 5) return `${limpo.slice(0, 2)}.${limpo.slice(2)}`;
+    if (limpo.length <= 8) return `${limpo.slice(0, 2)}.${limpo.slice(2, 5)}.${limpo.slice(5)}`;
+    if (limpo.length <= 12) return `${limpo.slice(0, 2)}.${limpo.slice(2, 5)}.${limpo.slice(5, 8)}/${limpo.slice(8)}`;
+    return `${limpo.slice(0, 2)}.${limpo.slice(2, 5)}.${limpo.slice(5, 8)}/${limpo.slice(8, 12)}-${limpo.slice(12, 14)}`;
+  }
+
+  function formatarTelefone(valor) {
+    const limpo = String(valor || '').replace(/\D/g, '').slice(0, 11);
+    if (limpo.length <= 2) return limpo;
+    if (limpo.length <= 6) return `(${limpo.slice(0, 2)}) ${limpo.slice(2)}`;
+    if (limpo.length <= 10) return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 6)}-${limpo.slice(6)}`;
+    return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7, 11)}`;
+  }
+
+  // Manipular mudanças no Sistema com máscaras automáticas
   const handleSistemaChange = (e) => {
     const { name, value } = e.target;
-    setSistema({ ...sistema, [name]: value });
+    let valorFinal = value;
+
+    if (name === 'cnpj') {
+      valorFinal = formatarCnpj(value);
+    } else if (name === 'telefone') {
+      valorFinal = formatarTelefone(value);
+    }
+
+    setSistema({ ...sistema, [name]: valorFinal });
+  };
+
+  // Manipuladores de Múltiplos Parlamentares
+  const handleAddParlamentar = () => {
+    const novoId = `parlamentar-${Date.now()}`;
+    const novaLista = [
+      ...(sistema.parlamentares || []),
+      {
+        id: novoId,
+        nome: '',
+        cargo: '',
+        ativo: true,
+        padrao: (sistema.parlamentares || []).length === 0
+      }
+    ];
+    setSistema({ ...sistema, parlamentares: novaLista });
+  };
+
+  const handleUpdateParlamentar = (index, campo, valor) => {
+    const lista = [...(sistema.parlamentares || [])];
+    if (!lista[index]) return;
+    lista[index] = { ...lista[index], [campo]: valor };
+    
+    // Sincroniza parlamentar principal se o padrão foi alterado
+    const principal = lista.find(p => p.padrao) || lista[0] || {};
+    setSistema({
+      ...sistema,
+      parlamentares: lista,
+      nomeParlamentar: principal.nome || sistema.nomeParlamentar,
+      cargo: principal.cargo || sistema.cargo
+    });
+  };
+
+  const handleSetPadraoParlamentar = (index) => {
+    const lista = (sistema.parlamentares || []).map((p, idx) => ({
+      ...p,
+      padrao: idx === index
+    }));
+    const principal = lista[index] || {};
+    setSistema({
+      ...sistema,
+      parlamentares: lista,
+      nomeParlamentar: principal.nome || sistema.nomeParlamentar,
+      cargo: principal.cargo || sistema.cargo
+    });
+  };
+
+  const handleRemoveParlamentar = (index) => {
+    let lista = (sistema.parlamentares || []).filter((_, idx) => idx !== index);
+    if (lista.length > 0 && !lista.some(p => p.padrao)) {
+      lista[0].padrao = true;
+    }
+    const principal = lista.find(p => p.padrao) || lista[0] || {};
+    setSistema({
+      ...sistema,
+      parlamentares: lista,
+      nomeParlamentar: principal.nome || '',
+      cargo: principal.cargo || ''
+    });
   };
 
   // Manipular mudanças no WhatsApp
@@ -756,11 +859,27 @@ export default function ConfiguracaoSistema() {
 
   // Salvar configurações do Sistema
   const salvarConfiguracoes = async () => {
-    if (!sistema.nomeOrgao || !sistema.cnpj || !sistema.nomeParlamentar) {
-      setErrorMessage('Preenchimento obrigatório: Nome do Órgão, CNPJ e Nome do Parlamentar');
+    const temParlamentarValido = (sistema.parlamentares || []).some(p => p.nome && p.nome.trim() && p.ativo !== false) || Boolean(sistema.nomeParlamentar && sistema.nomeParlamentar.trim());
+
+    if (!sistema.nomeOrgao || !sistema.cnpj) {
+      setErrorMessage('Preenchimento obrigatório: Nome do Gabinete/Órgão e CNPJ');
       setErrorModal(true);
       return;
     }
+
+    if (!temParlamentarValido) {
+      setErrorMessage('Cadastre pelo menos um Parlamentar ativo com o nome preenchido');
+      setErrorModal(true);
+      return;
+    }
+
+    // Garante sincronização do parlamentar padrão para compatibilidade
+    const principal = (sistema.parlamentares || []).find(p => p.padrao && p.ativo !== false) || (sistema.parlamentares || [])[0] || {};
+    const dadosParaSalvar = {
+      ...sistema,
+      nomeParlamentar: principal.nome || sistema.nomeParlamentar || '',
+      cargo: principal.cargo || sistema.cargo || ''
+    };
 
     try {
       setLoading(true);
@@ -769,7 +888,7 @@ export default function ConfiguracaoSistema() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo: 'sistema',
-          dados: sistema
+          dados: dadosParaSalvar
         })
       });
 
@@ -1172,19 +1291,19 @@ export default function ConfiguracaoSistema() {
                   </p>
                 </div>
 
-                {/* Dados do Órgão */}
+                {/* Dados do Gabinete / Órgão */}
                 <div className="md:col-span-2 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Nome do Órgão *
+                        Nome do Gabinete / Órgão *
                       </label>
                       <input
                         type="text"
                         name="nomeOrgao"
                         value={sistema.nomeOrgao}
                         onChange={handleSistemaChange}
-                        placeholder="Ex: Câmara Municipal"
+                        placeholder="Ex: Mandato Parlamentar ou Gabinete"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
@@ -1197,7 +1316,7 @@ export default function ConfiguracaoSistema() {
                         name="sigla"
                         value={sistema.sigla}
                         onChange={handleSistemaChange}
-                        placeholder="Ex: CM"
+                        placeholder="Ex: ALEPA / CD"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
@@ -1281,38 +1400,111 @@ export default function ConfiguracaoSistema() {
                 </div>
               </div>
 
-              {/* Dados do Parlamentar */}
+              {/* Dados dos Parlamentares */}
               <div className="bg-gray-50 p-6 rounded-lg mb-8">
-                <h3 className="font-semibold text-gray-800 mb-4">
-                  Dados do Parlamentar
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex justify-between items-center mb-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Nome do Parlamentar *
-                    </label>
-                    <input
-                      type="text"
-                      name="nomeParlamentar"
-                      value={sistema.nomeParlamentar}
-                      onChange={handleSistemaChange}
-                      placeholder="Nome completo"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
+                    <h3 className="font-semibold text-gray-800">
+                      Parlamentares do Mandato
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Cadastre os parlamentares e defina o parlamentar padrão para as comunicações.
+                    </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Cargo
-                    </label>
-                    <input
-                      type="text"
-                      name="cargo"
-                      value={sistema.cargo}
-                      onChange={handleSistemaChange}
-                      placeholder="Ex: Vereador, Deputado"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddParlamentar}
+                    className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
+                    Adicionar Parlamentar
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {(sistema.parlamentares || []).map((parlamentar, index) => (
+                    <div
+                      key={parlamentar.id || index}
+                      className={`p-4 bg-white rounded-lg border transition-all ${
+                        parlamentar.padrao ? 'border-teal-500 shadow-sm' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700">
+                            <input
+                              type="radio"
+                              name="parlamentarPadraoRadio"
+                              checked={Boolean(parlamentar.padrao)}
+                              onChange={() => handleSetPadraoParlamentar(index)}
+                              className="text-teal-600 focus:ring-teal-500"
+                            />
+                            {parlamentar.padrao ? (
+                              <span className="text-teal-700 font-bold flex items-center gap-1">
+                                <FontAwesomeIcon icon={faCheck} className="w-3.5 h-3.5" /> Padrão / Principal
+                              </span>
+                            ) : (
+                              <span className="text-gray-500">Definir como Padrão</span>
+                            )}
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer mr-2">
+                            <input
+                              type="checkbox"
+                              checked={parlamentar.ativo !== false}
+                              onChange={(e) => handleUpdateParlamentar(index, 'ativo', e.target.checked)}
+                              className="rounded text-teal-600 focus:ring-teal-500"
+                            />
+                            Ativo
+                          </label>
+                          {(sistema.parlamentares || []).length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveParlamentar(index)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              title="Remover parlamentar"
+                            >
+                              <FontAwesomeIcon icon={faTrashAlt} className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Nome do Parlamentar *
+                          </label>
+                          <input
+                            type="text"
+                            value={parlamentar.nome}
+                            onChange={(e) => handleUpdateParlamentar(index, 'nome', e.target.value)}
+                            placeholder="Ex: Deputado Nemém, Deputada Renilse"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Cargo
+                          </label>
+                          <input
+                            type="text"
+                            value={parlamentar.cargo}
+                            onChange={(e) => handleUpdateParlamentar(index, 'cargo', e.target.value)}
+                            placeholder="Ex: Deputado Estadual, Deputada Federal"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {(!sistema.parlamentares || sistema.parlamentares.length === 0) && (
+                    <div className="text-center py-6 text-gray-500 bg-white border border-dashed rounded-lg">
+                      Nenhum parlamentar cadastrado. Clique no botão acima para adicionar.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1770,7 +1962,18 @@ export default function ConfiguracaoSistema() {
                             <h5 className="font-bold text-xs text-gray-700 uppercase tracking-wider">Credenciais e Webhook Manual</h5>
                           </div>
                           <div className="p-4 space-y-4 text-xs">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                <label className="block text-gray-700 font-semibold mb-1">WABA ID</label>
+                                <input
+                                  type="text"
+                                  name="wabaId"
+                                  value={whatsapp.wabaId}
+                                  onChange={handleWhatsappChange}
+                                  placeholder="ID da conta WhatsApp Business (WABA)"
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs"
+                                />
+                              </div>
                               <div>
                                 <label className="block text-gray-700 font-semibold mb-1">Phone Number ID</label>
                                 <input
@@ -1778,6 +1981,7 @@ export default function ConfiguracaoSistema() {
                                   name="phoneNumberId"
                                   value={whatsapp.phoneNumberId}
                                   onChange={handleWhatsappChange}
+                                  placeholder="ID do número de telefone"
                                   className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs"
                                 />
                               </div>
@@ -1788,6 +1992,7 @@ export default function ConfiguracaoSistema() {
                                   name="verifyToken"
                                   value={whatsapp.verifyToken}
                                   onChange={handleWhatsappChange}
+                                  placeholder="Token de verificação"
                                   className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs"
                                 />
                               </div>
