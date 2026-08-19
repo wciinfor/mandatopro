@@ -106,6 +106,23 @@ export default async function handler(req, res) {
 
       const statusInterno = statusMap[evento.status] || evento.status;
 
+      // Mapeamento de prioridades para progressão estrita de status
+      const STATUS_PRIORITY = {
+        sent: 1,
+        enviada: 1,
+        enviado: 1,
+        delivered: 2,
+        entregue: 2,
+        read: 3,
+        lida: 3,
+        lido: 3,
+        failed: 4,
+        falhou: 4,
+        falha: 4
+      };
+
+      const novoStatusPrioridade = STATUS_PRIORITY[evento.status] || 0;
+
       // Localiza a mensagem na fila
       const { data: msgFila, error: errFila } = await supabase
         .from('communication_messages')
@@ -114,39 +131,65 @@ export default async function handler(req, res) {
         .maybeSingle();
 
       if (msgFila) {
-        // Atualiza o status
-        const { error: errUpdateMsg } = await supabase
-          .from('communication_messages')
-          .update({
-            meta_dados: {
-              ...(msgFila.meta_dados || {}),
-              status: statusInterno,
-              atualizado_em: evento.timestamp
-            }
-          })
-          .eq('id', msgFila.id);
+        const statusAtualMsg = msgFila.meta_dados?.status;
+        const statusAtualPrioridade = STATUS_PRIORITY[statusAtualMsg] || 0;
 
-        if (errUpdateMsg) throw errUpdateMsg;
+        // Permite atualização se for failed ou se a prioridade for maior/igual
+        if (evento.status === 'failed' || novoStatusPrioridade >= statusAtualPrioridade) {
+          const { error: errUpdateMsg } = await supabase
+            .from('communication_messages')
+            .update({
+              meta_dados: {
+                ...(msgFila.meta_dados || {}),
+                status: statusInterno,
+                atualizado_em: evento.timestamp
+              }
+            })
+            .eq('id', msgFila.id);
+
+          if (errUpdateMsg) throw errUpdateMsg;
+        }
       }
 
       // Também tenta atualizar a fila de disparos de campanhas se houver correspondência
       const { data: itemFilaObj, error: errGetItem } = await supabase
         .from('communication_campaign_items')
-        .select('id, campaign_id')
+        .select('id, campaign_id, status, delivered_at, read_at, last_error')
         .eq('provider_message_id', evento.provider_message_id)
         .maybeSingle();
 
       if (itemFilaObj) {
-        // Atualiza o item individual
-        await supabase
-          .from('communication_campaign_items')
-          .update({
-            status: statusInterno === 'falhou' ? 'falha' : statusInterno === 'lida' ? 'lido' : statusInterno === 'entregue' ? 'entregue' : 'enviado',
-            delivered_at: (evento.status === 'delivered' || evento.status === 'read') ? evento.timestamp : undefined,
-            read_at: evento.status === 'read' ? evento.timestamp : undefined,
-            last_error: evento.status === 'failed' ? JSON.stringify(evento.erro) : undefined
-          })
-          .eq('id', itemFilaObj.id);
+        const statusAtualItem = itemFilaObj.status;
+        const prioridadeAtualItem = STATUS_PRIORITY[statusAtualItem] || 0;
+
+        const updatePayload = {};
+
+        // Atualiza status se for failed ou se não houver regressão
+        if (evento.status === 'failed') {
+          updatePayload.status = 'falha';
+          updatePayload.last_error = JSON.stringify(evento.erro);
+        } else if (novoStatusPrioridade >= prioridadeAtualItem) {
+          updatePayload.status = novoStatusPrioridade === 3 ? 'lido' : novoStatusPrioridade === 2 ? 'entregue' : 'enviado';
+        }
+
+        // Preserva e atualiza timestamps sem apagar os existentes
+        if (evento.status === 'delivered' || evento.status === 'read') {
+          if (!itemFilaObj.delivered_at) {
+            updatePayload.delivered_at = evento.timestamp;
+          }
+        }
+        if (evento.status === 'read') {
+          if (!itemFilaObj.read_at) {
+            updatePayload.read_at = evento.timestamp;
+          }
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase
+            .from('communication_campaign_items')
+            .update(updatePayload)
+            .eq('id', itemFilaObj.id);
+        }
 
         // Recalcula totais em tempo real da campanha no Supabase
         const { data: todosItens } = await supabase

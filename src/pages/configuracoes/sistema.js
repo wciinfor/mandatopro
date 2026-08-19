@@ -180,6 +180,7 @@ export default function ConfiguracaoSistema() {
   const [activeTab, setActiveTab] = useState('sistema');
   const [loading, setLoading] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('Configuração salva com sucesso!');
   const [errorModal, setErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [logoPreview, setLogoPreview] = useState(null);
@@ -1083,8 +1084,12 @@ export default function ConfiguracaoSistema() {
 
       const data = await response.json();
       if (data.success) {
+        const msgTexto = data.messageId
+          ? `Mensagem de teste enviada com sucesso!\nID: ${data.messageId}`
+          : 'Mensagem de teste enviada com sucesso!';
+        setSuccessMessage(msgTexto);
         setSuccessModal(true);
-        setTimeout(() => setSuccessModal(false), 3000);
+        setTimeout(() => setSuccessModal(false), 4000);
       } else {
         throw new Error(data.message || 'Erro ao enviar mensagem');
       }
@@ -2285,7 +2290,7 @@ export default function ConfiguracaoSistema() {
       <Modal
         isOpen={successModal}
         title="Sucesso!"
-        message="Configuração salva com sucesso!"
+        message={successMessage}
         type="success"
         onClose={() => setSuccessModal(false)}
       />
