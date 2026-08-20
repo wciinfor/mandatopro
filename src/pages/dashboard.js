@@ -6,6 +6,8 @@ import {
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { MODULES, hasModuleAccess } from '@/utils/permissions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRegistrarAcesso } from '@/hooks/useRegistrarAcesso';
 
@@ -53,6 +55,7 @@ export default function Dashboard() {
   
   // Carrega usuário do localStorage e busca nome atualizado do Supabase
   useEffect(() => {
+    if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) return;
     const usuarioData = JSON.parse(localStorage.getItem('usuario') || '{}');
     setUsuario(usuarioData);
 
@@ -66,9 +69,13 @@ export default function Dashboard() {
         })
         .catch(() => {});
     }
-  }, []);
+  }, [userSnapshot.nivel]);
 
   useEffect(() => {
+    if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) {
+      setStatsLoading(false);
+      return;
+    }
     const carregarStats = async () => {
       try {
         setStatsLoading(true);
@@ -94,10 +101,11 @@ export default function Dashboard() {
     };
 
     carregarStats();
-  }, []);
+  }, [userSnapshot.nivel]);
 
   // Aniversariantes carregados de forma independente para não bloquear os cards
   useEffect(() => {
+    if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) return;
     const carregarAniversariantes = async () => {
       try {
         const response = await fetch('/api/aniversariantes?limit=10');
@@ -118,9 +126,13 @@ export default function Dashboard() {
       }
     };
     carregarAniversariantes();
-  }, []);
+  }, [userSnapshot.nivel]);
 
   useEffect(() => {
+    if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) {
+      setChartsLoading(false);
+      return;
+    }
     const carregarGraficos = async () => {
       try {
         setChartsLoading(true);
@@ -141,10 +153,14 @@ export default function Dashboard() {
     };
 
     carregarGraficos();
-  }, []);
+  }, [userSnapshot.nivel]);
 
   useEffect(() => {
     let ativo = true;
+    if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) {
+      setAgendaLoading(false);
+      return;
+    }
     const carregarAgenda = async () => {
       try {
         setAgendaLoading(true);
@@ -206,6 +222,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     let ativo = true;
+    if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) {
+      setHeatmapPreview(prev => ({ ...prev, loading: false }));
+      return;
+    }
 
     const carregarPreviewMapaCalor = async () => {
       try {
@@ -258,10 +278,14 @@ export default function Dashboard() {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [userSnapshot.nivel]);
 
   useEffect(() => {
     let ativo = true;
+    if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) {
+      setTopLideresLoading(false);
+      return;
+    }
     const carregarTopLideres = async () => {
       try {
         setTopLideresLoading(true);
@@ -286,7 +310,7 @@ export default function Dashboard() {
     };
     carregarTopLideres();
     return () => { ativo = false; };
-  }, []);
+  }, [userSnapshot.nivel]);
 
   const BarChart = ({
     series,
@@ -412,7 +436,8 @@ export default function Dashboard() {
   });
 
   return (
-    <Layout titulo={`Bem-vindo, ${usuario?.nome || ''}!`}>
+    <ProtectedRoute module={MODULES.DASHBOARD}>
+      <Layout titulo={`Bem-vindo, ${usuario?.nome || ''}!`}>
       {/* Grid Principal */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
         <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border-b-4 border-teal-400">
@@ -981,5 +1006,6 @@ export default function Dashboard() {
         </div>
       </div>
     </Layout>
-  );
+  </ProtectedRoute>
+);
 }

@@ -59,65 +59,70 @@ function createAuthClient(accessToken) {
   });
 }
 
-// Micro-cache em memória para tokens validados (TTL: 30 segundos)
-// Evita requisições redundantes ao GoTrue Auth quando múltiplas APIs chegam em paralelo
-const TOKEN_CACHE_TTL_MS = 30 * 1000;
-const tokenCache = new Map();
+function createServiceRoleClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function limparCacheTokensExpirados(agora = Date.now()) {
-  for (const [token, item] of tokenCache.entries()) {
-    if (item.expiresAt <= agora) {
-      tokenCache.delete(token);
-    }
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return null;
   }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
 }
 
-export async function obterUsuarioAutenticado(req, supabaseAdmin) {
-  if (req) {
-    if (req._authenticatedUser) {
-      return req._authenticatedUser;
-    }
-    if (req._authenticatedUserPromise) {
-      return await req._authenticatedUserPromise;
-    }
+export async function obterUsuarioAutenticado(req, supabaseFallback = null) {
+  if (req && req._authenticatedUser) {
+    return req._authenticatedUser;
+  }
+  if (req && req._authenticatedUserPromise) {
+    return await req._authenticatedUserPromise;
   }
 
   const exec = async () => {
-    const tvToken = req?.query?.token || req?.query?.tv_token || req?.headers?.['x-tv-token'];
-    if (tvToken && (tvToken === 'gabinete' || (process.env.TV_DISPLAY_TOKEN && tvToken === process.env.TV_DISPLAY_TOKEN))) {
-      return {
-        usuario: { id: 1, email: 'gabinete@mandatopro.com', nome: 'Gabinete TV', nivel: 'ADMIN', role: 'ADMIN' },
-        metodo: 'tv-token'
-      };
+    const token = getBearerToken(req) || getAccessTokenFromCookie(req);
+    const supabaseAdmin = createServiceRoleClient() || supabaseFallback;
+
+    if (!token || !supabaseAdmin) {
+      const result = { usuario: null, metodo: 'none' };
+      if (req) req._authenticatedUser = result;
+      return result;
     }
 
-    const accessToken = getBearerToken(req) || getAccessTokenFromCookie(req);
+    const authClient = createAuthClient(token);
+    let authUser = null;
 
-    if (!accessToken) {
-      return { usuario: null, metodo: 'none' };
+    if (authClient) {
+      const { data } = await authClient.auth.getUser();
+      authUser = data?.user || null;
     }
 
-    const agora = Date.now();
-    limparCacheTokensExpirados(agora);
+    let email = authUser?.email || null;
 
-    // 1. Tenta obter o e-mail do token via micro-cache (30s)
-    let email = null;
-    const cachedToken = tokenCache.get(accessToken);
+    if (!email) {
+      const { data: adminUser } = await supabaseAdmin.auth.getUser(token);
+      email = adminUser?.user?.email || null;
+      if (adminUser?.user) {
+        authUser = adminUser.user;
+      }
+    }
 
-    if (cachedToken && cachedToken.expiresAt > agora) {
-      email = cachedToken.email;
-    } else {
-      // 2. Se não estiver em cache, faz a validação única no GoTrue Auth
-      const authClient = createAuthClient(accessToken);
-      if (authClient) {
-        const { data, error } = await authClient.auth.getUser(accessToken);
-        if (!error && data?.user?.email) {
-          email = data.user.email;
-          tokenCache.set(accessToken, {
-            email,
-            expiresAt: agora + TOKEN_CACHE_TTL_MS
-          });
-        }
+    if (authUser?.id) {
+      const { data: usuario } = await supabaseAdmin
+        .from('usuarios')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .eq('ativo', true)
+        .single();
+
+      if (usuario) {
+        const result = { usuario, metodo: 'auth_id' };
+        if (req) req._authenticatedUser = result;
+        return result;
       }
     }
 
@@ -181,6 +186,19 @@ export function exigirAcessoMandatoConnect(usuario) {
   const nivel = String(usuario?.nivel || '').toUpperCase();
   if (!['ADMINISTRADOR', 'SUPERVISOR_CONNECT', 'ATENDENTE_CONNECT'].includes(nivel)) {
     const err = new Error('Acesso restrito ao modulo Mandato Connect');
+    err.statusCode = 403;
+    throw err;
+  }
+}
+
+export function exigirAcessoModulo(usuario, modulo) {
+  exigirUsuario(usuario);
+
+  const { hasModuleAccess } = require('@/utils/permissions');
+  const nivel = String(usuario?.nivel || '').toUpperCase();
+
+  if (!hasModuleAccess(nivel, modulo)) {
+    const err = new Error(`Acesso restrito ao modulo ${modulo}`);
     err.statusCode = 403;
     throw err;
   }

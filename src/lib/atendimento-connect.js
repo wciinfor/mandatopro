@@ -9,7 +9,8 @@ export const ATENDIMENTO_CONNECT_STATUS = [
 export const ATENDIMENTO_CONNECT_ROLES = [
   'ADMINISTRADOR',
   'ATENDENTE_CONNECT',
-  'SUPERVISOR_CONNECT'
+  'SUPERVISOR_CONNECT',
+  'ANALISTA_META'
 ];
 
 export function normalizarTelefone(value = '') {

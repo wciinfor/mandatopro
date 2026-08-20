@@ -62,10 +62,10 @@ export default function ProtectedRoute({ children, module, requiredRole = null }
             {getAccessDeniedMessage(user.nivel, 'acessar este módulo')}
           </p>
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push(['ATENDENTE_CONNECT', 'SUPERVISOR_CONNECT', 'ANALISTA_META'].includes(user?.nivel) ? '/atendimento-connect' : '/dashboard')}
             className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
           >
-            Voltar ao Dashboard
+            Voltar ao Início
           </button>
         </div>
       </div>

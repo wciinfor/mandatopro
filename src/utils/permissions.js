@@ -5,7 +5,8 @@ export const ROLES = {
   LIDERANCA: 'LIDERANCA',
   OPERADOR: 'OPERADOR',
   ATENDENTE_CONNECT: 'ATENDENTE_CONNECT',
-  SUPERVISOR_CONNECT: 'SUPERVISOR_CONNECT'
+  SUPERVISOR_CONNECT: 'SUPERVISOR_CONNECT',
+  ANALISTA_META: 'ANALISTA_META'
 };
 
 export const ROLE_DESCRIPTIONS = {
@@ -13,7 +14,8 @@ export const ROLE_DESCRIPTIONS = {
   LIDERANCA: 'Acessa cadastros, agenda, comunicação, documentos, aniversariantes, solicitações e geolocalização da equipe. Pode criar Operadores vinculados à sua liderança',
   OPERADOR: 'Acessa apenas Eleitores, Atendimentos e Geolocalização (somente registros da equipe)',
   ATENDENTE_CONNECT: 'Acessa apenas o Atendimento Connect para tratar retornos dos eleitores',
-  SUPERVISOR_CONNECT: 'Acessa Atendimento Connect e Mandato Connect para acompanhar atendimentos e operar disparos'
+  SUPERVISOR_CONNECT: 'Acessa Atendimento Connect e Mandato Connect para acompanhar atendimentos e operar disparos',
+  ANALISTA_META: 'Acesso exclusivo ao Atendimento Connect para análise e homologação da integração oficial Meta'
 };
 
 export const MODULES = {
@@ -38,81 +40,96 @@ export const MODULE_PERMISSIONS = {
   [MODULES.DASHBOARD]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.FUNCIONARIOS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.CADASTROS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true, editSensitive: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false, editSensitive: false },
-    [ROLES.OPERADOR]: { view: true, create: true, edit: true, delete: false, viewAll: false, editSensitive: false }
+    [ROLES.OPERADOR]: { view: true, create: true, edit: true, delete: false, viewAll: false, editSensitive: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false, editSensitive: false }
   },
   [MODULES.EMENDAS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.FINANCEIRO]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.GEOLOCALIZACAO]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.COMUNICACAO]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true, sendMass: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false, sendMass: true },
-    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false, sendMass: false }
+    [ROLES.OPERADOR]: { view: true, create: false, edit: false, delete: false, viewAll: false, sendMass: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false, sendMass: false }
   },
   [MODULES.AGENDA]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.ANIVERSARIANTES]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: false, edit: false, delete: false, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.DOCUMENTOS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.SOLICITACOES]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: true, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.USUARIOS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.JURIDICO]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false }
+    [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.DISPARO_MENSAGENS]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: true, create: true, edit: false, delete: false, viewAll: false },
     [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
     [ROLES.ATENDENTE_CONNECT]: { view: false, create: false, edit: false, delete: false, viewAll: false },
-    [ROLES.SUPERVISOR_CONNECT]: { view: true, create: true, edit: true, delete: false, viewAll: true }
+    [ROLES.SUPERVISOR_CONNECT]: { view: true, create: true, edit: true, delete: false, viewAll: true },
+    [ROLES.ANALISTA_META]: { view: false, create: false, edit: false, delete: false, viewAll: false }
   },
   [MODULES.ATENDIMENTO_CONNECT]: {
     [ROLES.ADMINISTRADOR]: { view: true, create: true, edit: true, delete: true, viewAll: true },
     [ROLES.LIDERANCA]: { view: false, create: false, edit: false, delete: false, viewAll: false },
     [ROLES.OPERADOR]: { view: false, create: false, edit: false, delete: false, viewAll: false },
     [ROLES.ATENDENTE_CONNECT]: { view: true, create: true, edit: true, delete: false, viewAll: false },
-    [ROLES.SUPERVISOR_CONNECT]: { view: true, create: true, edit: true, delete: false, viewAll: true }
+    [ROLES.SUPERVISOR_CONNECT]: { view: true, create: true, edit: true, delete: false, viewAll: true },
+    [ROLES.ANALISTA_META]: { view: true, create: true, edit: true, delete: false, viewAll: true }
   }
 };
 
@@ -174,7 +191,8 @@ export function getAccessDeniedMessage(userRole, action = 'acessar') {
     [ROLES.LIDERANCA]: 'Liderança',
     [ROLES.OPERADOR]: 'Operador',
     [ROLES.ATENDENTE_CONNECT]: 'Atendente Connect',
-    [ROLES.SUPERVISOR_CONNECT]: 'Supervisor Connect'
+    [ROLES.SUPERVISOR_CONNECT]: 'Supervisor Connect',
+    [ROLES.ANALISTA_META]: 'Analista Meta'
   };
 
   return `Seu perfil (${roleNames[userRole] || userRole}) não tem permissão para ${action} este recurso.`;
@@ -214,7 +232,8 @@ export function getRoleColor(role) {
     [ROLES.LIDERANCA]: 'bg-purple-100 text-purple-800',
     [ROLES.OPERADOR]: 'bg-blue-100 text-blue-800',
     [ROLES.ATENDENTE_CONNECT]: 'bg-emerald-100 text-emerald-800',
-    [ROLES.SUPERVISOR_CONNECT]: 'bg-teal-100 text-teal-800'
+    [ROLES.SUPERVISOR_CONNECT]: 'bg-teal-100 text-teal-800',
+    [ROLES.ANALISTA_META]: 'bg-indigo-100 text-indigo-800'
   };
   return colors[role] || 'bg-gray-100 text-gray-800';
 }
@@ -225,7 +244,8 @@ export function getRoleIcon(role) {
     [ROLES.LIDERANCA]: 'faUserTie',
     [ROLES.OPERADOR]: 'faUser',
     [ROLES.ATENDENTE_CONNECT]: 'faHeadset',
-    [ROLES.SUPERVISOR_CONNECT]: 'faUserShield'
+    [ROLES.SUPERVISOR_CONNECT]: 'faUserShield',
+    [ROLES.ANALISTA_META]: 'faVcard'
   };
   return icons[role] || 'faUser';
 }

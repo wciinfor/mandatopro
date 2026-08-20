@@ -1,7 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterUsuarioAutenticado, exigirUsuario, exigirAcessoModulo } from '@/lib/api-auth';
+import { MODULES } from '@/utils/permissions';
 import { obterContextoMandato } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
@@ -402,6 +403,7 @@ export default async function handler(req, res) {
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
+    exigirAcessoModulo(usuario, MODULES.GEOLOCALIZACAO);
 
     const contextoMandato = await obterContextoMandato(req, usuario, supabase);
     const { pertencimentosPermitidos } = contextoMandato;

@@ -56,7 +56,7 @@ export default function Login() {
       });
       
       const nivel = String(user?.nivel || '').toUpperCase();
-      const destino = ['ATENDENTE_CONNECT', 'SUPERVISOR_CONNECT'].includes(nivel)
+      const destino = ['ATENDENTE_CONNECT', 'SUPERVISOR_CONNECT', 'ANALISTA_META'].includes(nivel)
         ? '/atendimento-connect'
         : '/dashboard';
       router.push(destino);

@@ -249,7 +249,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
 
   const modulos = modulosBase
     .filter((modulo) => {
-      if (nivelUsuario === 'ATENDENTE_CONNECT') {
+      if (nivelUsuario === 'ATENDENTE_CONNECT' || nivelUsuario === 'ANALISTA_META') {
         return ['Atendimento Connect'].includes(modulo.nome);
       }
       if (nivelUsuario === 'SUPERVISOR_CONNECT') {
