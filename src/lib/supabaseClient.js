@@ -27,7 +27,11 @@ export function createClient() {
     return null;
   }
 
-  supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      lock: async (_name, _acquireTimeout, fn) => fn()
+    }
+  });
   globalThis.__mandatoProSupabase = supabase;
 
   return supabase;

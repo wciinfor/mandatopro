@@ -29,9 +29,18 @@ const nextConfig = {
     '127.0.0.1'
   ],
 
-  // Headers de segurança
+  // Headers de segurança e cache
   headers: async () => {
     return [
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      },
       {
         source: '/disparo-pro/:path*',
         headers: [
