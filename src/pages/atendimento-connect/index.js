@@ -75,6 +75,10 @@ export default function AtendimentoConnect() {
   // Ref para o container de mensagens (auto-scroll)
   const containerMensagensRef = useRef(null);
 
+  // Refs para fallback de polling quando o Realtime estiver indisponível
+  const pollingIntervalRef = useRef(null);
+  const isPollingExecutingRef = useRef(false);
+
   const carregarConversas = useCallback(async (options = {}) => {
     const { signal, quiet = false } = typeof options === 'object' && options !== null ? options : {};
     if (!quiet) setLoading(true);
@@ -184,8 +188,7 @@ export default function AtendimentoConnect() {
         { event: 'INSERT', schema: 'public', table: 'atendimento_connect_mensagens' },
         (payload) => {
           const novaMsg = payload.new;
-          console.log('--- [REALTIME CHECK 1] Evento INSERT recebido no navegador ---');
-          console.log('[REALTIME CHECK 2] payload.new:', payload.new);
+          console.log('[ATENDIMENTO CONNECT REALTIME] Evento INSERT mensagem:', novaMsg?.id, 'conversa_id:', novaMsg?.conversa_id);
           if (!novaMsg) return;
 
           if (carregarConversasRef.current) {
@@ -193,8 +196,6 @@ export default function AtendimentoConnect() {
           }
 
           const conversaAtual = ativaRef.current;
-          console.log('[REALTIME CHECK 3] conversa_id recebido:', novaMsg.conversa_id, 'vs conversa ativa id:', conversaAtual?.id);
-
           if (conversaAtual?.id && Number(novaMsg.conversa_id) === Number(conversaAtual.id)) {
             // Formata a mensagem garantindo compatibilidade com camelCase e snake_case da UI
             const msgFormatada = {
@@ -213,22 +214,14 @@ export default function AtendimentoConnect() {
               usuario: null
             };
 
-            console.log('[REALTIME CHECK 3] msgFormatada:', msgFormatada);
-
             // Adiciona imediatamente ao estado evitando duplicados por id ou providerMessageId
             setMensagens((prev) => {
-              const tamanhoAntes = prev.length;
               const existe = prev.some(m =>
                 (m.id && novaMsg.id && Number(m.id) === Number(novaMsg.id)) ||
                 (m.providerMessageId && novaMsg.provider_message_id && m.providerMessageId === novaMsg.provider_message_id)
               );
-              if (existe) {
-                console.log(`[REALTIME CHECK 4 & 5] setMensagens ignorado (duplicado). Tamanho permaneceu: ${tamanhoAntes}`);
-                return prev;
-              }
-              const novoArray = [...prev, msgFormatada];
-              console.log(`[REALTIME CHECK 4 & 5] setMensagens EXECUTADO! Tamanho antes: ${tamanhoAntes} -> Tamanho depois: ${novoArray.length}`);
-              return novoArray;
+              if (existe) return prev;
+              return [...prev, msgFormatada];
             });
 
             // Scroll automático para o final da mensagem
@@ -246,8 +239,6 @@ export default function AtendimentoConnect() {
             if (carregarMensagensRef.current) {
               carregarMensagensRef.current(conversaAtual, true);
             }
-          } else {
-            console.log('[REALTIME CHECK] A mensagem recebida pertence a outra conversa. Kanban atualizado sem abrir.');
           }
         }
       )
@@ -268,13 +259,46 @@ export default function AtendimentoConnect() {
       )
       .subscribe((status, err) => {
         console.log(`[ATENDIMENTO CONNECT REALTIME] Subscription status: ${status}`, err || '');
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[ATENDIMENTO CONNECT REALTIME] Falha na conexao Realtime. Aguardando reconexao...');
+
+        if (status === 'SUBSCRIBED') {
+          console.log('[ATENDIMENTO CONNECT REALTIME] SUBSCRIBED');
+          if (pollingIntervalRef.current) {
+            console.log('[ATENDIMENTO CONNECT REALTIME] REALTIME RESTAURADO — POLLING DESATIVADO');
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.warn(`[ATENDIMENTO CONNECT REALTIME] ${status}`);
+          if (!pollingIntervalRef.current) {
+            console.log('[ATENDIMENTO CONNECT REALTIME] FALLBACK POLLING ATIVADO');
+            pollingIntervalRef.current = setInterval(async () => {
+              if (isPollingExecutingRef.current) return;
+              isPollingExecutingRef.current = true;
+              console.log('[ATENDIMENTO CONNECT REALTIME] FALLBACK POLLING EXECUTADO');
+              try {
+                if (carregarConversasRef.current) {
+                  await carregarConversasRef.current({ quiet: true });
+                }
+                const conversaAtual = ativaRef.current;
+                if (conversaAtual?.id && carregarMensagensRef.current) {
+                  await carregarMensagensRef.current(conversaAtual, true);
+                }
+              } catch (e) {
+                console.error('[ATENDIMENTO CONNECT REALTIME] Erro durante fallback polling:', e);
+              } finally {
+                isPollingExecutingRef.current = false;
+              }
+            }, 10000);
+          }
         }
       });
 
     return () => {
       console.log('[ATENDIMENTO CONNECT REALTIME] Desconectando canal...');
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
   }, []);
