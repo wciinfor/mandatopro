@@ -184,7 +184,8 @@ export default function AtendimentoConnect() {
         { event: 'INSERT', schema: 'public', table: 'atendimento_connect_mensagens' },
         (payload) => {
           const novaMsg = payload.new;
-          console.log('[ATENDIMENTO CONNECT REALTIME] Nova mensagem inserida id=', novaMsg?.id, 'conversa_id=', novaMsg?.conversa_id);
+          console.log('--- [REALTIME CHECK 1] Evento INSERT recebido no navegador ---');
+          console.log('[REALTIME CHECK 2] payload.new:', payload.new);
           if (!novaMsg) return;
 
           if (carregarConversasRef.current) {
@@ -192,6 +193,8 @@ export default function AtendimentoConnect() {
           }
 
           const conversaAtual = ativaRef.current;
+          console.log('[REALTIME CHECK 3] conversa_id recebido:', novaMsg.conversa_id, 'vs conversa ativa id:', conversaAtual?.id);
+
           if (conversaAtual?.id && Number(novaMsg.conversa_id) === Number(conversaAtual.id)) {
             // Formata a mensagem garantindo compatibilidade com camelCase e snake_case da UI
             const msgFormatada = {
@@ -210,14 +213,22 @@ export default function AtendimentoConnect() {
               usuario: null
             };
 
+            console.log('[REALTIME CHECK 3] msgFormatada:', msgFormatada);
+
             // Adiciona imediatamente ao estado evitando duplicados por id ou providerMessageId
             setMensagens((prev) => {
+              const tamanhoAntes = prev.length;
               const existe = prev.some(m =>
                 (m.id && novaMsg.id && Number(m.id) === Number(novaMsg.id)) ||
                 (m.providerMessageId && novaMsg.provider_message_id && m.providerMessageId === novaMsg.provider_message_id)
               );
-              if (existe) return prev;
-              return [...prev, msgFormatada];
+              if (existe) {
+                console.log(`[REALTIME CHECK 4 & 5] setMensagens ignorado (duplicado). Tamanho permaneceu: ${tamanhoAntes}`);
+                return prev;
+              }
+              const novoArray = [...prev, msgFormatada];
+              console.log(`[REALTIME CHECK 4 & 5] setMensagens EXECUTADO! Tamanho antes: ${tamanhoAntes} -> Tamanho depois: ${novoArray.length}`);
+              return novoArray;
             });
 
             // Scroll automático para o final da mensagem
@@ -235,6 +246,8 @@ export default function AtendimentoConnect() {
             if (carregarMensagensRef.current) {
               carregarMensagensRef.current(conversaAtual, true);
             }
+          } else {
+            console.log('[REALTIME CHECK] A mensagem recebida pertence a outra conversa. Kanban atualizado sem abrir.');
           }
         }
       )
