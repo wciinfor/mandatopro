@@ -93,20 +93,49 @@ export default function AtendimentoConnect() {
         setErro('As tabelas do Atendimento Connect ainda nao foram aplicadas no Supabase.');
       }
       const novasConversas = payload.data || [];
-      setConversas(novasConversas);
+
+      // Atualiza conversas SOMENTE se houver alteração real para evitar o 'piscar' no Kanban
+      setConversas((prev) => {
+        if (prev.length !== novasConversas.length) return novasConversas;
+        const mudou = prev.some((c, idx) => {
+          const n = novasConversas[idx];
+          if (!n) return true;
+          return (
+            c.id !== n.id ||
+            c.status !== n.status ||
+            c.unreadCount !== n.unreadCount ||
+            c.ultimaMensagem !== n.ultimaMensagem ||
+            (c.ultimaMensagemEm || c.updatedAt) !== (n.ultimaMensagemEm || n.updatedAt)
+          );
+        });
+        return mudou ? novasConversas : prev;
+      });
+
       setCounts(payload.counts || {});
 
-      // Sincroniza a conversa ativa existente com os dados atualizados do servidor sem fechar
+      // Sincroniza a conversa ativa existente com os dados atualizados do servidor sem fechar ou desmontar
       if (ativaRef.current?.id) {
         const idAtivo = Number(ativaRef.current.id);
         const atualizada = novasConversas.find(c => Number(c.id) === idAtivo);
         if (atualizada) {
-          setAtiva(atualizada);
-          ativaRef.current = atualizada;
+          setAtiva((prevAtiva) => {
+            if (!prevAtiva) return atualizada;
+            const mudouAtiva = (
+              prevAtiva.status !== atualizada.status ||
+              prevAtiva.unreadCount !== atualizada.unreadCount ||
+              prevAtiva.ultimaMensagem !== atualizada.ultimaMensagem ||
+              (prevAtiva.ultimaMensagemEm || prevAtiva.updatedAt) !== (atualizada.ultimaMensagemEm || atualizada.updatedAt)
+            );
+            if (mudouAtiva) {
+              ativaRef.current = atualizada;
+              return atualizada;
+            }
+            return prevAtiva;
+          });
         }
       }
     } catch (error) {
-      if (error?.name !== 'AbortError') setErro(error.message || 'Erro ao carregar atendimentos');
+      if (error?.name !== 'AbortError' && !quiet) setErro(error.message || 'Erro ao carregar atendimentos');
     } finally {
       if (!signal?.aborted && !quiet) setLoading(false);
     }
@@ -265,7 +294,7 @@ export default function AtendimentoConnect() {
 
             // Sincronização HTTP posterior sem sobrescrever mensagem recente
             if (carregarMensagensRef.current) {
-              carregarMensagensRef.current(conversaAtual, true);
+              carregarMensagensRef.current(conversaAtual, { quiet: true, preservarScroll: true });
             }
           }
         }
@@ -280,7 +309,7 @@ export default function AtendimentoConnect() {
           const conversaAtual = ativaRef.current;
           if (conversaAtual?.id && Number(msgAtualizada.conversa_id) === Number(conversaAtual.id)) {
             if (carregarMensagensRef.current) {
-              carregarMensagensRef.current(conversaAtual, true);
+              carregarMensagensRef.current(conversaAtual, { quiet: true, preservarScroll: true });
             }
           }
         }
