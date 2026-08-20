@@ -112,14 +112,40 @@ export default function AtendimentoConnect() {
     }
   }, [busca]);
 
-  const carregarMensagens = useCallback(async (conversa, preservarScroll = false) => {
+  const carregarMensagens = useCallback(async (conversa, options = false) => {
+    let preservarScroll = false;
+    let quiet = false;
+    if (typeof options === 'boolean') {
+      preservarScroll = options;
+    } else if (typeof options === 'object' && options !== null) {
+      preservarScroll = !!options.preservarScroll;
+      quiet = !!options.quiet;
+    }
+
     if (!conversa?.id) return;
-    setCarregandoMensagens(true);
+    if (!quiet) setCarregandoMensagens(true);
     try {
       const response = await fetch(`/api/atendimento-connect/conversas/${conversa.id}/mensagens`);
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar conversa');
-      setMensagens(payload.data || []);
+      const novasMsgs = payload.data || [];
+
+      // Atualiza setMensagens SOMENTE se houver alteração real para evitar re-renderizações desnecessárias / piscar
+      setMensagens((prev) => {
+        if (prev.length !== novasMsgs.length) return novasMsgs;
+        const mudou = prev.some((m, idx) => {
+          const n = novasMsgs[idx];
+          if (!n) return true;
+          return (
+            m.id !== n.id ||
+            m.status !== n.status ||
+            m.mensagem !== n.mensagem ||
+            m.providerMessageId !== n.providerMessageId ||
+            (m.createdAt || m.created_at) !== (n.createdAt || n.created_at)
+          );
+        });
+        return mudou ? novasMsgs : prev;
+      });
 
       // Auto-scroll condicional: se o usuário já estava perto do final ou se e uma troca de conversa
       setTimeout(() => {
@@ -135,10 +161,12 @@ export default function AtendimentoConnect() {
         }
       }, 50);
     } catch (error) {
-      setErro(error.message || 'Erro ao carregar conversa');
-      setMensagens([]);
+      if (!quiet) {
+        setErro(error.message || 'Erro ao carregar conversa');
+        setMensagens([]);
+      }
     } finally {
-      setCarregandoMensagens(false);
+      if (!quiet) setCarregandoMensagens(false);
     }
   }, []);
 
@@ -281,7 +309,7 @@ export default function AtendimentoConnect() {
                 }
                 const conversaAtual = ativaRef.current;
                 if (conversaAtual?.id && carregarMensagensRef.current) {
-                  await carregarMensagensRef.current(conversaAtual, true);
+                  await carregarMensagensRef.current(conversaAtual, { quiet: true, preservarScroll: true });
                 }
               } catch (e) {
                 console.error('[ATENDIMENTO CONNECT REALTIME] Erro durante fallback polling:', e);
