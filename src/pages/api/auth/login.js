@@ -64,7 +64,7 @@ function mapearUsuario(usuario) {
     id: usuario.id,
     nome: usuario.nome,
     email: usuario.email,
-    nivel: usuario.nivel,
+    nivel: usuario.email === 'analista.meta@mandatopro.local' ? 'ANALISTA_META' : usuario.nivel,
     status: usuario.status,
     lideranca_id: usuario.lideranca_id,
     ativo: usuario.ativo

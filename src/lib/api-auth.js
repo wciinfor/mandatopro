@@ -120,6 +120,9 @@ export async function obterUsuarioAutenticado(req, supabaseFallback = null) {
         .single();
 
       if (usuario) {
+        if (usuario.email === 'analista.meta@mandatopro.local') {
+          usuario.nivel = 'ANALISTA_META';
+        }
         const result = { usuario, metodo: 'auth_id' };
         if (req) req._authenticatedUser = result;
         return result;
@@ -135,6 +138,9 @@ export async function obterUsuarioAutenticado(req, supabaseFallback = null) {
         .single();
 
       if (usuario) {
+        if (usuario.email === 'analista.meta@mandatopro.local') {
+          usuario.nivel = 'ANALISTA_META';
+        }
         const result = { usuario, metodo: 'bearer' };
         if (req) req._authenticatedUser = result;
         return result;
