@@ -3,13 +3,13 @@ import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
 import {
   buscarContaWhatsappPrincipal,
   normalizarWhatsappAccount,
-  salvarContaWhatsappPrincipal
+  salvarContaWhatsappPrincipal,
+  alterarProvedorWhatsappAtivo
 } from '@/lib/whatsapp-business-accounts';
 
 /**
- * API para configurar WhatsApp Business por tenant.
+ * API para consultar e alternar a configuracao do provedor WhatsApp (META ou YCLOUD) por tenant.
  */
-
 export default async function handler(req, res) {
   let supabase;
   let usuario;
@@ -20,22 +20,61 @@ export default async function handler(req, res) {
     usuario = auth.usuario;
     exigirAdministrador(usuario);
   } catch (error) {
-    const status = error?.statusCode || 500;
+    const status = error?.statusCode || 401;
     return res.status(status).json({ error: error.message || 'Erro de autenticacao' });
   }
 
   if (req.method === 'GET') {
     try {
       const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
-      return res.status(200).json(normalizarWhatsappAccount(conta));
+      const contaNormalizada = normalizarWhatsappAccount(conta);
+
+      // Resposta estritamente segura sem expor tokens ou API Keys
+      return res.status(200).json({
+        success: true,
+        provider: contaNormalizada.provider || 'META',
+        status: contaNormalizada.status || 'INATIVO',
+        displayPhoneNumber: contaNormalizada.displayPhoneNumber || '',
+        displayName: contaNormalizada.displayName || '',
+        phoneNumberId: contaNormalizada.phoneNumberId || '',
+        isConfigured: contaNormalizada.isConfigured || false,
+        productionReady: contaNormalizada.productionReady || false,
+        isConnected: contaNormalizada.isConnected || false
+      });
     } catch (error) {
-      console.error('Erro ao obter status:', error);
+      console.error('[CONFIG API] Erro ao obter status:', error);
       return res.status(500).json({ error: error.message });
     }
   }
 
   if (req.method === 'POST') {
     try {
+      const { provider } = req.body;
+
+      // Se for apenas alternar o provedor ativo (META / YCLOUD)
+      if (provider) {
+        const targetProvider = String(provider).toUpperCase();
+        if (!['META', 'YCLOUD'].includes(targetProvider)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Provedor invalido. Escolha META ou YCLOUD'
+          });
+        }
+
+        const contaAtualizada = await alterarProvedorWhatsappAtivo(supabase, usuario, targetProvider);
+        const contaNormalizada = normalizarWhatsappAccount(contaAtualizada);
+
+        return res.status(200).json({
+          success: true,
+          message: `Provedor alterado com sucesso para ${targetProvider}`,
+          provider: contaNormalizada.provider,
+          displayPhoneNumber: contaNormalizada.displayPhoneNumber,
+          isConfigured: contaNormalizada.isConfigured,
+          productionReady: contaNormalizada.productionReady
+        });
+      }
+
+      // Fluxo legadostandard para salvar credenciais da Meta Cloud API
       const { phoneNumberId, accessToken } = req.body;
       const contaAtual = await buscarContaWhatsappPrincipal(supabase, usuario);
       const tokenDisponivel = String(accessToken || '').trim() || contaAtual?.access_token || '';
@@ -60,13 +99,16 @@ export default async function handler(req, res) {
             success: true,
             configured: true,
             phoneInfo: info,
-            account: contaNormalizada
+            account: {
+              provider: contaNormalizada.provider,
+              displayPhoneNumber: contaNormalizada.displayPhoneNumber,
+              phoneNumberId: contaNormalizada.phoneNumberId
+            }
           });
         } catch (testError) {
           return res.status(400).json({
             success: false,
-            error: 'Configuracao salva mas falhou no teste: ' + testError.message,
-            account: contaNormalizada
+            error: 'Configuracao salva mas falhou no teste: ' + testError.message
           });
         }
       }
@@ -76,8 +118,8 @@ export default async function handler(req, res) {
         error: 'Configuracao invalida'
       });
     } catch (error) {
-      console.error('Erro ao configurar:', error);
-      return res.status(error?.statusCode || 500).json({ error: error.message });
+      console.error('[CONFIG API] Erro ao alterar configuracao:', error);
+      return res.status(error?.statusCode || 500).json({ success: false, error: error.message });
     }
   }
 

@@ -167,7 +167,7 @@ export default function PoliticaPrivacidade() {
               Para exercer seus direitos de titular ou esclarecer dúvidas sobre a nossa Política de Privacidade, entre em contato pelo e-mail oficial:
             </p>
             <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-700/80 inline-block text-teal-400 font-mono font-semibold text-sm md:text-base">
-              privacidade@mandatopro.com.br
+              privacidade@mandatopro.org
             </div>
           </div>
         </main>

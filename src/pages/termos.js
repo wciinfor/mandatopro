@@ -137,7 +137,7 @@ export default function TermosDeServico() {
               Estes Termos de Serviço podem ser atualizados periodicamente para refletir melhorias na plataforma ou adequações regulatórias. Dúvidas ou solicitações relacionadas a estes termos podem ser encaminhadas para:
             </p>
             <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-700/80 inline-block text-teal-400 font-mono font-semibold text-sm md:text-base">
-              contato@mandatopro.com.br
+              contato@mandatopro.org
             </div>
           </div>
         </main>

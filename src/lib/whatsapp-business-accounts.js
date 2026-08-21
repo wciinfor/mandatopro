@@ -165,10 +165,97 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
 
   if (!contas || contas.length === 0) return null;
 
-  // Priorizar contas que possuam credencial configurada (access_token para META, ycloud_api_key para YCLOUD)
+  // 1. Se existir uma conta explicitamente marcada como principal=true e ATIVA, priorizá-la estritamente
+  const contaPrincipal = contas.find(row => row.principal === true);
+  if (contaPrincipal) {
+    return contaPrincipal;
+  }
+
+  // 2. Se nenhuma estiver como principal=true, seleciona a primeira ativa que possua credencial configurada
   const contaComCredencial = contas.find(row => Boolean(row.access_token || row.ycloud_api_key));
 
   return contaComCredencial || contas[0];
+}
+
+export async function alterarProvedorWhatsappAtivo(supabase, usuario, providerDesejado) {
+  const tenantId = obterTenantId(usuario);
+  if (!tenantId) {
+    const err = new Error('Tenant atual não identificado');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const targetProvider = String(providerDesejado || '').toUpperCase();
+  if (!['META', 'YCLOUD'].includes(targetProvider)) {
+    const err = new Error('Provedor inválido. Escolha META ou YCLOUD');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Buscar todas as contas ATIVAS do tenant
+  const { data: contas, error } = await supabase
+    .from('whatsapp_business_accounts')
+    .select(`
+      *,
+      whatsapp_business_numbers (*)
+    `)
+    .eq('tenant_id', tenantId)
+    .eq('status', 'ATIVO');
+
+  if (error) throw error;
+
+  const contaAlvo = (contas || []).find(c => String(c.provider || '').toUpperCase() === targetProvider);
+
+  if (!contaAlvo) {
+    const err = new Error(`Nenhuma conta de WhatsApp do provedor ${targetProvider} cadastrada para este gabinete`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Validação estrita de completude do provedor alvo
+  const temNumero = Array.isArray(contaAlvo.whatsapp_business_numbers) && contaAlvo.whatsapp_business_numbers.some(n => n.phone_number_id && n.status !== 'INATIVO');
+
+  if (targetProvider === 'YCLOUD') {
+    if (!contaAlvo.ycloud_api_key) {
+      const err = new Error('Conta YCloud selecionada não possui API Key preenchida');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!temNumero) {
+      const err = new Error('Conta YCloud selecionada não possui número WhatsApp vinculado');
+      err.statusCode = 400;
+      throw err;
+    }
+  } else if (targetProvider === 'META') {
+    if (!contaAlvo.access_token) {
+      const err = new Error('Conta Meta Cloud API selecionada não possui Access Token válido');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!temNumero) {
+      const err = new Error('Conta Meta Cloud API selecionada não possui número WhatsApp vinculado');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  // Transação segura: Remove principal=true de TODAS as contas do tenant e define principal=true na contaAlvo
+  const { error: errReset } = await supabase
+    .from('whatsapp_business_accounts')
+    .update({ principal: false, updated_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId);
+
+  if (errReset) throw errReset;
+
+  const { error: errSet } = await supabase
+    .from('whatsapp_business_accounts')
+    .update({ principal: true, updated_at: new Date().toISOString() })
+    .eq('id', contaAlvo.id)
+    .eq('tenant_id', tenantId);
+
+  if (errSet) throw errSet;
+
+  return buscarContaWhatsappPrincipal(supabase, usuario);
 }
 
 export async function buscarContaWhatsappPorVerifyToken(supabase, verifyToken) {

@@ -86,7 +86,7 @@ export default function ExclusaoDeDados() {
                 <span className="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 font-bold flex items-center justify-center shrink-0">1</span>
                 <div>
                   <h3 className="font-bold text-white mb-1">Envie um e-mail para o canal de privacidade</h3>
-                  <p>Envie sua mensagem para o endereço institucional oficial: <strong className="text-teal-400 font-mono">privacidade@mandatopro.com.br</strong> ou <strong className="text-teal-400 font-mono">contato@mandatopro.com.br</strong>.</p>
+                  <p>Envie sua mensagem para o endereço institucional oficial: <strong className="text-teal-400 font-mono">privacidade@mandatopro.org</strong> ou <strong className="text-teal-400 font-mono">contato@mandatopro.org</strong>.</p>
                 </div>
               </div>
 
@@ -132,7 +132,7 @@ export default function ExclusaoDeDados() {
               Se tiver qualquer dúvida sobre o processo de exclusão, entre em contato direto pelo e-mail:
             </p>
             <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-700/80 inline-block text-teal-400 font-mono font-bold text-base md:text-lg">
-              privacidade@mandatopro.com.br
+              privacidade@mandatopro.org
             </div>
           </div>
         </main>
