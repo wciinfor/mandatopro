@@ -102,6 +102,15 @@ export default class YCloudApiService {
   }
 
   /**
+   * Consulta os templates WhatsApp cadastrados/aprovados na WABA
+   */
+  async getTemplates(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    const endpoint = query ? `/whatsapp/templates?${query}` : '/whatsapp/templates';
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  /**
    * Método base para consulta de status
    */
   async getStatus() {

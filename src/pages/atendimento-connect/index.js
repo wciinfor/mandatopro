@@ -69,35 +69,36 @@ export default function AtendimentoConnect() {
   const [resposta, setResposta] = useState('');
   const [modoResposta, setModoResposta] = useState('nota');
   const [modalTemplateAberto, setModalTemplateAberto] = useState(false);
+  const [templatesDisponiveis, setTemplatesDisponiveis] = useState([]);
+  const [carregandoTemplates, setCarregandoTemplates] = useState(false);
   const [templateSelecionado, setTemplateSelecionado] = useState(null);
   const [variaveisTemplate, setVariaveisTemplate] = useState({});
   const [enviandoTemplate, setEnviandoTemplate] = useState(false);
 
-  // Lista de templates padrão homologados do sistema
-  const templatesDisponiveis = [
-    {
-      id: 'tmpl-1',
-      nome: 'convite_gabinete_bairro',
-      titulo: 'Convite Gabinete Itinerante',
-      categoria: 'MARKETING',
-      idioma: 'pt_BR',
-      componentes: [
-        { type: 'HEADER', text: '📢 Convite Especial' },
-        { type: 'BODY', text: 'Olá {{1}},\n\nGostaríamos de convidar você para o nosso Gabinete Itinerante no bairro {{2}}.\n\nContamos com a sua presença!' },
-        { type: 'FOOTER', text: 'MandatoPRO - Canal Oficial' }
-      ]
-    },
-    {
-      id: 'tmpl-2',
-      nome: 'atualizacao_solicitacao_status',
-      titulo: 'Atualização de Solicitação',
-      categoria: 'UTILITY',
-      idioma: 'pt_BR',
-      componentes: [
-        { type: 'BODY', text: 'Olá {{1}},\n\nInformamos que a sua solicitação nº {{2}} mudou de status para: *{{3}}*.\n\nAcompanhe os detalhes em nossa plataforma.' }
-      ]
+  const carregarTemplatesOficiais = useCallback(async () => {
+    setCarregandoTemplates(true);
+    try {
+      const response = await fetch('/api/whatsapp-business/templates');
+      const payload = await response.json();
+      if (response.ok && payload.success && Array.isArray(payload.templates)) {
+        setTemplatesDisponiveis(payload.templates);
+        if (payload.templates.length > 0) {
+          setTemplateSelecionado(payload.templates[0]);
+        } else {
+          setTemplateSelecionado(null);
+        }
+      } else {
+        setTemplatesDisponiveis([]);
+        setTemplateSelecionado(null);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar templates oficiais:', err);
+      setTemplatesDisponiveis([]);
+      setTemplateSelecionado(null);
+    } finally {
+      setCarregandoTemplates(false);
     }
-  ];
+  }, []);
 
   // Ref para ter acesso seguro ao id da conversa ativa nas callbacks do Realtime
   const ativaRef = useRef(null);
@@ -743,7 +744,7 @@ export default function AtendimentoConnect() {
                         <button
                           type="button"
                           onClick={() => {
-                            setTemplateSelecionado(templatesDisponiveis[0]);
+                            carregarTemplatesOficiais();
                             setModalTemplateAberto(true);
                           }}
                           className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition shrink-0 flex items-center gap-1.5"
@@ -772,7 +773,7 @@ export default function AtendimentoConnect() {
                       <button
                         type="button"
                         onClick={() => {
-                          setTemplateSelecionado(templatesDisponiveis[0]);
+                          carregarTemplatesOficiais();
                           setModalTemplateAberto(true);
                         }}
                         className="px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1.5 ml-auto"
@@ -834,21 +835,29 @@ export default function AtendimentoConnect() {
                 <div className="p-6 overflow-y-auto space-y-4 text-sm flex-1">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Selecione o Template Homologado</label>
-                    <select
-                      value={templateSelecionado?.id || ''}
-                      onChange={(e) => {
-                        const sel = templatesDisponiveis.find(t => t.id === e.target.value);
-                        setTemplateSelecionado(sel);
-                        setVariaveisTemplate({});
-                      }}
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
-                    >
-                      {templatesDisponiveis.map((tmpl) => (
-                        <option key={tmpl.id} value={tmpl.id}>
-                          {tmpl.titulo} ({tmpl.nome})
-                        </option>
-                      ))}
-                    </select>
+                    {carregandoTemplates ? (
+                      <div className="text-xs text-gray-500 py-2">Consultando templates aprovados...</div>
+                    ) : templatesDisponiveis.length === 0 ? (
+                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-500">
+                        Nenhum template aprovado disponível para este provedor.
+                      </div>
+                    ) : (
+                      <select
+                        value={templateSelecionado?.id || ''}
+                        onChange={(e) => {
+                          const sel = templatesDisponiveis.find(t => String(t.id) === String(e.target.value));
+                          setTemplateSelecionado(sel || null);
+                          setVariaveisTemplate({});
+                        }}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
+                      >
+                        {templatesDisponiveis.map((tmpl) => (
+                          <option key={tmpl.id} value={tmpl.id}>
+                            {tmpl.titulo || tmpl.nome} ({tmpl.nome})
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   {templateSelecionado && (
@@ -856,7 +865,7 @@ export default function AtendimentoConnect() {
                       <div className="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center justify-between">
                         <span>Prévia do Modelo</span>
                         <span className="text-[10px] bg-teal-200 text-teal-800 px-2 py-0.5 rounded font-mono">
-                          {templateSelecionado.categoria}
+                          {templateSelecionado.categoria || 'WHATSAPP'}
                         </span>
                       </div>
 
@@ -870,40 +879,37 @@ export default function AtendimentoConnect() {
                     </div>
                   )}
 
-                  {/* Campos para variáveis identificadas {{1}}, {{2}}, etc. */}
-                  {templateSelecionado && (
-                    <div className="space-y-3 pt-2">
-                      <h4 className="text-xs font-bold text-gray-800">Preenchimento de Variáveis</h4>
-                      <div className="space-y-2">
-                        <div>
-                          <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                            Nome do Contato (Variável &#123;&#123;1&#125;&#125;)
-                          </label>
-                          <input
-                            type="text"
-                            value={variaveisTemplate[1] || ativa?.contatoNome || ''}
-                            onChange={(e) => setVariaveisTemplate(prev => ({ ...prev, 1: e.target.value }))}
-                            placeholder="Ex: Nome do Eleitor"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-teal-500"
-                          />
+                  {/* Campos dinâmicos para variáveis identificadas {{1}}, {{2}}, etc. */}
+                  {templateSelecionado && (() => {
+                    const bodyComp = templateSelecionado.componentes?.find(c => c.type === 'BODY');
+                    const matches = bodyComp?.text ? (bodyComp.text.match(/\{\{(\d+)\}\}/g) || []) : [];
+                    if (matches.length === 0) return null;
+
+                    return (
+                      <div className="space-y-3 pt-2">
+                        <h4 className="text-xs font-bold text-gray-800">Preenchimento de Variáveis</h4>
+                        <div className="space-y-2">
+                          {matches.map((m, idx) => {
+                            const varNum = idx + 1;
+                            return (
+                              <div key={varNum}>
+                                <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                                  Variável &#123;&#123;{varNum}&#125;&#125;
+                                </label>
+                                <input
+                                  type="text"
+                                  value={variaveisTemplate[varNum] || (varNum === 1 ? (ativa?.contatoNome || '') : '')}
+                                  onChange={(e) => setVariaveisTemplate(prev => ({ ...prev, [varNum]: e.target.value }))}
+                                  placeholder={`Valor para {{${varNum}}}`}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-teal-500"
+                                />
+                              </div>
+                            );
+                          })}
                         </div>
-                        {templateSelecionado.id === 'tmpl-1' && (
-                          <div>
-                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                              Bairro / Local (Variável &#123;&#123;2&#125;&#125;)
-                            </label>
-                            <input
-                              type="text"
-                              value={variaveisTemplate[2] || ''}
-                              onChange={(e) => setVariaveisTemplate(prev => ({ ...prev, 2: e.target.value }))}
-                              placeholder="Ex: Centro"
-                              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-teal-500"
-                            />
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="p-4 border-t bg-gray-50 flex items-center justify-end gap-2">
@@ -920,7 +926,7 @@ export default function AtendimentoConnect() {
                   <button
                     type="button"
                     onClick={enviarTemplateSelecionado}
-                    disabled={enviandoTemplate || !templateSelecionado}
+                    disabled={enviandoTemplate || !templateSelecionado || templatesDisponiveis.length === 0}
                     className="px-5 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-sm disabled:opacity-50 flex items-center gap-2"
                   >
                     {enviandoTemplate ? 'Enviando...' : 'Confirmar e Enviar'}
