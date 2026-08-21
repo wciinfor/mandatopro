@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowsRotate,
   faCheck,
+  faCheckDouble,
   faClock,
   faHeadset,
   faInbox,
@@ -13,6 +14,7 @@ import {
   faPhone,
   faUserCheck,
   faExclamationTriangle,
+  faCircleExclamation,
   faFileSignature,
   faXmark
 } from '@fortawesome/free-solid-svg-icons';
@@ -709,23 +711,90 @@ export default function AtendimentoConnect() {
                     {carregandoMensagens ? (
                       <div className="text-sm text-gray-500 text-center py-8">Carregando conversa...</div>
                     ) : mensagens.length ? (
-                      mensagens.map((mensagem) => (
-                        <div
-                          key={mensagem.id}
-                          className={`max-w-[88%] rounded-lg px-3 py-2 text-sm shadow-sm ${
-                            mensagem.direcao === 'entrada'
-                              ? 'bg-white border border-gray-200 text-gray-800'
-                              : mensagem.direcao === 'saida'
-                                ? 'bg-teal-600 text-white ml-auto'
-                                : 'bg-amber-50 border border-amber-200 text-amber-900 mx-auto'
-                          }`}
-                        >
-                          <p className="whitespace-pre-wrap">{mensagem.mensagem}</p>
-                          <p className={`text-[11px] mt-1 ${mensagem.direcao === 'saida' ? 'text-teal-100' : 'text-gray-400'}`}>
-                            {formatTempo(mensagem.createdAt)} {mensagem.usuario?.nome ? `· ${mensagem.usuario.nome}` : ''}
-                          </p>
-                        </div>
-                      ))
+                      mensagens.map((mensagem) => {
+                        const isSaida = mensagem.direcao === 'saida';
+                        const isEntrada = mensagem.direcao === 'entrada';
+                        const isNota = !isSaida && !isEntrada;
+
+                        const raw = mensagem.rawPayload || mensagem.raw_payload || {};
+                        const statusNorm = String(mensagem.status || '').toLowerCase();
+                        const isFailed = statusNorm === 'failed';
+                        const isPendente = statusNorm === 'pendente_envio';
+
+                        const erroMsg = raw.errorMessage || raw.statusUpdate?.errorMessage || raw.error?.message || null;
+                        const erroCode = raw.errorCode || raw.statusUpdate?.errorCode || raw.error?.code || null;
+
+                        return (
+                          <div
+                            key={mensagem.id}
+                            className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-sm shadow-sm transition-all ${
+                              isEntrada
+                                ? 'bg-white border border-gray-200 text-gray-800 mr-auto'
+                                : isNota
+                                  ? 'bg-amber-50 border border-amber-200 text-amber-900 mx-auto'
+                                  : isFailed
+                                    ? 'bg-rose-50 border border-rose-200 text-rose-950 ml-auto'
+                                    : isPendente
+                                      ? 'bg-teal-700/80 border border-teal-600/50 text-teal-50 ml-auto opacity-90'
+                                      : 'bg-teal-600 text-white ml-auto'
+                            }`}
+                          >
+                            <p className="whitespace-pre-wrap">{mensagem.mensagem}</p>
+
+                            {/* Informação de Erro em caso de Falha */}
+                            {isFailed && (
+                              <div className="mt-2 pt-1.5 border-t border-rose-200/70 text-[11px] text-rose-700 flex items-start gap-1.5 font-medium">
+                                <FontAwesomeIcon icon={faCircleExclamation} className="text-rose-500 mt-0.5 shrink-0" />
+                                <span>
+                                  Falha no envio{erroCode ? ` (Erro ${erroCode})` : ''}
+                                  {erroMsg ? `: ${erroMsg}` : ''}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Rodapé da Mensagem (Horário, Usuário e Ícone de Status) */}
+                            <div className={`text-[11px] mt-1.5 flex items-center justify-end gap-1.5 ${
+                              isEntrada
+                                ? 'text-gray-400'
+                                : isNota
+                                  ? 'text-amber-700/70'
+                                  : isFailed
+                                    ? 'text-rose-600/80'
+                                    : 'text-teal-100/90'
+                            }`}>
+                              <span>{formatTempo(mensagem.createdAt || mensagem.created_at)}</span>
+                              {mensagem.usuario?.nome && <span>· {mensagem.usuario.nome}</span>}
+
+                              {/* Indicadores Visuais de Status para Mensagens de Saída */}
+                              {isSaida && (
+                                <span className="inline-flex items-center ml-0.5" title={`Status: ${mensagem.status}`}>
+                                  {isFailed && (
+                                    <span className="text-rose-600 font-bold flex items-center gap-1">
+                                      <FontAwesomeIcon icon={faCircleExclamation} className="text-[10px]" />
+                                      Não entregue
+                                    </span>
+                                  )}
+                                  {isPendente && (
+                                    <FontAwesomeIcon icon={faClock} className="text-[10px] text-teal-200 animate-pulse" title="Pendente de envio" />
+                                  )}
+                                  {statusNorm === 'enviada' && (
+                                    <FontAwesomeIcon icon={faCheck} className="text-[10px] text-teal-200" title="Enviada ao servidor" />
+                                  )}
+                                  {statusNorm === 'sent' && (
+                                    <FontAwesomeIcon icon={faCheck} className="text-[10px] text-teal-200" title="Enviada" />
+                                  )}
+                                  {statusNorm === 'delivered' && (
+                                    <FontAwesomeIcon icon={faCheckDouble} className="text-[10px] text-teal-200" title="Entregue" />
+                                  )}
+                                  {statusNorm === 'read' && (
+                                    <FontAwesomeIcon icon={faCheckDouble} className="text-[10px] text-emerald-300" title="Lida" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
                     ) : (
                       <div className="text-sm text-gray-500 text-center py-8">Nenhuma mensagem registrada.</div>
                     )}

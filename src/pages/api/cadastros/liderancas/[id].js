@@ -37,17 +37,17 @@ export default async function handler(req, res) {
   }
 
   const supabase = createServerClient();
-  let usuarioObj = null;
+  let usuario = null;
   try {
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
-    usuarioObj = usuario;
+    const authResult = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(authResult.usuario);
+    usuario = authResult.usuario;
   } catch (error) {
     const status = error?.statusCode || 500;
     return res.status(status).json({ message: error.message || 'Erro interno' });
   }
 
-  const contextoMandato = await obterContextoMandato(req, usuarioObj, supabase);
+  const contextoMandato = await obterContextoMandato(req, usuario, supabase);
   const valAcc = await validarAcessoRegistroPorId('LIDERANCA', id, contextoMandato, supabase);
   if (!valAcc.autorizado) {
     return res.status(valAcc.status).json({ message: valAcc.message });

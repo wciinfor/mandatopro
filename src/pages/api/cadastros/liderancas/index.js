@@ -33,11 +33,11 @@ function getMissingColumn(message) {
 
 export default async function handler(req, res) {
   const authSupabase = createServerClient();
-  let usuarioObj = null;
+  let usuario = null;
   try {
-    const { usuario } = await obterUsuarioAutenticado(req, authSupabase);
-    exigirUsuario(usuario);
-    usuarioObj = usuario;
+    const authResult = await obterUsuarioAutenticado(req, authSupabase);
+    exigirUsuario(authResult.usuario);
+    usuario = authResult.usuario;
   } catch (error) {
     const status = error?.statusCode || 500;
     return res.status(status).json({ message: error.message || 'Erro interno' });
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const supabase = createServerClient();
-      const contextoMandato = await obterContextoMandato(req, usuarioObj, supabase);
+      const contextoMandato = await obterContextoMandato(req, usuario, supabase);
       const { search, status, limit = 200, offset = 0 } = req.query;
 
       const { data: lmData } = await supabase
