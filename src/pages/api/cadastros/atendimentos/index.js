@@ -18,11 +18,11 @@ function normalizeStatus(input) {
 
 export default async function handler(req, res) {
   const supabase = createServerClient();
-  let usuarioObj = null;
+  let usuario = null;
   try {
-    const { usuario } = await obterUsuarioAutenticado(req, supabase);
-    exigirUsuario(usuario);
-    usuarioObj = usuario;
+    const authResult = await obterUsuarioAutenticado(req, supabase);
+    exigirUsuario(authResult.usuario);
+    usuario = authResult.usuario;
   } catch (error) {
     const status = error?.statusCode || 500;
     return res.status(status).json({ error: error.message || 'Erro interno' });
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   // GET - Buscar todos os atendimentos
   if (req.method === 'GET') {
     try {
-      const contextoMandato = await obterContextoMandato(req, usuarioObj, supabase);
+      const contextoMandato = await obterContextoMandato(req, usuario, supabase);
       const { search, status, dataInicio, dataFim } = req.query;
 
       // Query simplificada primeiro - sem joins complexos
