@@ -62,14 +62,18 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
     this.service = createYCloudApiService({ apiKey });
   }
 
+  _cleanNumber(num) {
+    return String(num || '').replace(/\D/g, '');
+  }
+
   async sendMessage(payload) {
-    const fromNumber = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
-    const toNumber = payload.to || payload.recipient;
+    const rawFrom = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
+    const rawTo = payload.to || payload.recipient;
     const textBody = payload.text?.body || payload.text || payload.message || payload.body;
 
     const formattedPayload = {
-      from: fromNumber,
-      to: toNumber,
+      from: this._cleanNumber(rawFrom),
+      to: this._cleanNumber(rawTo),
       type: payload.type || 'text',
       text: typeof textBody === 'object' ? textBody : { body: textBody }
     };
@@ -78,8 +82,8 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
   }
 
   async sendTemplate(payload) {
-    const fromNumber = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
-    const toNumber = payload.to || payload.recipient;
+    const rawFrom = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
+    const rawTo = payload.to || payload.recipient;
 
     // Normalização flexível das entradas de template
     const templateName = payload.templateName || payload.name || payload.template?.name || '';
@@ -87,8 +91,8 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
     const components = payload.components || payload.template?.components || [];
 
     const formattedPayload = {
-      from: fromNumber,
-      to: toNumber,
+      from: this._cleanNumber(rawFrom),
+      to: this._cleanNumber(rawTo),
       type: 'template',
       template: {
         name: templateName,

@@ -11,7 +11,10 @@ import {
   faPaperPlane,
   faPen,
   faPhone,
-  faUserCheck
+  faUserCheck,
+  faExclamationTriangle,
+  faFileSignature,
+  faXmark
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import Layout from '@/components/Layout';
@@ -65,6 +68,36 @@ export default function AtendimentoConnect() {
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
   const [resposta, setResposta] = useState('');
   const [modoResposta, setModoResposta] = useState('nota');
+  const [modalTemplateAberto, setModalTemplateAberto] = useState(false);
+  const [templateSelecionado, setTemplateSelecionado] = useState(null);
+  const [variaveisTemplate, setVariaveisTemplate] = useState({});
+  const [enviandoTemplate, setEnviandoTemplate] = useState(false);
+
+  // Lista de templates padrão homologados do sistema
+  const templatesDisponiveis = [
+    {
+      id: 'tmpl-1',
+      nome: 'convite_gabinete_bairro',
+      titulo: 'Convite Gabinete Itinerante',
+      categoria: 'MARKETING',
+      idioma: 'pt_BR',
+      componentes: [
+        { type: 'HEADER', text: '📢 Convite Especial' },
+        { type: 'BODY', text: 'Olá {{1}},\n\nGostaríamos de convidar você para o nosso Gabinete Itinerante no bairro {{2}}.\n\nContamos com a sua presença!' },
+        { type: 'FOOTER', text: 'MandatoPRO - Canal Oficial' }
+      ]
+    },
+    {
+      id: 'tmpl-2',
+      nome: 'atualizacao_solicitacao_status',
+      titulo: 'Atualização de Solicitação',
+      categoria: 'UTILITY',
+      idioma: 'pt_BR',
+      componentes: [
+        { type: 'BODY', text: 'Olá {{1}},\n\nInformamos que a sua solicitação nº {{2}} mudou de status para: *{{3}}*.\n\nAcompanhe os detalhes em nossa plataforma.' }
+      ]
+    }
+  ];
 
   // Ref para ter acesso seguro ao id da conversa ativa nas callbacks do Realtime
   const ativaRef = useRef(null);
@@ -308,6 +341,23 @@ export default function AtendimentoConnect() {
 
           const conversaAtual = ativaRef.current;
           if (conversaAtual?.id && Number(msgAtualizada.conversa_id) === Number(conversaAtual.id)) {
+            setMensagens((prev) =>
+              prev.map((m) => {
+                if (
+                  (m.id && msgAtualizada.id && Number(m.id) === Number(msgAtualizada.id)) ||
+                  (m.providerMessageId && msgAtualizada.provider_message_id && m.providerMessageId === msgAtualizada.provider_message_id)
+                ) {
+                  return {
+                    ...m,
+                    status: msgAtualizada.status || m.status,
+                    providerMessageId: msgAtualizada.provider_message_id || m.providerMessageId,
+                    rawPayload: msgAtualizada.raw_payload || m.rawPayload
+                  };
+                }
+                return m;
+              })
+            );
+
             if (carregarMensagensRef.current) {
               carregarMensagensRef.current(conversaAtual, { quiet: true, preservarScroll: true });
             }
@@ -419,6 +469,77 @@ export default function AtendimentoConnect() {
       setErro(error.message || 'Erro ao registrar resposta');
     }
   };
+
+  const enviarTemplateSelecionado = async () => {
+    if (!ativa?.id || !templateSelecionado) return;
+
+    try {
+      setEnviandoTemplate(true);
+      const params = {
+        templateNome: templateSelecionado.nome,
+        name: templateSelecionado.nome,
+        idiomaCode: templateSelecionado.idioma || 'pt_BR',
+        componentes: []
+      };
+
+      // Mapeia variáveis preenchidas para o corpo do template se houver
+      const bodyComp = templateSelecionado.componentes?.find(c => c.type === 'BODY');
+      if (bodyComp) {
+        const matches = bodyComp.text.match(/\{\{(\d+)\}\}/g) || [];
+        if (matches.length > 0) {
+          const parameters = matches.map((m, idx) => ({
+            type: 'text',
+            text: variaveisTemplate[idx + 1] || 'Eleitor'
+          }));
+          params.componentes.push({
+            type: 'body',
+            parameters
+          });
+        }
+      }
+
+      const response = await fetch(`/api/atendimento-connect/conversas/${ativa.id}/mensagens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          direcao: 'saida',
+          templateParams: params
+        })
+      });
+
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.message || 'Erro ao enviar template');
+
+      setMensagens((prev) => [...prev, payload.data]);
+      setModalTemplateAberto(false);
+      setTemplateSelecionado(null);
+      setVariaveisTemplate({});
+      await carregarConversas();
+
+      setTimeout(() => {
+        if (containerMensagensRef.current) {
+          containerMensagensRef.current.scrollTop = containerMensagensRef.current.scrollHeight;
+        }
+      }, 50);
+    } catch (error) {
+      setErro(error.message || 'Erro ao enviar template');
+    } finally {
+      setEnviandoTemplate(false);
+    }
+  };
+
+  // Identifica se a última mensagem enviada falhou devido à expiração da janela de 24 horas (erro 131047)
+  const ultimaMsgSaida = [...mensagens].reverse().find(m => m.direcao === 'saida');
+  const janelaExpirada = Boolean(
+    ultimaMsgSaida &&
+    ultimaMsgSaida.status === 'failed' &&
+    (
+      ultimaMsgSaida.rawPayload?.errorCode === '131047' ||
+      ultimaMsgSaida.rawPayload?.statusUpdate?.errorCode === '131047' ||
+      ultimaMsgSaida.raw_payload?.errorCode === '131047' ||
+      ultimaMsgSaida.raw_payload?.statusUpdate?.errorCode === '131047'
+    )
+  );
 
   return (
     <ProtectedRoute module={MODULES.ATENDIMENTO_CONNECT}>
@@ -610,6 +731,29 @@ export default function AtendimentoConnect() {
                   </div>
 
                   <footer className="p-4 border-t space-y-3 shrink-0">
+                    {/* Alerta de Janela de 24h expirada */}
+                    {janelaExpirada && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-600 text-sm shrink-0" />
+                          <span>
+                            A janela de 24 horas para mensagens de texto expirou. Para retomar o contato, envie um Modelo de Mensagem (Template).
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTemplateSelecionado(templatesDisponiveis[0]);
+                            setModalTemplateAberto(true);
+                          }}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition shrink-0 flex items-center gap-1.5"
+                        >
+                          <FontAwesomeIcon icon={faFileSignature} />
+                          Enviar Template
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -624,6 +768,17 @@ export default function AtendimentoConnect() {
                         className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'saida' ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                       >
                         Resposta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemplateSelecionado(templatesDisponiveis[0]);
+                          setModalTemplateAberto(true);
+                        }}
+                        className="px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1.5 ml-auto"
+                      >
+                        <FontAwesomeIcon icon={faFileSignature} className="text-teal-600" />
+                        Template WhatsApp
                       </button>
                     </div>
                     <textarea
@@ -655,6 +810,125 @@ export default function AtendimentoConnect() {
               )}
             </aside>
           </div>
+
+          {/* Modal de Seleção e Envio de Template HSM */}
+          {modalTemplateAberto && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-5 border-b flex items-center justify-between bg-teal-900 text-white">
+                  <div className="flex items-center gap-2 font-bold text-base">
+                    <FontAwesomeIcon icon={faFileSignature} className="text-teal-300" />
+                    Enviar Modelo de Mensagem (Template)
+                  </div>
+                  <button
+                    onClick={() => {
+                      setModalTemplateAberto(false);
+                      setTemplateSelecionado(null);
+                    }}
+                    className="text-gray-300 hover:text-white transition"
+                  >
+                    <FontAwesomeIcon icon={faXmark} className="text-lg" />
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto space-y-4 text-sm flex-1">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Selecione o Template Homologado</label>
+                    <select
+                      value={templateSelecionado?.id || ''}
+                      onChange={(e) => {
+                        const sel = templatesDisponiveis.find(t => t.id === e.target.value);
+                        setTemplateSelecionado(sel);
+                        setVariaveisTemplate({});
+                      }}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500"
+                    >
+                      {templatesDisponiveis.map((tmpl) => (
+                        <option key={tmpl.id} value={tmpl.id}>
+                          {tmpl.titulo} ({tmpl.nome})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {templateSelecionado && (
+                    <div className="p-4 bg-teal-50/50 border border-teal-100 rounded-xl space-y-3">
+                      <div className="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center justify-between">
+                        <span>Prévia do Modelo</span>
+                        <span className="text-[10px] bg-teal-200 text-teal-800 px-2 py-0.5 rounded font-mono">
+                          {templateSelecionado.categoria}
+                        </span>
+                      </div>
+
+                      {templateSelecionado.componentes?.map((comp, idx) => (
+                        <div key={idx} className="text-xs text-gray-700 whitespace-pre-wrap font-sans">
+                          {comp.type === 'HEADER' && <p className="font-bold text-gray-900 mb-1">{comp.text}</p>}
+                          {comp.type === 'BODY' && <p className="leading-relaxed">{comp.text}</p>}
+                          {comp.type === 'FOOTER' && <p className="text-[10px] text-gray-400 mt-2 italic">{comp.text}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Campos para variáveis identificadas {{1}}, {{2}}, etc. */}
+                  {templateSelecionado && (
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-xs font-bold text-gray-800">Preenchimento de Variáveis</h4>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                            Nome do Contato (Variável &#123;&#123;1&#125;&#125;)
+                          </label>
+                          <input
+                            type="text"
+                            value={variaveisTemplate[1] || ativa?.contatoNome || ''}
+                            onChange={(e) => setVariaveisTemplate(prev => ({ ...prev, 1: e.target.value }))}
+                            placeholder="Ex: Nome do Eleitor"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                        {templateSelecionado.id === 'tmpl-1' && (
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                              Bairro / Local (Variável &#123;&#123;2&#125;&#125;)
+                            </label>
+                            <input
+                              type="text"
+                              value={variaveisTemplate[2] || ''}
+                              onChange={(e) => setVariaveisTemplate(prev => ({ ...prev, 2: e.target.value }))}
+                              placeholder="Ex: Centro"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-teal-500"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t bg-gray-50 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalTemplateAberto(false);
+                      setTemplateSelecionado(null);
+                    }}
+                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={enviarTemplateSelecionado}
+                    disabled={enviandoTemplate || !templateSelecionado}
+                    className="px-5 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-sm disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {enviandoTemplate ? 'Enviando...' : 'Confirmar e Enviar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </Layout>
     </ProtectedRoute>

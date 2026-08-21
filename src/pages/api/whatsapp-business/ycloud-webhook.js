@@ -253,18 +253,28 @@ export default async function handler(req, res) {
     // 5. Processar Evento: Status de Mensagem (whatsapp.message.updated)
     if (eventType === 'whatsapp.message.updated' || payload.whatsappMessage) {
       const msgStatus = payload.whatsappMessage || {};
-      const wamid = msgStatus.wamid || msgStatus.id || payload.id;
+      const targetId = msgStatus.id || msgStatus.wamid || payload.id;
       const novoStatus = String(msgStatus.status || '').toLowerCase();
       const recipientUserId = msgStatus.recipientUserId || null; // BSUID
       const parentRecipientUserId = msgStatus.parentRecipientUserId || null;
 
-      if (wamid && novoStatus) {
-        // Buscar mensagem enviada pelo provider_message_id
-        const { data: mensagemExistente } = await supabase
+      if (targetId && novoStatus) {
+        // Buscar mensagem enviada pelo provider_message_id (priorizando ID retornado pela YCloud)
+        let { data: mensagemExistente } = await supabase
           .from('atendimento_connect_mensagens')
           .select('id, status, raw_payload')
-          .eq('provider_message_id', wamid)
+          .eq('provider_message_id', targetId)
           .maybeSingle();
+
+        // Fallback defensivo: se não encontrar pelo ID YCloud, tenta pelo wamid da Meta
+        if (!mensagemExistente && msgStatus.wamid && msgStatus.wamid !== targetId) {
+          const { data: msgFallback } = await supabase
+            .from('atendimento_connect_mensagens')
+            .select('id, status, raw_payload')
+            .eq('provider_message_id', msgStatus.wamid)
+            .maybeSingle();
+          mensagemExistente = msgFallback;
+        }
 
         if (mensagemExistente && deveAtualizarStatus(mensagemExistente.status, novoStatus)) {
           const updatePayload = {
@@ -273,7 +283,8 @@ export default async function handler(req, res) {
               ...(mensagemExistente.raw_payload || {}),
               statusUpdate: msgStatus,
               recipientUserId,
-              parentRecipientUserId
+              parentRecipientUserId,
+              wamid: msgStatus.wamid || null
             }
           };
 

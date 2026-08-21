@@ -34,8 +34,16 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const mensagem = String(req.body?.mensagem || '').trim();
       const direcao = String(req.body?.direcao || 'nota');
+      const templateParams = req.body?.templateParams || null;
 
-      if (!mensagem) return res.status(400).json({ success: false, message: 'Mensagem obrigatoria' });
+      // Se for envio de template, o corpo da mensagem pode ser formatado a partir do nome do template
+      const textoMensagem = templateParams
+        ? (templateParams.templateNome ? `[Template HSM: ${templateParams.templateNome}]` : (mensagem || '[Template WhatsApp]'))
+        : mensagem;
+
+      if (!textoMensagem && !templateParams) {
+        return res.status(400).json({ success: false, message: 'Mensagem ou templateParams obrigatorios' });
+      }
       if (!['saida', 'nota'].includes(direcao)) {
         return res.status(400).json({ success: false, message: 'Direcao invalida' });
       }
@@ -46,9 +54,10 @@ export default async function handler(req, res) {
         .insert({
           conversa_id: conversaId,
           direcao,
-          mensagem,
+          mensagem: textoMensagem,
           usuario_id: usuario.id,
-          status: direcao === 'saida' ? 'pendente_envio' : 'registrada'
+          status: direcao === 'saida' ? 'pendente_envio' : 'registrada',
+          raw_payload: templateParams ? { templateParams } : {}
         })
         .select('*, usuarios:usuario_id (id, nome, nivel)')
         .single();
@@ -94,11 +103,26 @@ export default async function handler(req, res) {
 
         try {
           const provider = createWhatsAppProvider(providerAccount);
-          const sendResult = await provider.sendMessage({
-            to: conversa.contato_telefone,
-            message: mensagem,
-            text: mensagem
-          });
+          let sendResult = null;
+
+          if (templateParams) {
+            // Disparo via Template HSM pré-aprovado
+            sendResult = await provider.sendTemplate({
+              to: conversa.contato_telefone,
+              recipient: conversa.contato_telefone,
+              templateName: templateParams.templateNome || templateParams.name || templateParams.templateName,
+              name: templateParams.templateNome || templateParams.name || templateParams.templateName,
+              language: templateParams.idiomaCode || templateParams.language || 'pt_BR',
+              components: templateParams.componentes || templateParams.components || []
+            });
+          } else {
+            // Disparo de texto simples padrão
+            sendResult = await provider.sendMessage({
+              to: conversa.contato_telefone,
+              message: textoMensagem,
+              text: textoMensagem
+            });
+          }
 
           // Trata retornos de ID tanto para META (messageId) quanto YCloud (id / wamid / messageId)
           const providerMessageId = sendResult?.messageId || sendResult?.id || sendResult?.wamid || null;
@@ -108,7 +132,11 @@ export default async function handler(req, res) {
             .from('atendimento_connect_mensagens')
             .update({
               status: 'enviada',
-              provider_message_id: providerMessageId
+              provider_message_id: providerMessageId,
+              raw_payload: {
+                ...(mensagemInserida.raw_payload || {}),
+                provider_response: sendResult
+              }
             })
             .eq('id', mensagemInserida.id)
             .select('*, usuarios:usuario_id (id, nome, nivel)')
@@ -130,7 +158,7 @@ export default async function handler(req, res) {
 
       // 3. Atualiza os dados da conversa no Kanban
       const conversaUpdate = {
-        ultima_mensagem: mensagem,
+        ultima_mensagem: textoMensagem,
         ultima_mensagem_em: new Date().toISOString(),
         responsavel_id: usuario.id,
         updated_at: new Date().toISOString()
