@@ -263,7 +263,7 @@ function buildEmbedScript() {
       }
 
       let body = init.body;
-      if (url.includes('/api/disparos/n8n') && typeof body === 'string') {
+      if ((url.includes('/api/disparos/enviar') || url.includes('/api/disparos/n8n')) && typeof body === 'string') {
         try {
           const parsed = JSON.parse(body);
           if (parsed?.action === 'enviar_mensagem') {

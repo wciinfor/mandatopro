@@ -300,6 +300,67 @@ export default async function handler(req, res) {
             .update(updatePayload)
             .eq('id', mensagemExistente.id);
         }
+
+        // Atualização dos status de disparo_envios (Campanhas Mandato Connect)
+        try {
+          const statusDisparoMap = {
+            sent: 'enviado',
+            delivered: 'entregue',
+            read: 'lido',
+            failed: 'falhou'
+          };
+          const statusDisparoFinal = statusDisparoMap[novoStatus] || novoStatus;
+
+          const STATUS_DISPARO_PRIORITY = {
+            pendente: 0,
+            processando: 0,
+            enviado: 1,
+            entregue: 2,
+            lido: 3,
+            falhou: 4
+          };
+
+          // Localiza linha em disparo_envios por targetId ou wamid
+          let { data: envioLinha } = await supabase
+            .from('disparo_envios')
+            .select('id, status, erro')
+            .eq('provider_message_id', targetId)
+            .maybeSingle();
+
+          if (!envioLinha && msgStatus.wamid && msgStatus.wamid !== targetId) {
+            const { data: envioFallback } = await supabase
+              .from('disparo_envios')
+              .select('id, status, erro')
+              .eq('provider_message_id', msgStatus.wamid)
+              .maybeSingle();
+            envioLinha = envioFallback;
+          }
+
+          if (envioLinha) {
+            const prioridadeAtual = STATUS_DISPARO_PRIORITY[String(envioLinha.status).toLowerCase()] || 0;
+            const prioridadeNova = STATUS_DISPARO_PRIORITY[String(statusDisparoFinal).toLowerCase()] || 0;
+
+            if (statusDisparoFinal === 'falhou' || prioridadeNova >= prioridadeAtual) {
+              const envioUpdatePayload = {
+                status: statusDisparoFinal
+              };
+
+              if (statusDisparoFinal === 'falhou') {
+                const errDetail = msgStatus.errorMessage || msgStatus.errorCode
+                  ? `[Erro ${msgStatus.errorCode || ''}] ${msgStatus.errorMessage || 'Falha no envio'}`
+                  : (msgStatus.error?.message || 'Falha no envio');
+                envioUpdatePayload.erro = errDetail;
+              }
+
+              await supabase
+                .from('disparo_envios')
+                .update(envioUpdatePayload)
+                .eq('id', envioLinha.id);
+            }
+          }
+        } catch (errEnvio) {
+          console.warn('Aviso: Falha ao atualizar status em disparo_envios via webhook YCloud:', errEnvio?.message);
+        }
       }
     }
 

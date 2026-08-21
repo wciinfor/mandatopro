@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -20,6 +20,7 @@ export default function NovaLideranca() {
   const [mostrarResultados, setMostrarResultados] = useState(false);
   const [eleitorSelecionado, setEleitorSelecionado] = useState(null);
   const [carregando, setCarregando] = useState(false);
+  const debounceTimerRef = useRef(null);
 
   const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
   const permiteEstadual = userMandates.includes(1);
@@ -64,12 +65,6 @@ export default function NovaLideranca() {
     }
   }, [mandatoAtivoId]);
 
-  // Simulação de banco de dados de eleitores
-  // TODO: Substituir por chamada à API/Supabase
-  // Simulação de banco de dados de eleitores
-  // TODO: Substituir por chamada à API/Supabase
-  // Removido: dados mockados estão sendo buscados via API
-
   // Função para validar dados obrigatórios
   const validarDadosEleitor = (eleitor) => {
     const camposFaltando = [];
@@ -83,23 +78,22 @@ export default function NovaLideranca() {
     return camposFaltando;
   };
 
-  const buscarEleitor = async (termo) => {
-    setBusca(termo);
-    
-    if (termo.length < 2) {
+  const executarBusca = async (termo) => {
+    if (!termo || termo.trim().length < 2) {
       setResultados([]);
       setMostrarResultados(false);
+      setCarregando(false);
       return;
     }
 
     setCarregando(true);
     try {
-      // Buscar do Supabase através da API, excluindo lideranças existentes
-      const response = await fetch(`/api/cadastros/eleitores?search=${encodeURIComponent(termo)}&excludeLiderancas=true`);
+      // Utiliza o endpoint otimizado de busca rápida com debounce e limite de campos
+      const response = await fetch(`/api/cadastros/eleitores/buscar?q=${encodeURIComponent(termo.trim())}&excludeLiderancas=true`);
       
       if (response.ok) {
         const dados = await response.json();
-        setResultados(dados.data || []);
+        setResultados(Array.isArray(dados) ? dados : (dados.data || []));
         setMostrarResultados(true);
       } else {
         setResultados([]);
@@ -110,6 +104,26 @@ export default function NovaLideranca() {
     } finally {
       setCarregando(false);
     }
+  };
+
+  const buscarEleitor = (termo) => {
+    setBusca(termo);
+    
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (termo.trim().length < 2) {
+      setResultados([]);
+      setMostrarResultados(false);
+      setCarregando(false);
+      return;
+    }
+
+    setCarregando(true);
+    debounceTimerRef.current = setTimeout(() => {
+      executarBusca(termo);
+    }, 300);
   };
 
   const selecionarEleitor = (eleitor) => {

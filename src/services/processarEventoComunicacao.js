@@ -352,5 +352,56 @@ export async function processarEventoStatus(supabase, evento) {
     }
   }
 
+  // Atualização dos status de disparo_envios (Campanhas Mandato Connect) para Meta Oficial
+  try {
+    const statusDisparoMap = {
+      sent: 'enviado',
+      delivered: 'entregue',
+      read: 'lido',
+      failed: 'falhou'
+    };
+    const statusDisparoFinal = statusDisparoMap[evento.status] || evento.status;
+
+    const STATUS_DISPARO_PRIORITY = {
+      pendente: 0,
+      processando: 0,
+      enviado: 1,
+      entregue: 2,
+      lido: 3,
+      falhou: 4
+    };
+
+    const { data: envioLinha } = await supabase
+      .from('disparo_envios')
+      .select('id, status, erro')
+      .eq('provider_message_id', evento.provider_message_id)
+      .maybeSingle();
+
+    if (envioLinha) {
+      const prioridadeAtual = STATUS_DISPARO_PRIORITY[String(envioLinha.status).toLowerCase()] || 0;
+      const prioridadeNova = STATUS_DISPARO_PRIORITY[String(statusDisparoFinal).toLowerCase()] || 0;
+
+      if (statusDisparoFinal === 'falhou' || prioridadeNova >= prioridadeAtual) {
+        const envioUpdatePayload = {
+          status: statusDisparoFinal
+        };
+
+        if (statusDisparoFinal === 'falhou') {
+          const errDetail = evento.erro
+            ? (typeof evento.erro === 'object' ? (evento.erro.message || JSON.stringify(evento.erro)) : String(evento.erro))
+            : 'Falha no envio';
+          envioUpdatePayload.erro = errDetail;
+        }
+
+        await supabase
+          .from('disparo_envios')
+          .update(envioUpdatePayload)
+          .eq('id', envioLinha.id);
+      }
+    }
+  } catch (errEnvioMeta) {
+    console.warn('Aviso: Falha ao atualizar status em disparo_envios via webhook Meta:', errEnvioMeta?.message);
+  }
+
   return { success: true };
 }
