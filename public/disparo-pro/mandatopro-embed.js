@@ -222,8 +222,13 @@
     const header = contactsSection.querySelector('.content-header');
     header?.insertAdjacentElement('afterend', box);
 
+    restoreMandatoFilterState();
+
     const origemSelect = document.getElementById('mandatoOrigem');
-    origemSelect?.addEventListener('change', updateMandatoCampaignFilterState);
+    origemSelect?.addEventListener('change', () => {
+      saveMandatoFilterState();
+      updateMandatoCampaignFilterState();
+    });
     updateMandatoCampaignFilterState();
     loadMandatoCampaigns();
     bindMandatoFilterPreview();
@@ -231,17 +236,74 @@
     document.getElementById('mandatoImportBtn')?.addEventListener('click', importMandatoContacts);
   }
 
-  function getMandatoContactParams({ preview = false } = {}) {
+  window.__mandatoFilterState = window.__mandatoFilterState || {
+    origem: 'eleitores',
+    campanhaId: '',
+    presencaCampanha: '',
+    cidade: '',
+    bairro: '',
+    search: '',
+    limit: '1000'
+  };
+
+  function saveMandatoFilterState() {
     const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
-    const cidade = document.getElementById('mandatoCidade')?.value || '';
-    const bairro = document.getElementById('mandatoBairro')?.value || '';
-    const search = document.getElementById('mandatoBusca')?.value || '';
-    const limit = preview ? '50000' : document.getElementById('mandatoLimite')?.value || '1000';
     const campanhaId = origem === 'eleitores'
       ? document.getElementById('mandatoCampanha')?.value || ''
       : '';
     const presencaCampanha = origem === 'eleitores' && campanhaId
       ? document.getElementById('mandatoPresencaCampanha')?.value || ''
+      : '';
+    const cidade = document.getElementById('mandatoCidade')?.value || '';
+    const bairro = document.getElementById('mandatoBairro')?.value || '';
+    const search = document.getElementById('mandatoBusca')?.value || '';
+    const limit = document.getElementById('mandatoLimite')?.value || '1000';
+
+    window.__mandatoFilterState = {
+      origem,
+      campanhaId,
+      presencaCampanha,
+      cidade,
+      bairro,
+      search,
+      limit
+    };
+  }
+
+  function restoreMandatoFilterState() {
+    const state = window.__mandatoFilterState;
+    if (!state) return;
+
+    const origemEl = document.getElementById('mandatoOrigem');
+    const campanhaEl = document.getElementById('mandatoCampanha');
+    const presencaEl = document.getElementById('mandatoPresencaCampanha');
+    const cidadeEl = document.getElementById('mandatoCidade');
+    const bairroEl = document.getElementById('mandatoBairro');
+    const buscaEl = document.getElementById('mandatoBusca');
+    const limiteEl = document.getElementById('mandatoLimite');
+
+    if (origemEl && state.origem) origemEl.value = state.origem;
+    if (campanhaEl && state.campanhaId) campanhaEl.value = state.campanhaId;
+    if (presencaEl && state.presencaCampanha) presencaEl.value = state.presencaCampanha;
+    if (cidadeEl && state.cidade) cidadeEl.value = state.cidade;
+    if (bairroEl && state.bairro) bairroEl.value = state.bairro;
+    if (buscaEl && state.search) buscaEl.value = state.search;
+    if (limiteEl && state.limit) limiteEl.value = state.limit;
+  }
+
+  function getMandatoContactParams({ preview = false } = {}) {
+    saveMandatoFilterState();
+    const state = window.__mandatoFilterState || {};
+    const origem = state.origem || document.getElementById('mandatoOrigem')?.value || 'eleitores';
+    const cidade = state.cidade !== undefined ? state.cidade : (document.getElementById('mandatoCidade')?.value || '');
+    const bairro = state.bairro !== undefined ? state.bairro : (document.getElementById('mandatoBairro')?.value || '');
+    const search = state.search !== undefined ? state.search : (document.getElementById('mandatoBusca')?.value || '');
+    const limit = preview ? '50000' : (state.limit || document.getElementById('mandatoLimite')?.value || '1000');
+    const campanhaId = origem === 'eleitores'
+      ? (state.campanhaId || document.getElementById('mandatoCampanha')?.value || '')
+      : '';
+    const presencaCampanha = origem === 'eleitores' && campanhaId
+      ? (state.presencaCampanha || document.getElementById('mandatoPresencaCampanha')?.value || '')
       : '';
 
     return new URLSearchParams({ origem, cidade, bairro, search, limit, campanhaId, presencaCampanha });
@@ -255,9 +317,15 @@
 
       element.dataset.mandatoPreviewBound = 'true';
       const eventName = element.tagName === 'SELECT' ? 'change' : 'input';
-      element.addEventListener(eventName, scheduleMandatoContactsPreview);
+      element.addEventListener(eventName, () => {
+        saveMandatoFilterState();
+        scheduleMandatoContactsPreview();
+      });
       if (id === 'mandatoCampanha') {
-        element.addEventListener('change', updateMandatoCampaignFilterState);
+        element.addEventListener('change', () => {
+          saveMandatoFilterState();
+          updateMandatoCampaignFilterState();
+        });
       }
     }
   }
@@ -272,7 +340,7 @@
     const importBtn = document.getElementById('mandatoImportBtn');
     if (!countBox) return;
 
-    const origem = document.getElementById('mandatoOrigem')?.value || 'eleitores';
+    const origem = document.getElementById('mandatoOrigem')?.value || window.__mandatoFilterState?.origem || 'eleitores';
     const label = origem === 'eleitores' ? 'eleitores' : origem === 'liderancas' ? 'lideranças' : 'funcionários';
     countBox.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Calculando quantidade...';
     if (importBtn && !importBtn.dataset.importing) {
@@ -396,6 +464,7 @@
     if (!campanhaSelect || campanhaSelect.dataset.loaded === 'true') return;
 
     try {
+      const currentSelectedVal = campanhaSelect.value || window.__mandatoFilterState?.campanhaId || '';
       const response = await fetch('/api/disparos/contatos/campanhas?limit=200', {
         credentials: 'include'
       });
@@ -410,6 +479,10 @@
         campanhaSelect.appendChild(option);
       }
       campanhaSelect.dataset.loaded = 'true';
+      if (currentSelectedVal) {
+        campanhaSelect.value = currentSelectedVal;
+      }
+      saveMandatoFilterState();
       updateMandatoContactsPreview();
     } catch (error) {
       console.error('Erro ao carregar campanhas no filtro MandatoPro:', error);
