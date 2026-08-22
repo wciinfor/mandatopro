@@ -2547,8 +2547,13 @@ body {
     display: none !important;
 }
 
+.mandatopro-embedded .top-header {
+    display: none !important;
+}
+
 .mandatopro-embedded .main-content {
     margin-left: 0 !important;
+    padding: 0 !important;
 }
 
 .mandatopro-embedded .mobile-toggle {
