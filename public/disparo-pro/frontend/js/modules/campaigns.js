@@ -486,12 +486,6 @@ const SendingManager = {
                 phone: contact.phone,
                 email: contact.email || null
             },
-            campanha_id: AppState.currentCampaignId || AppState.campaignId || contact.campanha_id || contact.campanhaId || null,
-            campanhaId: AppState.currentCampaignId || AppState.campaignId || contact.campanha_id || contact.campanhaId || null,
-            contato_id: contact.contato_id || contact.contatoId || contact.id || null,
-            contatoId: contact.contato_id || contact.contatoId || contact.id || null,
-            envio_id: contact.envio_id || contact.envioId || null,
-            envioId: contact.envio_id || contact.envioId || null,
             message: personalizedMessage,
             media: currentMedia,
             sendEmail: !!contact.email && document.getElementById('enableEmailSending')?.checked,
@@ -504,18 +498,14 @@ const SendingManager = {
             instanceName: payload.instanceName,
             contactName: payload.contact.name,
             messageId: payload.messageId,
-            campanhaId: payload.campanha_id,
-            contatoId: payload.contato_id,
-            envioId: payload.envio_id,
             hasMessage: !!payload.message,
             hasMedia: !!payload.media
         });
 
         const sendTime = new Date();
-        const endpointEnvio = '/api/disparos/enviar';
 
         try {
-            const response = await fetch(endpointEnvio, {
+            const response = await fetch(WEBHOOK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

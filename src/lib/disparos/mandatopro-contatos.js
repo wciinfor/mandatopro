@@ -288,7 +288,7 @@ export async function contarContatosMandatoPro(supabase, filtros = {}) {
 
 export async function buscarContatosMandatoPro(supabase, filtros = {}) {
   const { origem, params } = normalizarFiltros(filtros);
-  const limit = clampLimit(filtros.limit || 200, 200);
+  const limit = clampLimit(filtros.limit || 1000, 1000);
 
   let contatosRaw;
   if (origem === 'liderancas') {

@@ -71,7 +71,10 @@
   function patchFetchAuth() {
     window.fetch = async function fetchMandatoPro(input, init = {}) {
       const url = typeof input === 'string' ? input : input?.url || '';
-      if (!url.startsWith('/api/disparos/')) {
+      const isDisparoRoute = url.startsWith('/api/disparos/');
+      const isWhatsappBusinessRoute = url.startsWith('/api/whatsapp-business/');
+
+      if (!isDisparoRoute && !isWhatsappBusinessRoute) {
         return originalFetch(input, init);
       }
 
@@ -91,8 +94,16 @@
             const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
 
             if (templateSelect && templateSelect.value) {
+              const selectedOpt = templateSelect.selectedOptions?.[0];
+              const templateData = selectedOpt?.__templateData || null;
+
               parsed.templateName = templateSelect.value;
-              parsed.beneficio = beneficioInput?.value?.trim() || 'Óculos';
+              parsed.idiomaCode = templateData?.idioma || 'pt_BR';
+              parsed.language = templateData?.idioma || 'pt_BR';
+              parsed.categoria = templateData?.categoria || 'UTILITY';
+
+              // Parâmetros legados para compatibilidade
+              parsed.beneficio = beneficioInput?.value?.trim() || 'Atendimento';
               parsed.servico = parsed.beneficio;
               if (parlamentarSelect && parlamentarSelect.value) {
                 parsed.parlamentar = {
@@ -100,6 +111,33 @@
                 };
                 parsed.nomeParlamentar = parlamentarSelect.value;
               }
+
+              // Parâmetros dinâmicos do template
+              const contactName = parsed.contact?.name || 'Eleitor';
+              const dynamicParams = [];
+              const varContainers = document.querySelectorAll('#mandatoTemplateVarsContainer [data-var-idx]');
+
+              if (varContainers.length > 0) {
+                varContainers.forEach((el) => {
+                  const idx = Number(el.getAttribute('data-var-idx'));
+                  let val = '';
+                  if (idx === 1) {
+                    val = contactName;
+                  } else {
+                    const input = el.querySelector('input, select');
+                    val = input?.value?.trim() || '';
+                  }
+                  dynamicParams.push({ type: 'text', text: val });
+                });
+
+                parsed.components = [
+                  {
+                    type: 'body',
+                    parameters: dynamicParams
+                  }
+                ];
+              }
+
               body = JSON.stringify(parsed);
             }
           }
@@ -590,6 +628,173 @@
     }
   }
 
+  function addMandatoReviewPanel() {
+    const configCol = document.querySelector('#configuracoes-section .col-lg-8');
+    if (!configCol || document.getElementById('mandatoReviewContainer')) return;
+
+    const container = document.createElement('div');
+    container.id = 'mandatoReviewContainer';
+    container.className = 'card mt-4 border-primary shadow-sm';
+    container.innerHTML = `
+      <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-rocket-takeoff me-2"></i>Revisar e Iniciar Disparos</h5>
+        <span class="badge bg-light text-dark" id="mandatoReviewStatusBadge">Aguardando Revisão</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <div class="p-3 bg-light rounded border text-center">
+              <small class="text-muted d-block text-uppercase fw-bold">Contatos Aptos</small>
+              <h4 class="mb-0 text-primary" id="mandatoReviewContactCount">0</h4>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="p-3 bg-light rounded border text-center">
+              <small class="text-muted d-block text-uppercase fw-bold">Template Oficial</small>
+              <h5 class="mb-0 text-dark text-truncate" id="mandatoReviewTemplateName">Nenhum selecionado</h5>
+              <small class="text-muted" id="mandatoReviewTemplateCategory">-</small>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="p-3 bg-light rounded border text-center">
+              <small class="text-muted d-block text-uppercase fw-bold">Intervalo / Modo</small>
+              <h5 class="mb-0 text-dark" id="mandatoReviewInterval">30s - 60s</h5>
+              <small class="text-muted" id="mandatoReviewScheduleInfo">Envio Imediato</small>
+            </div>
+          </div>
+        </div>
+
+        <div id="mandatoReviewValidationAlert" class="alert alert-warning py-2 mb-3" style="display: none;">
+          <i class="bi bi-exclamation-triangle me-2"></i><span id="mandatoReviewValidationText">Verifique as configurações antes de disparar.</span>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-whatsapp btn-lg py-3 fw-bold fs-5 shadow" id="mandatoReviewStartBtn" disabled>
+            <i class="bi bi-rocket-takeoff-fill me-2"></i><span id="mandatoReviewStartBtnText">🚀 Iniciar Disparos</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    configCol.appendChild(container);
+
+    document.getElementById('mandatoReviewStartBtn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const form = document.getElementById('bulkForm');
+      if (form) startMandatoCampaign(form);
+    });
+
+    updateMandatoReviewPanel();
+  }
+
+  function updateMandatoReviewPanel() {
+    const countEl = document.getElementById('mandatoReviewContactCount');
+    const templateNameEl = document.getElementById('mandatoReviewTemplateName');
+    const templateCatEl = document.getElementById('mandatoReviewTemplateCategory');
+    const intervalEl = document.getElementById('mandatoReviewInterval');
+    const scheduleEl = document.getElementById('mandatoReviewScheduleInfo');
+    const alertEl = document.getElementById('mandatoReviewValidationAlert');
+    const alertTextEl = document.getElementById('mandatoReviewValidationText');
+    const startBtn = document.getElementById('mandatoReviewStartBtn');
+    const startBtnText = document.getElementById('mandatoReviewStartBtnText');
+    const statusBadge = document.getElementById('mandatoReviewStatusBadge');
+
+    if (!countEl || !startBtn) return;
+
+    const contacts = window.AppState?.contacts || [];
+    const validContactsCount = Array.isArray(contacts) ? contacts.filter(c => c.isValid !== false && Boolean(c.phone)).length : 0;
+    countEl.textContent = `${validContactsCount}`;
+
+    const templateSelect = document.getElementById('mandatoTemplateSelect');
+    const selectedOpt = templateSelect?.selectedOptions?.[0];
+    const templateData = selectedOpt?.__templateData || null;
+    const templateName = templateSelect?.value?.trim() || '';
+
+    if (templateName) {
+      templateNameEl.textContent = templateName;
+      templateCatEl.textContent = `${templateData?.categoria || 'UTILITY'} (${templateData?.idioma || 'pt_BR'})`;
+    } else {
+      templateNameEl.textContent = 'Nenhum selecionado';
+      templateCatEl.textContent = 'Obrigatório selecionar um template WABA';
+    }
+
+    const minInt = document.getElementById('minInterval')?.value || '30';
+    const maxInt = document.getElementById('maxInterval')?.value || '60';
+    intervalEl.textContent = `${minInt}s - ${maxInt}s`;
+
+    const isScheduled = document.getElementById('enableScheduling')?.checked;
+    const schedDate = document.getElementById('scheduleDate')?.value;
+    const schedTime = document.getElementById('scheduleTime')?.value;
+
+    if (isScheduled && schedDate && schedTime) {
+      scheduleEl.textContent = `Agendado para ${schedDate} às ${schedTime}`;
+      if (startBtnText) startBtnText.textContent = '📅 Agendar Disparos';
+    } else if (isScheduled) {
+      scheduleEl.textContent = 'Agendamento pendente de data/hora';
+      if (startBtnText) startBtnText.textContent = '📅 Agendar Disparos';
+    } else {
+      scheduleEl.textContent = 'Envio Imediato';
+      if (startBtnText) startBtnText.textContent = '🚀 Iniciar Disparos';
+    }
+
+    // Validações
+    let isValid = true;
+    let errorMsg = '';
+
+    if (window.AppState?.sendingInProgress) {
+      isValid = false;
+      errorMsg = 'Disparo em andamento.';
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-warning text-dark';
+        statusBadge.textContent = 'Em Andamento';
+      }
+    } else if (validContactsCount === 0) {
+      isValid = false;
+      errorMsg = 'Importe ao menos 1 contato apto na aba "Contatos" antes de iniciar.';
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-secondary';
+        statusBadge.textContent = 'Sem Contatos';
+      }
+    } else if (!templateName) {
+      isValid = false;
+      errorMsg = 'Selecione um template WhatsApp oficial aprovado na aba "Editar Campanha".';
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-secondary';
+        statusBadge.textContent = 'Sem Template';
+      }
+    } else if (Number(minInt) >= Number(maxInt)) {
+      isValid = false;
+      errorMsg = 'O intervalo mínimo deve ser menor que o intervalo máximo.';
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-danger';
+        statusBadge.textContent = 'Intervalo Inválido';
+      }
+    } else if (isScheduled && (!schedDate || !schedTime)) {
+      isValid = false;
+      errorMsg = 'Defina a data e o horário do agendamento.';
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-warning text-dark';
+        statusBadge.textContent = 'Data/Hora Pendente';
+      }
+    } else {
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-success';
+        statusBadge.textContent = 'Pronto para Envio';
+      }
+    }
+
+    if (!isValid) {
+      startBtn.disabled = true;
+      if (alertEl && alertTextEl) {
+        alertTextEl.textContent = errorMsg;
+        alertEl.style.display = 'block';
+      }
+    } else {
+      startBtn.disabled = false;
+      if (alertEl) alertEl.style.display = 'none';
+    }
+  }
+
   function restoreMandatoCampaignState() {
     try {
       const saved = window.StorageService?.getLocalJson?.(MANDATO_CAMPAIGN_KEY);
@@ -631,6 +836,9 @@
     }
   }
 
+  let __loadedApprovedTemplates = [];
+  let __parlamentaresCache = [];
+
   function addMandatoTemplateBox() {
     const editorCard = document.querySelector('#campanha-section .card-body');
     if (!editorCard || document.getElementById('mandatoTemplateContainer')) return;
@@ -641,47 +849,53 @@
     container.innerHTML = `
       <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
         <h6 class="mb-0"><i class="bi bi-file-earmark-check me-2"></i>Template Oficial WhatsApp (Meta HSM / YCloud)</h6>
-        <span class="badge bg-light text-dark">Opcional</span>
+        <span class="badge bg-light text-dark" id="mandatoTemplateProviderBadge">Provedor Ativo</span>
       </div>
       <div class="card-body">
         <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label fw-bold">Modelo de Template Homologado</label>
-            <select id="mandatoTemplateSelect" class="form-control">
-              <option value="">Nenhum (Mensagem de Texto Livre)</option>
-              <option value="aviso_beneficio_eleitor">Aviso de Benefício (aviso_beneficio_eleitor)</option>
-            </select>
-            <small class="text-muted">Garante entrega fora da janela de 24h.</small>
-          </div>
-          <div class="col-md-4" id="mandatoParlamentarWrapper" style="display: none;">
-            <label class="form-label fw-bold">Parlamentar / Mandato ({{2}})</label>
-            <select id="mandatoParlamentarSelect" class="form-control">
-              <option value="">Carregando...</option>
-            </select>
-            <small class="text-muted">Identidade utilizada no disparo.</small>
-          </div>
-          <div class="col-md-4" id="mandatoBeneficioWrapper" style="display: none;">
-            <label class="form-label fw-bold">Benefício / Serviço ({{3}})</label>
-            <input type="text" id="mandatoBeneficioInput" class="form-control" placeholder="Ex: Óculos, Atendimento médico" value="Óculos">
-            <small class="text-muted">Substituído na variável {{3}}.</small>
+          <div class="col-md-12">
+            <label class="form-label fw-bold">Modelo de Template Homologado (WABA Ativa)</label>
+            <div class="input-group">
+              <select id="mandatoTemplateSelect" class="form-control">
+                <option value="">Carregando templates homologados...</option>
+              </select>
+              <button class="btn btn-outline-secondary" type="button" id="mandatoReloadTemplatesBtn" title="Recarregar templates">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+            </div>
+            <small class="text-muted d-block mt-1">Carrega somente templates com status <strong>APPROVED</strong> da conta WhatsApp Business oficial ativa.</small>
           </div>
         </div>
+
+        <div id="mandatoTemplateAlertArea" class="mt-3" style="display: none;"></div>
+
+        <div id="mandatoTemplateVarsContainer" class="row g-3 mt-1" style="display: none;">
+          <!-- Inputs de variáveis dinâmicas injetados aqui -->
+        </div>
+
         <div id="mandatoTemplatePreviewAlert" class="alert alert-success mt-3 mb-0" style="display: none;">
-          <i class="bi bi-info-circle me-2"></i><strong>Estrutura Oficial:</strong> 
-          <span id="mandatoTemplatePreviewText">"Olá, {{1}}! Mandato informa que seu benefício (Óculos) já está disponível. Obrigado!"</span>
+          <div class="d-flex align-items-center mb-1">
+            <i class="bi bi-eye me-2"></i>
+            <strong>Simulação de Pré-visualização:</strong>
+            <span class="badge bg-success-subtle text-success-emphasis ms-auto" id="mandatoTemplateCategoryBadge">UTILITY</span>
+          </div>
+          <div class="p-2 rounded bg-white border text-dark" id="mandatoTemplatePreviewText" style="white-space: pre-wrap; font-family: system-ui, -apple-system, sans-serif;">
+          </div>
+          <small class="text-muted d-block mt-1">
+            <i class="bi bi-info-circle me-1"></i>Esta é uma simulação com os valores preenchidos. O template original aprovado na Meta/YCloud não é alterado.
+          </small>
         </div>
       </div>
     `;
 
     editorCard.insertBefore(container, editorCard.firstChild);
+    document.getElementById('mandatoReloadTemplatesBtn')?.addEventListener('click', loadMandatoTemplates);
     bindMandatoTemplateEvents();
     loadMandatoParlamentaresOptions();
+    loadMandatoTemplates();
   }
 
   async function loadMandatoParlamentaresOptions() {
-    const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
-    if (!parlamentarSelect) return;
-
     try {
       const response = await fetch('/api/configuracoes');
       if (!response.ok) return;
@@ -689,64 +903,266 @@
       const list = json?.data?.parlamentares || [];
 
       if (list.length > 0) {
-        parlamentarSelect.innerHTML = list
-          .filter(p => p.ativo !== false)
-          .map(p => `<option value="${p.nome}" ${p.padrao ? 'selected' : ''}>${p.nome}${p.cargo ? ' (' + p.cargo + ')' : ''}</option>`)
-          .join('');
+        __parlamentaresCache = list.filter(p => p.ativo !== false);
       } else if (json?.data?.nomeParlamentar) {
-        parlamentarSelect.innerHTML = `<option value="${json.data.nomeParlamentar}" selected>${json.data.nomeParlamentar}</option>`;
+        __parlamentaresCache = [{ nome: json.data.nomeParlamentar, padrao: true }];
       } else {
-        parlamentarSelect.innerHTML = `<option value="Mandato" selected>Mandato</option>`;
+        __parlamentaresCache = [{ nome: 'Mandato', padrao: true }];
+      }
+    } catch {
+      __parlamentaresCache = [{ nome: 'Mandato', padrao: true }];
+    }
+  }
+
+  async function loadMandatoTemplates() {
+    const templateSelect = document.getElementById('mandatoTemplateSelect');
+    const alertArea = document.getElementById('mandatoTemplateAlertArea');
+    const reloadBtn = document.getElementById('mandatoReloadTemplatesBtn');
+    if (!templateSelect) return;
+
+    templateSelect.disabled = true;
+    if (reloadBtn) reloadBtn.disabled = true;
+    templateSelect.innerHTML = '<option value="">Consultando templates homologados na WABA...</option>';
+    if (alertArea) alertArea.style.display = 'none';
+
+    try {
+      const response = await fetch('/api/whatsapp-business/templates', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      const templates = Array.isArray(data?.templates) ? data.templates : [];
+      __loadedApprovedTemplates = templates;
+
+      const badge = document.getElementById('mandatoTemplateProviderBadge');
+      if (badge && data?.provider) {
+        badge.textContent = `Provedor: ${data.provider}`;
       }
 
-      // Trigger update UI
-      document.getElementById('mandatoTemplateSelect')?.dispatchEvent(new Event('change'));
-    } catch {
-      parlamentarSelect.innerHTML = `<option value="Mandato" selected>Mandato</option>`;
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Falha ao buscar templates do provedor WhatsApp ativo');
+      }
+
+      if (templates.length === 0) {
+        templateSelect.innerHTML = '<option value="">Nenhum template aprovado encontrado</option>';
+        if (alertArea) {
+          alertArea.className = 'alert alert-warning mt-3 mb-0';
+          alertArea.innerHTML = `
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Nenhum template com status <strong>APPROVED</strong> foi encontrado na conta WhatsApp Business ativa. Cadastre e aprove seus templates na Meta/YCloud antes de iniciar o disparo.
+          `;
+          alertArea.style.display = 'block';
+        }
+        renderTemplateVariables(null);
+        return;
+      }
+
+      templateSelect.innerHTML = '<option value="">Selecione um Template WhatsApp Aprovado...</option>';
+
+      // Agrupa por categoria (UTILITY primeiro, depois MARKETING e outras)
+      const utilityTemplates = templates.filter(t => String(t.categoria || '').toUpperCase() === 'UTILITY');
+      const otherTemplates = templates.filter(t => String(t.categoria || '').toUpperCase() !== 'UTILITY');
+
+      if (utilityTemplates.length > 0) {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = 'Templates de Utilidade (UTILITY)';
+        utilityTemplates.forEach(tmpl => {
+          const opt = document.createElement('option');
+          opt.value = tmpl.nome;
+          opt.textContent = `${tmpl.nome} [${tmpl.categoria || 'UTILITY'}] (${tmpl.idioma || 'pt_BR'})`;
+          opt.__templateData = tmpl;
+          optGroup.appendChild(opt);
+        });
+        templateSelect.appendChild(optGroup);
+      }
+
+      if (otherTemplates.length > 0) {
+        const optGroup = document.createElement('optgroup');
+        optGroup.label = 'Outros Templates (MARKETING / AUTH)';
+        otherTemplates.forEach(tmpl => {
+          const opt = document.createElement('option');
+          opt.value = tmpl.nome;
+          opt.textContent = `${tmpl.nome} [${tmpl.categoria || 'MARKETING'}] (${tmpl.idioma || 'pt_BR'})`;
+          opt.__templateData = tmpl;
+          optGroup.appendChild(opt);
+        });
+        templateSelect.appendChild(optGroup);
+      }
+
+      // Auto-seleciona o primeiro se houver apenas 1 ou se já houver preferência salva
+      if (templates.length === 1) {
+        templateSelect.selectedIndex = 1;
+      }
+
+      templateSelect.dispatchEvent(new Event('change'));
+    } catch (err) {
+      console.error('Erro ao carregar templates WhatsApp:', err);
+      templateSelect.innerHTML = '<option value="">Erro ao carregar templates</option>';
+      if (alertArea) {
+        alertArea.className = 'alert alert-danger mt-3 mb-0';
+        alertArea.innerHTML = `
+          <i class="bi bi-x-circle me-2"></i>
+          <strong>Erro:</strong> ${err.message || 'Não foi possível carregar os templates da conta WhatsApp ativa.'}
+        `;
+        alertArea.style.display = 'block';
+      }
+      renderTemplateVariables(null);
+    } finally {
+      templateSelect.disabled = false;
+      if (reloadBtn) reloadBtn.disabled = false;
+    }
+  }
+
+  function extractBodyTemplate(templateObj) {
+    if (!templateObj) return { text: '', varIndices: [] };
+    const comps = Array.isArray(templateObj.componentes) ? templateObj.componentes : [];
+    const bodyComp = comps.find(c => String(c.type || '').toUpperCase() === 'BODY') || {};
+    const text = bodyComp.text || '';
+    const matches = [...text.matchAll(/\{\{(\d+)\}\}/g)];
+    const varIndices = [...new Set(matches.map(m => Number(m[1])))].sort((a, b) => a - b);
+    return { text, varIndices };
+  }
+
+  function renderTemplateVariables(templateObj) {
+    const varsContainer = document.getElementById('mandatoTemplateVarsContainer');
+    const previewAlert = document.getElementById('mandatoTemplatePreviewAlert');
+    const categoryBadge = document.getElementById('mandatoTemplateCategoryBadge');
+    if (!varsContainer) return;
+
+    if (!templateObj) {
+      varsContainer.innerHTML = '';
+      varsContainer.style.display = 'none';
+      if (previewAlert) previewAlert.style.display = 'none';
+      return;
+    }
+
+    const { text, varIndices } = extractBodyTemplate(templateObj);
+    varsContainer.innerHTML = '';
+
+    if (categoryBadge) {
+      categoryBadge.textContent = templateObj.categoria || 'UTILITY';
+    }
+
+    if (varIndices.length === 0) {
+      const col = document.createElement('div');
+      col.className = 'col-12';
+      col.innerHTML = `
+        <div class="alert alert-secondary py-2 mb-0">
+          <i class="bi bi-check2-circle me-2"></i>Este template não possui variáveis. A mensagem será enviada com o texto fixo aprovado.
+        </div>
+      `;
+      varsContainer.appendChild(col);
+    } else {
+      varIndices.forEach((idx) => {
+        const col = document.createElement('div');
+        col.className = 'col-md-4';
+        col.setAttribute('data-var-idx', String(idx));
+
+        if (idx === 1) {
+          // {{1}} = Nome do Eleitor/Contato (Automático)
+          col.innerHTML = `
+            <label class="form-label fw-bold">Variável {{1}}</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+              <input type="text" class="form-control" value="Nome do Contato" readonly disabled>
+            </div>
+            <small class="text-success fw-semibold"><i class="bi bi-magic me-1"></i>Preenchido automaticamente por contato.</small>
+          `;
+        } else if (idx === 2) {
+          // {{2}} = Parlamentar / Mandato
+          const optionsHtml = __parlamentaresCache.map(p =>
+            `<option value="${p.nome}" ${p.padrao ? 'selected' : ''}>${p.nome}${p.cargo ? ' (' + p.cargo + ')' : ''}</option>`
+          ).join('');
+
+          col.innerHTML = `
+            <label class="form-label fw-bold">Parlamentar / Mandato ({{2}})</label>
+            <select id="mandatoParlamentarSelect" class="form-control">
+              ${optionsHtml || '<option value="Mandato">Mandato</option>'}
+            </select>
+            <small class="text-muted">Identidade do mandato na mensagem.</small>
+          `;
+        } else if (idx === 3) {
+          // {{3}} = Benefício / Serviço
+          col.innerHTML = `
+            <label class="form-label fw-bold">Benefício / Serviço ({{3}})</label>
+            <input type="text" id="mandatoBeneficioInput" class="form-control" placeholder="Ex: Atendimento, Gabinete, Saúde" value="Atendimento">
+            <small class="text-muted">Assunto/serviço da mensagem.</small>
+          `;
+        } else {
+          // {{4}}+ = Variável Adicional Dinâmica
+          col.innerHTML = `
+            <label class="form-label fw-bold">Parâmetro {{${idx}}}</label>
+            <input type="text" class="form-control mandato-dynamic-param" data-param-idx="${idx}" placeholder="Valor da variável {{${idx}}}" value="">
+            <small class="text-muted">Substituído em {{${idx}}}.</small>
+          `;
+        }
+        varsContainer.appendChild(col);
+      });
+    }
+
+    varsContainer.style.display = 'flex';
+    if (previewAlert) previewAlert.style.display = 'block';
+
+    // Liga listeners de atualização de preview em tempo real
+    varsContainer.querySelectorAll('input, select').forEach(input => {
+      input.addEventListener('input', updateTemplateLivePreview);
+      input.addEventListener('change', updateTemplateLivePreview);
+    });
+
+    updateTemplateLivePreview();
+  }
+
+  function updateTemplateLivePreview() {
+    const templateSelect = document.getElementById('mandatoTemplateSelect');
+    const previewTextEl = document.getElementById('mandatoTemplatePreviewText');
+    if (!templateSelect || !previewTextEl) return;
+
+    const selectedOpt = templateSelect.selectedOptions?.[0];
+    const templateObj = selectedOpt?.__templateData || null;
+    if (!templateObj) return;
+
+    const { text, varIndices } = extractBodyTemplate(templateObj);
+    let simulatedText = text || templateObj.nome || '';
+
+    // Obtém nome de exemplo do primeiro contato da lista ou fallback
+    const exampleContactName = (window.AppState?.contacts?.[0]?.name) || 'João Silva';
+
+    varIndices.forEach((idx) => {
+      let val = '';
+      if (idx === 1) {
+        val = exampleContactName;
+      } else if (idx === 2) {
+        const parlSelect = document.getElementById('mandatoParlamentarSelect');
+        val = parlSelect?.value?.trim() || 'Mandato';
+      } else if (idx === 3) {
+        const benInput = document.getElementById('mandatoBeneficioInput');
+        val = benInput?.value?.trim() || 'Atendimento';
+      } else {
+        const dynInput = document.querySelector(`.mandato-dynamic-param[data-param-idx="${idx}"]`);
+        val = dynInput?.value?.trim() || `[Valor ${idx}]`;
+      }
+      simulatedText = simulatedText.replace(new RegExp(`\\{\\{${idx}\\}\\}`, 'g'), val);
+    });
+
+    previewTextEl.textContent = simulatedText;
+
+    // Espelha o texto na Mensagem 1 para manter harmonia visual na interface
+    const textMsg1 = document.getElementById('msg1-text');
+    if (textMsg1) {
+      textMsg1.value = simulatedText.replace(new RegExp(exampleContactName, 'g'), '{nome}');
+      textMsg1.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
 
   function bindMandatoTemplateEvents() {
     const templateSelect = document.getElementById('mandatoTemplateSelect');
-    const beneficioWrapper = document.getElementById('mandatoBeneficioWrapper');
-    const beneficioInput = document.getElementById('mandatoBeneficioInput');
-    const parlamentarWrapper = document.getElementById('mandatoParlamentarWrapper');
-    const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
-    const previewAlert = document.getElementById('mandatoTemplatePreviewAlert');
-    const previewText = document.getElementById('mandatoTemplatePreviewText');
-
     if (!templateSelect || templateSelect.dataset.mandatoTemplateBound === 'true') return;
     templateSelect.dataset.mandatoTemplateBound = 'true';
 
-    function updateTemplateUi() {
-      const isTemplate = templateSelect.value === 'aviso_beneficio_eleitor';
-      if (beneficioWrapper) beneficioWrapper.style.display = isTemplate ? 'block' : 'none';
-      if (parlamentarWrapper) parlamentarWrapper.style.display = isTemplate ? 'block' : 'none';
-      if (previewAlert) previewAlert.style.display = isTemplate ? 'block' : 'none';
-
-      if (isTemplate) {
-        const ben = beneficioInput?.value?.trim() || 'Óculos';
-        const parl = parlamentarSelect?.value?.trim() || 'Mandato';
-        if (previewText) {
-          previewText.textContent = `Olá, {{1}}! ${parl} informa que seu benefício (${ben}) já está disponível. Obrigado!`;
-        }
-
-        // Preenche o campo de texto da Mensagem 1 como espelho visual
-        const textMsg1 = document.getElementById('msg1-text');
-        if (textMsg1) {
-          textMsg1.value = `Olá, {nome}! ${parl} informa que seu benefício (${ben}) já está disponível. Obrigado!`;
-          textMsg1.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }
-    }
-
-    templateSelect.addEventListener('change', updateTemplateUi);
-    if (beneficioInput) {
-      beneficioInput.addEventListener('input', updateTemplateUi);
-    }
-    if (parlamentarSelect) {
-      parlamentarSelect.addEventListener('change', updateTemplateUi);
-    }
+    templateSelect.addEventListener('change', () => {
+      const selectedOpt = templateSelect.selectedOptions?.[0];
+      const templateObj = selectedOpt?.__templateData || null;
+      renderTemplateVariables(templateObj);
+    });
   }
 
   function bindMandatoCampaignPersistence() {
@@ -1179,31 +1595,34 @@
         }
 
         const templateSelect = document.getElementById('mandatoTemplateSelect');
-        const beneficioInput = document.getElementById('mandatoBeneficioInput');
-        const parlamentarSelect = document.getElementById('mandatoParlamentarSelect');
-        const isTemplate = templateSelect && templateSelect.value === 'aviso_beneficio_eleitor';
-        const beneficio = beneficioInput?.value?.trim() || 'Óculos';
-        const parlamentar = parlamentarSelect?.value?.trim() || 'Mandato';
+        const selectedOpt = templateSelect?.selectedOptions?.[0];
+        const templateObj = selectedOpt?.__templateData || null;
+        const templateName = templateSelect?.value?.trim() || '';
+        const isTemplate = Boolean(templateName);
 
         const isScheduled = document.getElementById('enableScheduling')?.checked;
         if (isScheduled && typeof ScheduleManager !== 'undefined') {
           const dispatchData = FormManager.collectDispatchData();
           ScheduleManager.scheduleDispatch(dispatchData);
         } else if (isTemplate) {
+          const category = templateObj?.categoria || 'UTILITY';
+          const previewText = document.getElementById('mandatoTemplatePreviewText')?.textContent || '';
+
           const confirmHtml = `
             <div class="text-start">
               <h6 class="text-success mb-2"><i class="bi bi-patch-check-fill me-2"></i>Envio via Template Oficial WhatsApp</h6>
-              <p class="mb-1"><strong>Template:</strong> <code>aviso_beneficio_eleitor</code> (UTILITY)</p>
-              <p class="mb-1"><strong>Parlamentar ({{2}}):</strong> <span class="badge bg-info text-dark">${parlamentar}</span></p>
-              <p class="mb-1"><strong>Benefício/Serviço ({{3}}):</strong> <span class="badge bg-primary">${beneficio}</span></p>
+              <p class="mb-1"><strong>Template:</strong> <code>${templateName}</code> <span class="badge bg-success-subtle text-success-emphasis">${category}</span></p>
               <p class="mb-1"><strong>Total de Contatos:</strong> ${window.AppState?.contacts?.length || 0}</p>
               <p class="mb-1"><strong>Entrega garantida fora da janela de 24h:</strong> <span class="text-success fw-bold">SIM</span></p>
-              <div class="alert alert-light border mt-2 mb-0 p-2 small">
-                <strong>Preview:</strong> "Olá, {{1}}! ${parlamentar} informa que seu benefício (${beneficio}) já está disponível. Obrigado!"
-              </div>
+              ${previewText ? `
+                <div class="alert alert-light border mt-2 mb-0 p-2 small">
+                  <strong>Simulação do Envio:</strong>
+                  <div class="mt-1" style="white-space: pre-wrap;">${previewText}</div>
+                </div>
+              ` : ''}
             </div>
           `;
-          window.UI?.confirm?.('Confirmar Disparo de Template', confirmHtml, () => {
+          window.UI?.confirm?.('Confirmar Envio Oficial WhatsApp', confirmHtml, () => {
             SendingManager.start();
           });
         } else {
@@ -1324,32 +1743,52 @@
       if (!response.ok) throw new Error(payload?.message || 'Erro ao importar contatos');
 
       const rawList = Array.isArray(payload.data) ? payload.data : [];
+      const campanhaSelecionada = document.getElementById('mandatoCampanha')?.value || null;
 
-      const contatosValidos = rawList.filter((contact) => {
+      // Filtra estritamente contatos aptos para envio (telefone válido e não duplicado / apto)
+      const contatosAptos = rawList.filter((contact) => {
         const phone = contact.telefoneNormalizado || contact.phone || '';
-        return Boolean(phone);
+        const isValid = contact.valido !== false && Boolean(phone);
+        return isValid;
       });
 
-      window.AppState.contacts = contatosValidos.map((contact, index) => {
+      const processedContacts = contatosAptos.map((contact, index) => {
         const phone = contact.telefoneNormalizado || contact.phone || '';
         return {
+          id: contact.origemId || contact.id || null,
+          contato_id: contact.origemId || contact.id || null,
+          contatoId: contact.origemId || contact.id || null,
+          campanha_id: campanhaSelecionada,
+          campanhaId: campanhaSelecionada,
           name: contact.nome || contact.name || 'Sem nome',
           phone: phone,
           email: contact.email || '',
           rawPhone: contact.telefoneOriginal || contact.rawPhone || phone,
-          isValid: Boolean(phone),
+          isValid: true,
           error: null,
           row: index + 1,
           source: contact.origem || contact.source || 'eleitor',
-          sourceId: contact.origemId || contact.sourceId || null
+          sourceId: contact.origemId || contact.sourceId || null,
+          city: contact.cidade || contact.city || '',
+          neighborhood: contact.bairro || contact.neighborhood || ''
         };
       });
 
-      getContactManager()?.updateContactsList?.();
+      if (window.AppState) {
+        window.AppState.contacts = processedContacts;
+      }
+      if (typeof AppState !== 'undefined') {
+        AppState.contacts = processedContacts;
+      }
+
+      const manager = getContactManager();
+      if (manager && typeof manager.updateContactsList === 'function') {
+        manager.updateContactsList();
+      }
       getTimeEstimator()?.update?.();
       saveMandatoContactsState();
       window.UI?.hideLoading?.();
-      window.UI?.showSuccess?.(`${window.AppState.contacts.length} contatos importados do MandatoPro`);
+      window.UI?.showSuccess?.(`${processedContacts.length} contatos aptos importados com sucesso!`);
     } catch (error) {
       window.UI?.hideLoading?.();
       window.UI?.showError?.(error.message || 'Erro ao importar contatos do MandatoPro');
@@ -1455,6 +1894,10 @@
     setTimeout(addMandatoTemplateBox, 1200);
     setTimeout(addMandatoTemplateBox, 2500);
     setInterval(addMandatoTemplateBox, 3000);
+    setTimeout(addMandatoReviewPanel, 1200);
+    setTimeout(addMandatoReviewPanel, 2500);
+    setInterval(addMandatoReviewPanel, 3000);
+    setInterval(updateMandatoReviewPanel, 1500);
   }
 
   if (document.readyState === 'loading') {

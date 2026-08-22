@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
     const filtros = {
       origem: req.query.origem || 'eleitores',
-      limit: req.query.limit || 200,
+      limit: req.query.limit || 1000,
       cidade: req.query.cidade,
       bairro: req.query.bairro,
       status: req.query.status,
