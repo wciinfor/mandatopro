@@ -547,14 +547,12 @@ function buildEmbedScript() {
 
       if (contatos.length > 0) {
         for (const c of contatos) {
-          const hasValidPhone = Boolean(c.telefoneNormalizado || (c.valido && c.phone));
-          if (hasValidPhone || c.duplicado) {
+          if (c.valido) {
             aptos++;
+          } else {
             if (c.duplicado || c.motivoInvalido === 'Telefone duplicado') {
               compartilhados++;
-            }
-          } else {
-            if (!c.telefoneOriginal || c.motivoInvalido === 'Telefone ausente ou incompleto') {
+            } else if (!c.telefoneOriginal || c.motivoInvalido === 'Telefone ausente ou incompleto') {
               semTelefone++;
             } else {
               invalidosFormat++;
@@ -565,7 +563,7 @@ function buildEmbedScript() {
         aptos = Number(resumo.validos || 0);
         compartilhados = Number(resumo.duplicados || 0);
         const naoEnviadosTotal = Math.max(0, encontrados - aptos);
-        semTelefone = naoEnviadosTotal;
+        semTelefone = Math.max(0, naoEnviadosTotal - compartilhados);
       }
 
       const naoEnviados = Math.max(0, encontrados - aptos);
