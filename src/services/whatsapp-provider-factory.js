@@ -1,5 +1,6 @@
-import YCloudApiService, { createYCloudApiService } from './ycloud-api';
-import WhatsAppBusinessService from './whatsapp-business';
+import YCloudApiService, { createYCloudApiService } from './ycloud-api.js';
+import WhatsAppBusinessService from './whatsapp-business.js';
+import WaBlastApiService, { createWaBlastApiService } from './wablast-api.js';
 
 /**
  * Interface/Contrato comum de Provider para WhatsApp
@@ -112,10 +113,79 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
 }
 
 /**
- * Factory para instanciar o Provider correto (META ou YCLOUD) baseado na conta/mandato
+ * Adaptador para o WaBlast Partner API implementando o contrato unificado
+ */
+export class WaBlastWhatsAppAdapter extends WhatsAppProviderContract {
+  constructor(account) {
+    super();
+    this.account = account;
+    this.service = createWaBlastApiService();
+  }
+
+  _formatE164(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    return digits.startsWith('+') ? digits : `+${digits}`;
+  }
+
+  async sendMessage(payload) {
+    const accountId = this.account?.wablastAccountId || this.account?.wablast_account_id || this.account?.account_id;
+    if (!accountId) {
+      throw new Error('WaBlastWhatsAppAdapter: wablast_account_id não configurado na conta');
+    }
+
+    const rawTo = payload.to || payload.recipient;
+    const formattedTo = this._formatE164(rawTo);
+    const textBody = typeof payload.text === 'object' 
+      ? payload.text.body 
+      : (payload.text || payload.message || payload.body || '');
+
+    const formattedPayload = {
+      account_id: accountId,
+      to: formattedTo,
+      type: 'text',
+      text: {
+        body: textBody
+      }
+    };
+
+    const response = await this.service.sendMessage(formattedPayload);
+    const messageId = response?.id || response?.message_id || response?.messages?.[0]?.id || null;
+
+    return {
+      success: true,
+      messageId,
+      id: messageId,
+      status: response?.status || 'sent',
+      recipient: formattedTo,
+      data: response
+    };
+  }
+
+  async sendTemplate(payload) {
+    // PENDÊNCIA DOCUMENTAL: O contrato oficial do endpoint de templates no WaBlast Partner API
+    // ainda não foi fornecido. Não inventamos payload até confirmação documental.
+    throw new Error('WaBlastWhatsAppAdapter: sendTemplate pendente de especificação oficial do payload');
+  }
+
+  async getStatus() {
+    const accountId = this.account?.wablastAccountId || this.account?.wablast_account_id || this.account?.account_id;
+    if (!accountId) {
+      throw new Error('WaBlastWhatsAppAdapter: wablast_account_id não configurado');
+    }
+    return this.service.request(`/v1/accounts/${encodeURIComponent(accountId)}`, { method: 'GET' });
+  }
+}
+
+/**
+ * Factory para instanciar o Provider correto (META, WABLAST ou YCLOUD) baseado na conta/mandato
  */
 export function createWhatsAppProvider(account = {}) {
   const provider = String(account.provider || account.provider_type || 'META').toUpperCase();
+
+  if (provider === 'WABLAST') {
+    return new WaBlastWhatsAppAdapter(account);
+  }
 
   if (provider === 'YCLOUD') {
     return new YCloudWhatsAppAdapter(account);
@@ -126,3 +196,4 @@ export function createWhatsAppProvider(account = {}) {
 }
 
 export default createWhatsAppProvider;
+

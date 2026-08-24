@@ -17,6 +17,7 @@ export default function WhatsAppBusinessOficial() {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [changing, setChanging] = useState(false);
+  const [iniciandoWablast, setIniciandoWablast] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState(null);
 
   useEffect(() => {
@@ -35,6 +36,39 @@ export default function WhatsAppBusinessOficial() {
       console.error('Erro ao carregar configuracao do provedor:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleIniciarOnboardingWaBlast = async () => {
+    try {
+      setIniciandoWablast(true);
+      setMensagemStatus(null);
+
+      const res = await fetch('/api/whatsapp-business/wablast-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success || !data.embed_url) {
+        throw new Error(data.error || 'Não foi possível gerar a sessão de onboarding do WaBlast');
+      }
+
+      setMensagemStatus({
+        tipo: 'sucesso',
+        texto: 'Sessão de onboarding gerada com sucesso! Redirecionando para a conexão oficial...'
+      });
+
+      // Abre a tela oficial do Embedded Signup do WaBlast
+      window.location.href = data.embed_url;
+    } catch (err) {
+      setMensagemStatus({
+        tipo: 'erro',
+        texto: err.message || 'Falha ao iniciar onboarding WaBlast'
+      });
+    } finally {
+      setIniciandoWablast(false);
     }
   };
 
@@ -202,6 +236,54 @@ export default function WhatsAppBusinessOficial() {
                         Ativo
                       </span>
                     )}
+                  </div>
+                </div>
+
+                {/* Opção WABLAST (Partner Onboarding) */}
+                <div
+                  className={`p-5 rounded-xl border-2 transition relative md:col-span-2 ${
+                    providerAtivo === 'WABLAST'
+                      ? 'border-teal-600 bg-teal-50/30 shadow-sm'
+                      : 'border-gray-200 bg-gray-50/40'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-teal-100/60 text-teal-700 rounded-lg">
+                        <FontAwesomeIcon icon={faMobileAlt} className="text-lg" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h5 className="font-bold text-gray-800 text-sm">WaBlast Partner API</h5>
+                          {providerAtivo === 'WABLAST' && (
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-teal-600 text-white rounded">
+                              Ativo
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">Conexão simplificada e homologação WABA integrada</p>
+                      </div>
+                    </div>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleIniciarOnboardingWaBlast}
+                        disabled={iniciandoWablast || changing}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {iniciandoWablast ? (
+                          <>
+                            <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
+                            Gerando sessão...
+                          </>
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faPlug} className="text-xs" />
+                            Conectar WABLAST
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
