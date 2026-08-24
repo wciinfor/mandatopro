@@ -58,10 +58,20 @@ export default class WaBlastApiService {
 
       clearTimeout(timeoutId);
 
-      const responseData = await response.json().catch(() => ({}));
+      const responseText = await response.text().catch(() => '');
+      let responseData = {};
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { rawText: responseText };
+      }
 
       if (!response.ok) {
-        const errorMsg = responseData?.error?.message || responseData?.message || `HTTP ${response.status} ${response.statusText}`;
+        const errorMsg = responseData?.error?.message 
+          || responseData?.message 
+          || (typeof responseData?.error === 'string' ? responseData.error : '')
+          || responseData?.rawText 
+          || `HTTP ${response.status} ${response.statusText}`;
         const error = new Error(`Erro na API WaBlast: ${errorMsg}`);
         error.status = response.status;
         error.code = responseData?.error?.code || responseData?.code || 'WABLAST_API_ERROR';
