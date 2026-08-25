@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterTenantId } from '@/lib/tenant';
 import {
   buscarContaWhatsappPrincipal,
   normalizarWhatsappAccount,
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
+      const tenantId = obterTenantId(usuario);
       const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
       const contaNormalizada = normalizarWhatsappAccount(conta);
 
@@ -41,7 +43,7 @@ export default async function handler(req, res) {
           ycloud_api_key,
           whatsapp_business_numbers (phone_number_id, display_phone_number, verified_name, status)
         `)
-        .eq('tenant_id', contaNormalizada.tenantId || usuario?.tenant_id || 1)
+        .eq('tenant_id', tenantId || contaNormalizada.tenantId || 1)
         .eq('status', 'ATIVO');
 
       const contaWablastRaw = (todasContas || []).find(c => c.provider === 'WABLAST');
