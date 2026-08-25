@@ -36,6 +36,156 @@ function phoneQualityStatus(value) {
 
 export async function gerarDiagnosticoWhatsappBusiness(conta, options = {}) {
   const checkedAt = nowIso();
+  const provider = String(conta?.provider || 'META').toUpperCase();
+
+  // ─── 1. DIAGNÓSTICO PARA PROVIDER WABLAST ──────────────────────────────────
+  if (provider === 'WABLAST') {
+    const number = Array.isArray(conta?.whatsapp_business_numbers)
+      ? conta.whatsapp_business_numbers.find(item => item?.principal && item?.status !== 'INATIVO') || conta.whatsapp_business_numbers[0]
+      : null;
+    const phoneNumber = number?.display_phone_number || number?.phone_number_id || '';
+    const accountId = conta?.wablast_account_id || '';
+    const wabaId = conta?.wablast_waba_id || conta?.waba_id || '';
+    const isProductionReady = Boolean(accountId && phoneNumber);
+
+    const latestWebhookEvent = options.supabase
+      ? await createWhatsAppWebhookEventLogger(options.supabase).latestForTenant(conta?.tenant_id)
+      : null;
+
+    const indicators = [
+      indicator(
+        'connection',
+        'Status da conexão',
+        accountId && phoneNumber ? 'OK' : 'Atenção',
+        accountId && phoneNumber
+          ? `Conta WaBlast conectada (${accountId}).`
+          : 'Conta WaBlast pendente de vinculação.',
+        checkedAt
+      ),
+      indicator(
+        'provider',
+        'Provedor',
+        'OK',
+        'WaBlast Partner API (Onboarding Integrado).',
+        checkedAt
+      ),
+      indicator(
+        'waba',
+        'WABA ID',
+        wabaId ? 'OK' : 'Atenção',
+        wabaId ? `WABA autorizada: ${wabaId}.` : 'WABA ID não informado.',
+        checkedAt
+      ),
+      indicator(
+        'phone_number',
+        'Número do WhatsApp',
+        phoneNumber ? 'OK' : 'Atenção',
+        phoneNumber
+          ? `Número ${phoneNumber} vinculado à conta WaBlast.`
+          : 'Número de telefone pendente de vinculação.',
+        checkedAt,
+        { display_phone_number: phoneNumber, verified_name: number?.verified_name || null }
+      ),
+      indicator(
+        'webhook_status',
+        'Status do Webhook',
+        latestWebhookEvent ? 'OK' : 'Atenção',
+        latestWebhookEvent
+          ? `Último evento recebido: ${latestWebhookEvent.event_type || 'evento WaBlast'}.`
+          : 'Aguardando primeiros eventos de webhook em tempo real.',
+        latestWebhookEvent?.created_at || checkedAt
+      ),
+      indicator(
+        'last_sync',
+        'Última sincronização',
+        'OK',
+        `Diagnóstico executado em ${new Date(checkedAt).toLocaleString('pt-BR')}.`,
+        checkedAt
+      )
+    ];
+
+    const pendencias = [];
+    pendingIf(pendencias, !accountId, 'Account ID do WaBlast não configurado.');
+    pendingIf(pendencias, !phoneNumber, 'Número do WhatsApp não vinculado à conta WaBlast.');
+
+    return {
+      ready: pendencias.length === 0,
+      provider: 'WABLAST',
+      summary: pendencias.length === 0
+        ? 'Integração WaBlast ativa e pronta para uso'
+        : 'Existem pendências na conexão WaBlast',
+      pending: pendencias,
+      checkedAt,
+      indicators
+    };
+  }
+
+  // ─── 2. DIAGNÓSTICO PARA PROVIDER YCLOUD ───────────────────────────────────
+  if (provider === 'YCLOUD') {
+    const number = Array.isArray(conta?.whatsapp_business_numbers)
+      ? conta.whatsapp_business_numbers.find(item => item?.principal && item?.status !== 'INATIVO') || conta.whatsapp_business_numbers[0]
+      : null;
+    const phoneNumber = number?.display_phone_number || number?.phone_number_id || '';
+    const hasApiKey = Boolean(conta?.ycloud_api_key);
+
+    const latestWebhookEvent = options.supabase
+      ? await createWhatsAppWebhookEventLogger(options.supabase).latestForTenant(conta?.tenant_id)
+      : null;
+
+    const indicators = [
+      indicator(
+        'connection',
+        'Status da conexão',
+        hasApiKey && phoneNumber ? 'OK' : 'Erro',
+        hasApiKey && phoneNumber
+          ? 'API Key e número configurados com sucesso.'
+          : 'API Key ou número ausente.',
+        checkedAt
+      ),
+      indicator(
+        'provider',
+        'Provedor',
+        'OK',
+        'YCloud WhatsApp API (v2).',
+        checkedAt
+      ),
+      indicator(
+        'phone_number',
+        'Número do WhatsApp',
+        phoneNumber ? 'OK' : 'Atenção',
+        phoneNumber
+          ? `Número ${phoneNumber} configurado para envio.`
+          : 'Número de telefone pendente.',
+        checkedAt
+      ),
+      indicator(
+        'webhook_status',
+        'Status do Webhook',
+        latestWebhookEvent ? 'OK' : 'Atenção',
+        latestWebhookEvent
+          ? `Último evento recebido: ${latestWebhookEvent.event_type || 'evento YCloud'}.`
+          : 'Aguardando primeiros eventos de webhook em tempo real.',
+        latestWebhookEvent?.created_at || checkedAt
+      )
+    ];
+
+    const pendencias = [];
+    pendingIf(pendencias, !hasApiKey, 'API Key do YCloud não configurada.');
+    pendingIf(pendencias, !phoneNumber, 'Número do WhatsApp não configurado no YCloud.');
+
+    return {
+      ready: pendencias.length === 0,
+      provider: 'YCLOUD',
+      summary: pendencias.length === 0
+        ? 'Integração YCloud ativa e pronta para envio'
+        : 'Existem pendências na conexão YCloud',
+      pending: pendencias,
+      checkedAt,
+      indicators
+    };
+  }
+
+  // ─── 3. DIAGNÓSTICO PARA PROVIDER META (FLUXO EXISTENTE INTACTO) ───────────
   const graph = createMetaGraphApiService();
   const accessToken = conta?.access_token || '';
   const businessId = conta?.business_manager_id || '';

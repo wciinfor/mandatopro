@@ -354,7 +354,13 @@ export default function WhatsAppBusinessOficial() {
                     <input
                       type="text"
                       disabled
-                      value={providerAtivo === 'YCLOUD' ? 'YCloud WhatsApp API (v2)' : 'Meta Cloud API (v21.0)'}
+                      value={
+                        providerAtivo === 'WABLAST'
+                          ? 'WaBlast Partner API (Onboarding Integrado)'
+                          : providerAtivo === 'YCLOUD'
+                            ? 'YCloud WhatsApp API (v2)'
+                            : 'Meta Cloud API (v21.0)'
+                      }
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700"
                     />
                   </div>

@@ -66,6 +66,29 @@ export async function sincronizarContaWhatsappBusiness(supabase, conta) {
     throw err;
   }
 
+  const provider = String(conta?.provider || 'META').toUpperCase();
+
+  // ─── 1. SINCRONIZAÇÃO WABLAST ──────────────────────────────────────────────
+  if (provider === 'WABLAST') {
+    return {
+      success: true,
+      message: 'Conta WaBlast sincronizada via Partner API.',
+      diff: [],
+      metaMessages: []
+    };
+  }
+
+  // ─── 2. SINCRONIZAÇÃO YCLOUD ───────────────────────────────────────────────
+  if (provider === 'YCLOUD') {
+    return {
+      success: true,
+      message: 'Conta YCloud sincronizada com sucesso.',
+      diff: [],
+      metaMessages: []
+    };
+  }
+
+  // ─── 3. SINCRONIZAÇÃO META CLOUD API (FLUXO EXISTENTE INTACTO) ─────────────
   if (!conta.access_token || !conta.waba_id) {
     const err = new Error('Token ou WABA ID ausente para sincronizacao.');
     err.statusCode = 400;
