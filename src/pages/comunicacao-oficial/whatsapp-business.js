@@ -11,7 +11,7 @@ import {
   faServer,
   faSpinner,
   faMobileAlt,
-  faRotate
+  faSyncAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { MODULES } from '@/utils/permissions';
 
@@ -372,7 +372,7 @@ export default function WhatsAppBusinessOficial() {
                               className="px-3 py-1.5 bg-white hover:bg-gray-100 border border-gray-200 text-teal-700 text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
                               title="Sincronizar dados da conta WaBlast"
                             >
-                              <FontAwesomeIcon icon={faRotate} className={`text-[10px] text-teal-600 ${loading ? 'animate-spin' : ''}`} />
+                              <FontAwesomeIcon icon={faSyncAlt} className={`text-[10px] text-teal-600 ${loading ? 'animate-spin' : ''}`} />
                               Sincronizar dados
                             </button>
                           ) : (
