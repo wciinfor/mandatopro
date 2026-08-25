@@ -23,9 +23,27 @@ function getAccessTokenFromCookie(req) {
   const ref = url.replace(/^https?:\/\//, '').split('.')[0];
   if (!ref) return '';
 
-  const cookieName = `sb-${ref}-auth-token`;
+  const cookieBaseName = `sb-${ref}-auth-token`;
   const cookies = parseCookies(req);
-  const raw = cookies[cookieName];
+
+  // 1. Tenta obter cookie único (não fragmentado)
+  let raw = cookies[cookieBaseName] || '';
+
+  // 2. Se não existir o cookie único, busca chunks ordenados (.0, .1, .2, ...)
+  if (!raw) {
+    const chunkKeys = Object.keys(cookies)
+      .filter(key => key.startsWith(`${cookieBaseName}.`))
+      .sort((a, b) => {
+        const idxA = parseInt(a.slice(cookieBaseName.length + 1), 10);
+        const idxB = parseInt(b.slice(cookieBaseName.length + 1), 10);
+        return idxA - idxB;
+      });
+
+    if (chunkKeys.length > 0) {
+      raw = chunkKeys.map(k => cookies[k]).join('');
+    }
+  }
+
   if (!raw) return '';
 
   const value = raw.startsWith('base64-') ? raw.slice('base64-'.length) : raw;
