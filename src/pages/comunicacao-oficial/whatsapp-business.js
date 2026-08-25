@@ -290,7 +290,16 @@ export default function WhatsAppBusinessOficial() {
 
                 {/* Opção WABLAST (Partner Onboarding) */}
                 <div
+                  onClick={() => {
+                    if (config?.availableProviders?.WABLAST || config?.provider === 'WABLAST') {
+                      handleTrocarProvedor('WABLAST');
+                    }
+                  }}
                   className={`p-5 rounded-xl border-2 transition relative md:col-span-2 ${
+                    config?.availableProviders?.WABLAST || config?.provider === 'WABLAST'
+                      ? 'cursor-pointer hover:border-gray-300'
+                      : ''
+                  } ${
                     providerAtivo === 'WABLAST'
                       ? 'border-teal-600 bg-teal-50/30 shadow-sm'
                       : 'border-gray-200 bg-gray-50/40'
@@ -298,6 +307,14 @@ export default function WhatsAppBusinessOficial() {
                 >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        name="provider_choice"
+                        checked={providerAtivo === 'WABLAST'}
+                        onChange={() => handleTrocarProvedor('WABLAST')}
+                        disabled={changing || (!config?.availableProviders?.WABLAST && config?.provider !== 'WABLAST')}
+                        className="w-4 h-4 text-teal-600 focus:ring-teal-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      />
                       <div className="p-2.5 bg-teal-100/60 text-teal-700 rounded-lg">
                         <FontAwesomeIcon icon={faMobileAlt} className="text-lg" />
                       </div>
@@ -309,29 +326,54 @@ export default function WhatsAppBusinessOficial() {
                               Ativo
                             </span>
                           )}
+                          {(config?.availableProviders?.WABLAST || config?.provider === 'WABLAST') && providerAtivo !== 'WABLAST' && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+                              Conectado
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-gray-500">Conexão simplificada e homologação WABA integrada</p>
                       </div>
                     </div>
+
                     <div>
-                      <button
-                        type="button"
-                        onClick={handleIniciarOnboardingWaBlast}
-                        disabled={iniciandoWablast || changing}
-                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-2 disabled:opacity-50"
-                      >
-                        {iniciandoWablast ? (
-                          <>
-                            <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
-                            Gerando sessão...
-                          </>
-                        ) : (
-                          <>
-                            <FontAwesomeIcon icon={faPlug} className="text-xs" />
-                            Conectar WABLAST
-                          </>
-                        )}
-                      </button>
+                      {config?.availableProviders?.WABLAST || config?.provider === 'WABLAST' ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleIniciarOnboardingWaBlast();
+                          }}
+                          disabled={iniciandoWablast || changing}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 disabled:opacity-50"
+                          title="Reconectar ou alterar número WaBlast"
+                        >
+                          <FontAwesomeIcon icon={faPlug} className="text-[10px] text-gray-500" />
+                          Reconectar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleIniciarOnboardingWaBlast();
+                          }}
+                          disabled={iniciandoWablast || changing}
+                          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                        >
+                          {iniciandoWablast ? (
+                            <>
+                              <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
+                              Gerando sessão...
+                            </>
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faPlug} className="text-xs" />
+                              Conectar WABLAST
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

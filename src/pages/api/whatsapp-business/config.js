@@ -29,6 +29,23 @@ export default async function handler(req, res) {
       const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
       const contaNormalizada = normalizarWhatsappAccount(conta);
 
+      const { data: todasContas } = await supabase
+        .from('whatsapp_business_accounts')
+        .select(`
+          id,
+          provider,
+          wablast_account_id,
+          access_token,
+          ycloud_api_key,
+          whatsapp_business_numbers (phone_number_id, display_phone_number, status)
+        `)
+        .eq('tenant_id', contaNormalizada.tenantId || usuario?.tenant_id || 1)
+        .eq('status', 'ATIVO');
+
+      const isMetaConnected = (todasContas || []).some(c => c.provider === 'META' && Boolean(c.access_token));
+      const isYCloudConnected = (todasContas || []).some(c => c.provider === 'YCLOUD' && Boolean(c.ycloud_api_key));
+      const isWablastConnected = (todasContas || []).some(c => c.provider === 'WABLAST' && Boolean(c.wablast_account_id));
+
       // Resposta estritamente segura sem expor tokens ou API Keys
       return res.status(200).json({
         success: true,
@@ -39,7 +56,12 @@ export default async function handler(req, res) {
         phoneNumberId: contaNormalizada.phoneNumberId || '',
         isConfigured: contaNormalizada.isConfigured || false,
         productionReady: contaNormalizada.productionReady || false,
-        isConnected: contaNormalizada.isConnected || false
+        isConnected: contaNormalizada.isConnected || false,
+        availableProviders: {
+          META: isMetaConnected,
+          YCLOUD: isYCloudConnected,
+          WABLAST: isWablastConnected
+        }
       });
     } catch (error) {
       console.error('[CONFIG API] Erro ao obter status:', error);

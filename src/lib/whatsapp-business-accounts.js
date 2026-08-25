@@ -27,6 +27,9 @@ export function normalizarWhatsappAccount(row) {
     ycloudApiKeyConfigured: Boolean(row?.ycloud_api_key),
     ycloudWebhookEndpointId: row?.ycloud_webhook_endpoint_id || '',
     ycloudWebhookSecretConfigured: Boolean(row?.ycloud_webhook_secret),
+    wablastAccountId: row?.wablast_account_id || '',
+    wablastExternalRef: row?.wablast_external_ref || '',
+    wablastWabaId: row?.wablast_waba_id || '',
     phoneNumberId: number?.phone_number_id || '',
     displayPhoneNumber: number?.display_phone_number || '',
     displayName: number?.display_name || '',
@@ -63,7 +66,10 @@ export function normalizarWhatsappAccount(row) {
       webhookValidationMessage: row?.webhook_validation_message || ''
     },
     isConfigured: Boolean(row?.production_ready),
-    isConnected: Boolean((row?.access_token || row?.ycloud_api_key) && number?.phone_number_id),
+    isConnected: Boolean(
+      ((row?.provider === 'WABLAST' ? row?.wablast_account_id : (row?.access_token || row?.ycloud_api_key))) && 
+      (number?.phone_number_id || number?.display_phone_number)
+    ),
     productionReady: Boolean(row?.production_ready),
     sync: {
       lastSyncedAt: row?.last_synced_at || null,
@@ -97,6 +103,9 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
       ycloud_api_key,
       ycloud_webhook_endpoint_id,
       ycloud_webhook_secret,
+      wablast_account_id,
+      wablast_external_ref,
+      wablast_waba_id,
       access_token,
       access_token_expires_at,
       access_token_obtained_at,
