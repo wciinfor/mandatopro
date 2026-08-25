@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -14,6 +15,7 @@ import {
 import { MODULES } from '@/utils/permissions';
 
 export default function WhatsAppBusinessOficial() {
+  const router = useRouter();
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [changing, setChanging] = useState(false);
@@ -21,8 +23,55 @@ export default function WhatsAppBusinessOficial() {
   const [mensagemStatus, setMensagemStatus] = useState(null);
 
   useEffect(() => {
-    carregarConfiguracao();
-  }, []);
+    if (!router.isReady) return;
+
+    if (router.query?.onboarding === 'wablast_complete') {
+      executarSincronizacaoWaBlast();
+    } else {
+      carregarConfiguracao();
+    }
+  }, [router.isReady, router.query]);
+
+  const executarSincronizacaoWaBlast = async () => {
+    try {
+      setLoading(true);
+      setMensagemStatus({
+        tipo: 'info',
+        texto: 'Verificando e sincronizando a conexão WhatsApp WaBlast...'
+      });
+
+      const res = await fetch('/api/whatsapp-business/wablast-sync');
+      const data = await res.json();
+
+      if (data?.status === 'COMPLETED') {
+        setMensagemStatus({
+          tipo: 'sucesso',
+          texto: 'WhatsApp WABLAST conectado com sucesso.'
+        });
+      } else if (data?.status === 'PENDING') {
+        setMensagemStatus({
+          tipo: 'info',
+          texto: 'O WhatsApp foi conectado, mas a confirmação da WaBlast ainda está sendo processada. Tente novamente em alguns instantes.'
+        });
+      } else if (data?.status === 'NO_SESSION') {
+        // Nenhuma sessão pendente, apenas carrega configuração
+        setMensagemStatus(null);
+      } else {
+        setMensagemStatus({
+          tipo: 'erro',
+          texto: 'Não foi possível sincronizar a conexão WABLAST.'
+        });
+      }
+    } catch (syncErr) {
+      console.error('Erro ao sincronizar retorno WaBlast:', syncErr);
+      setMensagemStatus({
+        tipo: 'erro',
+        texto: 'Não foi possível sincronizar a conexão WABLAST.'
+      });
+    } finally {
+      await carregarConfiguracao();
+    }
+  };
 
   const carregarConfiguracao = async () => {
     try {

@@ -51,13 +51,13 @@ export default async function handler(req, res) {
     try {
       const { provider } = req.body;
 
-      // Se for apenas alternar o provedor ativo (META / YCLOUD)
+      // Se for apenas alternar o provedor ativo (META / YCLOUD / WABLAST)
       if (provider) {
         const targetProvider = String(provider).toUpperCase();
-        if (!['META', 'YCLOUD'].includes(targetProvider)) {
+        if (!['META', 'YCLOUD', 'WABLAST'].includes(targetProvider)) {
           return res.status(400).json({
             success: false,
-            error: 'Provedor invalido. Escolha META ou YCLOUD'
+            error: 'Provedor invalido. Escolha META, YCLOUD ou WABLAST'
           });
         }
 

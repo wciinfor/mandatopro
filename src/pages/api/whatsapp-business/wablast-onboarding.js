@@ -53,6 +53,59 @@ export default async function handler(req, res) {
       redirectUri
     });
 
+    // Persiste a sessão no banco para permitir consulta/sincronização posterior
+    try {
+      const { data: contaExistente } = await supabase
+        .from('whatsapp_business_accounts')
+        .select('id, token_debug_metadata')
+        .eq('tenant_id', tenantId)
+        .eq('provider', 'WABLAST')
+        .maybeSingle();
+
+      const metadataAtual = (contaExistente?.token_debug_metadata && typeof contaExistente.token_debug_metadata === 'object')
+        ? contaExistente.token_debug_metadata
+        : {};
+
+      const metadataAtualizada = {
+        ...metadataAtual,
+        wablast_session: {
+          id: session.id,
+          external_ref: externalRef,
+          expires_at: session.expires_at || null,
+          created_at: new Date().toISOString(),
+          status: 'PENDING'
+        }
+      };
+
+      if (contaExistente?.id) {
+        await supabase
+          .from('whatsapp_business_accounts')
+          .update({
+            wablast_external_ref: externalRef,
+            token_debug_metadata: metadataAtualizada,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', contaExistente.id);
+      } else {
+        await supabase
+          .from('whatsapp_business_accounts')
+          .insert({
+            tenant_id: tenantId,
+            provider: 'WABLAST',
+            nome: 'WhatsApp Business WaBlast',
+            status: 'ATIVO',
+            principal: false,
+            production_ready: false,
+            wablast_external_ref: externalRef,
+            token_debug_metadata: metadataAtualizada,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+      }
+    } catch (saveSessionErr) {
+      console.warn('[WABLAST ONBOARDING] Falha ao persistir sessão localmente:', saveSessionErr.message);
+    }
+
     // Resposta estritamente segura para o frontend
     return res.status(200).json({
       success: true,

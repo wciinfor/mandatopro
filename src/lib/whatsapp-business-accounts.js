@@ -186,8 +186,8 @@ export async function alterarProvedorWhatsappAtivo(supabase, usuario, providerDe
   }
 
   const targetProvider = String(providerDesejado || '').toUpperCase();
-  if (!['META', 'YCLOUD'].includes(targetProvider)) {
-    const err = new Error('Provedor inválido. Escolha META ou YCLOUD');
+  if (!['META', 'YCLOUD', 'WABLAST'].includes(targetProvider)) {
+    const err = new Error('Provedor inválido. Escolha META, YCLOUD ou WABLAST');
     err.statusCode = 400;
     throw err;
   }
@@ -234,6 +234,17 @@ export async function alterarProvedorWhatsappAtivo(supabase, usuario, providerDe
     }
     if (!temNumero) {
       const err = new Error('Conta Meta Cloud API selecionada não possui número WhatsApp vinculado');
+      err.statusCode = 400;
+      throw err;
+    }
+  } else if (targetProvider === 'WABLAST') {
+    if (!contaAlvo.wablast_account_id) {
+      const err = new Error('Conta WaBlast selecionada não possui Account ID vinculado');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!temNumero) {
+      const err = new Error('Conta WaBlast selecionada não possui número WhatsApp vinculado');
       err.statusCode = 400;
       throw err;
     }
