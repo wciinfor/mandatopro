@@ -10,7 +10,8 @@ import {
   faTriangleExclamation,
   faServer,
   faSpinner,
-  faMobileAlt
+  faMobileAlt,
+  faRotate
 } from '@fortawesome/free-solid-svg-icons';
 import { MODULES } from '@/utils/permissions';
 
