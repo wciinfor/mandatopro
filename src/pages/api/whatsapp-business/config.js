@@ -35,16 +35,21 @@ export default async function handler(req, res) {
           id,
           provider,
           wablast_account_id,
+          wablast_waba_id,
+          token_debug_metadata,
           access_token,
           ycloud_api_key,
-          whatsapp_business_numbers (phone_number_id, display_phone_number, status)
+          whatsapp_business_numbers (phone_number_id, display_phone_number, verified_name, status)
         `)
         .eq('tenant_id', contaNormalizada.tenantId || usuario?.tenant_id || 1)
         .eq('status', 'ATIVO');
 
+      const contaWablastRaw = (todasContas || []).find(c => c.provider === 'WABLAST');
+      const numWablast = contaWablastRaw?.whatsapp_business_numbers?.find(n => n.status !== 'INATIVO') || contaWablastRaw?.whatsapp_business_numbers?.[0];
+      const isWablastConnected = Boolean(contaWablastRaw?.wablast_account_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.account_id);
+
       const isMetaConnected = (todasContas || []).some(c => c.provider === 'META' && Boolean(c.access_token));
       const isYCloudConnected = (todasContas || []).some(c => c.provider === 'YCLOUD' && Boolean(c.ycloud_api_key));
-      const isWablastConnected = (todasContas || []).some(c => c.provider === 'WABLAST' && Boolean(c.wablast_account_id));
 
       // Resposta estritamente segura sem expor tokens ou API Keys
       return res.status(200).json({
@@ -61,6 +66,13 @@ export default async function handler(req, res) {
           META: isMetaConnected,
           YCLOUD: isYCloudConnected,
           WABLAST: isWablastConnected
+        },
+        wablastDetails: {
+          connected: isWablastConnected,
+          accountId: contaWablastRaw?.wablast_account_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.account_id || null,
+          wabaId: contaWablastRaw?.wablast_waba_id || contaWablastRaw?.waba_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.waba_id || null,
+          phoneNumber: numWablast?.display_phone_number || numWablast?.phone_number_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.phone_number || null,
+          verifiedName: numWablast?.verified_name || null
         }
       });
     } catch (error) {
