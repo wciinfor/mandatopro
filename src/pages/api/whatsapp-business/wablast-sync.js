@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Tenant atual não identificado' });
     }
 
-    // 1. Localiza a conta WaBlast do tenant contendo a sessão persistida
+    // 1. Localiza a conta WaBlast do tenant
     const { data: contaWablast } = await supabase
       .from('whatsapp_business_accounts')
       .select('id, token_debug_metadata, wablast_account_id, wablast_waba_id, wablast_external_ref')
@@ -46,51 +46,94 @@ export default async function handler(req, res) {
       .eq('provider', 'WABLAST')
       .maybeSingle();
 
+    const client = createWaBlastApiService();
+
+    const existingAccountId = req.query?.account_id || req.body?.account_id || contaWablast?.wablast_account_id;
     const sessionId = req.query?.session_id || req.body?.session_id || contaWablast?.token_debug_metadata?.wablast_session?.id;
 
-    if (!sessionId) {
+    let accountId = existingAccountId || null;
+    let wabaId = contaWablast?.wablast_waba_id || null;
+    let rawPhone = null;
+    let phoneNumberId = null;
+    let displayName = 'Ação Social';
+    let externalRef = contaWablast?.wablast_external_ref || `tenant_${tenantId}`;
+
+    // CASO A: A conta já possui wablast_account_id -> consulta diretamente GET /v1/accounts/{accountId}
+    if (accountId) {
+      console.log(`[WABLAST SYNC] Sincronizando conta WaBlast existente: accountId=${accountId}`);
+      try {
+        const accountDetails = await client.getAccount(accountId);
+        console.log('[WABLAST SYNC] Detalhes da conta obtidos via getAccount:', JSON.stringify(accountDetails));
+
+        wabaId = accountDetails?.waba_id || accountDetails?.wabaId || accountDetails?.waba?.id || wabaId;
+        rawPhone = accountDetails?.phone_number || accountDetails?.display_phone_number || accountDetails?.phoneNumber || accountDetails?.phone || null;
+        phoneNumberId = accountDetails?.phone_number_id || accountDetails?.phoneNumberId || rawPhone || null;
+        displayName = accountDetails?.display_name || accountDetails?.verified_name || accountDetails?.name || displayName;
+        externalRef = accountDetails?.external_ref || externalRef;
+      } catch (accErr) {
+        console.error('[WABLAST SYNC] Erro ao consultar GET /v1/accounts:', accErr.message);
+        return res.status(200).json({
+          success: false,
+          status: 'ERROR',
+          error: accErr.message || 'Falha ao consultar detalhes da conta na WaBlast',
+          details: accErr.details || null
+        });
+      }
+    } else if (sessionId) {
+      // CASO B: A conta não possui account_id ainda, mas possui sessionId de onboarding pendente
+      let sessionData = null;
+      try {
+        sessionData = await client.getOnboardingSession(sessionId);
+      } catch (sessionErr) {
+        console.error('[WABLAST SYNC] Erro ao consultar sessão:', sessionErr.message, sessionErr.details || '');
+        return res.status(200).json({
+          success: false,
+          status: 'ERROR',
+          error: sessionErr.message || 'Falha ao consultar sessão na WaBlast',
+          details: sessionErr.details || null
+        });
+      }
+
+      const sessionStatus = String(sessionData?.status || '').toUpperCase();
+      const isCompleted = sessionStatus === 'COMPLETED' || sessionStatus === 'CONNECTED' || sessionStatus === 'SUCCESS' || Boolean(sessionData?.account_id);
+
+      if (!isCompleted) {
+        return res.status(200).json({
+          success: true,
+          status: 'PENDING',
+          session_status: sessionStatus,
+          message: 'A sessão de onboarding ainda está sendo processada pela WaBlast/Meta'
+        });
+      }
+
+      accountId = sessionData.account_id || sessionData.id;
+      wabaId = sessionData.waba_id || null;
+      rawPhone = sessionData.phone_number || sessionData.display_phone_number || null;
+      phoneNumberId = sessionData.phone_number_id || rawPhone || null;
+      displayName = sessionData.display_name || sessionData.verified_name || displayName;
+      externalRef = sessionData.external_ref || externalRef;
+
+      // Se a sessão não retornou os dados de WABA ou número, consulta os detalhes da conta na WaBlast
+      if (accountId && (!wabaId || !rawPhone)) {
+        try {
+          const accountDetails = await client.getAccount(accountId);
+          console.log('[WABLAST SYNC] Detalhes da conta obtidos via getAccount:', JSON.stringify(accountDetails));
+
+          wabaId = wabaId || accountDetails?.waba_id || accountDetails?.wabaId || accountDetails?.waba?.id || null;
+          rawPhone = rawPhone || accountDetails?.phone_number || accountDetails?.display_phone_number || accountDetails?.phoneNumber || accountDetails?.phone || null;
+          phoneNumberId = phoneNumberId || accountDetails?.phone_number_id || accountDetails?.phoneNumberId || rawPhone || null;
+          displayName = accountDetails?.display_name || accountDetails?.verified_name || accountDetails?.name || displayName;
+        } catch (accErr) {
+          console.warn('[WABLAST SYNC] Não foi possível obter detalhes complementares via getAccount:', accErr.message);
+        }
+      }
+    } else {
       return res.status(200).json({
         success: true,
         status: 'NO_SESSION',
-        message: 'Nenhuma sessão de onboarding pendente para este tenant'
+        message: 'Nenhuma conta ou sessão WaBlast identificada para sincronização'
       });
     }
-
-    const client = createWaBlastApiService();
-    let sessionData = null;
-
-    try {
-      sessionData = await client.getOnboardingSession(sessionId);
-    } catch (sessionErr) {
-      console.error('[WABLAST SYNC] Erro ao consultar sessão:', sessionErr.message, sessionErr.details || '');
-      return res.status(200).json({
-        success: false,
-        status: 'ERROR',
-        error: sessionErr.message || 'Falha ao consultar sessão na WaBlast',
-        details: sessionErr.details || null
-      });
-    }
-
-    const sessionStatus = String(sessionData?.status || '').toUpperCase();
-    const isCompleted = sessionStatus === 'COMPLETED' || sessionStatus === 'CONNECTED' || sessionStatus === 'SUCCESS' || Boolean(sessionData?.account_id);
-
-    // Se ainda estiver pendente
-    if (!isCompleted) {
-      return res.status(200).json({
-        success: true,
-        status: 'PENDING',
-        session_status: sessionStatus,
-        message: 'A sessão de onboarding ainda está sendo processada pela WaBlast/Meta'
-      });
-    }
-
-    // 2. Extrai campos oficiais retornados pela API WaBlast
-    const accountId = sessionData.account_id || sessionData.id;
-    const wabaId = sessionData.waba_id || null;
-    const rawPhone = sessionData.phone_number || sessionData.display_phone_number || null;
-    const phoneNumberId = sessionData.phone_number_id || rawPhone || null;
-    const displayName = sessionData.display_name || sessionData.verified_name || 'Ação Social';
-    const externalRef = sessionData.external_ref || `tenant_${tenantId}`;
 
     const metadataAtual = (contaWablast?.token_debug_metadata && typeof contaWablast.token_debug_metadata === 'object')
       ? contaWablast.token_debug_metadata
@@ -117,7 +160,7 @@ export default async function handler(req, res) {
       wablast_external_ref: externalRef,
       waba_id: wabaId || undefined,
       phone_validated: Boolean(phoneNumberId),
-      production_ready: Boolean(accountId),
+      production_ready: Boolean(accountId && phoneNumberId),
       token_debug_metadata: metadataAtualizada,
       updated_at: new Date().toISOString()
     };

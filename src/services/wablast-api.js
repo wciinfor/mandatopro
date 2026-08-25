@@ -140,6 +140,22 @@ export default class WaBlastApiService {
   }
 
   /**
+   * Obtém detalhes e números de uma conta conectada
+   * GET /v1/accounts/{id}
+   * 
+   * @param {string} accountId - ID da conta WaBlast
+   */
+  async getAccount(accountId) {
+    if (!accountId) {
+      throw new Error('WaBlastApiService.getAccount: accountId é obrigatório');
+    }
+
+    return this.request(`/v1/accounts/${encodeURIComponent(accountId)}`, {
+      method: 'GET'
+    });
+  }
+
+  /**
    * Registra um domínio permitido para redirecionamento no onboarding
    * POST /v1/onboarding/domains
    * 

@@ -365,14 +365,14 @@ export default function WhatsAppBusinessOficial() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleIniciarOnboardingWaBlast();
+                                executarSincronizacaoWaBlast();
                               }}
-                              disabled={iniciandoWablast || changing}
-                              className="px-3 py-1.5 bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
-                              title="Reconectar ou alterar número WaBlast"
+                              disabled={loading || changing}
+                              className="px-3 py-1.5 bg-white hover:bg-gray-100 border border-gray-200 text-teal-700 text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                              title="Sincronizar dados da conta WaBlast"
                             >
-                              <FontAwesomeIcon icon={faPlug} className="text-[10px] text-teal-600" />
-                              Reconectar
+                              <FontAwesomeIcon icon={faRotate} className={`text-[10px] text-teal-600 ${loading ? 'animate-spin' : ''}`} />
+                              Sincronizar dados
                             </button>
                           ) : (
                             <button
