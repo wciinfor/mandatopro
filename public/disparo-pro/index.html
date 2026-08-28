@@ -430,8 +430,8 @@
                             </div>
                             <div class="card-body">
 
-                                <!-- Intervalos e IA -->
-                                <div class="card mb-4">
+                                <!-- Intervalos e IA (Ocultado para fluxo oficial / reservado para instâncias não-oficiais futuras) -->
+                                <div class="card mb-4" id="cardIntervalosIA" style="display: none;">
                                     <div class="card-header">
                                         <h6 class="mb-0"><i class="bi bi-clock me-2"></i>Intervalos e Inteligência
                                             Artificial</h6>
@@ -443,7 +443,7 @@
                                                     <i class="bi bi-clock me-1"></i>Intervalo Mínimo (segundos)
                                                 </label>
                                                 <input type="number" class="form-control" id="minInterval" value="30"
-                                                    min="30" required>
+                                                    min="1" required>
                                                 <small class="text-muted">Tempo mínimo entre envios</small>
                                             </div>
                                             <div class="col-md-4">
@@ -451,12 +451,7 @@
                                                     <i class="bi bi-clock-history me-1"></i>Intervalo Máximo (segundos)
                                                 </label>
                                                 <input type="number" class="form-control" id="maxInterval" value="50"
-                                                    min="50" required>
-
-
-
-
-
+                                                    min="1" required>
                                                 <small class="text-muted">Tempo máximo entre envios</small>
                                             </div>
                                             <div class="col-md-4">
@@ -464,8 +459,8 @@
                                                     <i class="bi bi-robot me-1"></i>Usar IA para Variações?
                                                 </label>
                                                 <select class="form-control" id="ia">
-                                                    <option value="1">Sim</option>
                                                     <option value="0">Não</option>
+                                                    <option value="1">Sim</option>
                                                 </select>
                                                 <small class="text-muted">IA criará variações do texto</small>
                                             </div>

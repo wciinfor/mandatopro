@@ -3,6 +3,62 @@ import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/w
 import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
 
 /**
+ * Extrai, valida e formata os parâmetros das variáveis do template de forma dinâmica.
+ * Suporta sequências numéricas {{1}}, {{2}}, {{3}}... em ordem crescente estrita.
+ * Valida a presença de valor em todas as variáveis obrigatórias.
+ */
+function extrairEValidarParametrosTemplate(variaveisMapeadas = {}) {
+  const chavesNumericas = Object.keys(variaveisMapeadas)
+    .filter(k => /^\d+$/.test(k))
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  const nomeContato = String(variaveisMapeadas?.nome || '').trim();
+
+  // Caso 1: Existem variáveis numéricas explícitas ('1', '2', '3'...)
+  if (chavesNumericas.length > 0) {
+    const maxIndice = Math.max(...chavesNumericas);
+    const parameters = [];
+
+    for (let i = 1; i <= maxIndice; i++) {
+      let rawVal = variaveisMapeadas[String(i)] ?? variaveisMapeadas[i];
+
+      // Se a variável 1 estiver vazia, mas houver o nome do contato, utiliza o nome
+      if ((rawVal === undefined || rawVal === null || String(rawVal).trim() === '') && i === 1 && nomeContato) {
+        rawVal = nomeContato;
+      }
+
+      const valStr = String(rawVal !== undefined && rawVal !== null ? rawVal : '').trim();
+      const valorFinal = valStr.replace(/\{nome\}/gi, nomeContato || 'Contato').trim();
+
+      if (!valorFinal) {
+        throw new Error(`Variável obrigatória {{${i}}} do template não possui valor preenchido.`);
+      }
+
+      parameters.push({
+        type: 'text',
+        text: valorFinal
+      });
+    }
+
+    return parameters;
+  }
+
+  // Caso 2: Não há variáveis numéricas configuradas, mas há o campo 'nome'
+  if (nomeContato) {
+    return [
+      {
+        type: 'text',
+        text: nomeContato
+      }
+    ];
+  }
+
+  // Caso 3: Template sem variáveis
+  return [];
+}
+
+/**
  * API Handler para processamento assíncrono em lote da fila de disparos oficiais (communication_campaign_items).
  * Consome contatos pendentes, sinaliza envio na Graph API, grava status na fila e incrementa totais da campanha.
  */
@@ -11,19 +67,24 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { limite = 10 } = req.body || {};
+  const { limite = 10, campaign_id = null } = req.body || {};
 
   try {
     const supabase = createServerClient();
 
     // 1. Busca os próximos IDs pendentes da fila de disparos (communication_campaign_items)
     // Apenas campanhas que estão "Na Fila" ou "Executando" devem ter seus itens consumidos.
-    const { data: pendentes, error: errSelect } = await supabase
+    let queryPendentes = supabase
       .from('communication_campaign_items')
       .select('id, communication_campaigns!inner(status)')
       .eq('status', 'pendente')
-      .in('communication_campaigns.status', ['Na Fila', 'Executando', 'processando'])
-      .limit(limite);
+      .in('communication_campaigns.status', ['Na Fila', 'Executando', 'processando']);
+
+    if (campaign_id) {
+      queryPendentes = queryPendentes.eq('campaign_id', campaign_id);
+    }
+
+    const { data: pendentes, error: errSelect } = await queryPendentes.limit(limite);
 
     if (errSelect) throw errSelect;
 
@@ -92,7 +153,18 @@ export default async function handler(req, res) {
         const templateNome = campanha.communication_templates?.nome || item.template_id || 'default';
         const destinatarioNome = item.variaveis_mapeadas?.nome || 'Eleitor';
 
-        // 5.1 Localiza ou cria a conversa na Central de Atendimento
+        // 5.1 Valida e monta dinamicamente os parâmetros do template ({{1}}, {{2}}, {{3}}...)
+        const parameters = extrairEValidarParametrosTemplate(item.variaveis_mapeadas);
+        const components = parameters.length > 0
+          ? [
+              {
+                type: 'body',
+                parameters: parameters
+              }
+            ]
+          : [];
+
+        // 5.2 Localiza ou cria a conversa na Central de Atendimento
         let { data: conversa } = await supabase
           .from('communication_conversations')
           .select('id')
@@ -125,18 +197,14 @@ export default async function handler(req, res) {
           recipient: item.contact_id,
           templateName: templateNome,
           idiomaCode: 'pt_BR',
-          components: [
-            {
-              type: 'body',
-              parameters: [
-                { type: 'text', text: destinatarioNome }
-              ]
-            }
-          ]
+          components: components
         });
 
         const wamid = resProvider?.id || resProvider?.messages?.[0]?.id || `wamid-cron-${Date.now()}`;
-        const textoMensagem = `[Disparo Oficial Template: ${templateNome}] Olá ${destinatarioNome}`;
+        const textoParametros = parameters.map((p, idx) => `{{${idx + 1}}}=${p.text}`).join(', ');
+        const textoMensagem = textoParametros
+          ? `[Disparo Oficial Template: ${templateNome}] ${textoParametros}`
+          : `[Disparo Oficial Template: ${templateNome}] Olá ${destinatarioNome}`;
 
         // 6.1 Registra a mensagem de saída na Central de Atendimento
         await supabase

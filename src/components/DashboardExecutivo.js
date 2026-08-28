@@ -10,11 +10,14 @@ import {
   faClock,
   faInbox,
   faUserClock,
-  faUserTie
+  faUserTie,
+  faLightbulb
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { DashboardCampaignService } from '@/services/dashboardCampaignService';
 import { DashboardAttendanceService } from '@/services/dashboardAttendanceService';
+import { InsightCard } from '@/components/InsightCard';
+import { InsightsComunicacaoService } from '@/services/insightsComunicacaoService';
 
 // Mocks de dados consolidados locais para o Dashboard Executivo (Removido os mocks de atendimento)
 const CHART_DIARIO_ENVIO = [
@@ -56,6 +59,15 @@ export default function DashboardExecutivo() {
     conversasAbertas: 0,
     conversasAguardando: 0,
     tempoMedioResposta: '0m 00s'
+  });
+
+  const [insights] = useState(() => {
+    const dadosAnalise = {
+      campanhas: [{ id: '1', nome: 'Informativo Obras Verão', total_destinatarios: 450, entregues: 380 }],
+      templates: [{ nome: 'convite_gabinete_bairro', taxaLeitura: 84.5 }],
+      operadores: [{ id: '1', nome: 'Fernanda Costa', minutosResposta: 18 }]
+    };
+    return InsightsComunicacaoService.gerarInsightsLocais(dadosAnalise);
   });
 
   const carregarMétricasCampanhas = async () => {
@@ -262,6 +274,29 @@ export default function DashboardExecutivo() {
           </div>
         </div>
 
+      </div>
+
+      {/* Insights e Recomendações Automáticas Incorporadas */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon icon={faLightbulb} className="text-amber-500" />
+            <h4 className="font-bold text-sm text-gray-800">Insights & Recomendações do Canal</h4>
+          </div>
+          <span className="text-[10px] uppercase font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100">
+            Diagnóstico Automático
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {insights.length > 0 ? (
+            insights.map((ins) => (
+              <InsightCard key={ins.id} insight={ins} />
+            ))
+          ) : (
+            <p className="text-xs text-gray-400 py-4 col-span-2 text-center">Nenhum insight operacional pendente.</p>
+          )}
+        </div>
       </div>
 
     </div>

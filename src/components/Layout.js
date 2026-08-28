@@ -36,21 +36,16 @@ function obterModuloAtivo(path = '') {
   if (path.startsWith('/financeiro/doadores')) return 'Financeiro - Doadores / Parceiros';
   if (path.startsWith('/financeiro/relatorios')) return 'Financeiro - Relatórios';
   if (path.startsWith('/geolocalizacao')) return 'Geolocalização';
-  if (path.startsWith('/comunicacao-oficial/dashboard')) return 'Comunicação - Dashboard Oficial';
-  if (path.startsWith('/comunicacao-oficial/central-atendimento')) return 'Comunicação - Central de Atendimento';
-  if (path.startsWith('/comunicacao-oficial/contatos')) return 'Comunicação - Contatos Oficiais';
-  if (path.startsWith('/comunicacao-oficial/publicos')) return 'Comunicação - Públicos Oficiais';
-  if (path.startsWith('/comunicacao-oficial/campanhas')) return 'Comunicação - Campanhas Oficiais';
+  if (path.startsWith('/comunicacao-oficial/dashboard')) return 'Comunicação - Dashboard';
+  if (path.startsWith('/comunicacao-oficial/publicos') || path.startsWith('/comunicacao-oficial/contatos')) return 'Comunicação - Públicos';
+  if (path.startsWith('/comunicacao-oficial/campanhas')) return 'Comunicação - Disparos Oficiais';
   if (path.startsWith('/comunicacao-oficial/templates')) return 'Comunicação - Templates Oficiais';
   if (path.startsWith('/comunicacao-oficial/whatsapp-business')) return 'Comunicação - WhatsApp Business Oficial';
-  if (path.startsWith('/comunicacao-oficial/insights')) return 'Comunicação - Insights Oficiais';
+  if (path.startsWith('/comunicacao-oficial/central-atendimento') || path.startsWith('/atendimento-connect')) return 'Comunicação - Central de Atendimento';
+  if (path.startsWith('/comunicacao-oficial/insights')) return 'Comunicação - Dashboard';
   if (path.startsWith('/comunicacao')) return 'Notificações';
   if (path.startsWith('/configuracoes')) return 'Configurações';
-  if (path.startsWith('/disparos')) {
-    const section = new URLSearchParams(path.split('?')[1] || '').get('section') || 'dashboard';
-    return `Mandato Connect - ${sectionLabels[section] || 'Dashboard'}`;
-  }
-  if (path.startsWith('/atendimento-connect')) return 'Atendimento Connect';
+  if (path.startsWith('/disparos')) return 'Comunicação - Disparos Oficiais';
   return 'Dashboard';
 }
 

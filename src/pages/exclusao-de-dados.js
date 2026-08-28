@@ -1,3 +1,4 @@
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,10 +9,14 @@ import {
   faCheckCircle,
   faListCheck,
   faShieldHalved,
-  faArrowLeft
+  faArrowLeft,
+  faClock
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function ExclusaoDeDados() {
+  const router = useRouter();
+  const { code } = router.query;
+
   return (
     <>
       <Head>
@@ -63,6 +68,24 @@ export default function ExclusaoDeDados() {
 
         {/* Conteúdo Principal */}
         <main className="flex-1 max-w-4xl mx-auto px-4 py-12 space-y-8">
+          {code && (
+            <div className="bg-emerald-950/80 border-2 border-emerald-500/60 rounded-2xl p-6 md:p-8 space-y-3 shadow-2xl">
+              <div className="flex items-center gap-3 text-emerald-400 font-bold text-lg">
+                <FontAwesomeIcon icon={faClock} />
+                Solicitação Recebida via Meta (Facebook / WhatsApp)
+              </div>
+              <p className="text-emerald-100 text-sm leading-relaxed">
+                Sua solicitação de exclusão foi registrada com sucesso sob o protocolo de rastreamento:
+              </p>
+              <div className="p-3 bg-slate-900/90 rounded-xl border border-emerald-500/40 text-emerald-300 font-mono font-bold text-base inline-block">
+                {String(code)}
+              </div>
+              <p className="text-slate-300 text-xs mt-2">
+                Status atual: <span className="text-amber-400 font-semibold">Em Processamento / Aguardando Identificação</span>. Nossos encarregados de privacidade irão validar o escopo dos dados e concluir a eliminação em conformidade com as normas regulatórias.
+              </p>
+            </div>
+          )}
+
           {/* Seção Destacada Obrigatória Meta */}
           <div className="bg-teal-950/60 border-2 border-teal-500/40 rounded-2xl p-6 md:p-8 space-y-4 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-32 h-32 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />

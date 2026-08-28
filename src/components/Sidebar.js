@@ -62,37 +62,14 @@ const modulosBase = [
     nome: 'Comunicação',
     icone: faPaperPlane,
     submenu: [
-      'Dashboard Oficial',
-      'Central de Atendimento',
-      'Contatos Oficiais',
-      'Públicos Oficiais',
-      'Comunicações Oficiais',
+      'Dashboard',
+      'Públicos',
+      'Disparos Oficiais',
       'Templates Oficiais',
       'WhatsApp Business Oficial',
-      'Insights Oficiais'
+      'Central de Atendimento'
     ],
     rota: '/comunicacao-oficial/dashboard'
-  },
-  {
-    nome: 'Mandato Connect',
-    icone: faPaperPlane,
-    submenu: [
-      'Dashboard',
-      'Contatos',
-      'Instâncias',
-      'Configurações',
-      'Editar Campanha',
-      'Progresso',
-      'Resultados',
-      'Histórico'
-    ],
-    rota: '/disparos'
-  },
-  {
-    nome: 'Atendimento Connect',
-    icone: faHeadset,
-    submenu: [],
-    rota: '/atendimento-connect'
   },
   {
     nome: 'Agenda',
@@ -165,23 +142,26 @@ const routeMap = {
   'Dados do Sistema': '/configuracoes/sistema#dados',
   IA: '/configuracoes/sistema#ia',
 
-  'Comunicação - Dashboard Oficial': '/comunicacao-oficial/dashboard',
-  'Comunicação - Central de Atendimento': '/comunicacao-oficial/central-atendimento',
-  'Comunicação - Contatos Oficiais': '/comunicacao-oficial/contatos',
-  'Comunicação - Públicos Oficiais': '/comunicacao-oficial/publicos',
-  'Comunicação - Comunicações Oficiais': '/comunicacao-oficial/campanhas',
+  'Comunicação - Dashboard': '/comunicacao-oficial/dashboard',
+  'Comunicação - Públicos': '/comunicacao-oficial/publicos',
+  'Comunicação - Disparos Oficiais': '/comunicacao-oficial/campanhas',
   'Comunicação - Templates Oficiais': '/comunicacao-oficial/templates',
   'Comunicação - WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
-  'Comunicação - Insights Oficiais': '/comunicacao-oficial/insights',
+  'Comunicação - Central de Atendimento': '/atendimento-connect',
 
-  'Mandato Connect - Dashboard': '/disparos?section=dashboard',
-  'Mandato Connect - Contatos': '/disparos?section=contatos',
-  'Mandato Connect - Instâncias': '/disparos?section=instancias',
-  'Mandato Connect - Configurações': '/disparos?section=configuracoes',
-  'Mandato Connect - Editar Campanha': '/disparos?section=campanha',
-  'Mandato Connect - Progresso': '/disparos?section=progresso',
-  'Mandato Connect - Resultados': '/disparos?section=resultados',
-  'Mandato Connect - Histórico': '/disparos?section=historico'
+  // Alias para retrocompatibilidade
+  'Dashboard': '/comunicacao-oficial/dashboard',
+  'Públicos': '/comunicacao-oficial/publicos',
+  'Disparos Oficiais': '/comunicacao-oficial/campanhas',
+  'Central de Atendimento': '/atendimento-connect',
+  'Dashboard Oficial': '/comunicacao-oficial/dashboard',
+  'Comunicação - Dashboard Oficial': '/comunicacao-oficial/dashboard',
+  'Comunicação - Contatos Oficiais': '/comunicacao-oficial/publicos',
+  'Comunicação - Públicos Oficiais': '/comunicacao-oficial/publicos',
+  'Comunicação - Comunicações Oficiais': '/comunicacao-oficial/campanhas',
+  'Comunicação - Insights Oficiais': '/comunicacao-oficial/dashboard',
+  'Atendimento Connect': '/atendimento-connect',
+  'Mandato Connect': '/comunicacao-oficial/campanhas'
 };
 
 function obterMenusAbertosIniciais(moduloAtivo) {
@@ -250,10 +230,10 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
   const modulos = modulosBase
     .filter((modulo) => {
       if (nivelUsuario === 'ATENDENTE_CONNECT' || nivelUsuario === 'ANALISTA_META') {
-        return ['Atendimento Connect'].includes(modulo.nome);
+        return ['Comunicação'].includes(modulo.nome);
       }
       if (nivelUsuario === 'SUPERVISOR_CONNECT') {
-        return ['Mandato Connect', 'Atendimento Connect'].includes(modulo.nome);
+        return ['Comunicação'].includes(modulo.nome);
       }
       if (nivelUsuario === 'OPERADOR') {
         return ['Dashboard', 'Cadastros', 'Geolocalização'].includes(modulo.nome);
@@ -266,6 +246,11 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     .map((modulo) => {
       if (modulo.nome === 'Cadastros' && nivelUsuario !== 'ADMINISTRADOR') {
         return { ...modulo, submenu: modulo.submenu.filter(s => ['Eleitores', 'Atendimentos'].includes(s)) };
+      }
+      if (modulo.nome === 'Comunicação') {
+        if (nivelUsuario === 'ATENDENTE_CONNECT' || nivelUsuario === 'ANALISTA_META') {
+          return { ...modulo, submenu: ['Central de Atendimento'] };
+        }
       }
       return modulo;
     });

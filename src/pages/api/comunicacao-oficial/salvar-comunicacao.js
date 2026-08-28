@@ -147,6 +147,7 @@ export default async function handler(req, res) {
 
     // 4. Se houver lista de destinatários associada, insere em lote na fila de disparos (communication_campaign_items)
     if (Array.isArray(body.destinatarios) && body.destinatarios.length > 0) {
+      const variaveisConfig = (body.variaveis && typeof body.variaveis === 'object') ? body.variaveis : {};
       const itemsPayload = body.destinatarios.map(d => ({
         tenant_id: tenantId,
         campaign_id: campanhaCriada.id,
@@ -155,7 +156,8 @@ export default async function handler(req, res) {
         status: 'pendente',
         variaveis_mapeadas: {
           nome: d.nome || 'Contato',
-          eleitor_id: body.origemDestinatarios === 'campanha_politica' ? (d.id || null) : null
+          eleitor_id: body.origemDestinatarios === 'campanha_politica' ? (d.id || null) : null,
+          ...variaveisConfig
         }
       }));
 

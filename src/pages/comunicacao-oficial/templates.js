@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -41,12 +41,34 @@ export default function TemplatesOficiaisPage() {
   const [busca, setBusca] = useState('');
   const [sincronizando, setSincronizando] = useState(false);
 
-  const handleSincronizar = () => {
+  const carregarTemplatesReais = async () => {
+    try {
+      const res = await fetch('/api/whatsapp-business/templates');
+      if (res.ok) {
+        const body = await res.json();
+        const lista = body?.data || body?.templates || (Array.isArray(body) ? body : []);
+        if (lista.length > 0) {
+          setTemplates(lista);
+        }
+      }
+    } catch (err) {
+      console.warn('Usando lista local de templates:', err);
+    }
+  };
+
+  useEffect(() => {
+    carregarTemplatesReais();
+  }, []);
+
+  const handleSincronizar = async () => {
     setSincronizando(true);
-    setTimeout(() => {
-      setSincronizando(false);
-      alert('Templates oficiais sincronizados com sucesso com o Meta Business Suite!');
-    }, 1500);
+    try {
+      await carregarTemplatesReais();
+    } finally {
+      setTimeout(() => {
+        setSincronizando(false);
+      }, 800);
+    }
   };
 
   const filtrarTemplates = templates.filter((t) => 

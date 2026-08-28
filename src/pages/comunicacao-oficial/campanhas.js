@@ -55,11 +55,11 @@ export default function CampanhasOficiaisPage() {
 
   return (
     <ProtectedRoute>
-      <Layout titulo="Comunicações - WhatsApp Cloud API Oficial">
+      <Layout titulo="Disparos Oficiais - WhatsApp Cloud API Oficial">
         {criando ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-teal-100/50">
-              <h3 className="font-bold text-gray-800 text-sm">Criar Nova Comunicação de Transmissão Oficial</h3>
+              <h3 className="font-bold text-gray-800 text-sm">Criar Novo Disparo Oficial (Transmissão em Massa)</h3>
             </div>
             <AssistenteCampanha
               onCancel={() => setCriando(false)}
@@ -71,9 +71,9 @@ export default function CampanhasOficiaisPage() {
             {/* Cabeçalho */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-6 shadow-sm border border-teal-100/50 gap-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-800">Comunicações de Disparos</h3>
+                <h3 className="text-xl font-bold text-gray-800">Disparos Oficiais & Histórico</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Monitore e gerencie disparos em massa utilizando templates de mensagens HSM homologados.
+                  Gerencie transmissões ativas, crie novos envios e consulte o histórico detalhado de entregas e leituras.
                 </p>
               </div>
               <div>
@@ -82,7 +82,7 @@ export default function CampanhasOficiaisPage() {
                   className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center gap-2 shadow-sm"
                 >
                   <FontAwesomeIcon icon={faPlus} />
-                  Nova Comunicação
+                  Novo Disparo Oficial
                 </button>
               </div>
             </div>

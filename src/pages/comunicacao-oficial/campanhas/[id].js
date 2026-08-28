@@ -11,7 +11,10 @@ import {
   faTimesCircle,
   faClock,
   faSpinner,
-  faList
+  faList,
+  faPaperPlane,
+  faExclamationTriangle,
+  faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DetalhesComunicacaoPage() {
@@ -26,6 +29,10 @@ export default function DetalhesComunicacaoPage() {
   const [buscaDestinatario, setBuscaDestinatario] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('all');
   const [abaAtiva, setAbaAtiva] = useState('destinatarios');
+
+  const [modalConfirmacao, setModalConfirmacao] = useState(false);
+  const [disparando, setDisparando] = useState(false);
+  const [mensagemFeedback, setMensagemFeedback] = useState(null);
 
   const carregarDetalhes = async (campanhaId) => {
     try {
@@ -68,6 +75,48 @@ export default function DetalhesComunicacaoPage() {
       }
     } catch (err) {
       console.error('Erro ao executar ação operacional:', err);
+    }
+  };
+
+  const handleIniciarDisparo = async () => {
+    if (disparando) return;
+    setDisparando(true);
+    setMensagemFeedback(null);
+    try {
+      const res = await fetch('/api/comunicacao-oficial/fila/processar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limite: 50, campaign_id: id })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.processados > 0) {
+          setMensagemFeedback({
+            tipo: 'sucesso',
+            texto: `Disparo processado com sucesso! ${data.sucessos || 0} enviados, ${data.falhas || 0} falhas.`
+          });
+        } else {
+          setMensagemFeedback({
+            tipo: 'info',
+            texto: data.mensagem || 'Nenhum item pendente para processamento nesta campanha.'
+          });
+        }
+      } else {
+        setMensagemFeedback({
+          tipo: 'erro',
+          texto: data.error || 'Erro ao processar fila de disparos.'
+        });
+      }
+      await carregarDetalhes(id);
+    } catch (err) {
+      console.error('Erro ao acionar processamento da fila:', err);
+      setMensagemFeedback({
+        tipo: 'erro',
+        texto: err.message || 'Falha na comunicação com o servidor de disparos.'
+      });
+    } finally {
+      setDisparando(false);
+      setModalConfirmacao(false);
     }
   };
 
@@ -122,6 +171,7 @@ export default function DetalhesComunicacaoPage() {
     );
   }
 
+  const mostrarIniciar = ['Na Fila', 'agendado'].includes(campanha.status);
   const mostrarPausar = ['Na Fila', 'Executando', 'processando'].includes(campanha.status);
   const mostrarRetomar = campanha.status === 'Pausada';
   const mostrarCancelar = ['Na Fila', 'Executando', 'processando', 'Pausada'].includes(campanha.status);
@@ -139,11 +189,23 @@ export default function DetalhesComunicacaoPage() {
             >
               <FontAwesomeIcon icon={faArrowLeft} /> Voltar para Comunicações
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium">Status da Fila:</span>
                 {getStatusBadge(campanha.status)}
               </div>
+
+              {mostrarIniciar && (
+                <button
+                  onClick={() => setModalConfirmacao(true)}
+                  disabled={disparando}
+                  className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <FontAwesomeIcon icon={disparando ? faSpinner : faPaperPlane} className={disparando ? 'animate-spin' : ''} />
+                  {disparando ? 'Enviando...' : 'Iniciar Disparo'}
+                </button>
+              )}
+
               {(mostrarPausar || mostrarRetomar || mostrarCancelar) && (
                 <div className="flex items-center gap-2 border-l border-gray-100 pl-3">
                   {mostrarPausar && (
@@ -174,6 +236,92 @@ export default function DetalhesComunicacaoPage() {
               )}
             </div>
           </div>
+
+          {/* Banner de Feedback Operacional */}
+          {mensagemFeedback && (
+            <div className={`p-4 rounded-2xl border text-xs flex items-center justify-between shadow-xs ${
+              mensagemFeedback.tipo === 'sucesso'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : mensagemFeedback.tipo === 'erro'
+                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                : 'bg-blue-50 border-blue-200 text-blue-800'
+            }`}>
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={
+                  mensagemFeedback.tipo === 'sucesso'
+                    ? faCheckCircle
+                    : mensagemFeedback.tipo === 'erro'
+                    ? faTimesCircle
+                    : faInfoCircle
+                } />
+                <span className="font-semibold">{mensagemFeedback.texto}</span>
+              </div>
+              <button
+                onClick={() => setMensagemFeedback(null)}
+                className="text-gray-400 hover:text-gray-600 font-bold ml-4"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Modal de Confirmação para Iniciar Disparo Oficial */}
+          {modalConfirmacao && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-100 space-y-4 animate-in fade-in zoom-in duration-150">
+                <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base">
+                    <FontAwesomeIcon icon={faPaperPlane} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-sm">Iniciar Disparo Oficial</h3>
+                    <p className="text-[11px] text-gray-400">Confirmação de transmissão via WhatsApp Oficial</p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-3.5 space-y-2 text-xs text-gray-600">
+                  <p><strong>Campanha:</strong> {campanha.nome}</p>
+                  <p><strong>Template Oficial:</strong> {campanha.template}</p>
+                  <p><strong>Destinatários Pendentes:</strong> {metricas?.pendentes ?? metricas?.total ?? 0}</p>
+                  <p><strong>Canal / Provedor:</strong> WhatsApp Business Oficial (YCloud API)</p>
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex items-start gap-2">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 text-amber-600" />
+                  <span>Esta ação processará a fila e enviará mensagens reais pelo número WhatsApp Oficial configurado.</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalConfirmacao(false)}
+                    disabled={disparando}
+                    className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleIniciarDisparo}
+                    disabled={disparando}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                  >
+                    {disparando ? (
+                      <>
+                        <FontAwesomeIcon icon={faSpinner} spin />
+                        Processando Envio...
+                      </>
+                    ) : (
+                      <>
+                        <FontAwesomeIcon icon={faPaperPlane} />
+                        Confirmar e Iniciar
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Grid de Metadados e Dashboard Executivo */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

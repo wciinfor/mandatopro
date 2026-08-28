@@ -1,43 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowRight, faArrowLeft, faCheckCircle, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+import { faArrowRight, faArrowLeft, faCheckCircle, faPaperPlane, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { TemplateVisualizerCard } from '@/components/TemplateVisualizerCard';
-
-// Mocks locais para validação do assistente
-const PUBLICOS_MOCK = [
-  { id: 'pub-1', nome: 'Lideranças Centro', quantidade_contatos: 38 },
-  { id: 'pub-2', nome: 'Jovens Eleitores (16-24)', quantidade_contatos: 850 }
-];
-
-const TEMPLATES_MOCK = [
-  {
-    id: 'tmpl-1',
-    nome: 'convite_gabinete_bairro',
-    categoria: 'MARKETING',
-    idioma: 'pt_BR',
-    status: 'APPROVED',
-    canal: 'whatsapp',
-    ultima_sincronizacao: new Date().toISOString(),
-    componentes: [
-      { type: 'HEADER', format: 'TEXT', text: '📢 Convite Especial' },
-      { type: 'BODY', text: 'Olá {{1}},\n\nGostaríamos de convidar você e sua família para o nosso Gabinete Itinerante neste sábado, às 10h, na Praça Principal do bairro {{2}}.\n\nContamos com a sua presença!' },
-      { type: 'FOOTER', text: 'Mandato Proativo - Canal Oficial' },
-      { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Ver Localização' }] }
-    ]
-  },
-  {
-    id: 'tmpl-2',
-    nome: 'atualizacao_solicitacao_status',
-    categoria: 'UTILITY',
-    idioma: 'pt_BR',
-    status: 'PENDING', // Bloqueado por não estar aprovado
-    canal: 'whatsapp',
-    ultima_sincronizacao: new Date().toISOString(),
-    componentes: [
-      { type: 'BODY', text: 'Olá {{1}},\n\nInformamos que a sua solicitação nº {{2}} mudou de status para: *{{3}}*.' }
-    ]
-  }
-];
 
 export default function AssistenteCampanha({ onCancel, onSave }) {
   const [step, setStep] = useState(1);
@@ -52,6 +16,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   
   const [publicoSelecionado, setPublicoSelecionado] = useState(null);
   const [templateSelecionado, setTemplateSelecionado] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [carregandoTemplates, setCarregandoTemplates] = useState(false);
+  const [erroTemplates, setErroTemplates] = useState(null);
   const [variaveis, setVariaveis] = useState({});
   
   const [agendado, setAgendado] = useState(false);
@@ -78,6 +45,36 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const [carregandoContatos, setCarregandoContatos] = useState(false);
   const [erroContatos, setErroContatos] = useState(null);
 
+  // Carrega templates aprovados reais via API oficial da conta WhatsApp ativa (YCloud / Meta)
+  const carregarTemplatesReais = async () => {
+    setCarregandoTemplates(true);
+    setErroTemplates(null);
+    try {
+      const res = await fetch('/api/whatsapp-business/templates');
+      if (!res.ok) {
+        throw new Error('Falha ao consultar templates da conta WhatsApp ativa.');
+      }
+      const data = await res.json();
+      const lista = (data.templates || data.data || (Array.isArray(data) ? data : []))
+        .filter(t => String(t.status || '').toUpperCase() === 'APPROVED');
+      setTemplates(lista);
+      if (templateSelecionado && !lista.some(t => (t.id === templateSelecionado.id || t.nome === templateSelecionado.nome))) {
+        setTemplateSelecionado(null);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar templates oficiais:', err);
+      setErroTemplates(err.message || 'Erro ao carregar templates homologados.');
+      setTemplates([]);
+    } finally {
+      setCarregandoTemplates(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarTemplatesReais();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Carrega a lista de campanhas para o select através da API real existente
   const carregarCampanhasCRM = async () => {
     setCarregandoCampanhas(true);
@@ -96,6 +93,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   useEffect(() => {
     carregarCampanhasCRM();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Atualiza contatos e resumo com debouncing via GET /api/disparos/contatos/preview
@@ -194,10 +192,11 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   // Identifica variáveis presentes no template de forma dinâmica (procura por {{N}})
   useEffect(() => {
-    if (templateSelecionado) {
-      const body = templateSelecionado.componentes.find(c => c.type === 'BODY')?.text || '';
-      const matches = body.match(/\{\{\d+\}\}/g) || [];
-      const keys = [...new Set(matches.map(m => m.replace(/[\{\}]/g, '')))];
+    if (templateSelecionado && Array.isArray(templateSelecionado.componentes)) {
+      const bodyComp = templateSelecionado.componentes.find(c => String(c.type || '').toUpperCase() === 'BODY');
+      const bodyText = bodyComp?.text || '';
+      const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
+      const keys = [...new Set(matches.map(m => m.replace(/[\{\}]/g, '')))].sort((a, b) => Number(a) - Number(b));
       
       const defaultVars = {};
       keys.forEach(k => {
@@ -215,9 +214,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     
     return {
       ...templateSelecionado,
-      componentes: templateSelecionado.componentes.map(comp => {
-        if (comp.type === 'BODY') {
-          let text = comp.text;
+      componentes: (templateSelecionado.componentes || []).map(comp => {
+        if (String(comp.type || '').toUpperCase() === 'BODY') {
+          let text = comp.text || '';
           Object.entries(variaveis).forEach(([key, val]) => {
             text = text.replace(`{{${key}}}`, val || `[Variável ${key}]`);
           });
@@ -239,8 +238,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
       if (step === 3 && destinatariosFiltrados.length === 0 && !carregandoContatos) return 'A base selecionada não retornou destinatários aptos para envio.';
       if (step === 4) {
-        if (!templateSelecionado) return 'Selecione um template.';
-        if (templateSelecionado.status !== 'APPROVED') return 'O template selecionado precisa estar APROVADO pela Meta.';
+        if (!templateSelecionado) return 'Selecione um template oficial homologado.';
+        if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
       }
       if (step === 5) {
         const variaveisVazias = Object.values(variaveis).some(v => !v.trim());
@@ -251,8 +250,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       // Fluxo CSV
       if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
       if (step === 4) {
-        if (!templateSelecionado) return 'Selecione um template.';
-        if (templateSelecionado.status !== 'APPROVED') return 'O template selecionado precisa estar APROVADO pela Meta.';
+        if (!templateSelecionado) return 'Selecione um template oficial homologado.';
+        if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
       }
       if (step === 5) {
         const variaveisVazias = Object.values(variaveis).some(v => !v.trim());
@@ -291,6 +290,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         ? `Base ${mandatoOrigem.toUpperCase()} - ${destinatariosFiltrados.length} contatos`
         : 'Upload de Lista CSV',
       template: templateSelecionado.nome,
+      template_id: templateSelecionado.id || templateSelecionado.nome,
+      variaveis: variaveis,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
       total_destinatarios: origemDestinatarios === 'campanha_politica' ? destinatariosFiltrados.length : 0,
@@ -585,27 +586,74 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
-          {/* Selecionar Template */}
+          {/* Selecionar Template Oficial */}
           {step === 4 && (
             <div className="space-y-3">
-              <label className="block text-xs font-semibold text-gray-700">Selecione o Template Oficial</label>
-              {TEMPLATES_MOCK.map(tmpl => (
-                <div
-                  key={tmpl.id}
-                  onClick={() => setTemplateSelecionado(tmpl)}
-                  className={`p-4 rounded-xl border cursor-pointer transition flex items-center justify-between ${
-                    templateSelecionado?.id === tmpl.id
-                      ? 'border-teal-500 bg-teal-50/20'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-gray-700">Selecione o Template Oficial Homologado</label>
+                <button
+                  type="button"
+                  onClick={carregarTemplatesReais}
+                  disabled={carregandoTemplates}
+                  className="text-teal-600 hover:text-teal-800 text-xs font-semibold flex items-center gap-1 disabled:opacity-50"
+                  title="Atualizar lista de templates da conta"
                 >
-                  <div>
-                    <p className="font-bold text-xs text-gray-800">{tmpl.nome}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Idioma: {tmpl.idioma} · Status: <span className={tmpl.status === 'APPROVED' ? 'text-green-600 font-bold' : 'text-amber-600'}>{tmpl.status}</span></p>
-                  </div>
-                  {templateSelecionado?.id === tmpl.id && <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600" />}
+                  <FontAwesomeIcon icon={faSpinner} className={carregandoTemplates ? 'animate-spin' : ''} />
+                  Atualizar
+                </button>
+              </div>
+
+              {carregandoTemplates ? (
+                <div className="p-8 text-center bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-teal-600 text-2xl" />
+                  <p className="text-xs text-gray-500 font-medium">Carregando templates homologados da conta WhatsApp...</p>
                 </div>
-              ))}
+              ) : erroTemplates ? (
+                <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl space-y-2">
+                  <p className="font-semibold">⚠️ Erro ao consultar templates oficiais:</p>
+                  <p className="text-[11px]">{erroTemplates}</p>
+                  <button
+                    type="button"
+                    onClick={carregarTemplatesReais}
+                    className="bg-rose-600 text-white font-bold py-1.5 px-3 rounded-lg text-xs hover:bg-rose-700 transition"
+                  >
+                    Tentar Novamente
+                  </button>
+                </div>
+              ) : templates.length > 0 ? (
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  {templates.map(tmpl => {
+                    const isSelected = (templateSelecionado?.id && templateSelecionado.id === tmpl.id) || 
+                                       (templateSelecionado?.nome && templateSelecionado.nome === tmpl.nome);
+                    return (
+                      <div
+                        key={tmpl.id || tmpl.nome}
+                        onClick={() => setTemplateSelecionado(tmpl)}
+                        className={`p-4 rounded-xl border cursor-pointer transition flex items-center justify-between ${
+                          isSelected
+                            ? 'border-teal-500 bg-teal-50/20 shadow-xs'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-xs text-gray-800">{tmpl.nome}</p>
+                          <p className="text-[10px] text-gray-400">
+                            Idioma: <strong className="text-gray-600">{tmpl.idioma || 'pt_BR'}</strong> · Categoria: <strong className="text-gray-600">{tmpl.categoria || 'MARKETING'}</strong> · Status: <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">APROVADO</span>
+                          </p>
+                        </div>
+                        {isSelected && <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600 text-base" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-6 text-center bg-gray-50 border border-gray-100 rounded-xl space-y-2">
+                  <p className="text-xs font-semibold text-gray-700">Nenhum template oficial aprovado encontrado.</p>
+                  <p className="text-[11px] text-gray-400">
+                    Certifique-se de que a conta WhatsApp ativa (YCloud / Meta) possui templates no status APROVADO.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
