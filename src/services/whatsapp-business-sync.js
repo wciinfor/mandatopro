@@ -1,4 +1,5 @@
 import { createMetaGraphApiService } from './meta-graph-api';
+import { createYCloudApiService } from './ycloud-api';
 
 function selecionarNumeroPrincipal(conta) {
   const numbers = Array.isArray(conta?.whatsapp_business_numbers) ? conta.whatsapp_business_numbers : [];
@@ -78,14 +79,133 @@ export async function sincronizarContaWhatsappBusiness(supabase, conta) {
     };
   }
 
-  // ─── 2. SINCRONIZAÇÃO YCLOUD ───────────────────────────────────────────────
+  // ─── 2. SINCRONIZAÇÃO YCLOUD (IMPLEMENTAÇÃO REAL) ─────────────────────────
   if (provider === 'YCLOUD') {
-    return {
-      success: true,
-      message: 'Conta YCloud sincronizada com sucesso.',
-      diff: [],
-      metaMessages: []
-    };
+    const apiKey = conta.ycloud_api_key || conta.access_token;
+    if (!apiKey) {
+      const err = new Error('API Key da YCloud não configurada na conta.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const history = await criarHistorico(supabase, conta);
+    const ycloudService = createYCloudApiService({ apiKey });
+    const numero = selecionarNumeroPrincipal(conta);
+    const diff = [];
+    const metaMessages = [];
+
+    try {
+      // 2.1 Consulta dados reais dos números e templates da YCloud
+      const [phonesResult, templatesResult] = await Promise.all([
+        ycloudService.getStatus().catch(error => {
+          metaMessages.push(`Status YCloud: ${error.message}`);
+          return null;
+        }),
+        ycloudService.getTemplates({ status: 'APPROVED' }).catch(error => {
+          metaMessages.push(`Templates YCloud: ${error.message}`);
+          return null;
+        })
+      ]);
+
+      const phoneList = Array.isArray(phonesResult?.items) ? phonesResult.items : (Array.isArray(phonesResult?.data) ? phonesResult.data : []);
+      const phoneInfo = phoneList.find(p => p.phoneNumber === numero?.phone_number_id || p.displayPhoneNumber === numero?.display_phone_number) || phoneList[0] || null;
+
+      // 2.2 Atualiza metadados da conta YCloud no banco
+      const wabaIdYCloud = phoneInfo?.wabaId || conta.waba_id || null;
+      addDiff(diff, 'waba_id', conta.waba_id, wabaIdYCloud);
+
+      const templatesList = Array.isArray(templatesResult?.items) ? templatesResult.items : (Array.isArray(templatesResult?.data) ? templatesResult.data : []);
+      metaMessages.push(`YCloud: ${templatesList.length} template(s) aprovado(s) sincronizado(s).`);
+
+      const accountPayload = {
+        waba_id: wabaIdYCloud,
+        token_validated: true,
+        production_ready: Boolean(phoneInfo),
+        last_synced_at: new Date().toISOString(),
+        next_sync_at: proximaSincronizacao(),
+        sync_status: 'SUCCESS',
+        sync_message: metaMessages.length ? metaMessages.join(' | ') : 'Sincronização YCloud concluída com sucesso.',
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: accountError } = await supabase
+        .from('whatsapp_business_accounts')
+        .update(accountPayload)
+        .eq('id', conta.id)
+        .eq('tenant_id', conta.tenant_id);
+
+      if (accountError) throw accountError;
+
+      // 2.3 Atualiza metadados do número de telefone (quality_rating, verified_name, number_status)
+      if (numero?.id && phoneInfo) {
+        addDiff(diff, 'display_phone_number', numero.display_phone_number, phoneInfo.displayPhoneNumber || phoneInfo.phoneNumber);
+        addDiff(diff, 'verified_name', numero.verified_name, phoneInfo.verifiedName);
+        addDiff(diff, 'quality_rating', numero.quality_rating, phoneInfo.qualityRating);
+        addDiff(diff, 'messaging_limit_tier', numero.messaging_limit_tier, phoneInfo.messagingLimit || phoneInfo.throughputLevel);
+        addDiff(diff, 'number_status', numero.number_status, phoneInfo.status);
+
+        const { error: numberError } = await supabase
+          .from('whatsapp_business_numbers')
+          .update({
+            display_phone_number: phoneInfo.displayPhoneNumber || phoneInfo.phoneNumber || numero.display_phone_number,
+            verified_name: phoneInfo.verifiedName || numero.verified_name,
+            quality_rating: phoneInfo.qualityRating || numero.quality_rating,
+            messaging_limit_tier: phoneInfo.messagingLimit || phoneInfo.throughputLevel || numero.messaging_limit_tier,
+            number_status: phoneInfo.status || numero.number_status,
+            name_status: phoneInfo.nameStatus || numero.name_status,
+            status: phoneInfo.status === 'CONNECTED' ? 'ATIVO' : (numero.status || 'ATIVO'),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', numero.id)
+          .eq('tenant_id', conta.tenant_id);
+
+        if (numberError) throw numberError;
+      }
+
+      const finalHistory = await finalizarHistorico(supabase, history.id, history.started_at, {
+        success: true,
+        updatedItems: diff.length,
+        metaMessages,
+        diff
+      });
+
+      return {
+        success: true,
+        diff,
+        updatedItems: diff.length,
+        templatesCount: templatesList.length,
+        history: finalHistory,
+        metaMessages
+      };
+    } catch (error) {
+      await supabase
+        .from('whatsapp_business_accounts')
+        .update({
+          last_synced_at: new Date().toISOString(),
+          sync_status: 'ERROR',
+          sync_message: error.message,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', conta.id)
+        .eq('tenant_id', conta.tenant_id);
+
+      const finalHistory = await finalizarHistorico(supabase, history.id, history.started_at, {
+        success: false,
+        updatedItems: diff.length,
+        metaMessages,
+        diff,
+        errorMessage: error.message
+      });
+
+      return {
+        success: false,
+        diff,
+        updatedItems: diff.length,
+        history: finalHistory,
+        metaMessages,
+        error: error.message
+      };
+    }
   }
 
   // ─── 3. SINCRONIZAÇÃO META CLOUD API (FLUXO EXISTENTE INTACTO) ─────────────

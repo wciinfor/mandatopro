@@ -82,41 +82,72 @@ export default function DetalhesComunicacaoPage() {
     if (disparando) return;
     setDisparando(true);
     setMensagemFeedback(null);
+    setModalConfirmacao(false);
+
+    let totalProcessadosGeral = 0;
+    let totalSucessosGeral = 0;
+    let totalFalhasGeral = 0;
+    let loteNumero = 1;
+    let continuar = true;
+    const MAX_LOTES_SEGURANCA = 200; // Proteção contra loop infinito (até 10.000 contatos)
+
     try {
-      const res = await fetch('/api/comunicacao-oficial/fila/processar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limite: 50, campaign_id: id })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.processados > 0) {
-          setMensagemFeedback({
-            tipo: 'sucesso',
-            texto: `Disparo processado com sucesso! ${data.sucessos || 0} enviados, ${data.falhas || 0} falhas.`
-          });
-        } else {
-          setMensagemFeedback({
-            tipo: 'info',
-            texto: data.mensagem || 'Nenhum item pendente para processamento nesta campanha.'
-          });
+      while (continuar && loteNumero <= MAX_LOTES_SEGURANCA) {
+        setMensagemFeedback({
+          tipo: 'info',
+          texto: `Processando lote ${loteNumero}... (${totalProcessadosGeral} processados até o momento)`
+        });
+
+        const res = await fetch('/api/comunicacao-oficial/fila/processar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limite: 50, campaign_id: id })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.error || `Erro HTTP ${res.status} ao processar lote ${loteNumero}`);
         }
+
+        const data = await res.json();
+        const processadosLote = Number(data.processados || 0);
+        const sucessosLote = Number(data.sucessos || 0);
+        const falhasLote = Number(data.falhas || 0);
+
+        totalProcessadosGeral += processadosLote;
+        totalSucessosGeral += sucessosLote;
+        totalFalhasGeral += falhasLote;
+
+        // Se o lote retornou 0 itens processados, a fila da campanha terminou
+        if (processadosLote === 0) {
+          continuar = false;
+        } else {
+          loteNumero++;
+          // Pequena pausa de 300ms entre lotes para estabilidade
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+
+      if (totalProcessadosGeral > 0) {
+        setMensagemFeedback({
+          tipo: 'sucesso',
+          texto: `Disparo concluído com sucesso! Total processado: ${totalProcessadosGeral} (${totalSucessosGeral} enviados, ${totalFalhasGeral} falhas).`
+        });
       } else {
         setMensagemFeedback({
-          tipo: 'erro',
-          texto: data.error || 'Erro ao processar fila de disparos.'
+          tipo: 'info',
+          texto: 'Nenhum item pendente para processamento nesta campanha.'
         });
       }
-      await carregarDetalhes(id);
     } catch (err) {
-      console.error('Erro ao acionar processamento da fila:', err);
+      console.error('Erro ao acionar processamento contínuo da fila:', err);
       setMensagemFeedback({
         tipo: 'erro',
-        texto: err.message || 'Falha na comunicação com o servidor de disparos.'
+        texto: `${err.message || 'Falha na comunicação com o servidor de disparos.'} (${totalProcessadosGeral} processados antes da interrupção)`
       });
     } finally {
       setDisparando(false);
-      setModalConfirmacao(false);
+      await carregarDetalhes(id);
     }
   };
 

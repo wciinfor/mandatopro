@@ -59,10 +59,16 @@ export default function GerenciarAtendimentos() {
     return estilos[tipo] || { bg: 'bg-gray-100', text: 'text-gray-800', label: tipo };
   };
 
-  const carregarAtendimentos = useCallback(async () => {
+  const carregarAtendimentos = useCallback(async (termoBusca = '') => {
     try {
       setCarregando(true);
-      const response = await fetch('/api/cadastros/atendimentos');
+      const params = new URLSearchParams();
+      if (termoBusca && termoBusca.trim().length > 0) {
+        params.set('search', termoBusca.trim());
+      }
+      const queryString = params.toString();
+      const url = queryString ? `/api/cadastros/atendimentos?${queryString}` : '/api/cadastros/atendimentos';
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
       }
@@ -91,10 +97,13 @@ export default function GerenciarAtendimentos() {
     }
   }, []);
 
-  // Buscar atendimentos do Supabase
+  // Buscar atendimentos com debounce na busca
   useEffect(() => {
-    carregarAtendimentos();
-  }, [carregarAtendimentos]);
+    const timer = setTimeout(() => {
+      carregarAtendimentos(filtro);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filtro, carregarAtendimentos]);
 
   useEffect(() => {
     carregarCampanhas();

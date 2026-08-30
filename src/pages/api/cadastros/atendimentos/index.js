@@ -97,8 +97,51 @@ export default async function handler(req, res) {
         query = query.eq('mandato_id', contextoMandato.mandatoId);
       }
 
-      let { data, error } = await query.order('data_atendimento', { ascending: false });
+      // Busca diretamente no banco de dados antes da ordenação/limitação
+      if (search && search.trim().length > 0) {
+        const q = search.trim().replace(/[,()"']/g, '');
+        const qDigitos = q.replace(/\D/g, '');
 
+        // 1. Busca IDs de eleitores correspondentes (nome, cpf, rg)
+        let eleitoresQuery = supabase.from('eleitores').select('id');
+        const filtrosEleitores = [`nome.ilike.%${q}%`];
+        if (qDigitos.length >= 3) {
+          filtrosEleitores.push(`cpf.ilike.%${qDigitos}%`, `rg.ilike.%${qDigitos}%`);
+        }
+        eleitoresQuery = eleitoresQuery.or(filtrosEleitores.join(',')).limit(500);
+
+        const { data: eleitoresEncontrados } = await eleitoresQuery;
+        const eleitorIds = (eleitoresEncontrados || []).map(e => e.id);
+
+        // 2. Busca também por campanhas que batem com o nome
+        const { data: campanhasEncontradas } = await supabase
+          .from('campanhas')
+          .select('id')
+          .ilike('nome', `%${q}%`)
+          .limit(100);
+        const campanhaIds = (campanhasEncontradas || []).map(c => c.id);
+
+        // 3. Monta condições OR na query de atendimentos
+        const orConditions = [
+          `protocolo.ilike.%${q}%`,
+          `tipo_atendimento.ilike.%${q}%`,
+          `assunto.ilike.%${q}%`
+        ];
+
+        if (eleitorIds.length > 0) {
+          orConditions.push(`eleitor_id.in.(${eleitorIds.join(',')})`);
+        }
+        if (campanhaIds.length > 0) {
+          orConditions.push(`campanha_id.in.(${campanhaIds.join(',')})`);
+        }
+
+        query = query.or(orConditions.join(','));
+      }
+
+      // Ordenar por created_at DESC (ou data_atendimento se created_at for nulo) para que cadastros recentes nunca fiquem invisíveis
+      let { data, error } = await query
+        .order('created_at', { ascending: false, nullsFirst: false })
+        .order('data_atendimento', { ascending: false });
 
       if (error) {
         console.error('Erro na query principal:', error);
@@ -261,12 +304,14 @@ export default async function handler(req, res) {
 
       // Verificar duplicidade: eleitor já atendido na mesma campanha (regra não se aplica a atendimentos avulsos)
       if (campanhaId && eleitorId) {
-        const { data: atendimentoExistente } = await supabase
+        const { data: atendimentosExistentes } = await supabase
           .from('atendimentos')
           .select('id, protocolo')
           .eq('eleitor_id', parseInt(eleitorId))
           .eq('campanha_id', campanhaId)
-          .maybeSingle();
+          .limit(1);
+
+        const atendimentoExistente = atendimentosExistentes?.[0];
 
         if (atendimentoExistente) {
           return res.status(409).json({

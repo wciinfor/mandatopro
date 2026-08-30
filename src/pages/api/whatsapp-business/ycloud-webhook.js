@@ -359,7 +359,105 @@ export default async function handler(req, res) {
             }
           }
         } catch (errEnvio) {
-          console.warn('Aviso: Falha ao atualizar status em disparo_envios via webhook YCloud:', errEnvio?.message);
+          console.warn('[YCLOUD WEBHOOK] Aviso: Falha ao atualizar status em disparo_envios:', errEnvio?.message);
+        }
+
+        // Atualização dos status de communication_campaign_items (Comunicação Oficial)
+        try {
+          const statusOficialMap = {
+            sent: 'enviado',
+            delivered: 'entregue',
+            read: 'lido',
+            failed: 'falha'
+          };
+          const statusOficialFinal = statusOficialMap[novoStatus] || novoStatus;
+
+          const STATUS_OFICIAL_PRIORITY = {
+            pendente: 0,
+            processando: 0,
+            enviado: 1,
+            entregue: 2,
+            lido: 3,
+            falha: 4
+          };
+
+          // Localiza o item da Comunicação Oficial por targetId ou fallback wamid
+          let { data: itemOficial } = await supabase
+            .from('communication_campaign_items')
+            .select('id, campaign_id, status, delivered_at, read_at, last_error')
+            .eq('provider_message_id', targetId)
+            .maybeSingle();
+
+          if (!itemOficial && msgStatus.wamid && msgStatus.wamid !== targetId) {
+            const { data: itemFallback } = await supabase
+              .from('communication_campaign_items')
+              .select('id, campaign_id, status, delivered_at, read_at, last_error')
+              .eq('provider_message_id', msgStatus.wamid)
+              .maybeSingle();
+            itemOficial = itemFallback;
+          }
+
+          if (itemOficial) {
+            const prioridadeAtualItem = STATUS_OFICIAL_PRIORITY[String(itemOficial.status).toLowerCase()] || 0;
+            const prioridadeNovaItem = STATUS_OFICIAL_PRIORITY[String(statusOficialFinal).toLowerCase()] || 0;
+
+            const itemUpdatePayload = {};
+            const eventTimestamp = payload.createTime || msgStatus.createTime || new Date().toISOString();
+
+            if (statusOficialFinal === 'falha') {
+              itemUpdatePayload.status = 'falha';
+              const errDetail = msgStatus.errorMessage || msgStatus.errorCode
+                ? `[Erro ${msgStatus.errorCode || ''}] ${msgStatus.errorMessage || 'Falha no envio YCloud'}`
+                : (msgStatus.error?.message || 'Falha no envio YCloud');
+              itemUpdatePayload.last_error = errDetail;
+            } else if (prioridadeNovaItem >= prioridadeAtualItem) {
+              itemUpdatePayload.status = statusOficialFinal;
+            }
+
+            if (novoStatus === 'delivered' || novoStatus === 'read') {
+              if (!itemOficial.delivered_at) itemUpdatePayload.delivered_at = eventTimestamp;
+            }
+            if (novoStatus === 'read') {
+              if (!itemOficial.read_at) itemUpdatePayload.read_at = eventTimestamp;
+            }
+
+            if (Object.keys(itemUpdatePayload).length > 0) {
+              await supabase
+                .from('communication_campaign_items')
+                .update(itemUpdatePayload)
+                .eq('id', itemOficial.id);
+            }
+
+            // Recalcula e sincroniza contadores da campanha oficial
+            const { data: itensCampanha } = await supabase
+              .from('communication_campaign_items')
+              .select('status')
+              .eq('campaign_id', itemOficial.campaign_id);
+
+            if (itensCampanha) {
+              let enviadas = 0, entregues = 0, lidas = 0, falhas = 0;
+              itensCampanha.forEach(it => {
+                const st = String(it.status).toLowerCase();
+                if (st === 'enviado') enviadas++;
+                else if (st === 'entregue') entregues++;
+                else if (st === 'lido' || st === 'lida') lidas++;
+                else if (st === 'falha' || st === 'falhou') falhas++;
+              });
+
+              await supabase
+                .from('communication_campaigns')
+                .update({
+                  total_enviadas: enviadas + entregues + lidas,
+                  total_entregues: entregues + lidas,
+                  total_lidas: lidas,
+                  total_falhas: falhas,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', itemOficial.campaign_id);
+            }
+          }
+        } catch (errOficial) {
+          console.warn('[YCLOUD WEBHOOK] Aviso: Falha ao atualizar communication_campaign_items:', errOficial?.message);
         }
       }
     }
