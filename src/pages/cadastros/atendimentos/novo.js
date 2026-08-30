@@ -14,10 +14,12 @@ import BuscaLideranca from '@/components/BuscaLideranca';
 import BuscaDinamica from '@/components/BuscaDinamica';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function NovoAtendimento() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
+  const { mandatoAtivoId } = useAuth();
   const [salvando, setSalvando] = useState(false);
   
   // Modo: 'buscar' (eleitor existente) ou 'registrar' (novo eleitor)
@@ -507,7 +509,8 @@ export default function NovoAtendimento() {
       status: formData.statusAtendimento,
       ausenteAcaoCampanha: Boolean(formData.ausenteAcaoCampanha),
       dataAtendimento: formData.dataAtendimento || null,
-      campanhaId: campanhaValida ? campanhaSelecionada.id : null
+      campanhaId: campanhaValida ? campanhaSelecionada.id : null,
+      mandato_id: mandatoAtivoId || null
     };
     
     // Enviar notificação se habilitado
