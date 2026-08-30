@@ -22,9 +22,21 @@ export default function EditarEleitor() {
   const [liderancaEstadualId, setLiderancaEstadualId] = useState('');
   const [liderancaFederalId, setLiderancaFederalId] = useState('');
 
-  const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
+  const userMandates = user?.nivel === 'ADMINISTRADOR'
+    ? [1, 2]
+    : (Array.isArray(user?.mandatos) && user.mandatos.length > 0 ? user.mandatos : [1, 2]);
   const permiteEstadual = userMandates.includes(1);
   const permiteFederal = userMandates.includes(2);
+
+  const handleToggleMandato = (mandatoId) => {
+    setMandatosSelecionados((prev) => {
+      const existe = prev.includes(mandatoId);
+      if (existe) {
+        return prev.filter((m) => m !== mandatoId);
+      }
+      return [...prev, mandatoId];
+    });
+  };
   const [formData, setFormData] = useState({
     // Dados Pessoais
     cpf: '',

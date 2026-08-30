@@ -19,7 +19,9 @@ export default function NovoEleitor() {
   const inputRGRef = useRef(null);
   const lookupRequestRef = useRef(0);
 
-  const userMandates = user?.nivel === 'ADMINISTRADOR' ? [1, 2] : (user?.mandatos || [1]);
+  const userMandates = user?.nivel === 'ADMINISTRADOR'
+    ? [1, 2]
+    : (Array.isArray(user?.mandatos) && user.mandatos.length > 0 ? user.mandatos : [1, 2]);
   const permiteEstadual = userMandates.includes(1);
   const permiteFederal = userMandates.includes(2);
 
