@@ -233,18 +233,33 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       const matches = textToScan.match(/\{\{\d+\}\}/g) || [];
       const keys = [...new Set(matches.map(m => m.replace(/[\{\}]/g, '')))].sort((a, b) => Number(a) - Number(b));
       
+      const beneficioSugerido = campanhaSelecionada?.descricao || campanhaSelecionada?.nome || '{beneficio}';
+      const dataEntregaSugerida = campanhaSelecionada?.data_entrega || '{data_entrega}';
+      const localEntregaSugerido = campanhaSelecionada?.local_entrega || '{local_entrega}';
+
       setVariaveis(prev => {
         const nextVars = {};
         keys.forEach(k => {
-          // Se já havia valor preenchido para essa chave, preserva; caso contrário, se for {{1}}, sugere {nome}
-          nextVars[k] = prev[k] !== undefined && prev[k] !== '' ? prev[k] : (k === '1' ? '{nome}' : '');
+          if (prev[k] !== undefined && prev[k] !== '') {
+            nextVars[k] = prev[k];
+          } else if (k === '1') {
+            nextVars[k] = '{nome}';
+          } else if (k === '2') {
+            nextVars[k] = campanhaSelecionada ? beneficioSugerido : '';
+          } else if (k === '3') {
+            nextVars[k] = campanhaSelecionada ? dataEntregaSugerida : '';
+          } else if (k === '4') {
+            nextVars[k] = campanhaSelecionada ? localEntregaSugerido : '';
+          } else {
+            nextVars[k] = '';
+          }
         });
         return nextVars;
       });
     } else {
       setVariaveis({});
     }
-  }, [templateSelecionado]);
+  }, [templateSelecionado, campanhaSelecionada]);
 
   // Gera uma versão do template com os valores das variáveis inseridos para visualização em tempo real
   const getTemplateComVariaveis = () => {
@@ -253,6 +268,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     const exemploNome = destinatariosFiltrados[0]?.nome || 'João da Silva';
     const exemploCidade = destinatariosFiltrados[0]?.cidade || destinatariosFiltrados[0]?.municipio || 'Belém';
     const exemploBairro = destinatariosFiltrados[0]?.bairro || 'Centro';
+    const exemploBeneficio = campanhaSelecionada?.descricao || campanhaSelecionada?.nome || 'Ação Social';
+    const exemploDataEntrega = campanhaSelecionada?.data_entrega || '10/10/2026 às 09:00';
+    const exemploLocalEntrega = campanhaSelecionada?.local_entrega || 'Sede Central';
 
     return {
       ...templateSelecionado,
@@ -267,7 +285,10 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
               valorExibicao = valorExibicao
                 .replace(/\{nome\}/gi, exemploNome)
                 .replace(/\{cidade\}/gi, exemploCidade)
-                .replace(/\{bairro\}/gi, exemploBairro);
+                .replace(/\{bairro\}/gi, exemploBairro)
+                .replace(/\{beneficio\}/gi, exemploBeneficio)
+                .replace(/\{data_entrega\}/gi, exemploDataEntrega)
+                .replace(/\{local_entrega\}/gi, exemploLocalEntrega);
             } else {
               valorExibicao = `[Variável {{${key}}}]`;
             }
@@ -856,6 +877,42 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                             className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded border border-teal-200 transition"
                           >
                             + Nome do Contato
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const atual = variaveis[varKey] || '';
+                              const valorTag = campanhaSelecionada?.descricao || campanhaSelecionada?.nome || '{beneficio}';
+                              setVariaveis({ ...variaveis, [varKey]: atual ? `${atual} ${valorTag}` : valorTag });
+                              if (erroAlerta) setErroAlerta(null);
+                            }}
+                            className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded border border-teal-200 transition"
+                          >
+                            + Benefício / Ação
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const atual = variaveis[varKey] || '';
+                              const valorTag = campanhaSelecionada?.data_entrega || '{data_entrega}';
+                              setVariaveis({ ...variaveis, [varKey]: atual ? `${atual} ${valorTag}` : valorTag });
+                              if (erroAlerta) setErroAlerta(null);
+                            }}
+                            className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded border border-teal-200 transition"
+                          >
+                            + Data Entrega
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const atual = variaveis[varKey] || '';
+                              const valorTag = campanhaSelecionada?.local_entrega || '{local_entrega}';
+                              setVariaveis({ ...variaveis, [varKey]: atual ? `${atual} ${valorTag}` : valorTag });
+                              if (erroAlerta) setErroAlerta(null);
+                            }}
+                            className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded border border-teal-200 transition"
+                          >
+                            + Local Entrega
                           </button>
                           <button
                             type="button"
