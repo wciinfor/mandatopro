@@ -5,14 +5,18 @@ import PDFGenerator from '@/utils/pdfGenerator';
 import Layout from '@/components/Layout';
 import Modal from '@/components/Modal';
 import useModal from '@/hooks/useModal';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   faList, faPlus, faFilter, faPrint, faEdit, faTrash, faChevronLeft, faChevronRight, 
-  faAngleDoubleLeft, faAngleDoubleRight, faFileDownload
+  faAngleDoubleLeft, faAngleDoubleRight, faFileDownload, faTrophy, faMedal, faCrown,
+  faUsers, faCalendarAlt, faSyncAlt, faTimes, faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function GerenciarEleitores() {
   const router = useRouter();
   const { modalState, closeModal, showSuccess, showError, showConfirm } = useModal();
+  const { mandatoAtivoId } = useAuth();
   
   const [eleitores, setEleitores] = useState([]);
   const [liderancas, setLiderancas] = useState([]);
@@ -27,6 +31,15 @@ export default function GerenciarEleitores() {
   const [ordem, setOrdem] = useState('recentes');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
+
+  // Estados do Ranking de Cadastradores
+  const [rankingAberto, setRankingAberto] = useState(false);
+  const [rankingLoading, setRankingLoading] = useState(false);
+  const [rankingPeriodo, setRankingPeriodo] = useState('hoje');
+  const [rankingData, setRankingData] = useState({
+    resumo: { totalEleitores: 0, totalComCadastrador: 0, totalSemCadastrador: 0, totalCadastradoresAtivos: 0 },
+    cadastradores: []
+  });
 
   const normalizarCidadeKey = (valor = '') =>
     String(valor)
@@ -49,7 +62,7 @@ export default function GerenciarEleitores() {
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [situacao, paginaAtual, filtro, filtroLideranca, filtroCidade, cidades, ordem]);
+  }, [situacao, paginaAtual, filtro, filtroLideranca, filtroCidade, ordem, mandatoAtivoId]);
 
   useEffect(() => {
     fetch('/api/usuarios/liderancas-opcoes')
@@ -81,10 +94,15 @@ export default function GerenciarEleitores() {
 
       const params = new URLSearchParams();
       params.set('onlyCities', 'true');
+      if (mandatoAtivoId) {
+        params.set('mandato_id', String(mandatoAtivoId));
+      }
 
       const response = await fetch(`/api/cadastros/eleitores?${params.toString()}`);
       if (!response.ok) {
-        throw new Error('Erro ao carregar cidades');
+        const errJson = await response.json().catch(() => null);
+        const errorMsg = errJson?.message || errJson?.error || `Falha na requisição (HTTP ${response.status})`;
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
@@ -96,7 +114,9 @@ export default function GerenciarEleitores() {
       }
     } catch (error) {
       setCidades([]);
-      showError('Erro ao carregar cidades: ' + error.message);
+      const prefixo = 'Erro ao carregar cidades';
+      const msg = error?.message || 'Falha inesperada';
+      showError(msg.startsWith(prefixo) ? msg : `${prefixo}: ${msg}`);
     } finally {
       setLoadingCidades(false);
     }
@@ -112,6 +132,9 @@ export default function GerenciarEleitores() {
       params.set('limit', String(itensPorPagina));
       params.set('offset', String(offset));
       params.set('ordem', ordem);
+      if (mandatoAtivoId) {
+        params.set('mandato_id', String(mandatoAtivoId));
+      }
 
       if (filtro && filtro.trim().length > 0) params.set('search', filtro.trim());
       if (filtroLideranca) params.set('liderancaId', filtroLideranca);
@@ -138,6 +161,56 @@ export default function GerenciarEleitores() {
       showError('Erro ao carregar eleitores: ' + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const obterDatasPeriodo = (tipoPeriodo) => {
+    const hoje = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const format = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (tipoPeriodo === 'hoje') {
+      const hStr = format(hoje);
+      return { inicio: hStr, fim: hStr };
+    }
+    if (tipoPeriodo === '7dias') {
+      const d = new Date(hoje);
+      d.setDate(d.getDate() - 7);
+      return { inicio: format(d), fim: format(hoje) };
+    }
+    if (tipoPeriodo === '30dias') {
+      const d = new Date(hoje);
+      d.setDate(d.getDate() - 30);
+      return { inicio: format(d), fim: format(hoje) };
+    }
+    if (tipoPeriodo === 'mes') {
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      return { inicio: format(inicioMes), fim: format(hoje) };
+    }
+    return { inicio: '', fim: '' };
+  };
+
+  const carregarRanking = async (tipoPeriodo = rankingPeriodo) => {
+    try {
+      setRankingLoading(true);
+      const { inicio, fim } = obterDatasPeriodo(tipoPeriodo);
+      const params = new URLSearchParams();
+      if (mandatoAtivoId) {
+        params.set('mandato_id', String(mandatoAtivoId));
+      }
+      if (inicio) params.set('inicio', inicio);
+      if (fim) params.set('fim', fim);
+
+      const res = await fetch(`/api/cadastros/eleitores/estatisticas-cadastradores?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error('Erro ao carregar ranking');
+      }
+      const data = await res.json();
+      setRankingData(data);
+    } catch (err) {
+      showError('Erro ao carregar ranking de cadastradores: ' + err.message);
+    } finally {
+      setRankingLoading(false);
     }
   };
 
@@ -264,14 +337,28 @@ export default function GerenciarEleitores() {
 
         {/* Botões de Ação */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="flex gap-3">
-            <button
-              onClick={handleInserir}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium"
-            >
-              <FontAwesomeIcon icon={faPlus} />
-              Inserir
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-3">
+              <button
+                onClick={handleInserir}
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium transition-colors"
+              >
+                <FontAwesomeIcon icon={faPlus} />
+                Inserir
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => {
+                  setRankingAberto(true);
+                  carregarRanking('hoje');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold shadow-sm transition-colors text-sm"
+              >
+                <FontAwesomeIcon icon={faTrophy} className="text-amber-200" />
+                Ranking de Cadastradores
+              </button>
+            </div>
           </div>
         </div>
 
@@ -537,6 +624,214 @@ export default function GerenciarEleitores() {
             </div>
           </div>
         </div>
+
+        {/* Modal de Ranking de Cadastradores */}
+        {rankingAberto && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 p-5 text-white flex items-center justify-between shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-xl shadow-inner">
+                    🏆
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">Ranking de Desempenho dos Cadastradores</h3>
+                    <p className="text-xs text-amber-100 flex items-center gap-2 mt-0.5">
+                      <span>Rastreabilidade de autoria ativa</span>
+                      <span>•</span>
+                      <span className="font-semibold px-2 py-0.5 bg-black/20 rounded-full">
+                        {mandatoAtivoId === 2 ? '🏛️ Mandato Federal' : '🏛️ Mandato Estadual'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setRankingAberto(false)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  title="Fechar"
+                >
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+
+              {/* Filtros de Período & Resumo */}
+              <div className="p-4 bg-slate-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-1.5 bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+                  {[
+                    { id: 'hoje', label: 'Hoje' },
+                    { id: '7dias', label: 'Últimos 7 dias' },
+                    { id: '30dias', label: 'Últimos 30 dias' },
+                    { id: 'mes', label: 'Mês Atual' },
+                    { id: 'todos', label: 'Geral (Todos)' }
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setRankingPeriodo(p.id);
+                        carregarRanking(p.id);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        rankingPeriodo === p.id
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => carregarRanking(rankingPeriodo)}
+                    disabled={rankingLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg text-xs font-semibold shadow-sm transition disabled:opacity-50"
+                  >
+                    <FontAwesomeIcon icon={faSyncAlt} className={rankingLoading ? 'animate-spin' : ''} />
+                    Atualizar
+                  </button>
+                </div>
+              </div>
+
+              {/* Corpo da Listagem */}
+              <div className="flex-1 overflow-y-auto p-5">
+                {rankingLoading ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500 mb-3" />
+                    <p className="text-sm font-medium">Carregando métricas dos cadastradores...</p>
+                  </div>
+                ) : !rankingData?.cadastradores || rankingData.cadastradores.length === 0 ? (
+                  <div className="text-center py-12 px-4 bg-amber-50/60 rounded-xl border border-amber-200/80">
+                    <div className="text-4xl mb-3">📋</div>
+                    <h4 className="text-base font-bold text-gray-800 mb-1">Nenhum cadastro com autoria no período</h4>
+                    <p className="text-xs text-gray-600 max-w-md mx-auto">
+                      A rastreabilidade está ativada. Conforme os operadores realizarem novos cadastros de eleitores no sistema, os totais e percentuais de qualidade aparecerão automaticamente aqui.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {/* Top 3 Destaques */}
+                    {rankingData.cadastradores.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2">
+                        {rankingData.cadastradores.slice(0, 3).map((cad, idx) => {
+                          const medalhas = [
+                            { icon: '🥇', bg: 'from-amber-50 to-amber-100/70 border-amber-300 text-amber-900', label: '1º Lugar' },
+                            { icon: '🥈', bg: 'from-slate-50 to-slate-100/70 border-slate-300 text-slate-900', label: '2º Lugar' },
+                            { icon: '🥉', bg: 'from-orange-50 to-orange-100/70 border-orange-300 text-orange-900', label: '3º Lugar' }
+                          ];
+                          const m = medalhas[idx];
+                          return (
+                            <div key={cad.usuario_id} className={`p-4 rounded-xl border bg-gradient-to-br ${m.bg} shadow-sm relative overflow-hidden flex flex-col justify-between`}>
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-2xl">{m.icon}</span>
+                                  <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/80 shadow-xs">
+                                    {m.label}
+                                  </span>
+                                </div>
+                                <h5 className="font-bold text-sm text-gray-900 truncate" title={cad.nome}>{cad.nome}</h5>
+                                <p className="text-[11px] text-gray-600 truncate">{cad.email}</p>
+                              </div>
+                              <div className="mt-3 pt-3 border-t border-black/5 flex items-baseline justify-between">
+                                <span className="text-xs font-medium text-gray-600">Total cadastrado:</span>
+                                <span className="text-lg font-black text-gray-900">{cad.totalCadastrados}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Tabela Completa */}
+                    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-gray-100 text-gray-700 font-bold border-b border-gray-200">
+                          <tr>
+                            <th className="py-3 px-4 w-16 text-center">Posição</th>
+                            <th className="py-3 px-4">Cadastrador</th>
+                            <th className="py-3 px-4 text-center">Perfil</th>
+                            <th className="py-3 px-4 text-center">Total</th>
+                            <th className="py-3 px-4 text-center">% WhatsApp</th>
+                            <th className="py-3 px-4 text-center">% CPF</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                          {rankingData.cadastradores.map((cad, idx) => {
+                            const isTop1 = idx === 0;
+                            const isTop2 = idx === 1;
+                            const isTop3 = idx === 2;
+                            return (
+                              <tr key={cad.usuario_id} className={`hover:bg-slate-50 transition ${isTop1 ? 'bg-amber-50/40 font-semibold' : ''}`}>
+                                <td className="py-3 px-4 text-center">
+                                  {isTop1 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black text-xs shadow-xs">1º</span>
+                                  ) : isTop2 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-900 font-black text-xs shadow-xs">2º</span>
+                                  ) : isTop3 ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white font-black text-xs shadow-xs">3º</span>
+                                  ) : (
+                                    <span className="text-gray-500 font-bold">#{idx + 1}</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-gray-900">{cad.nome}</div>
+                                  <div className="text-[11px] text-gray-500">{cad.email}</div>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    cad.nivel === 'ADMINISTRADOR' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {cad.nivel}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="text-sm font-black text-gray-900 bg-slate-100 px-2.5 py-1 rounded-md">
+                                    {cad.totalCadastrados}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="font-bold text-emerald-700">{cad.pctTelefone}%</span>
+                                    <div className="w-16 bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(cad.pctTelefone, 100)}%` }} />
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="font-bold text-blue-700">{cad.pctCpf}%</span>
+                                    <div className="w-16 bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                                      <div className="bg-blue-500 h-full rounded-full" style={{ width: `${Math.min(cad.pctCpf, 100)}%` }} />
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                <span>
+                  Total de Cadastradores Ativos:{' '}
+                  <strong className="text-gray-800">{rankingData?.resumo?.totalCadastradoresAtivos || 0}</strong>
+                </span>
+                <button
+                  onClick={() => setRankingAberto(false)}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-bold transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
