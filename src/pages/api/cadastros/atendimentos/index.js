@@ -259,6 +259,23 @@ export default async function handler(req, res) {
 
       const statusNormalizado = normalizeStatus(status);
 
+      // Verificar duplicidade: eleitor já atendido na mesma campanha (regra não se aplica a atendimentos avulsos)
+      if (campanhaId && eleitorId) {
+        const { data: atendimentoExistente } = await supabase
+          .from('atendimentos')
+          .select('id, protocolo')
+          .eq('eleitor_id', parseInt(eleitorId))
+          .eq('campanha_id', campanhaId)
+          .maybeSingle();
+
+        if (atendimentoExistente) {
+          return res.status(409).json({
+            error: 'Este eleitor já possui atendimento registrado nesta campanha.',
+            detalhe: `Protocolo existente: ${atendimentoExistente.protocolo || atendimentoExistente.id}`
+          });
+        }
+      }
+
       // Gerar protocolo
       const protocolo = `ATD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
