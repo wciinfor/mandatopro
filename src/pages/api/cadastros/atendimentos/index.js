@@ -224,19 +224,6 @@ export default async function handler(req, res) {
         eleitorInfo = eFound;
       }
 
-      if (mandatoIdFinal && eleitorInfo) {
-        const pert = eleitorInfo.pertencimento || 'NAO_CLASSIFICADO';
-        if (pert === 'NAO_CLASSIFICADO') {
-          return res.status(400).json({ error: 'Classifique o pertencimento do eleitor antes de registrar ações por mandato' });
-        }
-        if (mandatoIdFinal === 1 && pert === 'FEDERAL') {
-          return res.status(400).json({ error: 'Eleitor do mandato Federal não pode participar de ação do mandato Estadual' });
-        }
-        if (mandatoIdFinal === 2 && pert === 'ESTADUAL') {
-          return res.status(400).json({ error: 'Eleitor do mandato Estadual não pode participar de ação do mandato Federal' });
-        }
-      }
-
       let liderancaIdFinal = null;
       const targetLiderancaId = liderancaId || lideranca_id;
 

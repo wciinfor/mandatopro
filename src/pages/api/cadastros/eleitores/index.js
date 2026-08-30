@@ -1,6 +1,8 @@
+import fs from 'fs';
+import path from 'path';
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
-import { obterContextoMandato } from '@/lib/mandato-auth';
+import { obterContextoMandato, aplicarFiltroPertencimentoEleitor } from '@/lib/mandato-auth';
 
 export const runtime = 'nodejs';
 
@@ -10,21 +12,15 @@ const cidadesCache = new Map();
 function aplicarFiltrosBase(query, { status, liderancaFiltro, excludeLiderancas }) {
   let next = query;
 
-  // CORREÇÃO: usar ilike (case-insensitive) em vez de eq.
-  // Após importação de CSV grande, muitos registros chegam com:
-  //   - status null (não preenchido na importação)
-  //   - casing diferente: 'ativo', 'Ativo' etc.
-  // Para o filtro ATIVO incluímos também registros onde AMBAS as colunas são null
-  // (tratados como ATIVO por padrão, igual ao DEFAULT da tabela).
   if (status) {
-    const s = String(status).toUpperCase();
-    const pattern = `%${s}%`;
+    const s = String(status).trim().toUpperCase();
     if (s === 'ATIVO') {
-      next = next.or(
-        `status.ilike.${pattern},statusCadastro.ilike.${pattern},and(status.is.null,statusCadastro.is.null)`
-      );
+      // Otimização: comparação exata indexada com suporte a nulos sem ILIKE para evitar Seq Scan
+      next = next.or('status.eq.ATIVO,status.is.null');
+    } else if (s === 'INATIVO') {
+      next = next.eq('status', 'INATIVO');
     } else {
-      next = next.or(`status.ilike.${pattern},statusCadastro.ilike.${pattern}`);
+      next = next.eq('status', s);
     }
   }
 
@@ -79,16 +75,52 @@ function calcularQualidadeTexto(value) {
   return score;
 }
 
-async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, excludeLiderancas, pertencimentosPermitidos }) {
+const COLUNAS_LISTAGEM_ELEITORES = [
+  'id',
+  'nome',
+  'cpf',
+  'rg',
+  'email',
+  'tituloEleitoral',
+  'tituloeleitoral',
+  'secao',
+  'zona',
+  'situacaoTSE',
+  'situacaotse',
+  'dataNascimento',
+  'data_nascimento',
+  'datanascimento',
+  'telefone',
+  'celular',
+  'whatsapp',
+  'municipio',
+  'cidade',
+  'bairro',
+  'endereco',
+  'logradouro',
+  'numero',
+  'complemento',
+  'estado',
+  'uf',
+  'cep',
+  'status',
+  'statusCadastro',
+  'statuscadastro',
+  'pertencimento',
+  'lideranca_id',
+  'created_at',
+  'updated_at',
+  'usuario_id'
+].join(', ');
+
+async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, excludeLiderancas, pertencimentosPermitidos } = {}) {
   const pertKey = pertencimentosPermitidos ? pertencimentosPermitidos.join(',') : 'ALL';
-  const chaveCache = `v4|status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}|mandato:${pertKey}`;
+  const chaveCache = `v5|status:${status || 'ALL'}|lideranca:${liderancaFiltro || 'ALL'}|exclude:${excludeLiderancas ? '1' : '0'}|mandato:${pertKey}`;
   const cache = cidadesCache.get(chaveCache);
   if (cache && cache.expireAt > Date.now() && Array.isArray(cache.data) && cache.data.length > 0) {
     return cache.data;
   }
 
-  const pageSize = 1000;
-  const MAX_PAGINAS_CIDADES = 300;
   const cidadesMap = new Map();
 
   const processarCidade = (cidadeRaw) => {
@@ -116,63 +148,26 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
     }
 
     atual.values.add(value);
+    atual.values.add(label);
+    atual.values.add(keyBase);
     cidadesMap.set(key, atual);
   };
 
-  const coletarCidadesPorColuna = async (coluna, filtros) => {
-    let ultimoId = 0;
-
-    for (let pagina = 0; pagina < MAX_PAGINAS_CIDADES; pagina += 1) {
-      const pageQuery = aplicarFiltrosBase(
-        supabase
-          .from('eleitores')
-          .select(`${coluna},id`)
-          .in('pertencimento', pertencimentosPermitidos || ['ESTADUAL', 'AMBOS'])
-          .not(coluna, 'is', null)
-          .neq(coluna, '')
-          .gt('id', ultimoId)
-          .order('id', { ascending: true })
-          .limit(pageSize),
-        filtros
-      );
-
-      const lote = await pageQuery;
-      if (lote.error) {
-        throw lote.error;
-      }
-
-      const rows = Array.isArray(lote.data) ? lote.data : [];
-      if (rows.length === 0) {
-        break;
-      }
-
-      for (const row of rows) {
-        processarCidade(row?.[coluna]);
-      }
-
-      const ultimoRegistro = rows[rows.length - 1];
-      const proximoUltimoId = Number(ultimoRegistro?.id || 0);
-      if (!proximoUltimoId || proximoUltimoId <= ultimoId) {
-        break;
-      }
-      ultimoId = proximoUltimoId;
-
-      if (rows.length < pageSize) {
-        break;
+  // 1. Carrega catálogo base oficial de municípios do Pará (via geojson local de alta performance)
+  try {
+    const arquivoGeo = path.join(process.cwd(), 'public', 'data', 'geo', 'pa-municipios.geojson');
+    if (fs.existsSync(arquivoGeo)) {
+      const conteudo = fs.readFileSync(arquivoGeo, 'utf8');
+      const geojson = JSON.parse(conteudo);
+      if (Array.isArray(geojson?.features)) {
+        geojson.features.forEach(f => {
+          const nomeMun = f.properties?.name || f.properties?.description;
+          if (nomeMun) processarCidade(nomeMun);
+        });
       }
     }
-  };
-
-  const coletarCidades = async (filtros) => {
-    await coletarCidadesPorColuna('cidade', filtros);
-    await coletarCidadesPorColuna('municipio', filtros);
-  };
-
-  await coletarCidades({ status, liderancaFiltro, excludeLiderancas, pertencimentosPermitidos });
-
-  // Fallback: se nao encontrou cidade com status filtrado, tenta sem status.
-  if (cidadesMap.size === 0 && status) {
-    await coletarCidades({ status: undefined, liderancaFiltro, excludeLiderancas, pertencimentosPermitidos });
+  } catch (errGeo) {
+    console.warn('[Eleitores API] Aviso ao ler pa-municipios.geojson:', errGeo?.message);
   }
 
   const data = Array.from(cidadesMap.values())
@@ -194,6 +189,17 @@ async function carregarCidadesDisponiveis(supabase, { status, liderancaFiltro, e
 
 export default async function handler(req, res) {
   try {
+    // 1. Carregamento resiliente e instantâneo de catálogo de cidades (GeoJSON local)
+    if (req.method === 'GET' && String(req.query.onlyCities || '').toLowerCase() === 'true') {
+      const cidades = await carregarCidadesDisponiveis(null, {
+        status: req.query.status,
+        liderancaFiltro: req.query.liderancaId || req.query.lideranca_id,
+        excludeLiderancas: req.query.excludeLiderancas,
+      });
+
+      return res.status(200).json({ data: cidades });
+    }
+
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
@@ -207,27 +213,15 @@ export default async function handler(req, res) {
         lideranca_id,
         cidade,
         cidadeValues,
-        onlyCities,
         limit = 100,
         offset = 0,
         excludeLiderancas = false,
         ordem = 'recentes'
       } = req.query;
 
-      // Resolver mandato ativo ANTES de qualquer desvio (incluindo onlyCities)
+      // Resolver mandato ativo ANTES de qualquer consulta
       const contextoMandato = await obterContextoMandato(req, usuario, supabase);
       const liderancaFiltro = liderancaId || lideranca_id;
-
-      if (String(onlyCities || '').toLowerCase() === 'true') {
-        const cidades = await carregarCidadesDisponiveis(supabase, {
-          status,
-          liderancaFiltro,
-          excludeLiderancas,
-          pertencimentosPermitidos: contextoMandato.pertencimentosPermitidos,
-        });
-
-        return res.status(200).json({ data: cidades });
-      }
 
       const cidadeValuesArr = Array.isArray(cidadeValues)
         ? cidadeValues
@@ -264,34 +258,49 @@ export default async function handler(req, res) {
         }
       }
 
-      let query = aplicarFiltrosBase(
-        supabase.from('eleitores').select('*', { count: 'exact' }),
-        { status, liderancaFiltro, excludeLiderancas }
-      ).in('pertencimento', contextoMandato.pertencimentosPermitidos);
+      let query = aplicarFiltroPertencimentoEleitor(
+        aplicarFiltrosBase(
+          supabase.from('eleitores').select(COLUNAS_LISTAGEM_ELEITORES, { count: 'estimated' }),
+          { status, liderancaFiltro, excludeLiderancas }
+        ),
+        contextoMandato
+      );
 
-      // Busca por nome, CPF, RG ou título eleitoral.
-      // CORREÇÃO: sanitizar o termo de busca (remover vírgulas que quebram o
-      // parser do PostgREST) e adicionar variante apenas com dígitos para
-      // encontrar CPF/RG tanto formatado quanto sem formatação.
+      // Busca inteligente e otimizada por termos
       if (search && search.trim().length > 0) {
         // Sanitização: vírgulas quebrariam o parser de .or(); aspas e parênteses
         // também causam problemas — removemos todos esses caracteres.
         const q = search.trim().replace(/[,()"']/g, '');
-        if (q.length > 0) {
-          const filtrosBase = [
-            `nome.ilike.%${q}%`,
-            `cpf.ilike.%${q}%`,
-            `rg.ilike.%${q}%`,
-            `tituloEleitoral.ilike.%${q}%`,
-            `municipio.ilike.%${q}%`,
+        const qDigitos = q.replace(/\D/g, '');
+        const ehPuramenteNumerico = /^\d+$/.test(q.replace(/[\s.\-/]/g, '')) && qDigitos.length >= 3;
+
+        if (ehPuramenteNumerico) {
+          // Termo puramente numérico (CPF, RG ou Título Eleitoral):
+          // Prioriza operadores eq e prefixo (like 'XYZ%') para utilizar os índices B-Tree existentes (idx_eleitores_cpf, idx_eleitores_rg)
+          const filtrosNumericos = [
+            `cpf.eq.${qDigitos}`,
+            `rg.eq.${qDigitos}`,
+            `tituloEleitoral.eq.${qDigitos}`,
+            `cpf.like.${qDigitos}%`,
+            `rg.like.${qDigitos}%`,
+            `tituloEleitoral.like.${qDigitos}%`,
+            `cpf.ilike.%${qDigitos}%`,
+            `rg.ilike.%${qDigitos}%`,
           ];
-          // Se o termo contém caracteres não-dígito (ex: formatação de CPF
-          // "123.456.789-00"), também busca pela versão sem formatação.
-          const qDigitos = q.replace(/\D/g, '');
-          if (qDigitos.length >= 3 && qDigitos !== q) {
-            filtrosBase.push(`cpf.ilike.%${qDigitos}%`, `rg.ilike.%${qDigitos}%`);
+          query = query.or(filtrosNumericos.join(','));
+        } else if (q.length > 0) {
+          // Termo textual (Nome, Bairro, Município):
+          // Foca nas colunas de texto reais, evitando scans inúteis de ILIKE sobre colunas numéricas (CPF/RG)
+          const filtrosTexto = [
+            `nome.ilike.%${q}%`,
+            `municipio.ilike.%${q}%`,
+            `bairro.ilike.%${q}%`,
+            `cidade.ilike.%${q}%`,
+          ];
+          if (qDigitos.length >= 3) {
+            filtrosTexto.push(`cpf.eq.${qDigitos}`, `rg.eq.${qDigitos}`);
           }
-          query = query.or(filtrosBase.join(','));
+          query = query.or(filtrosTexto.join(','));
         }
       }
 
@@ -335,8 +344,8 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({
-        data: eleitores,
-        total: count,
+        data: eleitores || [],
+        total: count !== null && count !== undefined ? Number(count) : (Array.isArray(eleitores) ? eleitores.length : 0),
         limit: parseInt(limit),
         offset: parseInt(offset)
       });
@@ -442,6 +451,8 @@ export default async function handler(req, res) {
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
         pertencimento: pertencimentoSolicitado,
+        // Rastreabilidade de Autoria: vincula estritamente o usuario.id da sessão autenticada (ignora qualquer valor do body)
+        usuario_id: usuario?.id ? Number(usuario.id) : null,
         // Colunas base (snake_case)
         endereco: normalizar(body.logradouro || body.endereco),
         estado: normalizar(body.uf || body.estado),
@@ -459,18 +470,25 @@ export default async function handler(req, res) {
         .select()
         .single();
 
-      // Compatibilidade com bancos que ainda nao possuem a coluna lideranca
-      const erroColunaLideranca =
+      // Compatibilidade com bancos em transição de schema (colunas lideranca ou usuario_id)
+      const erroColunaCompat =
         error &&
         (String(error.message || '').toLowerCase().includes('lideranca') ||
-          String(error.details || '').toLowerCase().includes('lideranca'));
+          String(error.message || '').toLowerCase().includes('usuario_id') ||
+          String(error.details || '').toLowerCase().includes('lideranca') ||
+          String(error.details || '').toLowerCase().includes('usuario_id'));
 
-      if (erroColunaLideranca) {
-        const payloadSemLideranca = { ...payload };
-        delete payloadSemLideranca.lideranca;
+      if (erroColunaCompat) {
+        const payloadCompat = { ...payload };
+        if (String(error.message || '').toLowerCase().includes('lideranca')) {
+          delete payloadCompat.lideranca;
+        }
+        if (String(error.message || '').toLowerCase().includes('usuario_id')) {
+          delete payloadCompat.usuario_id;
+        }
         const retry = await supabase
           .from('eleitores')
-          .insert([payloadSemLideranca])
+          .insert([payloadCompat])
           .select()
           .single();
         eleitor = retry.data;
@@ -535,7 +553,7 @@ export default async function handler(req, res) {
       const lidEstadual = body.liderancaEstadualId ? parseInt(body.liderancaEstadualId) : null;
       const lidFederal = body.liderancaFederalId ? parseInt(body.liderancaFederalId) : null;
 
-      if (lidEstadual && temEstadual && pertencimentoSolicitado !== 'FEDERAL') {
+      if (lidEstadual && temEstadual) {
         const { data: lidM1 } = await supabase
           .from('liderancas_mandatos')
           .select('lideranca_id')
@@ -550,7 +568,7 @@ export default async function handler(req, res) {
         }
       }
 
-      if (lidFederal && temFederal && pertencimentoSolicitado !== 'ESTADUAL') {
+      if (lidFederal && temFederal) {
         const { data: lidM2 } = await supabase
           .from('liderancas_mandatos')
           .select('lideranca_id')
@@ -568,11 +586,11 @@ export default async function handler(req, res) {
       return res.status(201).json(eleitor);
     }
 
-    return res.status(405).json({ message: 'Método não permitido' });
   } catch (error) {
     console.error('Erro:', error);
-    return res.status(500).json({
-      message: 'Erro interno do servidor',
+    const statusCode = error.statusCode || error.status || 500;
+    return res.status(statusCode).json({
+      message: error.message || 'Erro interno do servidor',
       error: error.message
     });
   }

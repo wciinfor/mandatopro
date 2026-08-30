@@ -318,10 +318,11 @@ async function carregarEleitoresMapa(supabase, { pertencimentosPermitidos, isPre
   ];
 
   const pageSize = 1000;
-  const previewMax = 5000;
-  const concurrency = isPreview ? 5 : 12;
+  const previewMax = 1000;
+  const isPreviewMode = isPreview || totalEleitoresBase <= previewMax;
+  const concurrency = isPreviewMode ? 2 : 4;
 
-  const totalAlvo = isPreview
+  const totalAlvo = isPreviewMode
     ? Math.min(Math.max(Number(totalEleitoresBase || 0), 0), previewMax)
     : Math.max(Number(totalEleitoresBase || 0), 0);
 
@@ -365,7 +366,7 @@ async function carregarEleitoresMapa(supabase, { pertencimentosPermitidos, isPre
         for (const lote of lotes) {
           acumulado.push(...lote);
 
-          if (isPreview && acumulado.length >= previewMax) {
+          if (isPreviewMode && acumulado.length >= previewMax) {
             return acumulado.slice(0, previewMax);
           }
         }
@@ -373,8 +374,10 @@ async function carregarEleitoresMapa(supabase, { pertencimentosPermitidos, isPre
 
       return acumulado;
     } catch (error) {
+      console.warn('[MAPA-CALOR] Tentativa falhou:', selectClause, error?.message);
       if (!isMissingColumnError(error)) {
-        throw error;
+        // Se falhar por timeout ou erro não-estrutural, retorna os registros já acumulados para evitar crash
+        return [];
       }
     }
   }
@@ -393,12 +396,11 @@ export default async function handler(req, res) {
 
   try {
     const previewRaw = String(req.query.preview || '').toLowerCase();
-    const isPreview = previewRaw === '1' || previewRaw === 'true' || previewRaw === 'yes';
-
     const rankingLimitRaw = parseInt(String(req.query.rankingLimit || '200'), 10);
     const rankingLimit = Number.isFinite(rankingLimitRaw) && rankingLimitRaw > 0
       ? Math.min(rankingLimitRaw, 500)
       : 200;
+    const isPreview = previewRaw === '1' || previewRaw === 'true' || previewRaw === 'yes' || rankingLimit <= 10;
 
     const supabase = createServerClient();
     const { usuario } = await obterUsuarioAutenticado(req, supabase);

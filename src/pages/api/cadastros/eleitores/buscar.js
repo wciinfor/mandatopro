@@ -1,6 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
-import { obterContextoMandato } from '@/lib/mandato-auth';
+import { obterContextoMandato, aplicarFiltroPertencimentoEleitor } from '@/lib/mandato-auth';
 
 export default async function handler(req, res) {
   const { q, excludeLiderancas } = req.query;
@@ -32,12 +32,13 @@ export default async function handler(req, res) {
       filtros.push(`cpf.ilike.%${qDigitos}%`);
     }
 
-    let query = supabase
-      .from('eleitores')
-      .select('id, nome, cpf, email, telefone, celular, rg, dataNascimento, sexo, nomePai, nomeMae, naturalidade, estadoCivil, profissao, endereco, logradouro, estado, uf, municipio, cidade, bairro')
-      .in('pertencimento', contextoMandato.pertencimentosPermitidos)
-      .or(filtros.join(','))
-      .limit(15);
+    let query = aplicarFiltroPertencimentoEleitor(
+      supabase
+        .from('eleitores')
+        .select('id, nome, cpf, email, telefone, celular, rg, dataNascimento, sexo, nomePai, nomeMae, naturalidade, estadoCivil, profissao, endereco, logradouro, estado, uf, municipio, cidade, bairro')
+        .or(filtros.join(',')),
+      contextoMandato
+    ).limit(15);
 
     if (String(excludeLiderancas).toLowerCase() === 'true') {
       query = query.is('lideranca_id', null);

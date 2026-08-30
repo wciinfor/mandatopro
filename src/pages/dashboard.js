@@ -235,7 +235,7 @@ export default function Dashboard() {
           error: ''
         }));
 
-        const response = await fetch('/api/geolocalizacao/eleitores-mapa-calor?rankingLimit=5');
+        const response = await fetch('/api/geolocalizacao/eleitores-mapa-calor?rankingLimit=5&preview=true');
 
         let data = {};
         try {
@@ -245,7 +245,14 @@ export default function Dashboard() {
         }
 
         if (!response.ok) {
-          throw new Error(data?.detalhes || data?.error || `Erro HTTP: ${response.status}`);
+          if (!ativo) return;
+          setHeatmapPreview({
+            loading: false,
+            error: data?.detalhes || data?.error || `Erro HTTP: ${response.status}`,
+            ranking: [],
+            totalConsiderados: 0
+          });
+          return;
         }
 
         if (!ativo) {
@@ -259,7 +266,7 @@ export default function Dashboard() {
           totalConsiderados: Number(data?.resumo?.totalEleitoresConsiderados || 0)
         });
       } catch (error) {
-        console.error('Erro ao carregar preview do mapa de calor:', error);
+        console.warn('Aviso ao carregar preview do mapa de calor:', error?.message);
         if (!ativo) {
           return;
         }

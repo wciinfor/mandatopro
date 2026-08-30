@@ -147,6 +147,20 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // Ajusta automaticamente o mandato ativo para garantir que o usuario sempre opere um mandato autorizado
+  useEffect(() => {
+    if (!user) return;
+    const userMandates = user.nivel === ROLES.ADMINISTRADOR 
+      ? [1, 2] 
+      : (Array.isArray(user.mandatos) && user.mandatos.length > 0 ? user.mandatos : [1]);
+
+    if (!userMandates.includes(mandatoAtivoId)) {
+      const fallbackMandato = userMandates[0] || 1;
+      setMandatoAtivoIdState(fallbackMandato);
+      localStorage.setItem('mandato_ativo', String(fallbackMandato));
+    }
+  }, [user, mandatoAtivoId]);
+
   const setMandatoAtivoId = (id) => {
     const numId = Number(id);
     setMandatoAtivoIdState(numId);

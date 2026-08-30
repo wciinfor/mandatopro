@@ -198,21 +198,11 @@ export default async function handler(req, res) {
           .eq('usuario_id', usuario.id);
         userMandates = (vinculosUser || []).map(v => v.mandato_id);
       }
-
-      // Travar eleitor NAO_CLASSIFICADO de receber liderança por mandato
-      if ((lidEstadual || lidFederal) && pertenceAtual === 'NAO_CLASSIFICADO') {
-        return res.status(400).json({ message: 'Classifique o pertencimento do eleitor antes de vincular lideranças por mandato' });
-      }
-
-      // Validação do Mandato Estadual
       if (lidEstadual !== undefined) {
         if (!userMandates.includes(1) && lidEstadual !== null) {
           return res.status(403).json({ message: 'Você não possui permissão para gerenciar a liderança Estadual deste eleitor' });
         }
         if (lidEstadual !== null) {
-          if (pertenceAtual === 'FEDERAL') {
-            return res.status(400).json({ message: 'Eleitor com pertencimento Federal não pode receber liderança Estadual' });
-          }
           // Verificar se a liderança pertence ao Mandato Estadual
           const { data: lidM1 } = await supabase
             .from('liderancas_mandatos')
@@ -248,9 +238,6 @@ export default async function handler(req, res) {
           return res.status(403).json({ message: 'Você não possui permissão para gerenciar a liderança Federal deste eleitor' });
         }
         if (lidFederal !== null) {
-          if (pertenceAtual === 'ESTADUAL') {
-            return res.status(400).json({ message: 'Eleitor com pertencimento Estadual não pode receber liderança Federal' });
-          }
           // Verificar se a liderança pertence ao Mandato Federal
           const { data: lidM2 } = await supabase
             .from('liderancas_mandatos')
@@ -278,13 +265,6 @@ export default async function handler(req, res) {
             .eq('eleitor_id', eleitor.id)
             .eq('mandato_id', 2);
         }
-      }
-
-      // Se o pertencimento mudou para ESTADUAL, limpa automaticamente vínculo Federal para manter consistência
-      if (body.pertencimento === 'ESTADUAL') {
-        await supabase.from('eleitores_liderancas_mandatos').delete().eq('eleitor_id', eleitor.id).eq('mandato_id', 2);
-      } else if (body.pertencimento === 'FEDERAL') {
-        await supabase.from('eleitores_liderancas_mandatos').delete().eq('eleitor_id', eleitor.id).eq('mandato_id', 1);
       }
 
       return res.status(200).json(eleitor);

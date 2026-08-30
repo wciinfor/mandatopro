@@ -94,7 +94,7 @@ export default async function handler(req, res) {
             tenant_id: tenantId,
             nome: body.template,
             categoria: 'MARKETING',
-            idioma: 'pt_BR',
+            idioma: body.idioma || 'pt_BR',
             status: 'APPROVED',
             canal: 'whatsapp'
           })

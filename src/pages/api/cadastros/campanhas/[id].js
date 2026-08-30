@@ -141,6 +141,8 @@ export default async function handler(req, res) {
         data_campanha: normalizar(body.dataCampanha || body.data_campanha),
         hora_inicio: normalizar(body.horaInicio || body.hora_inicio),
         hora_fim: normalizar(body.horaFim || body.hora_fim),
+        data_entrega: normalizar(body.dataEntrega || body.data_entrega),
+        local_entrega: normalizar(body.localEntrega || body.local_entrega),
         status: normalizar(body.status),
         observacoes: normalizar(body.observacoes)
       };

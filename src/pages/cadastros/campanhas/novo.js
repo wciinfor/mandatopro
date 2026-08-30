@@ -30,6 +30,8 @@ export default function NovaCampanha() {
     dataCampanha: '',
     horaInicio: '',
     horaFim: '',
+    dataEntrega: '',
+    localEntrega: '',
     status: 'PLANEJAMENTO',
     observacoes: ''
   });
@@ -71,6 +73,8 @@ export default function NovaCampanha() {
         dataCampanha: data.data_campanha || '',
         horaInicio: data.hora_inicio || '',
         horaFim: data.hora_fim || '',
+        dataEntrega: data.data_entrega || '',
+        localEntrega: data.local_entrega || '',
         status: data.status || 'PLANEJAMENTO',
         observacoes: data.observacoes || ''
       });
@@ -529,6 +533,48 @@ export default function NovaCampanha() {
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Entrega do Benefício */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-1">Entrega do Benefício</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Informações específicas para entrega ou retirada posterior do benefício (opcional).
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Data/Horário da Entrega
+                  </label>
+                  <input
+                    type="text"
+                    name="dataEntrega"
+                    value={formData.dataEntrega || ''}
+                    onChange={handleInputChange}
+                    placeholder="Ex.: 15/09/2026 às 14h"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Permite texto livre como "15/09/2026 das 08h às 12h".
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Local da Entrega
+                  </label>
+                  <input
+                    type="text"
+                    name="localEntrega"
+                    value={formData.localEntrega || ''}
+                    onChange={handleInputChange}
+                    placeholder="Ex.: Escola Municipal João Silva"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Local específico para entrega quando diferente do local da ação.
+                  </p>
                 </div>
               </div>
             </div>

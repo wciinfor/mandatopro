@@ -613,740 +613,745 @@ export default function NovoAtendimento() {
         showCancel={modalState.showCancel}
       />
 
-
-      {/* Toggle: Buscar Eleitor Existente ou Registrar Novo */}
-      <div className="max-w-6xl mx-auto mb-6 bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-lg font-bold text-gray-700 mb-4">Como deseja começar?</h2>
-        <div className="flex gap-4">
-          <button
-            type="button"
-            onClick={() => setModoEleitor('buscar')}
-            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
-              modoEleitor === 'buscar'
-                ? 'bg-teal-600 text-white shadow-lg'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            🔍 Buscar Eleitor Existente
-          </button>
-          <button
-            type="button"
-            onClick={() => setModoEleitor('registrar')}
-            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
-              modoEleitor === 'registrar'
-                ? 'bg-teal-600 text-white shadow-lg'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            ➕ Registrar Novo Eleitor
-          </button>
-        </div>
-      </div>
-
-      {/* Busca de Eleitor Existente */}
-      {modoEleitor === 'buscar' && (
-        <div className="max-w-6xl mx-auto mb-6">
-          <BuscaEleitor 
-            onSelecionarEleitor={handleSelecionarEleitor}
-            eleitorSelecionado={eleitorSelecionado}
-          />
-        </div>
-      )}
-
-      {/* Registrar Novo Eleitor */}
-      {modoEleitor === 'registrar' && (
-        <div className="max-w-6xl mx-auto mb-6 bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
-          <h3 className="text-lg font-bold text-blue-900 mb-4">Dados do Novo Eleitor</h3>
-          <p className="text-sm text-blue-800 mb-4">📝 Preencha os dados da ficha entregue. Os campos marcados com * são obrigatórios. Você pode completar os dados depois.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Nome Completo */}
-            <div className="md:col-span-3">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Nome Completo *
-              </label>
-              <input
-                type="text"
-                name="eleitorNome"
-                value={formData.eleitorNome}
-                onChange={handleInputChange}
-                placeholder="Nome da pessoa"
-                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            {/* RG */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                RG
-              </label>
-              <input
-                type="text"
-                name="eleitorRg"
-                value={formData.eleitorRg}
-                onChange={handleInputChange}
-                placeholder="RG (opcional)"
-                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* CPF */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                CPF *
-              </label>
-              <input
-                type="text"
-                name="eleitorCpf"
-                value={formData.eleitorCpf}
-                onChange={handleInputChange}
-                placeholder="000.000.000-00"
-                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            {/* Data de Nascimento */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Data de Nascimento
-              </label>
-              <input
-                type="date"
-                name="eleitorDataNascimento"
-                value={formData.eleitorDataNascimento}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Sexo */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Sexo
-              </label>
-              <select
-                name="eleitorSexo"
-                value={formData.eleitorSexo}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Selecionar</option>
-                <option value="M">Masculino</option>
-                <option value="F">Feminino</option>
-              </select>
-            </div>
-
-            {/* Celular / WhatsApp */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Celular / WhatsApp
-              </label>
-              <input
-                type="tel"
-                name="eleitorCelular"
-                value={formData.eleitorCelular}
-                onChange={handleInputChange}
-                placeholder="(85) 98765-4321"
-                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                name="eleitorEmail"
-                value={formData.eleitorEmail}
-                onChange={handleInputChange}
-                placeholder="email@example.com"
-                className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+      <div className="w-full max-w-7xl mx-auto space-y-6">
+        {/* Toggle: Buscar Eleitor Existente ou Registrar Novo */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200/80 p-5 lg:p-6">
+          <h2 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span className="w-2 h-4 bg-teal-600 rounded-full inline-block"></span>
+            Como deseja começar?
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setModoEleitor('buscar')}
+              className={`px-6 py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                modoEleitor === 'buscar'
+                  ? 'bg-teal-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              🔍 Buscar Eleitor Existente
+            </button>
+            <button
+              type="button"
+              onClick={() => setModoEleitor('registrar')}
+              className={`px-6 py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                modoEleitor === 'registrar'
+                  ? 'bg-teal-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              ➕ Registrar Novo Eleitor
+            </button>
           </div>
+        </div>
 
-          {/* Container de Endereço */}
-          <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-300">
-            <h4 className="text-base font-bold text-green-900 mb-4 flex items-center gap-2">
-              <FontAwesomeIcon icon={faMapMarkedAlt} />
-              Endereço
-            </h4>
+        {/* Busca de Eleitor Existente */}
+        {modoEleitor === 'buscar' && (
+          <div className="w-full">
+            <BuscaEleitor 
+              onSelecionarEleitor={handleSelecionarEleitor}
+              eleitorSelecionado={eleitorSelecionado}
+            />
+          </div>
+        )}
+
+        {/* Registrar Novo Eleitor */}
+        {modoEleitor === 'registrar' && (
+          <div className="bg-blue-50/80 border-2 border-blue-200 rounded-xl p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-blue-900 mb-1">Dados do Novo Eleitor</h3>
+              <p className="text-sm text-blue-800">📝 Preencha os dados da ficha entregue. Os campos marcados com * são obrigatórios. Você pode completar os dados depois.</p>
+            </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* CEP */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Nome Completo */}
+              <div className="sm:col-span-2 lg:col-span-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Nome Completo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="eleitorNome"
+                  value={formData.eleitorNome}
+                  onChange={handleInputChange}
+                  placeholder="Nome da pessoa"
+                  className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  required
+                />
+              </div>
+
+              {/* RG */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  CEP
+                  RG
                 </label>
                 <input
                   type="text"
-                  name="eleitorCep"
-                  value={formData.eleitorCep}
+                  name="eleitorRg"
+                  value={formData.eleitorRg}
                   onChange={handleInputChange}
-                  placeholder="00000-000"
-                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
-                />
-                <p className="text-xs text-green-700 mt-1">Pressione TAB ou clique fora para buscar</p>
-              </div>
-
-              {/* Endereço */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Endereço
-                </label>
-                <input
-                  type="text"
-                  name="eleitorEndereco"
-                  value={formData.eleitorEndereco}
-                  onChange={handleInputChange}
-                  placeholder="Rua, Avenida, etc"
-                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="RG (opcional)"
+                  className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                 />
               </div>
 
-              {/* Número */}
+              {/* CPF */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Número
+                  CPF <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  name="eleitorNumero"
-                  value={formData.eleitorNumero}
+                  name="eleitorCpf"
+                  value={formData.eleitorCpf}
                   onChange={handleInputChange}
-                  placeholder="000"
-                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="000.000.000-00"
+                  className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  required
                 />
               </div>
 
-              {/* Complemento */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Complemento
-                </label>
-                <input
-                  type="text"
-                  name="eleitorComplemento"
-                  value={formData.eleitorComplemento}
-                  onChange={handleInputChange}
-                  placeholder="Apto 101, Bloco A, etc"
-                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Bairro */}
+              {/* Data de Nascimento */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Bairro
+                  Data de Nascimento
                 </label>
                 <input
-                  type="text"
-                  name="eleitorBairro"
-                  value={formData.eleitorBairro}
+                  type="date"
+                  name="eleitorDataNascimento"
+                  value={formData.eleitorDataNascimento}
                   onChange={handleInputChange}
-                  placeholder="Nome do bairro"
-                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                 />
               </div>
 
-              {/* Cidade */}
+              {/* Sexo */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Cidade
+                  Sexo
                 </label>
-                <input
-                  type="text"
-                  name="eleitorCidade"
-                  value={formData.eleitorCidade}
-                  onChange={handleInputChange}
-                  placeholder="Nome da cidade"
-                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Estado */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Estado
-                </label>
-                <input
-                  type="text"
-                  name="eleitorEstado"
-                  value={formData.eleitorEstado}
-                  onChange={handleInputChange}
-                  placeholder="CE"
-                  maxLength="2"
-                  className="w-full px-4 py-2 border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
-
-          <p className="text-xs text-blue-700 mt-4 bg-blue-100 p-3 rounded">
-            ✅ Após salvar, os dados serão registrados na base de eleitores e você poderá completar o cadastro depois.
-          </p>
-        </div>
-      )}
-
-      {/* Busca de Campanha - após seleção do eleitor ou preenchimento de nome (registrar novo) */}
-      {(eleitorSelecionado || modoEleitor === 'registrar') && formData.eleitorNome && (
-        <div className="max-w-6xl mx-auto mb-6">
-          <BuscaCampanha 
-            onSelecionarCampanha={handleSelecionarCampanha}
-            campanhaSelecionada={campanhaSelecionada}
-          />
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6">
-            {/* Status do Atendimento - Badge no Topo */}
-            <div className="mb-6 flex flex-wrap gap-3 items-center justify-between">
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => atualizarStatus('AGENDADO')}
-                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${
-                    formData.statusAtendimento === 'AGENDADO'
-                      ? 'bg-yellow-500 text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faClock} />
-                  Agendado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => atualizarStatus('CANCELADO')}
-                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${
-                    formData.statusAtendimento === 'CANCELADO'
-                      ? 'bg-red-500 text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faTimesCircle} />
-                  Cancelado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => atualizarStatus('REALIZADO')}
-                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${
-                    formData.statusAtendimento === 'REALIZADO'
-                      ? 'bg-green-500 text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faCheckCircle} />
-                  Realizado
-                </button>
-              </div>
-            </div>
-
-            {/* Tipo de Atendimento - Oculto se campanha existente selecionada */}
-            {(!campanhaSelecionada || campanhaSelecionada.id === 'AVULSO') && (
-              <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-blue-50 rounded-lg border-l-4 border-teal-600">
-                <h3 className="text-lg font-bold text-gray-800 mb-3">Tipo de Atendimento</h3>
                 <select
-                  name="tipoAtendimento"
-                  value={formData.tipoAtendimento}
+                  name="eleitorSexo"
+                  value={formData.eleitorSexo}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-semibold"
+                  className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                 >
-                  <option value="ATENDIMENTO_MEDICO">Atendimento Médico</option>
-                  <option value="ATENDIMENTO_ODONTOLOGICO">Atendimento Odontológico</option>
-                  <option value="CADASTRO_BENEFICIOS">Cadastro de Benefícios</option>
-                  <option value="CURSOS_PROFISSIONALIZANTES">Cursos Profissionalizantes</option>
-                  <option value="DISTRIBUICAO_ALIMENTOS">Distribuição de Alimentos</option>
-                  <option value="EMISSAO_DOCUMENTOS">Emissão de Documentos</option>
-                  <option value="ENCAMINHAMENTO_SOCIAL">Encaminhamento Social</option>
-                  <option value="OFICINAS_CAPACITACAO">Oficinas de Capacitação</option>
-                  <option value="OFTALMOLOGISTA">Oftalmologista</option>
-                  <option value="ORIENTACAO_SAUDE">Orientação de Saúde</option>
-                  <option value="ORIENTACAO_JURIDICA">Orientação Jurídica</option>
-                  <option value="OUTROS">Outros</option>
+                  <option value="">Selecionar</option>
+                  <option value="M">Masculino</option>
+                  <option value="F">Feminino</option>
                 </select>
               </div>
-            )}
 
-            {/* Campanha selecionada */}
-            {campanhaSelecionada && campanhaSelecionada.id !== 'AVULSO' && (
-              <div className="border-t pt-6 mb-6">
-                <h3 className="text-lg font-bold text-teal-700 mb-4 flex items-center gap-2">
-                  <FontAwesomeIcon icon={faHandshake} className="text-teal-600" />
-                  CAMPANHA SELECIONADA
-                </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  {/* Liderança Responsável */}
-                  <div>
-                    {campanhaSelecionada?.id === 'AVULSO' ? (
-                      <BuscaLideranca
-                        onSelecionarLideranca={handleSelecionarLideranca}
-                        liderancaSelecionada={liderancaSelecionada}
-                        label="Liderança Responsável"
-                      />
-                    ) : (
-                      <>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Liderança Responsável <span className="text-red-500">*</span>
-                        </label>
-                        <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 space-y-1">
-                          {formData.liderancaResponsavel ? (
-                            <>
-                              <div className="font-semibold">{formData.liderancaResponsavel}</div>
-                              <div className="text-sm text-gray-600">
-                                <span className="inline-block bg-teal-100 text-teal-700 px-2 py-1 rounded text-xs font-semibold">
-                                  {liderancaSelecionada?.papel || 'APOIO'}
-                                </span>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="text-gray-500">Sem liderança vinculada</div>
-                          )}
-                        </div>
-                        {formData.liderancaResponsavel ? (
-                          <p className="text-xs text-gray-500 mt-1">✓ Selecionada automaticamente (maior hierarquia)</p>
-                        ) : (
-                          <p className="text-xs text-yellow-600 mt-1">⚠️ Campanha sem liderança cadastrada</p>
-                        )}
-                      </>
-                    )}
-                  </div>
+              {/* Celular / WhatsApp */}
+              <div className="sm:col-span-2 lg:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Celular / WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  name="eleitorCelular"
+                  value={formData.eleitorCelular}
+                  onChange={handleInputChange}
+                  placeholder="(85) 98765-4321"
+                  className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                />
+              </div>
 
-                  {/* Localidade Atendida - Preenchida automaticamente ou editable */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Localidade Atendida <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="localidadeAtendida"
-                      value={formData.localidadeAtendida}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                      placeholder={campanhaSelecionada?.id === 'AVULSO' ? 'Informar localidade...' : ''}
-                    />
-                    {campanhaSelecionada?.id !== 'AVULSO' && (
-                      <p className="text-xs text-gray-500 mt-1">✓ Preenchido automaticamente da campanha</p>
-                    )}
-                  </div>
+              {/* Email */}
+              <div className="sm:col-span-2 lg:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="eleitorEmail"
+                  value={formData.eleitorEmail}
+                  onChange={handleInputChange}
+                  placeholder="email@example.com"
+                  className="w-full px-4 py-2.5 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Container de Endereço */}
+            <div className="mt-4 p-5 bg-white/90 rounded-xl border border-green-300 shadow-2xs">
+              <h4 className="text-base font-bold text-green-900 mb-4 flex items-center gap-2">
+                <FontAwesomeIcon icon={faMapMarkedAlt} />
+                Endereço
+              </h4>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                {/* CEP */}
+                <div className="sm:col-span-1 lg:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    CEP
+                  </label>
+                  <input
+                    type="text"
+                    name="eleitorCep"
+                    value={formData.eleitorCep}
+                    onChange={handleInputChange}
+                    placeholder="00000-000"
+                    className="w-full px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono bg-white"
+                  />
+                  <p className="text-xs text-green-700 mt-1">Pressione TAB para preencher</p>
                 </div>
 
-                {/* Serviços da Campanha */}
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Serviços Oferecidos {campanhaSelecionada?.id === 'AVULSO' ? '(Selecione os serviços)' : '(Da campanha)'}
+                {/* Endereço */}
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Endereço
                   </label>
-                  
+                  <input
+                    type="text"
+                    name="eleitorEndereco"
+                    value={formData.eleitorEndereco}
+                    onChange={handleInputChange}
+                    placeholder="Rua, Avenida, etc"
+                    className="w-full px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                </div>
+
+                {/* Número */}
+                <div className="sm:col-span-1 lg:col-span-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Número
+                  </label>
+                  <input
+                    type="text"
+                    name="eleitorNumero"
+                    value={formData.eleitorNumero}
+                    onChange={handleInputChange}
+                    placeholder="000"
+                    className="w-full px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                </div>
+
+                {/* Complemento */}
+                <div className="sm:col-span-1 lg:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Complemento
+                  </label>
+                  <input
+                    type="text"
+                    name="eleitorComplemento"
+                    value={formData.eleitorComplemento}
+                    onChange={handleInputChange}
+                    placeholder="Apto, Bloco, etc"
+                    className="w-full px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                </div>
+
+                {/* Bairro */}
+                <div className="sm:col-span-1 lg:col-span-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Bairro
+                  </label>
+                  <input
+                    type="text"
+                    name="eleitorBairro"
+                    value={formData.eleitorBairro}
+                    onChange={handleInputChange}
+                    placeholder="Bairro"
+                    className="w-full px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                </div>
+
+                {/* Cidade */}
+                <div className="sm:col-span-1 lg:col-span-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Cidade
+                  </label>
+                  <input
+                    type="text"
+                    name="eleitorCidade"
+                    value={formData.eleitorCidade}
+                    onChange={handleInputChange}
+                    placeholder="Cidade"
+                    className="w-full px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                </div>
+
+                {/* Estado */}
+                <div className="sm:col-span-1 lg:col-span-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    UF
+                  </label>
+                  <input
+                    type="text"
+                    name="eleitorEstado"
+                    value={formData.eleitorEstado}
+                    onChange={handleInputChange}
+                    placeholder="PA"
+                    maxLength="2"
+                    className="w-full px-4 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-blue-700 mt-2 bg-blue-100/70 p-3 rounded-lg">
+              ✅ Após salvar, os dados serão registrados na base de eleitores e você poderá completar o cadastro depois.
+            </p>
+          </div>
+        )}
+
+        {/* Busca de Campanha - após seleção do eleitor ou preenchimento de nome (registrar novo) */}
+        {(eleitorSelecionado || modoEleitor === 'registrar') && formData.eleitorNome && (
+          <div className="w-full">
+            <BuscaCampanha 
+              onSelecionarCampanha={handleSelecionarCampanha}
+              campanhaSelecionada={campanhaSelecionada}
+            />
+          </div>
+        )}
+
+        {/* Formulário Principal de Atendimento */}
+        <form onSubmit={handleSubmit} className="w-full bg-white rounded-xl shadow-sm border border-gray-200/80 p-6 lg:p-8 space-y-6">
+          {/* Status do Atendimento - Badge no Topo */}
+          <div className="flex flex-wrap gap-3 items-center justify-between border-b border-gray-100 pb-5">
+            <div>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Situação do Registro</span>
+              <span className="text-sm font-semibold text-gray-700">Defina o status inicial do atendimento</span>
+            </div>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => atualizarStatus('AGENDADO')}
+                className={`px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all ${
+                  formData.statusAtendimento === 'AGENDADO'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <FontAwesomeIcon icon={faClock} />
+                Agendado
+              </button>
+              <button
+                type="button"
+                onClick={() => atualizarStatus('CANCELADO')}
+                className={`px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all ${
+                  formData.statusAtendimento === 'CANCELADO'
+                    ? 'bg-rose-500 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <FontAwesomeIcon icon={faTimesCircle} />
+                Cancelado
+              </button>
+              <button
+                type="button"
+                onClick={() => atualizarStatus('REALIZADO')}
+                className={`px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all ${
+                  formData.statusAtendimento === 'REALIZADO'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <FontAwesomeIcon icon={faCheckCircle} />
+                Realizado
+              </button>
+            </div>
+          </div>
+
+          {/* Tipo de Atendimento - Oculto se campanha existente selecionada */}
+          {(!campanhaSelecionada || campanhaSelecionada.id === 'AVULSO') && (
+            <div className="p-5 bg-gradient-to-r from-teal-50 to-blue-50 rounded-xl border border-teal-200">
+              <h3 className="text-base font-bold text-gray-800 mb-2">Tipo de Atendimento</h3>
+              <select
+                name="tipoAtendimento"
+                value={formData.tipoAtendimento}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent font-semibold bg-white"
+              >
+                <option value="ATENDIMENTO_MEDICO">Atendimento Médico</option>
+                <option value="ATENDIMENTO_ODONTOLOGICO">Atendimento Odontológico</option>
+                <option value="CADASTRO_BENEFICIOS">Cadastro de Benefícios</option>
+                <option value="CURSOS_PROFISSIONALIZANTES">Cursos Profissionalizantes</option>
+                <option value="DISTRIBUICAO_ALIMENTOS">Distribuição de Alimentos</option>
+                <option value="EMISSAO_DOCUMENTOS">Emissão de Documentos</option>
+                <option value="ENCAMINHAMENTO_SOCIAL">Encaminhamento Social</option>
+                <option value="OFICINAS_CAPACITACAO">Oficinas de Capacitação</option>
+                <option value="OFTALMOLOGISTA">Oftalmologista</option>
+                <option value="ORIENTACAO_SAUDE">Orientação de Saúde</option>
+                <option value="ORIENTACAO_JURIDICA">Orientação Jurídica</option>
+                <option value="OUTROS">Outros</option>
+              </select>
+            </div>
+          )}
+
+          {/* Campanha selecionada */}
+          {campanhaSelecionada && campanhaSelecionada.id !== 'AVULSO' && (
+            <div className="border border-teal-100 rounded-xl p-5 bg-teal-50/40 space-y-4">
+              <h3 className="text-base font-bold text-teal-800 flex items-center gap-2">
+                <FontAwesomeIcon icon={faHandshake} className="text-teal-600" />
+                CAMPANHA VINCULADA
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Liderança Responsável */}
+                <div>
                   {campanhaSelecionada?.id === 'AVULSO' ? (
-                    // Atendimento Avulso - Mostrar todos os serviços disponíveis
-                    <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3">
-                      <p className="text-sm text-gray-700 mb-3">
-                        💡 Atendimento avulso - Selecione os serviços oferecidos ou crie um personalizado
-                      </p>
-                      <textarea
-                        name="servicosOferecidos"
-                        value={formData.servicosOferecidos}
-                        onChange={handleInputChange}
-                        rows="3"
-                        placeholder="Descreva os serviços oferecidos neste atendimento avulso..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                      />
-                    </div>
-                  ) : servicosCampanha.length > 0 ? (
-                    // Serviços da campanha selecionada
-                    <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {servicosCampanha.map((servico, idx) => (
-                          <div key={idx} className="flex items-center gap-2 p-2 bg-white rounded border border-green-200">
-                            <input
-                              type="checkbox"
-                              id={`servico-${idx}`}
-                              checked={servicosSelecionados.some(s => (typeof s === 'string' ? s === servico.nome : s.id === servico.id))}
-                              onChange={() => toggleServicoCampanha(servico)}
-                              className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
-                            />
-                            <label htmlFor={`servico-${idx}`} className="text-sm text-gray-700 cursor-pointer">
-                              {servico.nome}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <BuscaLideranca
+                      onSelecionarLideranca={handleSelecionarLideranca}
+                      liderancaSelecionada={liderancaSelecionada}
+                      label="Liderança Responsável"
+                    />
                   ) : (
-                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 text-sm text-yellow-800">
-                      ⚠️ Esta campanha não possui serviços cadastrados. Descreva os serviços abaixo:
-                      <textarea
-                        name="servicosOferecidos"
-                        value={formData.servicosOferecidos}
-                        onChange={handleInputChange}
-                        rows="2"
-                        placeholder="Descreva os serviços oferecidos..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 mt-2"
-                      />
-                    </div>
+                    <>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                        Liderança Responsável <span className="text-red-500">*</span>
+                      </label>
+                      <div className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 space-y-1">
+                        {formData.liderancaResponsavel ? (
+                          <>
+                            <div className="font-semibold text-gray-800">{formData.liderancaResponsavel}</div>
+                            <div className="text-xs text-gray-500">
+                              <span className="inline-block bg-teal-100 text-teal-700 px-2 py-0.5 rounded font-semibold">
+                                {liderancaSelecionada?.papel || 'APOIO'}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-gray-500">Sem liderança vinculada</div>
+                        )}
+                      </div>
+                      {formData.liderancaResponsavel ? (
+                        <p className="text-xs text-gray-500 mt-1">✓ Selecionada automaticamente (maior hierarquia)</p>
+                      ) : (
+                        <p className="text-xs text-amber-600 mt-1">⚠️ Campanha sem liderança cadastrada</p>
+                      )}
+                    </>
                   )}
                 </div>
 
-
+                {/* Localidade Atendida */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Localidade Atendida <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="localidadeAtendida"
+                    value={formData.localidadeAtendida}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                    placeholder={campanhaSelecionada?.id === 'AVULSO' ? 'Informar localidade...' : ''}
+                  />
+                  {campanhaSelecionada?.id !== 'AVULSO' && (
+                    <p className="text-xs text-gray-500 mt-1">✓ Preenchido automaticamente da campanha</p>
+                  )}
+                </div>
               </div>
-            )}
 
-            {/* Atendimento Jurídico */}
-            {formData.tipoAtendimento === 'ATENDIMENTO_JURIDICO' && (
-              <div className="border-t pt-6 mb-6">
-                <h3 className="text-lg font-bold text-teal-700 mb-4 flex items-center gap-2">
-                  <FontAwesomeIcon icon={faGavel} className="text-teal-600" />
-                  ATENDIMENTO JURÍDICO
-                </h3>
+              {/* Serviços da Campanha */}
+              <div className="pt-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Serviços Oferecidos {campanhaSelecionada?.id === 'AVULSO' ? '(Selecione os serviços)' : '(Da campanha)'}
+                </label>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Tipo de Atendimento
-                    </label>
-                    <input
-                      type="text"
-                      name="tipoAtendimentoJuridico"
-                      value={formData.tipoAtendimentoJuridico}
+                {campanhaSelecionada?.id === 'AVULSO' ? (
+                  <div className="bg-blue-50 border border-blue-300 rounded-lg p-3.5">
+                    <p className="text-xs text-gray-700 mb-2 font-medium">
+                      💡 Atendimento avulso - Selecione os serviços oferecidos ou descreva abaixo:
+                    </p>
+                    <textarea
+                      name="servicosOferecidos"
+                      value={formData.servicosOferecidos}
                       onChange={handleInputChange}
-                      placeholder="Ex: Consultoria, Processo, Orientação"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                      rows="3"
+                      placeholder="Descreva os serviços oferecidos neste atendimento avulso..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
                     />
                   </div>
+                ) : servicosCampanha.length > 0 ? (
+                  <div className="bg-white border border-teal-200 rounded-xl p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {servicosCampanha.map((servico, idx) => (
+                        <label key={idx} className="flex items-center gap-2.5 p-2.5 bg-gray-50 hover:bg-teal-50/60 rounded-lg border border-gray-200 cursor-pointer transition-colors select-none">
+                          <input
+                            type="checkbox"
+                            id={`servico-${idx}`}
+                            checked={servicosSelecionados.some(s => (typeof s === 'string' ? s === servico.nome : s.id === servico.id))}
+                            onChange={() => toggleServicoCampanha(servico)}
+                            className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 accent-teal-600"
+                          />
+                          <span className="text-xs font-medium text-gray-800">
+                            {servico.nome}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-xs text-amber-800">
+                    ⚠️ Esta campanha não possui serviços cadastrados. Descreva os serviços abaixo:
+                    <textarea
+                      name="servicosOferecidos"
+                      value={formData.servicosOferecidos}
+                      onChange={handleInputChange}
+                      rows="2"
+                      placeholder="Descreva os serviços oferecidos..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 mt-2 bg-white"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Agendamento
-                    </label>
-                    <input
-                      type="datetime-local"
-                      name="agendamento"
-                      value={formData.agendamento}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
+          {/* Atendimento Jurídico */}
+          {formData.tipoAtendimento === 'ATENDIMENTO_JURIDICO' && (
+            <div className="border-t border-gray-100 pt-5 space-y-3">
+              <h3 className="text-base font-bold text-teal-700 flex items-center gap-2">
+                <FontAwesomeIcon icon={faGavel} className="text-teal-600" />
+                ATENDIMENTO JURÍDICO
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Tipo de Atendimento
+                  </label>
+                  <input
+                    type="text"
+                    name="tipoAtendimentoJuridico"
+                    value={formData.tipoAtendimentoJuridico}
+                    onChange={handleInputChange}
+                    placeholder="Ex: Consultoria, Processo, Orientação"
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                  />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Agendamento
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="agendamento"
+                    value={formData.agendamento}
+                    onChange={handleInputChange}
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Dados do Eleitor */}
+          <div className="border-t border-gray-100 pt-5 space-y-4">
+            <h3 className="text-base font-bold text-teal-800">DADOS DO ELEITOR SELECIONADO</h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  CPF <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="eleitorCpf"
+                  value={formData.eleitorCpf}
+                  readOnly
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-mono text-sm cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Nome Completo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="eleitorNome"
+                  value={formData.eleitorNome}
+                  readOnly
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-800 font-semibold text-sm cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                  <FontAwesomeIcon icon={faWhatsapp} className="text-emerald-500" />
+                  Celular / WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  name="eleitorCelular"
+                  value={formData.eleitorCelular}
+                  readOnly
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 text-sm cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="eleitorEmail"
+                  value={formData.eleitorEmail}
+                  readOnly
+                  className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 text-sm cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            {campanhaSelecionada && campanhaSelecionada.id !== 'AVULSO' && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    name="ausenteAcaoCampanha"
+                    checked={formData.ausenteAcaoCampanha}
+                    onChange={handleInputChange}
+                    className="mt-1 h-4 w-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 accent-amber-600"
+                  />
+                  <div>
+                    <span className="block font-bold text-sm text-amber-900">Ausente na ação/Campanha</span>
+                    <span className="block text-xs text-amber-800">
+                      Marque quando o eleitor estava vinculado à campanha, mas não compareceu ao atendimento.
+                    </span>
+                  </div>
+                </label>
               </div>
             )}
+          </div>
 
-            {/* Dados do Eleitor */}
-            <div className="border-t pt-6 mb-6">
-              <h3 className="text-lg font-bold text-teal-700 mb-4">DADOS DO ELEITOR</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    CPF do Eleitor <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="eleitorCpf"
-                    value={formData.eleitorCpf}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Nome do Eleitor <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="eleitorNome"
-                    value={formData.eleitorNome}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
+          {/* Descrição e Observações */}
+          <div className="border-t border-gray-100 pt-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Descrição do Atendimento
+                </label>
+                <textarea
+                  name="descricao"
+                  value={formData.descricao}
+                  onChange={handleInputChange}
+                  rows="4"
+                  placeholder="Descreva detalhadamente o atendimento realizado..."
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="eleitorEmail"
-                    value={formData.eleitorEmail}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faWhatsapp} className="text-green-500" />
-                    Celular / WhatsApp
-                  </label>
-                  <input
-                    type="tel"
-                    name="eleitorCelular"
-                    value={formData.eleitorCelular}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              {campanhaSelecionada && campanhaSelecionada.id !== 'AVULSO' && (
-                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="ausenteAcaoCampanha"
-                      checked={formData.ausenteAcaoCampanha}
-                      onChange={handleInputChange}
-                      className="mt-1 h-5 w-5 text-amber-600 rounded border-amber-300 focus:ring-amber-500"
-                    />
-                    <span>
-                      <span className="block font-semibold text-amber-900">Ausente na ação/Campanha</span>
-                      <span className="block text-sm text-amber-800">
-                        Marque quando o eleitor estava vinculado à campanha, mas não compareceu ao atendimento.
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* Descrição e Observações */}
-            <div className="border-t pt-6 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Descrição do Atendimento
-                  </label>
-                  <textarea
-                    name="descricao"
-                    value={formData.descricao}
-                    onChange={handleInputChange}
-                    rows="4"
-                    placeholder="Descreva detalhadamente o atendimento..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Observações
-                  </label>
-                  <textarea
-                    name="observacoes"
-                    value={formData.observacoes}
-                    onChange={handleInputChange}
-                    rows="4"
-                    placeholder="Observações adicionais..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Observações Gerais
+                </label>
+                <textarea
+                  name="observacoes"
+                  value={formData.observacoes}
+                  onChange={handleInputChange}
+                  rows="4"
+                  placeholder="Observações ou anotações internas adicionais..."
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                />
               </div>
             </div>
+          </div>
 
-            {/* Datas */}
-            <div className="border-t pt-6 mb-6">
-              <h3 className="text-lg font-bold text-teal-700 mb-4">DATAS</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Data do Atendimento
-                  </label>
-                  <input
-                    type="date"
-                    name="dataAtendimento"
-                    value={formData.dataAtendimento}
-                    onChange={handleInputChange}
-                    disabled={campanhaSelecionada?.id && campanhaSelecionada.id !== 'AVULSO'}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                      campanhaSelecionada?.id && campanhaSelecionada.id !== 'AVULSO'
-                        ? 'bg-gray-100 text-gray-700 cursor-not-allowed'
-                        : ''
-                    }`}
-                  />
-                </div>
+          {/* Datas */}
+          <div className="border-t border-gray-100 pt-5 space-y-3">
+            <h3 className="text-base font-bold text-teal-800">DATAS</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Data do Atendimento
+                </label>
+                <input
+                  type="date"
+                  name="dataAtendimento"
+                  value={formData.dataAtendimento}
+                  onChange={handleInputChange}
+                  disabled={campanhaSelecionada?.id && campanhaSelecionada.id !== 'AVULSO'}
+                  className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                    campanhaSelecionada?.id && campanhaSelecionada.id !== 'AVULSO'
+                      ? 'bg-gray-100 text-gray-700 cursor-not-allowed'
+                      : 'bg-white'
+                  }`}
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Data de Conclusão
-                  </label>
-                  <input
-                    type="date"
-                    name="dataConclusao"
-                    value={formData.dataConclusao}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Data de Conclusão
+                </label>
+                <input
+                  type="date"
+                  name="dataConclusao"
+                  value={formData.dataConclusao}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white"
+                />
               </div>
             </div>
+          </div>
 
-            {/* Configurações de Notificação */}
-            <div className="border-t pt-6 mb-6 p-4 bg-blue-50 rounded-lg">
-              <h3 className="text-lg font-bold text-blue-800 mb-4 flex items-center gap-2">
-                <FontAwesomeIcon icon={faBell} />
+          {/* Configurações de Notificação */}
+          <div className="border-t border-gray-100 pt-5">
+            <div className="p-5 bg-blue-50/70 border border-blue-200 rounded-xl space-y-3">
+              <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                <FontAwesomeIcon icon={faBell} className="text-blue-600" />
                 NOTIFICAÇÕES AUTOMÁTICAS
               </h3>
               
-              <div className="mb-4">
-                <label className="flex items-center gap-3 cursor-pointer">
+              <div>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     name="notificarEleitor"
                     checked={formData.notificarEleitor}
                     onChange={handleInputChange}
-                    className="w-5 h-5 text-teal-600"
+                    className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500 accent-teal-600"
                   />
-                  <span className="font-semibold text-gray-700">
+                  <span className="text-sm font-semibold text-gray-700">
                     Notificar eleitor sobre atualizações do atendimento
                   </span>
                 </label>
               </div>
 
               {formData.notificarEleitor && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Modo de Notificação
+                <div className="pt-2 border-t border-blue-200/60">
+                  <label className="block text-xs font-bold text-gray-600 mb-2 uppercase">
+                    Canal de Notificação
                   </label>
-                  <div className="flex gap-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
                       <input
                         type="radio"
                         name="modoNotificacao"
                         value="EMAIL"
                         checked={formData.modoNotificacao === 'EMAIL'}
                         onChange={handleInputChange}
-                        className="w-4 h-4"
+                        className="w-4 h-4 text-blue-600 accent-blue-600"
                       />
                       <FontAwesomeIcon icon={faEnvelope} className="text-blue-600" />
                       <span>Email</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
                       <input
                         type="radio"
                         name="modoNotificacao"
                         value="SMS"
                         checked={formData.modoNotificacao === 'SMS'}
                         onChange={handleInputChange}
-                        className="w-4 h-4"
+                        className="w-4 h-4 text-green-600 accent-green-600"
                       />
                       <FontAwesomeIcon icon={faPhone} className="text-green-600" />
                       <span>SMS</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
                       <input
                         type="radio"
                         name="modoNotificacao"
                         value="WHATSAPP"
                         checked={formData.modoNotificacao === 'WHATSAPP'}
                         onChange={handleInputChange}
-                        className="w-4 h-4"
+                        className="w-4 h-4 text-green-500 accent-green-500"
                       />
                       <FontAwesomeIcon icon={faWhatsapp} className="text-green-500" />
                       <span>WhatsApp</span>
@@ -1355,27 +1360,29 @@ export default function NovoAtendimento() {
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Botões de Ação */}
-            <div className="flex gap-4 justify-between">
-              <button
-                type="button"
-                onClick={() => router.push('/cadastros/atendimentos')}
-                className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors flex items-center gap-2"
-              >
-                <FontAwesomeIcon icon={faArrowLeft} />
-                Voltar para Lista
-              </button>
-              <button
-                type="submit"
-                disabled={salvando}
-                className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-semibold transition-colors flex items-center gap-2"
-              >
-                <FontAwesomeIcon icon={faSave} />
-                {salvando ? 'Salvando...' : 'Salvar Atendimento'}
-              </button>
-            </div>
-          </form>
-        </Layout>
-      );
+          {/* Botões de Ação */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => router.push('/cadastros/atendimentos')}
+              className="w-full sm:w-auto px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              <FontAwesomeIcon icon={faArrowLeft} />
+              Voltar para Lista
+            </button>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="w-full sm:w-auto px-8 py-3.5 bg-teal-600 text-white rounded-xl hover:bg-teal-700 font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <FontAwesomeIcon icon={faSave} />
+              {salvando ? 'Salvando...' : 'Salvar Atendimento'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </Layout>
+  );
     }

@@ -15,7 +15,7 @@ export default function EditarEleitor() {
   const router = useRouter();
   const { id } = router.query;
   const { modalState, closeModal, showSuccess, showError, showWarning } = useModal();
-  const { user } = useAuth();
+  const { user, mandatoAtivoId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [mandatosSelecionados, setMandatosSelecionados] = useState([]);
   const [liderancas, setLiderancas] = useState([]);
@@ -122,8 +122,8 @@ export default function EditarEleitor() {
   const carregarEleitor = useCallback(async () => {
     try {
       setLoading(true);
-      // Buscar eleitor da API
-      const response = await fetch(`/api/cadastros/eleitores/${id}`);
+      const mandatoParam = mandatoAtivoId ? `?mandato_id=${mandatoAtivoId}` : '';
+      const response = await fetch(`/api/cadastros/eleitores/${id}${mandatoParam}`);
       
       if (!response.ok) {
         throw new Error('Eleitor não encontrado');

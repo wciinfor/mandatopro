@@ -57,7 +57,7 @@ export async function obterContextoMandato(req, usuario, supabase) {
   // Para Mandato Federal (2): inclui FEDERAL e AMBOS
   const pertencimentosPermitidos = mandatoIdFinal === 2
     ? ['FEDERAL', 'AMBOS']
-    : ['ESTADUAL', 'AMBOS', 'NAO_CLASSIFICADO', null];
+    : ['ESTADUAL', 'AMBOS', 'NAO_CLASSIFICADO'];
 
   const tipo = mandatoIdFinal === 2 ? 'FEDERAL' : 'ESTADUAL';
 
@@ -66,6 +66,18 @@ export async function obterContextoMandato(req, usuario, supabase) {
     tipo,
     pertencimentosPermitidos
   };
+}
+
+/**
+ * Aplica o filtro correto de pertencimento à query de eleitores,
+ * garantindo que no Mandato Estadual registros com pertencimento IS NULL não sejam descartados.
+ */
+export function aplicarFiltroPertencimentoEleitor(query, contextoMandato) {
+  if (contextoMandato?.mandatoId === 2) {
+    return query.in('pertencimento', ['FEDERAL', 'AMBOS']);
+  }
+  // Mandato Estadual (1): aceita ESTADUAL, AMBOS, NAO_CLASSIFICADO ou pertencimento IS NULL
+  return query.or('pertencimento.in.(ESTADUAL,AMBOS,NAO_CLASSIFICADO),pertencimento.is.null');
 }
 
 /**

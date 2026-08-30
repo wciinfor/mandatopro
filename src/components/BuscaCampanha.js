@@ -44,8 +44,8 @@ export default function BuscaCampanha({ onSelecionarCampanha, campanhaSelecionad
     return nome.includes(termo) || local.includes(termo);
   });
 
-  // Se não houver busca ativa, exibe apenas as 10 mais recentes
-  const campanhasExibidas = busca.trim() ? campanhasFiltradas : campanhasFiltradas.slice(0, 10);
+  // Exibir campanhas filtradas ou todas carregadas
+  const campanhasExibidas = campanhasFiltradas;
 
   const selecionarCampanha = (campanha) => {
     onSelecionarCampanha(campanha);
@@ -66,7 +66,7 @@ export default function BuscaCampanha({ onSelecionarCampanha, campanhaSelecionad
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="w-full">
       <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-600 shadow-md">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <FontAwesomeIcon icon={faSearch} className="text-purple-600" />
@@ -107,7 +107,7 @@ export default function BuscaCampanha({ onSelecionarCampanha, campanhaSelecionad
             <>
               {!busca.trim() && (
                 <p className="text-xs text-purple-700 font-semibold mb-1">
-                  Exibindo as 10 últimas campanhas cadastradas:
+                  Selecione uma campanha ou digite para filtrar:
                 </p>
               )}
 
