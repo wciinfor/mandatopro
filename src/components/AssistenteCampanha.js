@@ -230,6 +230,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       const headerComp = templateSelecionado.componentes.find(c => String(c.type || '').toUpperCase() === 'HEADER');
       const textToScan = `${headerComp?.text || ''} ${bodyComp?.text || ''}`;
 
+      const matches = textToScan.match(/\{\{\d+\}\}/g) || [];
+      const keys = [...new Set(matches.map(m => m.replace(/[\{\}]/g, '')))].sort((a, b) => Number(a) - Number(b));
+
       const nomesServicos = Array.isArray(campanhaSelecionada?.campanhas_servicos)
         ? campanhaSelecionada.campanhas_servicos
             .map(cs => cs?.categorias_servicos?.nome || cs?.nome_servico)
