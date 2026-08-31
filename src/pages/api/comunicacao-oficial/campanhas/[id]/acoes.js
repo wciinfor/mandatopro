@@ -37,7 +37,27 @@ export default async function handler(req, res) {
     // 2. Executa a transação com base na ação selecionada
     const { registrarEventoTimeline } = require('@/lib/timeline-helper');
 
-    if (acao === 'pausar') {
+    if (acao === 'excluir' || req.method === 'DELETE') {
+      // Regra estrita: só permite exclusão definitiva se a campanha ainda estiver na fila ou rascunho
+      const statusPermitidos = ['Na Fila', 'rascunho', 'agendado'];
+      if (!statusPermitidos.includes(campanha.status)) {
+        return res.status(400).json({
+          error: `Não é possível excluir uma campanha com status "${campanha.status}". Apenas campanhas que ainda não iniciaram processamento podem ser excluídas.`
+        });
+      }
+
+      // Exclui a campanha principal (communication_campaign_items é excluído por CASCADE)
+      const { error: errDelete } = await supabase
+        .from('communication_campaigns')
+        .delete()
+        .eq('id', id)
+        .eq('tenant_id', usuario.tenant_id || 1);
+
+      if (errDelete) throw errDelete;
+
+      return res.status(200).json({ success: true, message: 'Campanha e itens da fila excluídos com sucesso.' });
+
+    } else if (acao === 'pausar') {
       novoStatus = 'Pausada';
       const { error: errUpdate } = await supabase
         .from('communication_campaigns')

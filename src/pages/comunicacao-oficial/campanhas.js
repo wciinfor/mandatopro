@@ -3,7 +3,16 @@ import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBullhorn, faPlus, faFilter, faInbox, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import {
+  faBullhorn,
+  faPlus,
+  faFilter,
+  faInbox,
+  faSpinner,
+  faTrashAlt,
+  faExclamationTriangle,
+  faTimes
+} from '@fortawesome/free-solid-svg-icons';
 import { CampanhaCard } from '@/components/CampanhaCard';
 import AssistenteCampanha from '@/components/AssistenteCampanha';
 
@@ -13,6 +22,9 @@ export default function CampanhasOficiaisPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [criando, setCriando] = useState(false);
+  const [campanhaParaExcluir, setCampanhaParaExcluir] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const carregarCampanhasReais = async () => {
     setLoading(true);
@@ -38,6 +50,34 @@ export default function CampanhasOficiaisPage() {
     (c.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
     (c.template || '').toLowerCase().includes(busca.toLowerCase())
   );
+
+  const handleExcluirCampanha = async () => {
+    if (!campanhaParaExcluir || excluindo) return;
+    setExcluindo(true);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/comunicacao-oficial/campanhas/${campanhaParaExcluir.id}/acoes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ acao: 'excluir' })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Falha ao excluir a campanha.');
+      }
+
+      setFeedback({ tipo: 'sucesso', texto: 'Campanha e itens da fila excluídos com sucesso!' });
+      setCampanhas(prev => prev.filter(c => c.id !== campanhaParaExcluir.id));
+      setCampanhaParaExcluir(null);
+    } catch (err) {
+      console.error('Erro ao excluir campanha:', err);
+      setFeedback({ tipo: 'erro', texto: err.message || 'Não foi possível excluir a campanha.' });
+    } finally {
+      setExcluindo(false);
+    }
+  };
 
   const handleSalvarNovaCampanha = async (novaCamp) => {
     try {
@@ -75,6 +115,18 @@ export default function CampanhasOficiaisPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Feedback Alert */}
+            {feedback && (
+              <div className={`p-4 rounded-2xl flex items-center justify-between text-xs font-semibold ${
+                feedback.tipo === 'sucesso' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                <span>{feedback.texto}</span>
+                <button onClick={() => setFeedback(null)} className="hover:opacity-70">
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+            )}
+
             {/* Cabeçalho */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-6 shadow-sm border border-teal-100/50 gap-4">
               <div>
@@ -116,13 +168,70 @@ export default function CampanhasOficiaisPage() {
             ) : filtrarCampanhas.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filtrarCampanhas.map((camp) => (
-                  <CampanhaCard key={camp.id} campanha={camp} />
+                  <CampanhaCard
+                    key={camp.id}
+                    campanha={camp}
+                    onExcluir={setCampanhaParaExcluir}
+                  />
                 ))}
               </div>
             ) : (
               <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
                 <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-200 mb-3" />
                 <p className="text-sm">Nenhuma comunicação atende aos filtros pesquisados.</p>
+              </div>
+            )}
+
+            {/* Modal de Confirmação de Exclusão */}
+            {campanhaParaExcluir && (
+              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-red-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center gap-3 text-red-600">
+                    <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                      <FontAwesomeIcon icon={faExclamationTriangle} className="text-lg" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm">Cancelar e Excluir Disparo</h4>
+                      <p className="text-xs text-gray-500">Confirmação de exclusão definitiva</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100 text-xs text-gray-600 space-y-1.5">
+                    <p>
+                      Você está prestes a excluir a comunicação <strong>"{campanhaParaExcluir.nome}"</strong>.
+                    </p>
+                    <p className="text-red-700 font-medium">
+                      ⚠️ O registro da campanha e todos os seus <strong>{campanhaParaExcluir.total_destinatarios || 0} contatos na fila</strong> serão cancelados e removidos definitivamente da base de dados.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      onClick={() => setCampanhaParaExcluir(null)}
+                      disabled={excluindo}
+                      className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      onClick={handleExcluirCampanha}
+                      disabled={excluindo}
+                      className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                    >
+                      {excluindo ? (
+                        <>
+                          <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
+                          Excluindo...
+                        </>
+                      ) : (
+                        <>
+                          <FontAwesomeIcon icon={faTrashAlt} className="text-xs" />
+                          Sim, Cancelar e Excluir
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

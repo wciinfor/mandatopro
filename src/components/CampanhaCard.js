@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBullhorn, faClock, faCheckDouble, faBan, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faClock, faCheckDouble, faBan, faPaperPlane, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
 
 /**
  * Card visual representativo de uma Campanha Oficial de disparos.
@@ -9,8 +9,9 @@ import { faBullhorn, faClock, faCheckDouble, faBan, faPaperPlane } from '@fortaw
  * @param {Object} props
  * @param {import('@/lib/model-campanhas-oficiais').CampanhaOficial} props.campanha
  * @param {Function} [props.onAction]
+ * @param {Function} [props.onExcluir]
  */
-export function CampanhaCard({ campanha, onAction }) {
+export function CampanhaCard({ campanha, onAction, onExcluir }) {
   const router = useRouter();
 
   const getStatusBadge = (status) => {
@@ -79,16 +80,31 @@ export function CampanhaCard({ campanha, onAction }) {
             : 'Envio imediato'}
         </span>
         {campanha.status === 'Na Fila' ? (
-          <button
-            onClick={(event) => {
-              event.stopPropagation();
-              router.push(`/comunicacao-oficial/campanhas/${campanha.id}`);
-            }}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-3 rounded-lg transition text-[10px] flex items-center gap-1 shadow-sm"
-          >
-            <FontAwesomeIcon icon={faPaperPlane} className="text-[9px]" />
-            Iniciar Disparo
-          </button>
+          <div className="flex items-center gap-1.5">
+            {onExcluir && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onExcluir(campanha);
+                }}
+                title="Cancelar e Excluir da fila"
+                className="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-2.5 rounded-lg border border-red-100 transition text-[10px] flex items-center gap-1"
+              >
+                <FontAwesomeIcon icon={faTrashAlt} className="text-[9px]" />
+                Cancelar e Excluir
+              </button>
+            )}
+            <button
+              onClick={(event) => {
+                event.stopPropagation();
+                router.push(`/comunicacao-oficial/campanhas/${campanha.id}`);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-3 rounded-lg transition text-[10px] flex items-center gap-1 shadow-sm"
+            >
+              <FontAwesomeIcon icon={faPaperPlane} className="text-[9px]" />
+              Iniciar Disparo
+            </button>
+          </div>
         ) : campanha.status === 'rascunho' && onAction ? (
           <button
             onClick={(event) => { event.stopPropagation(); onAction(campanha); }}
