@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       return res.status(200).json(formatadas);
     } catch (err) {
       console.error('[SalvarComunicacaoAPI GET] Erro ao listar campanhas:', err);
-      return res.status(200).json([]);
+      return res.status(500).json({ error: err.message || 'Erro ao listar comunicações oficiais' });
     }
   }
 
@@ -167,6 +167,7 @@ export default async function handler(req, res) {
 
       if (errItems) {
         console.error('[SalvarComunicacaoAPI] Erro ao popular communication_campaign_items:', errItems);
+        throw errItems;
       }
     }
 
@@ -189,15 +190,8 @@ export default async function handler(req, res) {
     return res.status(200).json(campanhaCriada);
   } catch (error) {
     console.error('[SalvarComunicacaoAPI] Erro ao persistir comunicação oficial:', error);
-    // Emula retorno seguro se a tabela não possuir RLS para o usuário ou estiver indisponível
-    return res.status(200).json({
-      id: `camp-mock-${Date.now()}`,
-      nome: req.body?.nome || 'Comunicação Oficial',
-      canal: req.body?.canal || 'whatsapp',
-      status: req.body?.status || 'rascunho',
-      total_destinatarios: req.body?.total_destinatarios || 0,
-      agendado_para: req.body?.agendamento || null,
-      created_at: new Date().toISOString()
+    return res.status(500).json({
+      error: error.message || 'Erro ao persistir comunicação oficial na base de dados'
     });
   }
 }
