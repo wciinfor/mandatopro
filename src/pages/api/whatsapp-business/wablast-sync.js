@@ -58,6 +58,61 @@ export default async function handler(req, res) {
     let displayName = 'Ação Social';
     let externalRef = contaWablast?.wablast_external_ref || `tenant_${tenantId}`;
 
+    // Helper robusto para extrair telefone e WABA de diferentes formatos de resposta da WaBlast
+    const extrairDadosConta = (obj) => {
+      if (!obj || typeof obj !== 'object') return {};
+      const data = obj.data || obj.account || obj;
+      
+      const numItem = (Array.isArray(data.phone_numbers) ? data.phone_numbers[0] : null)
+        || (Array.isArray(data.numbers) ? data.numbers[0] : null)
+        || (Array.isArray(data.whatsapp_business_numbers) ? data.whatsapp_business_numbers[0] : null)
+        || (Array.isArray(data.phones) ? data.phones[0] : null)
+        || null;
+
+      const numStr = (typeof numItem === 'string' ? numItem : null)
+        || numItem?.phone_number
+        || numItem?.display_phone_number
+        || numItem?.phoneNumber
+        || numItem?.phone
+        || data.phone_number
+        || data.display_phone_number
+        || data.phoneNumber
+        || data.phone
+        || null;
+
+      const phoneId = numItem?.phone_number_id
+        || numItem?.phoneNumberId
+        || numItem?.id
+        || data.phone_number_id
+        || data.phoneNumberId
+        || numStr
+        || null;
+
+      const waba = data.waba_id
+        || data.wabaId
+        || data.waba?.id
+        || numItem?.waba_id
+        || numItem?.wabaId
+        || null;
+
+      const name = data.display_name
+        || data.verified_name
+        || data.name
+        || numItem?.display_name
+        || numItem?.verified_name
+        || null;
+
+      const extRef = data.external_ref || data.externalRef || null;
+
+      return {
+        wabaId: waba,
+        rawPhone: numStr,
+        phoneNumberId: phoneId,
+        displayName: name,
+        externalRef: extRef
+      };
+    };
+
     // CASO A: A conta já possui wablast_account_id -> consulta diretamente GET /v1/accounts/{accountId}
     if (accountId) {
       console.log(`[WABLAST SYNC] Sincronizando conta WaBlast existente: accountId=${accountId}`);
@@ -65,11 +120,12 @@ export default async function handler(req, res) {
         const accountDetails = await client.getAccount(accountId);
         console.log('[WABLAST SYNC] Detalhes da conta obtidos via getAccount:', JSON.stringify(accountDetails));
 
-        wabaId = accountDetails?.waba_id || accountDetails?.wabaId || accountDetails?.waba?.id || wabaId;
-        rawPhone = accountDetails?.phone_number || accountDetails?.display_phone_number || accountDetails?.phoneNumber || accountDetails?.phone || null;
-        phoneNumberId = accountDetails?.phone_number_id || accountDetails?.phoneNumberId || rawPhone || null;
-        displayName = accountDetails?.display_name || accountDetails?.verified_name || accountDetails?.name || displayName;
-        externalRef = accountDetails?.external_ref || externalRef;
+        const extraido = extrairDadosConta(accountDetails);
+        wabaId = extraido.wabaId || wabaId;
+        rawPhone = extraido.rawPhone || rawPhone;
+        phoneNumberId = extraido.phoneNumberId || phoneNumberId;
+        displayName = extraido.displayName || displayName;
+        externalRef = extraido.externalRef || externalRef;
       } catch (accErr) {
         console.error('[WABLAST SYNC] Erro ao consultar GET /v1/accounts:', accErr.message);
         return res.status(200).json({
@@ -106,12 +162,13 @@ export default async function handler(req, res) {
         });
       }
 
+      const extraidoSessao = extrairDadosConta(sessionData);
       accountId = sessionData.account_id || sessionData.id;
-      wabaId = sessionData.waba_id || null;
-      rawPhone = sessionData.phone_number || sessionData.display_phone_number || null;
-      phoneNumberId = sessionData.phone_number_id || rawPhone || null;
-      displayName = sessionData.display_name || sessionData.verified_name || displayName;
-      externalRef = sessionData.external_ref || externalRef;
+      wabaId = extraidoSessao.wabaId || null;
+      rawPhone = extraidoSessao.rawPhone || null;
+      phoneNumberId = extraidoSessao.phoneNumberId || null;
+      displayName = extraidoSessao.displayName || displayName;
+      externalRef = extraidoSessao.externalRef || externalRef;
 
       // Se a sessão não retornou os dados de WABA ou número, consulta os detalhes da conta na WaBlast
       if (accountId && (!wabaId || !rawPhone)) {
@@ -119,10 +176,11 @@ export default async function handler(req, res) {
           const accountDetails = await client.getAccount(accountId);
           console.log('[WABLAST SYNC] Detalhes da conta obtidos via getAccount:', JSON.stringify(accountDetails));
 
-          wabaId = wabaId || accountDetails?.waba_id || accountDetails?.wabaId || accountDetails?.waba?.id || null;
-          rawPhone = rawPhone || accountDetails?.phone_number || accountDetails?.display_phone_number || accountDetails?.phoneNumber || accountDetails?.phone || null;
-          phoneNumberId = phoneNumberId || accountDetails?.phone_number_id || accountDetails?.phoneNumberId || rawPhone || null;
-          displayName = accountDetails?.display_name || accountDetails?.verified_name || accountDetails?.name || displayName;
+          const extraidoConta = extrairDadosConta(accountDetails);
+          wabaId = wabaId || extraidoConta.wabaId || null;
+          rawPhone = rawPhone || extraidoConta.rawPhone || null;
+          phoneNumberId = phoneNumberId || extraidoConta.phoneNumberId || null;
+          displayName = extraidoConta.displayName || displayName;
         } catch (accErr) {
           console.warn('[WABLAST SYNC] Não foi possível obter detalhes complementares via getAccount:', accErr.message);
         }
