@@ -552,7 +552,15 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   onChange={(e) => setCanal(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm focus:outline-none"
                 >
-                  <option value="whatsapp">WhatsApp Business Oficial (YCloud / Meta Cloud API)</option>
+                  <option value="whatsapp">
+                    {(() => {
+                      const prov = String(contaOficial?.provider || '').toUpperCase();
+                      if (prov === 'WABLAST') return 'WhatsApp Business Oficial (WaBlast)';
+                      if (prov === 'YCLOUD') return 'WhatsApp Business Oficial (YCloud)';
+                      if (prov === 'META') return 'WhatsApp Business Oficial (Meta Cloud API)';
+                      return 'WhatsApp Business Oficial (YCloud / Meta / WaBlast)';
+                    })()}
+                  </option>
                 </select>
               </div>
 
@@ -1002,7 +1010,13 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   <div>
                     <span className="text-[10px] font-bold text-gray-400 uppercase block">Provedor Oficial Ativo</span>
                     <p className="font-extrabold text-xs text-teal-700 mt-0.5 flex items-center gap-1">
-                      <FontAwesomeIcon icon={faCheckCircle} /> {contaOficial?.provider || 'YCLOUD / META'} Oficial
+                      <FontAwesomeIcon icon={faCheckCircle} /> {(() => {
+                        const prov = String(contaOficial?.provider || '').toUpperCase();
+                        if (prov === 'WABLAST') return 'WaBlast Oficial';
+                        if (prov === 'YCLOUD') return 'YCloud Oficial';
+                        if (prov === 'META') return 'Meta Cloud API Oficial';
+                        return 'WhatsApp Oficial';
+                      })()}
                     </p>
                   </div>
                   <div>
