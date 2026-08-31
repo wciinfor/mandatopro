@@ -47,27 +47,31 @@ export default function WhatsAppBusinessOficial() {
       if (data?.status === 'COMPLETED') {
         setMensagemStatus({
           tipo: 'sucesso',
-          texto: 'WhatsApp WABLAST conectado com sucesso.'
+          texto: data.message || 'WhatsApp WABLAST conectado com sucesso.'
         });
       } else if (data?.status === 'PENDING') {
         setMensagemStatus({
           tipo: 'info',
-          texto: 'O WhatsApp foi conectado, mas a confirmação da WaBlast ainda está sendo processada. Tente novamente em alguns instantes.'
+          texto: data.message || 'O WhatsApp foi conectado, mas a confirmação da WaBlast ainda está sendo processada. Tente novamente em alguns instantes.'
         });
       } else if (data?.status === 'NO_SESSION') {
-        // Nenhuma sessão pendente, apenas carrega configuração
         setMensagemStatus(null);
+      } else if (data?.status === 'NO_PHONE') {
+        setMensagemStatus({
+          tipo: 'erro',
+          texto: data.message || 'Conta WaBlast localizada, mas nenhum número de WhatsApp ativo foi retornado.'
+        });
       } else {
         setMensagemStatus({
           tipo: 'erro',
-          texto: 'Não foi possível sincronizar a conexão WABLAST.'
+          texto: data.error || data.message || 'Não foi possível sincronizar a conexão WABLAST.'
         });
       }
     } catch (syncErr) {
       console.error('Erro ao sincronizar retorno WaBlast:', syncErr);
       setMensagemStatus({
         tipo: 'erro',
-        texto: 'Não foi possível sincronizar a conexão WABLAST.'
+        texto: syncErr.message || 'Não foi possível sincronizar a conexão WABLAST.'
       });
     } finally {
       await carregarConfiguracao();

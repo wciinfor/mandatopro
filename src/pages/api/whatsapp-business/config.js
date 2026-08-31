@@ -47,8 +47,8 @@ export default async function handler(req, res) {
         .eq('status', 'ATIVO');
 
       const contaWablastRaw = (todasContas || []).find(c => c.provider === 'WABLAST');
-      const numWablast = contaWablastRaw?.whatsapp_business_numbers?.find(n => n.status !== 'INATIVO') || contaWablastRaw?.whatsapp_business_numbers?.[0];
-      const isWablastConnected = Boolean(contaWablastRaw?.wablast_account_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.account_id);
+      const numWablast = contaWablastRaw?.whatsapp_business_numbers?.find(n => n.status !== 'INATIVO' && n.phone_number_id) || contaWablastRaw?.whatsapp_business_numbers?.[0];
+      const isWablastConnected = Boolean(contaWablastRaw?.wablast_account_id && numWablast?.phone_number_id);
 
       const isMetaConnected = (todasContas || []).some(c => c.provider === 'META' && Boolean(c.access_token));
       const isYCloudConnected = (todasContas || []).some(c => c.provider === 'YCLOUD' && Boolean(c.ycloud_api_key));
@@ -71,9 +71,9 @@ export default async function handler(req, res) {
         },
         wablastDetails: {
           connected: isWablastConnected,
-          accountId: contaWablastRaw?.wablast_account_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.account_id || null,
-          wabaId: contaWablastRaw?.wablast_waba_id || contaWablastRaw?.waba_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.waba_id || null,
-          phoneNumber: numWablast?.display_phone_number || numWablast?.phone_number_id || contaWablastRaw?.token_debug_metadata?.wablast_session?.raw_result?.phone_number || null,
+          accountId: contaWablastRaw?.wablast_account_id || null,
+          wabaId: contaWablastRaw?.wablast_waba_id || contaWablastRaw?.waba_id || null,
+          phoneNumber: numWablast?.display_phone_number || numWablast?.phone_number_id || null,
           verifiedName: numWablast?.verified_name || null
         }
       });

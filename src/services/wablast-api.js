@@ -67,14 +67,19 @@ export default class WaBlastApiService {
       }
 
       if (!response.ok) {
-        const errorMsg = responseData?.error?.message 
+        let errorMsg = responseData?.error?.message 
           || responseData?.message 
           || (typeof responseData?.error === 'string' ? responseData.error : '')
           || responseData?.rawText 
           || `HTTP ${response.status} ${response.statusText}`;
+
+        if (response.status === 401) {
+          errorMsg = `Falha de autenticação na integração WaBlast (401 UNAUTHENTICATED): Chave de API ausente, inválida ou revogada. Atualize a WABLAST_API_KEY no arquivo .env.local e tente novamente. (${errorMsg})`;
+        }
+
         const error = new Error(`Erro na API WaBlast: ${errorMsg}`);
         error.status = response.status;
-        error.code = responseData?.error?.code || responseData?.code || 'WABLAST_API_ERROR';
+        error.code = response.status === 401 ? 'UNAUTHENTICATED' : (responseData?.error?.code || responseData?.code || 'WABLAST_API_ERROR');
         error.details = responseData;
         throw error;
       }

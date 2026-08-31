@@ -250,7 +250,6 @@ export default async function handler(req, res) {
       targetAccountId = novaConta?.id;
     }
 
-    // 3. Persiste/Atualiza whatsapp_business_numbers de forma idempotente
     if (targetAccountId && phoneNumberId) {
       const { data: numExistente } = await supabase
         .from('whatsapp_business_numbers')
@@ -280,24 +279,35 @@ export default async function handler(req, res) {
           .from('whatsapp_business_numbers')
           .insert(numPayload);
       }
+
+      console.log(`[WABLAST SYNC] Sincronização concluída com sucesso para tenant=${tenantId}, accountId=${accountId}, phone=${rawPhone}`);
+
+      return res.status(200).json({
+        success: true,
+        status: 'COMPLETED',
+        message: 'WhatsApp WABLAST conectado e sincronizado com sucesso.',
+        account_id: accountId,
+        waba_id: wabaId,
+        phone_number: rawPhone,
+        phone_number_id: phoneNumberId
+      });
     }
 
-    console.log(`[WABLAST SYNC] Sincronização concluída com sucesso para tenant=${tenantId}, accountId=${accountId}`);
-
+    // Se a conta existe na WaBlast mas não retornou número de telefone conectado
+    console.warn(`[WABLAST SYNC] Conta localizada na WaBlast (${accountId}), porém nenhum número de WhatsApp conectado foi retornado.`);
     return res.status(200).json({
       success: true,
-      status: 'COMPLETED',
-      message: 'WhatsApp WABLAST conectado e sincronizado com sucesso.',
+      status: 'NO_PHONE',
+      message: 'Conta WaBlast localizada, mas nenhum número de WhatsApp ativo foi retornado pela API da WaBlast. Conclua a conexão do número no painel WaBlast e sincronize novamente.',
       account_id: accountId,
-      waba_id: wabaId,
-      phone_number: rawPhone
+      waba_id: wabaId
     });
-
   } catch (error) {
-    console.error('[WABLAST SYNC API] Erro interno:', error);
+    console.error('[WABLAST SYNC API] Erro ao sincronizar:', error.message, error.details || '');
     return res.status(500).json({
       success: false,
-      error: error.message || 'Erro ao sincronizar onboarding WaBlast'
+      status: 'ERROR',
+      error: error.message || 'Falha ao sincronizar conta WaBlast'
     });
   }
 }
