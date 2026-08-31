@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -7,6 +8,7 @@ import { CampanhaCard } from '@/components/CampanhaCard';
 import AssistenteCampanha from '@/components/AssistenteCampanha';
 
 export default function CampanhasOficiaisPage() {
+  const router = useRouter();
   const [campanhas, setCampanhas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
@@ -45,6 +47,11 @@ export default function CampanhasOficiaisPage() {
         body: JSON.stringify(novaCamp)
       });
       if (res.ok) {
+        const criada = await res.json();
+        if (criada?.id) {
+          router.push(`/comunicacao-oficial/campanhas/${criada.id}`);
+          return;
+        }
         await carregarCampanhasReais();
       }
     } catch (err) {

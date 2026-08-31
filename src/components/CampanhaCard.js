@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBullhorn, faClock, faCheckDouble, faBan } from '@fortawesome/free-solid-svg-icons';
+import { faBullhorn, faClock, faCheckDouble, faBan, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 
 /**
  * Card visual representativo de uma Campanha Oficial de disparos.
@@ -78,14 +78,25 @@ export function CampanhaCard({ campanha, onAction }) {
             ? `Agendado para: ${new Date(campanha.agendamento).toLocaleString('pt-BR')}`
             : 'Envio imediato'}
         </span>
-        {campanha.status === 'rascunho' && onAction && (
+        {campanha.status === 'Na Fila' ? (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              router.push(`/comunicacao-oficial/campanhas/${campanha.id}`);
+            }}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-3 rounded-lg transition text-[10px] flex items-center gap-1 shadow-sm"
+          >
+            <FontAwesomeIcon icon={faPaperPlane} className="text-[9px]" />
+            Iniciar Disparo
+          </button>
+        ) : campanha.status === 'rascunho' && onAction ? (
           <button
             onClick={(event) => { event.stopPropagation(); onAction(campanha); }}
             className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold py-1 px-3 rounded-lg border border-teal-100 transition text-[9px]"
           >
             Iniciar Envio
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   );
