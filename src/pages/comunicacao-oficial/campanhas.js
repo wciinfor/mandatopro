@@ -11,7 +11,14 @@ import {
   faSpinner,
   faTrashAlt,
   faExclamationTriangle,
-  faTimes
+  faTimes,
+  faList,
+  faLayerGroup,
+  faCheckCircle,
+  faClock,
+  faPaperPlane,
+  faEye,
+  faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { CampanhaCard } from '@/components/CampanhaCard';
 import AssistenteCampanha from '@/components/AssistenteCampanha';
@@ -22,6 +29,8 @@ export default function CampanhasOficiaisPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [criando, setCriando] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState('fila'); // 'fila' | 'historico'
+  const [filtroStatusHistorico, setFiltroStatusHistorico] = useState('todos');
   const [campanhaParaExcluir, setCampanhaParaExcluir] = useState(null);
   const [excluindo, setExcluindo] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -46,10 +55,26 @@ export default function CampanhasOficiaisPage() {
     carregarCampanhasReais();
   }, []);
 
-  const filtrarCampanhas = campanhas.filter((c) => 
+  // Campanhas na Fila ou rascunho (não iniciadas)
+  const campanhasFila = campanhas.filter(c => ['Na Fila', 'rascunho', 'agendado'].includes(c.status));
+
+  // Campanhas já iniciadas/executadas/entregues/concluídas/pausadas/canceladas
+  const campanhasHistorico = campanhas.filter(c => !['Na Fila', 'rascunho', 'agendado'].includes(c.status));
+
+  // Filtragem da aba 'Fila'
+  const campanhasFilaFiltradas = campanhasFila.filter((c) =>
     (c.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
     (c.template || '').toLowerCase().includes(busca.toLowerCase())
   );
+
+  // Filtragem da aba 'Histórico'
+  const campanhasHistoricoFiltradas = campanhasHistorico.filter((c) => {
+    const matchBusca = (c.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
+      (c.template || '').toLowerCase().includes(busca.toLowerCase()) ||
+      (c.publico || '').toLowerCase().includes(busca.toLowerCase());
+    const matchStatus = filtroStatusHistorico === 'todos' || c.status === filtroStatusHistorico;
+    return matchBusca && matchStatus;
+  });
 
   const handleExcluirCampanha = async () => {
     if (!campanhaParaExcluir || excluindo) return;
@@ -100,6 +125,23 @@ export default function CampanhasOficiaisPage() {
     setCriando(false);
   };
 
+  const getBadgeStatus = (status) => {
+    switch (status) {
+      case 'Executando':
+      case 'processando':
+        return <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">Executando</span>;
+      case 'concluido':
+      case 'enviado':
+        return <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">Concluído</span>;
+      case 'Pausada':
+        return <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full">Pausada</span>;
+      case 'Cancelada':
+        return <span className="bg-gray-100 text-gray-700 border border-gray-200 text-[10px] font-bold px-2 py-0.5 rounded-full">Cancelada</span>;
+      default:
+        return <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full">{status}</span>;
+    }
+  };
+
   return (
     <ProtectedRoute>
       <Layout titulo="Disparos Oficiais - WhatsApp Cloud API Oficial">
@@ -132,7 +174,7 @@ export default function CampanhasOficiaisPage() {
               <div>
                 <h3 className="text-xl font-bold text-gray-800">Disparos Oficiais & Histórico</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Gerencie transmissões ativas, crie novos envios e consulte o histórico detalhado de entregas e leituras.
+                  Gerencie transmissões pendentes na fila e consulte o histórico de campanhas executadas e entregues.
                 </p>
               </div>
               <div>
@@ -146,40 +188,164 @@ export default function CampanhasOficiaisPage() {
               </div>
             </div>
 
-            {/* Barra de Filtros e Pesquisa */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100">
-              <input
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Pesquisar comunicação ou template..."
-                className="w-full md:w-80 px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-              />
-              <button className="text-gray-500 hover:text-teal-600 text-xs font-semibold flex items-center gap-1.5 transition">
-                <FontAwesomeIcon icon={faFilter} /> Filtrar Status
+            {/* Navegação por Abas (Fila vs Entregues / Histórico) */}
+            <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+              <button
+                onClick={() => setAbaAtiva('fila')}
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition ${
+                  abaAtiva === 'fila'
+                    ? 'bg-teal-600 text-white shadow-sm'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <FontAwesomeIcon icon={faLayerGroup} />
+                Disparos na Fila ({campanhasFila.length})
+              </button>
+
+              <button
+                onClick={() => setAbaAtiva('historico')}
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition ${
+                  abaAtiva === 'historico'
+                    ? 'bg-teal-600 text-white shadow-sm'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <FontAwesomeIcon icon={faList} />
+                Entregues & Histórico ({campanhasHistorico.length})
               </button>
             </div>
 
-            {/* Lista de cards */}
-            {loading ? (
-              <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
-                <FontAwesomeIcon icon={faSpinner} spin className="text-4xl text-teal-600 mb-3" />
-                <p className="text-sm font-semibold text-gray-600">Carregando comunicações de transmissão...</p>
-              </div>
-            ) : filtrarCampanhas.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filtrarCampanhas.map((camp) => (
-                  <CampanhaCard
-                    key={camp.id}
-                    campanha={camp}
-                    onExcluir={setCampanhaParaExcluir}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
-                <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-200 mb-3" />
-                <p className="text-sm">Nenhuma comunicação atende aos filtros pesquisados.</p>
-              </div>
+            {/* Barra de Filtros e Pesquisa */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder={abaAtiva === 'fila' ? "Pesquisar disparos na fila..." : "Pesquisar por campanha, template ou público..."}
+                className="w-full md:w-80 px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              />
+
+              {abaAtiva === 'historico' && (
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <span className="text-xs text-gray-400 font-semibold flex items-center gap-1">
+                    <FontAwesomeIcon icon={faFilter} /> Status:
+                  </span>
+                  <select
+                    value={filtroStatusHistorico}
+                    onChange={(e) => setFiltroStatusHistorico(e.target.value)}
+                    className="border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                  >
+                    <option value="todos">Todos os Status</option>
+                    <option value="Executando">Executando</option>
+                    <option value="concluido">Concluído</option>
+                    <option value="Pausada">Pausada</option>
+                    <option value="Cancelada">Cancelada</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* CONTEÚDO DA ABA 1: DISPAROS NA FILA (Cards) */}
+            {abaAtiva === 'fila' && (
+              loading ? (
+                <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-4xl text-teal-600 mb-3" />
+                  <p className="text-sm font-semibold text-gray-600">Carregando disparos na fila...</p>
+                </div>
+              ) : campanhasFilaFiltradas.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {campanhasFilaFiltradas.map((camp) => (
+                    <CampanhaCard
+                      key={camp.id}
+                      campanha={camp}
+                      onExcluir={setCampanhaParaExcluir}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
+                  <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-200 mb-3" />
+                  <p className="text-sm">Nenhum disparo pendente na fila no momento.</p>
+                </div>
+              )
+            )}
+
+            {/* CONTEÚDO DA ABA 2: ENTREGUES & HISTÓRICO (Tabela Otimizada) */}
+            {abaAtiva === 'historico' && (
+              loading ? (
+                <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-4xl text-teal-600 mb-3" />
+                  <p className="text-sm font-semibold text-gray-600">Carregando histórico de entregas...</p>
+                </div>
+              ) : campanhasHistoricoFiltradas.length > 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-gray-50/75 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          <th className="py-3.5 px-4">Campanha / Template</th>
+                          <th className="py-3.5 px-4">Público / Origem</th>
+                          <th className="py-3.5 px-4 text-center">Público Total</th>
+                          <th className="py-3.5 px-4 text-center">Entregues</th>
+                          <th className="py-3.5 px-4 text-center">Lidas</th>
+                          <th className="py-3.5 px-4 text-center">Falhas</th>
+                          <th className="py-3.5 px-4 text-center">Status</th>
+                          <th className="py-3.5 px-4">Data de Criação</th>
+                          <th className="py-3.5 px-4 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-700">
+                        {campanhasHistoricoFiltradas.map((camp) => (
+                          <tr
+                            key={camp.id}
+                            onClick={() => router.push(`/comunicacao-oficial/campanhas/${camp.id}`)}
+                            className="hover:bg-teal-50/40 transition cursor-pointer"
+                          >
+                            <td className="py-3 px-4">
+                              <p className="font-bold text-gray-900 hover:text-teal-600 transition">{camp.nome}</p>
+                              <span className="text-[10px] text-gray-400">Template: {camp.template}</span>
+                            </td>
+                            <td className="py-3 px-4 font-medium text-gray-600">
+                              {camp.publico}
+                            </td>
+                            <td className="py-3 px-4 text-center font-bold text-gray-700">
+                              {camp.total_destinatarios || 0}
+                            </td>
+                            <td className="py-3 px-4 text-center font-bold text-emerald-600">
+                              {camp.entregues || 0}
+                            </td>
+                            <td className="py-3 px-4 text-center font-bold text-blue-600">
+                              {camp.lidas || 0}
+                            </td>
+                            <td className="py-3 px-4 text-center font-bold text-rose-600">
+                              {camp.falhas || 0}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              {getBadgeStatus(camp.status)}
+                            </td>
+                            <td className="py-3 px-4 text-gray-500 text-[11px]">
+                              {camp.created_at ? new Date(camp.created_at).toLocaleString('pt-BR') : '-'}
+                            </td>
+                            <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => router.push(`/comunicacao-oficial/campanhas/${camp.id}`)}
+                                className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold py-1 px-3 rounded-lg border border-teal-100 transition text-[11px] flex items-center gap-1.5 ml-auto"
+                              >
+                                <FontAwesomeIcon icon={faEye} />
+                                Detalhes
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
+                  <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-200 mb-3" />
+                  <p className="text-sm">Nenhuma campanha encontrada no histórico com os filtros selecionados.</p>
+                </div>
+              )
             )}
 
             {/* Modal de Confirmação de Exclusão */}

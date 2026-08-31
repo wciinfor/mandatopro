@@ -153,6 +153,8 @@ export default function DetalhesComunicacaoPage() {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'pendente':
+        return <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full">Pendente</span>;
       case 'Na Fila':
       case 'agendado':
         return <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full">Na Fila</span>;
@@ -164,10 +166,19 @@ export default function DetalhesComunicacaoPage() {
       case 'concluido':
       case 'enviado':
         return <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Enviado</span>;
+      case 'entregue':
+        return <span className="bg-teal-50 text-teal-700 border border-teal-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Entregue</span>;
+      case 'lido':
+      case 'lida':
+        return <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Lido</span>;
       case 'Cancelada':
-        return <span className="bg-gray-100 text-gray-700 border border-gray-255 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Cancelada</span>;
-      default:
+      case 'cancelado':
+        return <span className="bg-gray-100 text-gray-700 border border-gray-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Cancelado</span>;
+      case 'falha':
+      case 'falhou':
         return <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Falha</span>;
+      default:
+        return <span className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px] font-bold px-2 py-0.5 rounded-full">{status}</span>;
     }
   };
 
