@@ -230,10 +230,16 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       const headerComp = templateSelecionado.componentes.find(c => String(c.type || '').toUpperCase() === 'HEADER');
       const textToScan = `${headerComp?.text || ''} ${bodyComp?.text || ''}`;
 
-      const matches = textToScan.match(/\{\{\d+\}\}/g) || [];
-      const keys = [...new Set(matches.map(m => m.replace(/[\{\}]/g, '')))].sort((a, b) => Number(a) - Number(b));
-      
-      const beneficioSugerido = campanhaSelecionada?.descricao || campanhaSelecionada?.nome || '{beneficio}';
+      const nomesServicos = Array.isArray(campanhaSelecionada?.campanhas_servicos)
+        ? campanhaSelecionada.campanhas_servicos
+            .map(cs => cs?.categorias_servicos?.nome || cs?.nome_servico)
+            .filter(Boolean)
+        : [];
+      const beneficioPrincipal = nomesServicos.length > 0
+        ? nomesServicos.join(', ')
+        : (campanhaSelecionada?.descricao || campanhaSelecionada?.nome || '{beneficio}');
+
+      const beneficioSugerido = beneficioPrincipal;
       const dataEntregaSugerida = campanhaSelecionada?.data_entrega || '{data_entrega}';
       const localEntregaSugerido = campanhaSelecionada?.local_entrega || '{local_entrega}';
 
@@ -268,7 +274,14 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     const exemploNome = destinatariosFiltrados[0]?.nome || 'João da Silva';
     const exemploCidade = destinatariosFiltrados[0]?.cidade || destinatariosFiltrados[0]?.municipio || 'Belém';
     const exemploBairro = destinatariosFiltrados[0]?.bairro || 'Centro';
-    const exemploBeneficio = campanhaSelecionada?.descricao || campanhaSelecionada?.nome || 'Ação Social';
+    const nomesServicosExemplo = Array.isArray(campanhaSelecionada?.campanhas_servicos)
+      ? campanhaSelecionada.campanhas_servicos
+          .map(cs => cs?.categorias_servicos?.nome || cs?.nome_servico)
+          .filter(Boolean)
+      : [];
+    const exemploBeneficio = nomesServicosExemplo.length > 0
+      ? nomesServicosExemplo.join(', ')
+      : (campanhaSelecionada?.descricao || campanhaSelecionada?.nome || 'Ação Social');
     const exemploDataEntrega = campanhaSelecionada?.data_entrega || '10/10/2026 às 09:00';
     const exemploLocalEntrega = campanhaSelecionada?.local_entrega || 'Sede Central';
 
@@ -882,7 +895,14 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                             type="button"
                             onClick={() => {
                               const atual = variaveis[varKey] || '';
-                              const valorTag = campanhaSelecionada?.descricao || campanhaSelecionada?.nome || '{beneficio}';
+                              const nomesServicosTag = Array.isArray(campanhaSelecionada?.campanhas_servicos)
+                                ? campanhaSelecionada.campanhas_servicos
+                                    .map(cs => cs?.categorias_servicos?.nome || cs?.nome_servico)
+                                    .filter(Boolean)
+                                : [];
+                              const valorTag = nomesServicosTag.length > 0
+                                ? nomesServicosTag.join(', ')
+                                : (campanhaSelecionada?.descricao || campanhaSelecionada?.nome || '{beneficio}');
                               setVariaveis({ ...variaveis, [varKey]: atual ? `${atual} ${valorTag}` : valorTag });
                               if (erroAlerta) setErroAlerta(null);
                             }}

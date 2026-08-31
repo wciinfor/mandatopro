@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
     let query = supabase
       .from('campanhas')
-      .select('id, nome, local, municipio, data_campanha, status, data_entrega, local_entrega, descricao')
+      .select('id, nome, local, municipio, data_campanha, status, data_entrega, local_entrega, descricao, campanhas_servicos(*, categorias_servicos(*))')
       .order('data_campanha', { ascending: false })
       .limit(limit);
 
