@@ -172,7 +172,9 @@ export class WaBlastWhatsAppAdapter extends WhatsAppProviderContract {
     const formattedTo = this._formatE164(rawTo);
 
     const templateName = payload.templateName || payload.name || payload.template?.name || '';
-    const langCode = payload.idiomaCode || payload.language?.code || payload.language || 'pt_BR';
+    const langCode = typeof payload.idiomaCode === 'object' 
+      ? (payload.idiomaCode.code || 'pt_BR')
+      : (payload.idiomaCode || payload.language?.code || payload.language || 'pt_BR');
     const components = payload.components || payload.template?.components || [];
 
     const formattedPayload = {
@@ -181,9 +183,7 @@ export class WaBlastWhatsAppAdapter extends WhatsAppProviderContract {
       type: 'template',
       template: {
         name: templateName,
-        language: {
-          code: typeof langCode === 'object' ? langCode.code : langCode
-        },
+        language: langCode,
         components: components
       }
     };

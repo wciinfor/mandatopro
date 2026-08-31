@@ -293,7 +293,7 @@ export default function WhatsAppBusinessOficial() {
                   </div>
                 </div>
 
-                {/* Opção WABLAST (Partner Onboarding) */}
+                {/* Opção WABLAST (Conta Direta) */}
                 {(() => {
                   const isWablastConnected = Boolean(
                     config?.wablastDetails?.connected || 
@@ -334,7 +334,7 @@ export default function WhatsAppBusinessOficial() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h5 className="font-bold text-gray-800 text-sm">WaBlast Partner API</h5>
+                              <h5 className="font-bold text-gray-800 text-sm">WaBlast API</h5>
                               {isWablastAtivo ? (
                                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-teal-600 text-white rounded">
                                   Ativo
@@ -345,10 +345,10 @@ export default function WhatsAppBusinessOficial() {
                                 </span>
                               ) : null}
                             </div>
-                            <p className="text-xs text-gray-500">Conexão simplificada e homologação WABA integrada</p>
+                            <p className="text-xs text-gray-500">Conexão direta oficial via WaBlast API</p>
 
                             {isWablastConnected && (wablastPhone || wablastWaba) && (
-                              <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-600 font-medium">
+                              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600 bg-white/70 px-3 py-1.5 rounded-lg border border-teal-100">
                                 {wablastPhone && (
                                   <span className="flex items-center gap-1">
                                     <strong>Número:</strong> {wablastPhone}
@@ -356,7 +356,7 @@ export default function WhatsAppBusinessOficial() {
                                 )}
                                 {wablastWaba && (
                                   <span className="flex items-center gap-1">
-                                    <strong>WABA:</strong> {wablastWaba}
+                                    <strong>WABA ID:</strong> {wablastWaba}
                                   </span>
                                 )}
                               </div>

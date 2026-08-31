@@ -110,6 +110,40 @@ export default async function handler(req, res) {
         });
       }
 
+      // Se for salvar credenciais manuais WaBlast
+      if (req.body.wablastAccountId || req.body.wablast_account_id) {
+        const { salvarContaWhatsappWaBlast } = await import('@/lib/whatsapp-business-accounts');
+        const conta = await salvarContaWhatsappWaBlast(supabase, usuario, req.body);
+        const contaNormalizada = normalizarWhatsappAccount(conta);
+        return res.status(200).json({
+          success: true,
+          message: 'Configuração WaBlast salva com sucesso',
+          account: {
+            provider: contaNormalizada.provider,
+            displayPhoneNumber: contaNormalizada.displayPhoneNumber,
+            phoneNumberId: contaNormalizada.phoneNumberId,
+            wablastAccountId: contaNormalizada.wablastAccountId,
+            wabaId: contaNormalizada.wabaId
+          }
+        });
+      }
+
+      // Se for salvar credenciais manuais YCloud
+      if (req.body.ycloudApiKey || req.body.ycloud_api_key) {
+        const { salvarContaWhatsappYCloud } = await import('@/lib/whatsapp-business-accounts');
+        const conta = await salvarContaWhatsappYCloud(supabase, usuario, req.body);
+        const contaNormalizada = normalizarWhatsappAccount(conta);
+        return res.status(200).json({
+          success: true,
+          message: 'Configuração YCloud salva com sucesso',
+          account: {
+            provider: contaNormalizada.provider,
+            displayPhoneNumber: contaNormalizada.displayPhoneNumber,
+            phoneNumberId: contaNormalizada.phoneNumberId
+          }
+        });
+      }
+
       // Fluxo legadostandard para salvar credenciais da Meta Cloud API
       const { phoneNumberId, accessToken } = req.body;
       const contaAtual = await buscarContaWhatsappPrincipal(supabase, usuario);

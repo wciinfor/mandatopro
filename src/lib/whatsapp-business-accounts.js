@@ -741,3 +741,91 @@ export async function salvarContaWhatsappYCloud(supabase, usuario, dados = {}) {
   return buscarContaWhatsappPrincipal(supabase, usuario);
 }
 
+export async function salvarContaWhatsappWaBlast(supabase, usuario, dados = {}) {
+  const tenantId = obterTenantId(usuario);
+  if (!tenantId) {
+    const err = new Error('Tenant atual não identificado');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const contaAtual = await buscarContaWhatsappPrincipal(supabase, usuario);
+  const wablastAccountId = String(dados.wablastAccountId || dados.accountId || '').trim() || contaAtual?.wablast_account_id || '';
+  const wablastWabaId = String(dados.wablastWabaId || dados.wabaId || '').trim() || contaAtual?.wablast_waba_id || null;
+  const phoneNumberId = String(dados.phoneNumberId || dados.displayPhoneNumber || '').trim();
+
+  const contaPayload = {
+    tenant_id: tenantId,
+    provider: 'WABLAST',
+    nome: String(dados.nome || contaAtual?.nome || 'WhatsApp Business WaBlast').trim(),
+    waba_id: wablastWabaId,
+    wablast_waba_id: wablastWabaId,
+    wablast_account_id: wablastAccountId,
+    wablast_external_ref: `tenant_${tenantId}`,
+    token_validated: Boolean(wablastAccountId),
+    phone_validated: Boolean(phoneNumberId),
+    production_ready: Boolean(wablastAccountId && phoneNumberId),
+    status: 'ATIVO',
+    principal: true,
+    atualizado_por_id: usuario?.id || null,
+    updated_at: new Date().toISOString()
+  };
+
+  if (!contaAtual?.id) {
+    contaPayload.criado_por_id = usuario?.id || null;
+  }
+
+  const { data: conta, error: contaError } = contaAtual?.id
+    ? await supabase
+      .from('whatsapp_business_accounts')
+      .update(contaPayload)
+      .eq('id', contaAtual.id)
+      .eq('tenant_id', tenantId)
+      .select('*')
+      .single()
+    : await supabase
+      .from('whatsapp_business_accounts')
+      .insert(contaPayload)
+      .select('*')
+      .single();
+
+  if (contaError) throw contaError;
+
+  if (phoneNumberId) {
+    const numerosAtuais = Array.isArray(contaAtual?.whatsapp_business_numbers)
+      ? contaAtual.whatsapp_business_numbers
+      : [];
+    const numeroAtual = numerosAtuais.find(item => item?.principal && item?.status !== 'INATIVO')
+      || numerosAtuais.find(item => item?.phone_number_id === phoneNumberId)
+      || numerosAtuais[0]
+      || null;
+
+    const numeroPayload = {
+      tenant_id: tenantId,
+      account_id: conta.id,
+      phone_number_id: phoneNumberId,
+      display_phone_number: dados.displayPhoneNumber || phoneNumberId,
+      display_name: dados.displayName || null,
+      bsuid: dados.bsuid || null,
+      status: 'ATIVO',
+      principal: true,
+      updated_at: new Date().toISOString()
+    };
+
+    const numeroResult = numeroAtual?.id
+      ? await supabase
+        .from('whatsapp_business_numbers')
+        .update(numeroPayload)
+        .eq('id', numeroAtual.id)
+        .eq('tenant_id', tenantId)
+      : await supabase
+        .from('whatsapp_business_numbers')
+        .insert(numeroPayload);
+
+    if (numeroResult.error) throw numeroResult.error;
+  }
+
+  return buscarContaWhatsappPrincipal(supabase, usuario);
+}
+
+
