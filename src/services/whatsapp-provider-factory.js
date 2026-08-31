@@ -163,9 +163,42 @@ export class WaBlastWhatsAppAdapter extends WhatsAppProviderContract {
   }
 
   async sendTemplate(payload) {
-    // PENDÊNCIA DOCUMENTAL: O contrato oficial do endpoint de templates no WaBlast Partner API
-    // ainda não foi fornecido. Não inventamos payload até confirmação documental.
-    throw new Error('WaBlastWhatsAppAdapter: sendTemplate pendente de especificação oficial do payload');
+    const accountId = this.account?.wablastAccountId || this.account?.wablast_account_id || this.account?.account_id;
+    if (!accountId) {
+      throw new Error('WaBlastWhatsAppAdapter: wablast_account_id não configurado na conta');
+    }
+
+    const rawTo = payload.to || payload.recipient;
+    const formattedTo = this._formatE164(rawTo);
+
+    const templateName = payload.templateName || payload.name || payload.template?.name || '';
+    const langCode = payload.idiomaCode || payload.language?.code || payload.language || 'pt_BR';
+    const components = payload.components || payload.template?.components || [];
+
+    const formattedPayload = {
+      account_id: accountId,
+      to: formattedTo,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: {
+          code: typeof langCode === 'object' ? langCode.code : langCode
+        },
+        components: components
+      }
+    };
+
+    const response = await this.service.sendMessage(formattedPayload);
+    const messageId = response?.id || response?.message_id || response?.messages?.[0]?.id || null;
+
+    return {
+      success: true,
+      messageId,
+      id: messageId,
+      status: response?.status || 'sent',
+      recipient: formattedTo,
+      data: response
+    };
   }
 
   async getStatus() {

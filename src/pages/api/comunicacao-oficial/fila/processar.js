@@ -147,7 +147,7 @@ export default async function handler(req, res) {
           ycloudApiKey: contaSelecionada.ycloud_api_key
         };
 
-        // 5. Inicializa o provider unificado via Factory (META ou YCLOUD)
+        // 5. Inicializa o provider unificado via Factory (META, YCLOUD ou WABLAST conforme provedor ativo)
         const provider = createWhatsAppProvider(providerAccount);
 
         const templateNome = campanha.communication_templates?.nome || item.template_id || 'default';
