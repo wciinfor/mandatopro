@@ -10,6 +10,7 @@ import {
   faUserCheck,
   faUserTimes,
   faDatabase,
+  faFileExcel,
   faExclamationTriangle,
   faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
@@ -551,6 +552,42 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                       origemDestinatarios === 'base_geral' ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
                     }`}>
                       {origemDestinatarios === 'base_geral' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card 3: Importar Planilha */}
+                <div
+                  onClick={() => {
+                    setOrigemDestinatarios('csv');
+                    setMandatoCampanhaId('');
+                    setCampanhaSelecionada(null);
+                    setErroAlerta(null);
+                  }}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start justify-between ${
+                    origemDestinatarios === 'csv'
+                      ? 'border-teal-500 bg-teal-50/20 shadow-xs'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className={`p-2.5 rounded-lg text-sm flex items-center justify-center ${
+                      origemDestinatarios === 'csv' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      <FontAwesomeIcon icon={faFileExcel} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs text-gray-800">Importar Planilha</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                        Faça upload de lista externa de contatos via planilha Excel (.xlsx, .xls) ou arquivo CSV formatado.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-0.5">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      origemDestinatarios === 'csv' ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
+                    }`}>
+                      {origemDestinatarios === 'csv' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                     </div>
                   </div>
                 </div>

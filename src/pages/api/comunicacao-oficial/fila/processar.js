@@ -114,7 +114,7 @@ export default async function handler(req, res) {
         // 3. Busca a campanha associada para obter metadados de template e tenant
         const { data: campanha, error: errCamp } = await supabase
           .from('communication_campaigns')
-          .select('*, communication_templates(nome)')
+          .select('*, communication_templates(nome, idioma)')
           .eq('id', item.campaign_id)
           .single();
 
@@ -151,6 +151,12 @@ export default async function handler(req, res) {
         const provider = createWhatsAppProvider(providerAccount);
 
         const templateNome = campanha.communication_templates?.nome || item.template_id || 'default';
+        const templateIdioma = String(campanha.communication_templates?.idioma || '').trim();
+
+        if (!templateIdioma) {
+          throw new Error(`Template oficial "${templateNome}" não possui idioma válido cadastrado em communication_templates.`);
+        }
+
         const destinatarioNome = item.variaveis_mapeadas?.nome || 'Eleitor';
 
         // 5.1 Valida e monta dinamicamente os parâmetros do template ({{1}}, {{2}}, {{3}}...)
@@ -196,7 +202,7 @@ export default async function handler(req, res) {
           to: item.contact_id,
           recipient: item.contact_id,
           templateName: templateNome,
-          idiomaCode: 'pt_BR',
+          idiomaCode: templateIdioma,
           components: components
         });
 
