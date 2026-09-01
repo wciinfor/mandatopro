@@ -6,9 +6,11 @@ import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
  * Extrai, valida e formata os parâmetros das variáveis do template de forma dinâmica.
  * Suporta sequências numéricas {{1}}, {{2}}, {{3}}... em ordem crescente estrita.
  * Valida a presença de valor em todas as variáveis obrigatórias.
+ * Se o template não possui variáveis numéricas (ex: hello_world), retorna array vazio ([]),
+ * garantindo que nenhum parâmetro indevido seja enviado à Meta (evitando erro 132000).
  */
 function extrairEValidarParametrosTemplate(variaveisMapeadas = {}) {
-  const chavesNumericas = Object.keys(variaveisMapeadas)
+  const chavesNumericas = Object.keys(variaveisMapeadas || {})
     .filter(k => /^\d+$/.test(k))
     .map(Number)
     .sort((a, b) => a - b);
@@ -44,17 +46,8 @@ function extrairEValidarParametrosTemplate(variaveisMapeadas = {}) {
     return parameters;
   }
 
-  // Caso 2: Não há variáveis numéricas configuradas, mas há o campo 'nome'
-  if (nomeContato) {
-    return [
-      {
-        type: 'text',
-        text: nomeContato
-      }
-    ];
-  }
-
-  // Caso 3: Template sem variáveis
+  // Caso 2: Template sem variáveis numéricas (ex: hello_world, informativos estáticos)
+  // Nunca injeta parâmetros automaticamente para templates com 0 variáveis
   return [];
 }
 
