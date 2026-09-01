@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 
 /**
  * API Handler para obter os detalhes operacionais e estatísticas de execução de uma Comunicação Oficial.
@@ -31,7 +32,53 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Comunicação oficial não localizada.' });
     }
 
-    // 2. Busca todos os itens da fila de execução associados (destinatários)
+    // 2. Resolve a conta oficial de WhatsApp ativa e configurada
+    let contaOficial = null;
+    try {
+      const rowConta = await buscarContaWhatsappPrincipal(supabase, { tenantId: usuario.tenant_id });
+      if (rowConta) {
+        contaOficial = normalizarWhatsappAccount(rowConta);
+      }
+    } catch (errAccount) {
+      console.warn('[DetalhesComunicacaoAPI] Aviso ao resolver conta WhatsApp oficial:', errAccount);
+    }
+
+    // 3. Resolve o nome da campanha do CRM se houver vínculo
+    const regrasAudience = campanha.communication_audiences?.regras || {};
+    let nomeCampanhaCRM = null;
+    if (regrasAudience.crm_campaign_id) {
+      const { data: crmCamp } = await supabase
+        .from('campanhas')
+        .select('nome')
+        .eq('id', regrasAudience.crm_campaign_id)
+        .maybeSingle();
+      if (crmCamp?.nome) {
+        nomeCampanhaCRM = crmCamp.nome;
+      }
+    }
+
+    // Determina a string descritiva da Origem do Público
+    let origemFormatada = 'Base de Dados';
+    const origemTipo = regrasAudience.origem;
+    if (origemTipo === 'campanha_politica') {
+      origemFormatada = nomeCampanhaCRM ? `Campanha CRM: ${nomeCampanhaCRM}` : 'Campanha CRM (Ação Mandato)';
+    } else if (origemTipo === 'base_geral') {
+      const escopo = regrasAudience.filtros?.origem;
+      if (escopo === 'liderancas') origemFormatada = 'Base Geral: Lideranças';
+      else if (escopo === 'funcionarios') origemFormatada = 'Base Geral: Equipe / Gabinete';
+      else origemFormatada = 'Base Geral: Eleitores';
+    } else if (campanha.communication_audiences?.nome) {
+      origemFormatada = campanha.communication_audiences.nome;
+    }
+
+    // Determina o nome amigável do Provider Oficial
+    const providerRaw = String(contaOficial?.provider || 'META').toUpperCase();
+    let providerFormatado = 'Meta Cloud API Oficial';
+    if (providerRaw === 'WABLAST') providerFormatado = 'WaBlast Oficial';
+    else if (providerRaw === 'YCLOUD') providerFormatado = 'YCloud Oficial';
+    else if (providerRaw === 'META') providerFormatado = 'Meta Cloud API Oficial';
+
+    // 4. Busca todos os itens da fila de execução associados (destinatários)
     const { data: itens, error: errItens } = await supabase
       .from('communication_campaign_items')
       .select('*')
@@ -40,41 +87,61 @@ export default async function handler(req, res) {
 
     if (errItens) throw errItens;
 
-    // 3. Consolida as estatísticas operacionais em tempo real
+    // 5. Consolida as estatísticas operacionais em tempo real com 6 métricas independentes
     let pendentes = 0;
     let processando = 0;
     let enviadas = 0;
+    let entregues = 0;
+    let lidas = 0;
     let falhas = 0;
 
     (itens || []).forEach(item => {
-      if (item.status === 'pendente') pendentes++;
-      else if (item.status === 'processando') processando++;
-      else if (item.status === 'enviado') enviadas++;
-      else if (item.status === 'falha') falhas++;
+      const st = String(item.status || '').toLowerCase();
+      if (st === 'pendente') {
+        pendentes++;
+      } else if (st === 'processando') {
+        processando++;
+      } else if (st === 'falha' || st === 'falhou') {
+        falhas++;
+      } else if (st === 'lido' || st === 'lida' || item.read_at) {
+        lidas++;
+      } else if (st === 'entregue' || item.delivered_at) {
+        entregues++;
+      } else if (st === 'enviado' || st === 'enviada' || item.sent_at) {
+        enviadas++;
+      }
     });
 
     const total = (itens || []).length;
-    const processados = enviadas + falhas;
-    const taxaConclusao = total > 0 ? ((processados / total) * 100).toFixed(1) : '0.0';
+    const processadosTotal = enviadas + entregues + lidas + falhas;
+    const taxaConclusao = total > 0 ? ((processadosTotal / total) * 100).toFixed(1) : '0.0';
 
     return res.status(200).json({
       campanha: {
         id: campanha.id,
         nome: campanha.nome,
         canal: campanha.canal,
-        origem: campanha.communication_audiences?.regras?.origem === 'campanha_politica' ? 'Base de Dados' : 'Importação CSV',
+        origem: origemFormatada,
+        origemTipo: origemTipo || 'base_geral',
+        nomeCampanhaCRM,
         template: campanha.communication_templates?.nome || 'Personalizado',
         publico: campanha.communication_audiences?.nome || 'Destinatários',
         status: campanha.status,
         agendamento: campanha.agendado_para,
         created_at: campanha.created_at,
-        operador: 'Operador Geral'
+        operador: 'Operador Geral',
+        provider: providerFormatado,
+        providerRaw: providerRaw,
+        numeroOrigem: contaOficial?.displayPhoneNumber || contaOficial?.wablastDetails?.phoneNumber || '+55 91 8088-6129',
+        wabaId: contaOficial?.wabaId || '1052344067413300'
       },
       metricas: {
         total,
         pendentes,
         processando,
         enviadas,
+        entregues,
+        lidas,
         falhas,
         taxaConclusao
       },

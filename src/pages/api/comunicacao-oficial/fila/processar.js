@@ -200,7 +200,10 @@ export default async function handler(req, res) {
           components: components
         });
 
-        const wamid = resProvider?.id || resProvider?.messages?.[0]?.id || `wamid-cron-${Date.now()}`;
+        const wamid = resProvider?.messageId || resProvider?.id || resProvider?.messages?.[0]?.id;
+        if (!wamid) {
+          throw new Error('Provedor WhatsApp não retornou um Message ID (WAMID) válido após o envio.');
+        }
         const textoParametros = parameters.map((p, idx) => `{{${idx + 1}}}=${p.text}`).join(', ');
         const textoMensagem = textoParametros
           ? `[Disparo Oficial Template: ${templateNome}] ${textoParametros}`

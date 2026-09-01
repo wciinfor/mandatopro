@@ -309,31 +309,71 @@ export default function DetalhesComunicacaoPage() {
 
           {/* Modal de Confirmação para Iniciar Disparo Oficial */}
           {modalConfirmacao && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-100 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-4 animate-in fade-in zoom-in duration-150">
                 <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg shrink-0">
                     <FontAwesomeIcon icon={faPaperPlane} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-sm">Iniciar Disparo Oficial</h3>
-                    <p className="text-[11px] text-gray-400">Confirmação de transmissão via WhatsApp Oficial</p>
+                    <h3 className="font-bold text-gray-800 text-sm">Confirmar Início do Disparo Oficial</h3>
+                    <p className="text-[11px] text-gray-400">Verifique os parâmetros e o canal de transmissão antes de executar</p>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-3.5 space-y-2 text-xs text-gray-600">
-                  <p><strong>Campanha:</strong> {campanha.nome}</p>
-                  <p><strong>Template Oficial:</strong> {campanha.template}</p>
-                  <p><strong>Destinatários Pendentes:</strong> {metricas?.pendentes ?? metricas?.total ?? 0}</p>
-                  <p><strong>Canal / Provedor:</strong> WhatsApp Business Oficial (YCloud API)</p>
+                {/* Destaque Crítico: Provider e Número de Origem */}
+                <div className="p-3.5 bg-teal-50/70 border-2 border-teal-500/30 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-teal-800">Provedor Oficial Configurado</span>
+                    <span className="text-[11px] font-extrabold text-teal-800 bg-white px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1 shadow-2xs">
+                      <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600" /> {campanha.provider || 'WhatsApp Oficial'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-teal-200/60 pt-2">
+                    <span className="text-[10px] uppercase font-bold text-teal-800">Número de Origem da Linha</span>
+                    <span className="font-mono text-sm font-extrabold text-teal-950 bg-white px-2.5 py-0.5 rounded-lg border border-teal-200 shadow-2xs">
+                      {campanha.numeroOrigem || '+55 91 8088-6129'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex items-start gap-2">
-                  <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 text-amber-600" />
-                  <span>Esta ação processará a fila e enviará mensagens reais pelo número WhatsApp Oficial configurado.</span>
+                {/* Dados da Comunicação */}
+                <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3.5 space-y-2 text-xs text-gray-700">
+                  <div className="grid grid-cols-2 gap-2 pb-2 border-b border-gray-200/60">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase font-bold">Comunicação</span>
+                      <strong className="text-gray-900 truncate block">{campanha.nome}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase font-bold">Origem do Público</span>
+                      <strong className="text-gray-900 truncate block">{campanha.origem}</strong>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase font-bold">Template Homologado</span>
+                      <strong className="font-mono text-teal-700 block truncate">{campanha.template}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block uppercase font-bold">Destinatários Pendentes</span>
+                      <strong className="text-emerald-700 text-sm font-extrabold block">
+                        {metricas?.pendentes ?? metricas?.total ?? 0} <span className="text-[10px] font-normal text-gray-500">contatos</span>
+                      </strong>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
+                {/* Aviso Operacional da Fila */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] flex items-start gap-2.5">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 text-amber-600 shrink-0" />
+                  <p className="leading-relaxed">
+                    Esta ação consumirá a fila oficial e enviará mensagens reais para <strong>{metricas?.pendentes ?? metricas?.total ?? 0} destinatários</strong> utilizando o número e provedor destacados acima.
+                  </p>
+                </div>
+
+                {/* Ações */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
                   <button
                     type="button"
                     onClick={() => setModalConfirmacao(false)}
@@ -346,17 +386,17 @@ export default function DetalhesComunicacaoPage() {
                     type="button"
                     onClick={handleIniciarDisparo}
                     disabled={disparando}
-                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-sm"
                   >
                     {disparando ? (
                       <>
                         <FontAwesomeIcon icon={faSpinner} spin />
-                        Processando Envio...
+                        Processando Disparos...
                       </>
                     ) : (
                       <>
                         <FontAwesomeIcon icon={faPaperPlane} />
-                        Confirmar e Iniciar
+                        Confirmar e Iniciar Disparo
                       </>
                     )}
                   </button>
@@ -368,25 +408,69 @@ export default function DetalhesComunicacaoPage() {
           {/* Grid de Metadados e Dashboard Executivo */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Informações da Comunicação */}
+            {/* Informações da Comunicação (Ficha Executiva) */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 lg:col-span-1 shadow-sm">
-              <div className="border-b border-gray-100 pb-3">
+              <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
                 <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Ficha da Comunicação</h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                  {campanha.canal === 'whatsapp' ? 'WhatsApp Oficial' : campanha.canal}
+                </span>
               </div>
+              
               <div className="space-y-3 text-xs text-gray-600">
-                <p><strong>Nome:</strong> {campanha.nome}</p>
-                <p><strong>Canal:</strong> {campanha.canal === 'whatsapp' ? 'WhatsApp Business Cloud' : campanha.canal}</p>
-                <p><strong>Origem contatos:</strong> {campanha.origem}</p>
-                <p><strong>Template:</strong> {campanha.template}</p>
-                <p><strong>Responsável:</strong> {campanha.operador}</p>
-                <p><strong>Criação:</strong> {new Date(campanha.created_at).toLocaleString('pt-BR')}</p>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-gray-400 block">Nome do Disparo</span>
+                  <p className="font-bold text-gray-800 mt-0.5">{campanha.nome}</p>
+                </div>
+
+                {/* Bloco de Destaque: Provedor e Número de Origem */}
+                <div className="p-3 bg-gray-50 border border-gray-200/80 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-gray-400">Provedor Oficial</span>
+                    <span className="text-[10px] font-extrabold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1">
+                      <FontAwesomeIcon icon={faCheckCircle} /> {campanha.provider || 'Meta Cloud API'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-200/60 pt-1.5">
+                    <span className="text-[10px] uppercase font-bold text-gray-400">Número de Origem</span>
+                    <span className="font-mono text-xs font-extrabold text-gray-800">
+                      {campanha.numeroOrigem || '+55 91 8088-6129'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Origem do Público</span>
+                    <p className="font-semibold text-gray-800 mt-0.5">{campanha.origem}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Template Homologado</span>
+                    <p className="font-mono text-xs font-bold text-teal-700 mt-0.5">{campanha.template}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Total Destinatários</span>
+                    <p className="font-bold text-gray-800 mt-0.5">{metricas?.total || 0} contatos</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Data de Criação</span>
+                    <p className="text-[11px] text-gray-600 mt-0.5">{new Date(campanha.created_at).toLocaleString('pt-BR')}</p>
+                  </div>
+                </div>
+
                 {campanha.agendamento && (
-                  <p><strong>Agendado para:</strong> {new Date(campanha.agendamento).toLocaleString('pt-BR')}</p>
+                  <div className="pt-2 border-t border-gray-100">
+                    <span className="text-[10px] uppercase font-bold text-amber-700 block">Agendado para</span>
+                    <p className="font-bold text-amber-800 mt-0.5">{new Date(campanha.agendamento).toLocaleString('pt-BR')}</p>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Dashboard Executivo de Disparos */}
+            {/* Dashboard Executivo de Disparos - 6 KPIs Independentes */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 lg:col-span-2 space-y-4 shadow-sm">
               <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
                 <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Métricas de Envio em Lote</h4>
@@ -396,25 +480,46 @@ export default function DetalhesComunicacaoPage() {
               </div>
               
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl text-center">
-                  <span className="text-[9px] uppercase font-bold text-gray-400 block">Total Destinatários</span>
-                  <p className="text-xl font-bold text-gray-800 mt-1">{metricas?.total}</p>
+                {/* 1. Total */}
+                <div className="bg-gray-50 border border-gray-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-gray-500 block">Total</span>
+                  <p className="text-2xl font-extrabold text-gray-800 mt-0.5">{metricas?.total || 0}</p>
+                  <span className="text-[10px] text-gray-400 block mt-0.5">destinatários</span>
                 </div>
-                <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl text-center">
-                  <span className="text-[9px] uppercase font-bold text-blue-600 block">Pendentes</span>
-                  <p className="text-xl font-bold text-blue-800 mt-1">{metricas?.pendentes}</p>
+
+                {/* 2. Pendentes */}
+                <div className="bg-blue-50/60 border border-blue-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-blue-600 block">Pendentes</span>
+                  <p className="text-2xl font-extrabold text-blue-800 mt-0.5">{metricas?.pendentes || 0}</p>
+                  <span className="text-[10px] text-blue-500 block mt-0.5">na fila oficial</span>
                 </div>
-                <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-xl text-center">
-                  <span className="text-[9px] uppercase font-bold text-amber-600 block">Processando</span>
-                  <p className="text-xl font-bold text-amber-800 mt-1">{metricas?.processando}</p>
+
+                {/* 3. Enviadas */}
+                <div className="bg-emerald-50/60 border border-emerald-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-emerald-600 block">Enviadas</span>
+                  <p className="text-2xl font-extrabold text-emerald-800 mt-0.5">{metricas?.enviadas || 0}</p>
+                  <span className="text-[10px] text-emerald-500 block mt-0.5">aceitas na Meta</span>
                 </div>
-                <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl text-center">
-                  <span className="text-[9px] uppercase font-bold text-emerald-600 block">Enviadas</span>
-                  <p className="text-xl font-bold text-emerald-800 mt-1">{metricas?.enviadas}</p>
+
+                {/* 4. Entregues */}
+                <div className="bg-teal-50/60 border border-teal-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-teal-600 block">Entregues</span>
+                  <p className="text-2xl font-extrabold text-teal-800 mt-0.5">{metricas?.entregues || 0}</p>
+                  <span className="text-[10px] text-teal-500 block mt-0.5">no aparelho</span>
                 </div>
-                <div className="bg-rose-50/50 border border-rose-100 p-4 rounded-xl text-center">
-                  <span className="text-[9px] uppercase font-bold text-rose-600 block">Falhas</span>
-                  <p className="text-xl font-bold text-rose-800 mt-1">{metricas?.falhas}</p>
+
+                {/* 5. Lidas */}
+                <div className="bg-indigo-50/60 border border-indigo-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-indigo-600 block">Lidas</span>
+                  <p className="text-2xl font-extrabold text-indigo-800 mt-0.5">{metricas?.lidas || 0}</p>
+                  <span className="text-[10px] text-indigo-500 block mt-0.5">pelo contato</span>
+                </div>
+
+                {/* 6. Falhas */}
+                <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-xl text-center shadow-2xs">
+                  <span className="text-[10px] uppercase font-bold text-rose-600 block">Falhas</span>
+                  <p className="text-2xl font-extrabold text-rose-800 mt-0.5">{metricas?.falhas || 0}</p>
+                  <span className="text-[10px] text-rose-500 block mt-0.5">com erro</span>
                 </div>
               </div>
             </div>

@@ -131,7 +131,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   // Atualiza contatos e resumo com debouncing via GET /api/disparos/contatos/preview
   useEffect(() => {
-    if (origemDestinatarios !== 'campanha_politica') return;
+    if (origemDestinatarios !== 'campanha_politica' && origemDestinatarios !== 'base_geral') return;
 
     let active = true;
     setCarregandoContatos(true);
@@ -324,7 +324,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const getErrosEtapa = () => {
     if (step === 1) return null;
     
-    if (origemDestinatarios === 'campanha_politica') {
+    if (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') {
       if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
       if (step === 3) {
         if (carregandoContatos) return 'Aguarde o cálculo e validação dos contatos da base.';
@@ -395,7 +395,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       return;
     }
 
-    const listaFinal = origemDestinatarios === 'campanha_politica'
+    const listaFinal = (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral')
       ? destinatariosFiltrados.map(c => ({
           id: c.origemId || c.id,
           nome: c.nome || 'Contato',
@@ -408,7 +408,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       nome,
       canal,
       origemDestinatarios,
-      publico: origemDestinatarios === 'campanha_politica' 
+      publico: (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral')
         ? `Base ${mandatoOrigem.toUpperCase()} - ${destinatariosFiltrados.length} contatos`
         : 'Upload de Lista CSV',
       template: templateSelecionado.nome,
@@ -417,7 +417,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       variaveis: variaveis,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
-      total_destinatarios: origemDestinatarios === 'campanha_politica' ? destinatariosFiltrados.length : 0,
+      total_destinatarios: (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') ? destinatariosFiltrados.length : 0,
       campaign_id: mandatoCampanhaId || null,
       destinatarios: listaFinal,
       enviadas: 0,
@@ -445,7 +445,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 {step === 1 && 'Origem dos Destinatários'}
                 
                 {/* Títulos do fluxo com Campanha / Base MandatoPRO */}
-                {origemDestinatarios === 'campanha_politica' && (
+                {(origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') && (
                   <>
                     {step === 2 && 'Informações do Disparo'}
                     {step === 3 && 'Selecionar Público da Base MandatoPRO'}
@@ -482,43 +482,78 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           {/* CONTEÚDO DAS ETAPAS */}
           {step === 1 && (
             <div className="space-y-4">
-              <label className="block text-xs font-semibold text-gray-700">Selecione a origem dos contatos para envio:</label>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-teal-400 cursor-pointer transition select-none">
-                  <input
-                    type="radio"
-                    name="origemDestinatarios"
-                    value="campanha_politica"
-                    checked={origemDestinatarios === 'campanha_politica'}
-                    onChange={() => {
-                      setOrigemDestinatarios('campanha_politica');
-                      setErroAlerta(null);
-                    }}
-                    className="text-teal-600 focus:ring-teal-500 h-4 w-4"
-                  />
-                  <div>
-                    <p className="font-bold text-xs text-gray-800">Base de Dados</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Destinar o envio a um grupo ou público de eleitores cadastrado.</p>
+              <label className="block text-xs font-bold text-gray-700">Selecione a origem dos destinatários para o envio:</label>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {/* Card 1: Campanha / Ação do CRM */}
+                <div
+                  onClick={() => {
+                    setOrigemDestinatarios('campanha_politica');
+                    setErroAlerta(null);
+                  }}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start justify-between ${
+                    origemDestinatarios === 'campanha_politica'
+                      ? 'border-teal-500 bg-teal-50/20 shadow-xs'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className={`p-2.5 rounded-lg text-sm flex items-center justify-center ${
+                      origemDestinatarios === 'campanha_politica' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      <FontAwesomeIcon icon={faUsers} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs text-gray-800">Campanha / Ação do CRM</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                        Filtra contatos vinculados e participantes de uma campanha ou ação política cadastrada no CRM.
+                      </p>
+                    </div>
                   </div>
-                </label>
+                  <div className="pt-0.5">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      origemDestinatarios === 'campanha_politica' ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
+                    }`}>
+                      {origemDestinatarios === 'campanha_politica' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                </div>
 
-                <label className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-teal-400 cursor-pointer transition select-none">
-                  <input
-                    type="radio"
-                    name="origemDestinatarios"
-                    value="csv"
-                    checked={origemDestinatarios === 'csv'}
-                    onChange={() => {
-                      setOrigemDestinatarios('csv');
-                      setErroAlerta(null);
-                    }}
-                    className="text-teal-600 focus:ring-teal-500 h-4 w-4"
-                  />
-                  <div>
-                    <p className="font-bold text-xs text-gray-800">Importar arquivo CSV</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Fazer upload de planilha externa com novos contatos.</p>
+                {/* Card 2: Base de Dados Geral */}
+                <div
+                  onClick={() => {
+                    setOrigemDestinatarios('base_geral');
+                    setMandatoCampanhaId('');
+                    setCampanhaSelecionada(null);
+                    setErroAlerta(null);
+                  }}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start justify-between ${
+                    origemDestinatarios === 'base_geral'
+                      ? 'border-teal-500 bg-teal-50/20 shadow-xs'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className={`p-2.5 rounded-lg text-sm flex items-center justify-center ${
+                      origemDestinatarios === 'base_geral' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      <FontAwesomeIcon icon={faDatabase} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs text-gray-800">Base de Dados Geral</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                        Permite selecionar e filtrar contatos diretamente da base de Eleitores e Lideranças, sem vínculo obrigatório com campanha.
+                      </p>
+                    </div>
                   </div>
-                </label>
+                  <div className="pt-0.5">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      origemDestinatarios === 'base_geral' ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
+                    }`}>
+                      {origemDestinatarios === 'base_geral' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -537,11 +572,13 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                     setNome(e.target.value);
                     if (erroAlerta) setErroAlerta(null);
                   }}
-                  placeholder="Ex: Informativo Geral / Ação de Atendimento"
+                  placeholder={origemDestinatarios === 'base_geral' ? "Ex: Informativo Geral da Base de Eleitores" : "Ex: Informativo Geral / Ação de Atendimento"}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 />
                 <p className="text-[11px] text-gray-400 mt-1">
-                  Digite um nome descritivo ou selecione uma campanha do CRM abaixo para preencher automaticamente.
+                  {origemDestinatarios === 'base_geral' 
+                    ? 'Identifique esta comunicação para acompanhamento no histórico e relatórios oficiais.'
+                    : 'Digite um nome descritivo ou selecione uma campanha do CRM abaixo para preencher automaticamente.'}
                 </p>
               </div>
 
@@ -564,7 +601,68 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 </select>
               </div>
 
-              {/* Seleção de Campanha do CRM (opcional para preencher nome e vincular) */}
+              {/* Opção para Base de Dados Geral: Escolha rápida do escopo inicial da base */}
+              {origemDestinatarios === 'base_geral' && (
+                <div className="space-y-3 pt-3 border-t border-gray-100">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Escopo Principal da Base Geral
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMandatoOrigem('eleitores');
+                        setMandatoCampanhaId('');
+                      }}
+                      className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1.5 ${
+                        mandatoOrigem === 'eleitores'
+                          ? 'border-teal-500 bg-teal-50/30 text-teal-900 font-bold shadow-xs'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <FontAwesomeIcon icon={faUsers} className={mandatoOrigem === 'eleitores' ? 'text-teal-600' : 'text-gray-400'} />
+                      <span>Eleitores</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMandatoOrigem('liderancas');
+                        setMandatoCampanhaId('');
+                      }}
+                      className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1.5 ${
+                        mandatoOrigem === 'liderancas'
+                          ? 'border-teal-500 bg-teal-50/30 text-teal-900 font-bold shadow-xs'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <FontAwesomeIcon icon={faUserCheck} className={mandatoOrigem === 'liderancas' ? 'text-teal-600' : 'text-gray-400'} />
+                      <span>Lideranças</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMandatoOrigem('funcionarios');
+                        setMandatoCampanhaId('');
+                      }}
+                      className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1.5 ${
+                        mandatoOrigem === 'funcionarios'
+                          ? 'border-teal-500 bg-teal-50/30 text-teal-900 font-bold shadow-xs'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <FontAwesomeIcon icon={faDatabase} className={mandatoOrigem === 'funcionarios' ? 'text-teal-600' : 'text-gray-400'} />
+                      <span>Equipe / Gabinete</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400 italic">
+                    Na próxima etapa você poderá aplicar filtros finos de Cidade, Bairro, Situação e Limite.
+                  </p>
+                </div>
+              )}
+
+              {/* Seleção de Campanha do CRM (apenas no fluxo de Campanha/CRM) */}
               {origemDestinatarios === 'campanha_politica' && (
                 <div className="space-y-3 pt-3 border-t border-gray-100">
                   <div className="flex items-center justify-between">
@@ -639,13 +737,22 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           )}
 
           {/* Resumo dos Destinatários na Base do MandatoPRO com Filtros Reais */}
-          {step === 3 && origemDestinatarios === 'campanha_politica' && (
+          {step === 3 && (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') && (
             <div className="space-y-4">
-              <label className="block text-xs font-semibold text-gray-700">Filtros da Base do MandatoPRO</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-gray-700">
+                  {origemDestinatarios === 'campanha_politica' 
+                    ? 'Filtros de Campanha e Segmentação' 
+                    : 'Filtros da Base de Dados Geral'}
+                </label>
+                <span className="text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full font-semibold border border-teal-200">
+                  {mandatoOrigem.toUpperCase()}
+                </span>
+              </div>
               
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Origem</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Origem da Base</label>
                   <select
                     value={mandatoOrigem}
                     onChange={(e) => setMandatoOrigem(e.target.value)}
@@ -653,57 +760,63 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   >
                     <option value="eleitores">Eleitores</option>
                     <option value="liderancas">Lideranças</option>
-                    <option value="funcionarios">Funcionários</option>
+                    <option value="funcionarios">Equipe / Gabinete</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Campanha</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Situação / Status</label>
                   <select
-                    value={mandatoCampanhaId}
-                    onChange={(e) => {
-                      const newId = e.target.value;
-                      setMandatoCampanhaId(newId);
-                      setCampanhaSelecionada(campanhasCRM.find(c => c.id === newId) || null);
-                    }}
-                    disabled={mandatoOrigem !== 'eleitores'}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
+                    value={filtroSituacao}
+                    onChange={(e) => setFiltroSituacao(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none"
                   >
-                    <option value="">Todas as campanhas</option>
-                    {campanhasCRM.map(c => (
-                      <option key={c.id} value={c.id}>{c.nome}</option>
-                    ))}
+                    <option value="">Todos os status</option>
+                    <option value="ATIVO">Ativos</option>
+                    <option value="PENDENTE">Pendentes</option>
+                    <option value="INATIVO">Inativos</option>
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Presença</label>
-                  <select
-                    value={mandatoPresencaCampanha}
-                    onChange={(e) => setMandatoPresencaCampanha(e.target.value)}
-                    disabled={mandatoOrigem !== 'eleitores' || !mandatoCampanhaId}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
-                  >
-                    <option value="">Todos</option>
-                    <option value="presentes">Presentes na campanha</option>
-                    <option value="ausentes">Ausentes na campanha</option>
-                  </select>
-                </div>
+                {origemDestinatarios === 'campanha_politica' && (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Campanha do CRM</label>
+                      <select
+                        value={mandatoCampanhaId}
+                        onChange={(e) => {
+                          const newId = e.target.value;
+                          setMandatoCampanhaId(newId);
+                          setCampanhaSelecionada(campanhasCRM.find(c => c.id === newId) || null);
+                        }}
+                        disabled={mandatoOrigem !== 'eleitores'}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
+                      >
+                        <option value="">Todas as campanhas</option>
+                        {campanhasCRM.map(c => (
+                          <option key={c.id} value={c.id}>{c.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Presença na Ação</label>
+                      <select
+                        value={mandatoPresencaCampanha}
+                        onChange={(e) => setMandatoPresencaCampanha(e.target.value)}
+                        disabled={mandatoOrigem !== 'eleitores' || !mandatoCampanhaId}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
+                      >
+                        <option value="">Todos</option>
+                        <option value="presentes">Presentes na campanha</option>
+                        <option value="ausentes">Ausentes na campanha</option>
+                      </select>
+                    </div>
+                  </>
+                )}
 
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Limite Máximo</label>
-                  <input
-                    type="number"
-                    value={mandatoLimite}
-                    onChange={(e) => setMandatoLimite(e.target.value)}
-                    min="1"
-                    max="50000"
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade / Município</label>
                   <input
                     type="text"
                     value={filtroCidade}
@@ -720,6 +833,18 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                     value={filtroBairro}
                     onChange={(e) => setFiltroBairro(e.target.value)}
                     placeholder="Filtrar por bairro..."
+                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                  />
+                </div>
+
+                <div className={origemDestinatarios === 'campanha_politica' ? 'col-span-2' : ''}>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Limite Máximo de Contatos</label>
+                  <input
+                    type="number"
+                    value={mandatoLimite}
+                    onChange={(e) => setMandatoLimite(e.target.value)}
+                    min="1"
+                    max="50000"
                     className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
                   />
                 </div>
@@ -986,109 +1111,104 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             <div className="space-y-4 text-xs">
               <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                 <div>
-                  <h4 className="font-bold text-sm text-gray-800">Resumo Final da Comunicação</h4>
-                  <p className="text-[11px] text-gray-400">Confira todos os parâmetros antes de avançar para o agendamento/criação.</p>
+                  <h4 className="font-bold text-sm text-gray-800">Revisão Completa da Comunicação</h4>
+                  <p className="text-[11px] text-gray-400">Confira detalhadamente todos os parâmetros antes de avançar.</p>
                 </div>
-                <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200">
+                <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-teal-200">
                   Pronto para Enfileirar
                 </span>
               </div>
 
-              <div className="bg-gray-50 border border-gray-200/70 p-4 rounded-xl space-y-3">
-                {/* Dados Principais */}
-                <div className="grid grid-cols-2 gap-3 border-b border-gray-200/60 pb-3">
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Nome do Disparo</span>
-                    <p className="font-extrabold text-xs text-gray-800 mt-0.5">{nome}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Ação / CRM Vinculado</span>
-                    <p className="font-extrabold text-xs text-gray-800 mt-0.5">
-                      {campanhaSelecionada ? campanhaSelecionada.nome : 'Nenhuma (Base Avulsa)'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Provedor Oficial Ativo</span>
-                    <p className="font-extrabold text-xs text-teal-700 mt-0.5 flex items-center gap-1">
-                      <FontAwesomeIcon icon={faCheckCircle} /> {(() => {
-                        const prov = String(contaOficial?.provider || '').toUpperCase();
-                        if (prov === 'WABLAST') return 'WaBlast Oficial';
-                        if (prov === 'YCLOUD') return 'YCloud Oficial';
-                        if (prov === 'META') return 'Meta Cloud API Oficial';
-                        return 'WhatsApp Oficial';
-                      })()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Número de Origem</span>
-                    <p className="font-extrabold text-xs text-gray-800 mt-0.5 font-mono">
-                      {contaOficial?.displayPhoneNumber || contaOficial?.wablastDetails?.phoneNumber || 'Número Configurado'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Template e Idioma */}
-                <div className="grid grid-cols-2 gap-3 border-b border-gray-200/60 pb-3">
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Template Oficial</span>
-                    <p className="font-extrabold text-xs text-gray-800 mt-0.5">{templateSelecionado?.nome || 'Não selecionado'}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block">Idioma & Categoria</span>
-                    <p className="font-extrabold text-xs text-gray-800 mt-0.5">
-                      {templateSelecionado?.idioma || 'pt_BR'} · {templateSelecionado?.categoria || 'MARKETING'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Volumetria e Elegibilidade */}
-                <div className="border-b border-gray-200/60 pb-3 space-y-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase block">Volumetria e Elegibilidade da Base</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-white p-2.5 rounded-lg border border-gray-200">
-                      <span className="text-[9px] font-bold text-gray-400 uppercase block">Total Encontrados</span>
-                      <p className="text-sm font-extrabold text-gray-800 mt-0.5">{detalhesExcluidos.totalEncontrados}</p>
+              <div className="bg-gray-50 border border-gray-200/70 p-4 rounded-xl space-y-3.5">
+                {/* 1. Origem do Público */}
+                <div className="border-b border-gray-200/60 pb-2.5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">1. Origem do Público</span>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-extrabold text-xs text-gray-800">
+                        {origemDestinatarios === 'campanha_politica' ? 'Campanha / Ação do CRM' : 'Base de Dados Geral'}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {origemDestinatarios === 'campanha_politica' 
+                          ? (campanhaSelecionada ? `Ação: ${campanhaSelecionada.nome}` : 'Nenhuma campanha vinculada')
+                          : `Escopo: ${mandatoOrigem === 'eleitores' ? 'Eleitores' : mandatoOrigem === 'liderancas' ? 'Lideranças' : 'Equipe / Gabinete'}`}
+                      </p>
                     </div>
-                    <div className="bg-amber-50/70 p-2.5 rounded-lg border border-amber-200">
+                    <span className="bg-white text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200">
+                      {mandatoOrigem.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Segmentação & Volumetria */}
+                <div className="border-b border-gray-200/60 pb-2.5 space-y-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block">2. Segmentação & Volumetria</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+                    <div>Cidade: <strong className="text-gray-800">{filtroCidade || 'Todas'}</strong></div>
+                    <div>Bairro: <strong className="text-gray-800">{filtroBairro || 'Todos'}</strong></div>
+                    <div>Situação: <strong className="text-gray-800">{filtroSituacao || 'Todos os status'}</strong></div>
+                    <div>Limite: <strong className="text-gray-800">{mandatoLimite} contatos</strong></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <div className="bg-white p-2 rounded-lg border border-gray-200 text-center">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase block">Encontrados</span>
+                      <p className="text-xs font-extrabold text-gray-800">{detalhesExcluidos.totalEncontrados}</p>
+                    </div>
+                    <div className="bg-amber-50/70 p-2 rounded-lg border border-amber-200 text-center">
                       <span className="text-[9px] font-bold text-amber-700 uppercase block">Não Elegíveis</span>
-                      <p className="text-sm font-extrabold text-amber-800 mt-0.5">{detalhesExcluidos.totalExcluidos}</p>
-                      <span className="text-[9px] text-amber-600 block mt-0.5">
-                        {detalhesExcluidos.duplicados} dup · {detalhesExcluidos.semTelefone} s/tel · {detalhesExcluidos.invalidos} inv
-                      </span>
+                      <p className="text-xs font-extrabold text-amber-800">{detalhesExcluidos.totalExcluidos}</p>
                     </div>
-                    <div className="bg-emerald-50/80 p-2.5 rounded-lg border border-emerald-300">
-                      <span className="text-[9px] font-bold text-emerald-700 uppercase block">Destinatários Aptos</span>
-                      <p className="text-sm font-extrabold text-emerald-800 mt-0.5">{destinatariosFiltrados.length}</p>
-                      <span className="text-[9px] text-emerald-600 font-semibold block mt-0.5">100% validados</span>
+                    <div className="bg-emerald-50/80 p-2 rounded-lg border border-emerald-300 text-center">
+                      <span className="text-[9px] font-bold text-emerald-700 uppercase block">Aptos ao Envio</span>
+                      <p className="text-xs font-extrabold text-emerald-800">{destinatariosFiltrados.length}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Resumo das Variáveis */}
-                {Object.keys(variaveis).length > 0 ? (
-                  <div className="space-y-1">
-                    <strong className="block text-gray-700 text-[11px]">Variáveis Configuradas:</strong>
-                    <div className="grid grid-cols-2 gap-1.5 pl-1 font-mono text-[11px] text-gray-600">
-                      {Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => (
-                        <div key={k} className="bg-white px-2 py-1 rounded border border-gray-200 truncate">
-                          <strong className="text-teal-700">{`{{${k}}}`}</strong> &rarr; {variaveis[k]}
-                        </div>
-                      ))}
+                {/* 3. Canal de Envio */}
+                <div className="border-b border-gray-200/60 pb-2.5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">3. Canal & Número de Origem</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-gray-400 block text-[10px]">Provedor Oficial:</span>
+                      <strong className="text-teal-700">
+                        {(() => {
+                          const prov = String(contaOficial?.provider || '').toUpperCase();
+                          if (prov === 'WABLAST') return 'WaBlast Oficial';
+                          if (prov === 'YCLOUD') return 'YCloud Oficial';
+                          if (prov === 'META') return 'Meta Cloud API Oficial';
+                          return 'WhatsApp Oficial';
+                        })()}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px]">Número de Origem:</span>
+                      <strong className="font-mono text-gray-800">
+                        {contaOficial?.displayPhoneNumber || contaOficial?.wablastDetails?.phoneNumber || '+55 91 8088-6129'}
+                      </strong>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-[11px] text-gray-400 italic">Template sem variáveis dinâmicas.</p>
-                )}
+                </div>
 
-                {/* Banner de Garantia de Integridade */}
-                <div className="bg-teal-50 border border-teal-200 rounded-lg p-2.5 text-[11px] text-teal-800 space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold">
-                    <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600" />
-                    <span>Garantia de Enfileiramento Seguro</span>
+                {/* 4. Mensagem e Template */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block">4. Mensagem & Template Homologado</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>Template: <strong className="text-gray-800">{templateSelecionado?.nome || 'hello_world'}</strong></div>
+                    <div>Idioma: <strong className="text-gray-800">{templateSelecionado?.idioma || 'pt_BR'}</strong></div>
                   </div>
-                  <p className="text-[10px] text-teal-700 leading-normal">
-                    Somente os <strong>{destinatariosFiltrados.length} destinatários aptos</strong> serão gravados na fila oficial. Nenhum contato inválido, duplicado ou sem telefone chegará à base de transmissão.
-                  </p>
+                  {Object.keys(variaveis).length > 0 && (
+                    <div className="pt-1.5">
+                      <span className="text-[10px] text-gray-400 block mb-1">Variáveis Configuradas:</span>
+                      <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
+                        {Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => (
+                          <div key={k} className="bg-white px-2 py-0.5 rounded border border-gray-200 truncate">
+                            <span className="text-teal-700">{`{{${k}}}`}</span>: {variaveis[k]}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1098,10 +1218,10 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             <div className="space-y-4">
               <div>
                 <h4 className="font-bold text-xs text-gray-700 uppercase tracking-wider mb-1">
-                  Agendamento e Enfileiramento
+                  5. Confirmação e Enfileiramento
                 </h4>
                 <p className="text-[11px] text-gray-400">
-                  Defina se a transmissão deve ser agendada para uma data específica ou salva imediatamente na fila.
+                  Valide a criação do lote na fila oficial de transmissão do MandatoPRO.
                 </p>
               </div>
 
@@ -1132,14 +1252,15 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 )}
               </div>
 
-              {/* Informação Operacional Importante */}
-              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl text-amber-900 text-xs space-y-1">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <FontAwesomeIcon icon={faInfoCircle} className="text-amber-600" />
-                  <span>Aviso de Operação e Disparo</span>
+              {/* Informação Operacional de Enfileiramento Seguro */}
+              <div className="p-4 bg-teal-50/70 border border-teal-200 rounded-xl text-teal-900 text-xs space-y-2">
+                <div className="flex items-center gap-1.5 font-bold text-teal-800">
+                  <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600" />
+                  <span>Enfileiramento de {destinatariosFiltrados.length} Destinatários Aptos</span>
                 </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed">
-                  Ao clicar em <strong>"Finalizar Criação"</strong>, os {destinatariosFiltrados.length} destinatários aptos serão salvos na fila oficial. O envio <strong>não ocorre de forma automática</strong>; o disparo real somente terá início quando o operador clicar no botão <strong>"Iniciar Disparo"</strong> na tela de detalhes da transmissão.
+                <p className="text-[11px] text-teal-800 leading-relaxed">
+                  Ao clicar em <strong>"Finalizar Criação"</strong>, exatamente <strong>{destinatariosFiltrados.length} destinatários aptos</strong> serão persistidos na tabela oficial de fila. 
+                  O sistema <strong>não dispara as mensagens imediatamente</strong>; o envio real segue o controle manual da esteira através do botão de início de disparo.
                 </p>
               </div>
             </div>
@@ -1177,7 +1298,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       {/* Coluna Direita: Resumo da Base Selecionada (Etapa 2/3) ou Prévia do Template (Etapas 4+) */}
       <div className="bg-gray-50/60 rounded-2xl p-5 border border-gray-100 flex flex-col justify-between">
         <div>
-          {step <= 3 && origemDestinatarios === 'campanha_politica' ? (
+          {step <= 3 && (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
                 <div>
@@ -1185,12 +1306,19 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                     Resumo da Base Selecionada
                   </h4>
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    {campanhaSelecionada ? `Ação: ${campanhaSelecionada.nome}` : 'Base MandatoPRO'}
+                    {origemDestinatarios === 'base_geral'
+                      ? `Base Geral: ${mandatoOrigem.toUpperCase()}`
+                      : (campanhaSelecionada ? `Ação: ${campanhaSelecionada.nome}` : 'Base MandatoPRO')}
                   </p>
                 </div>
-                {campanhaSelecionada && (
+                {campanhaSelecionada && origemDestinatarios === 'campanha_politica' && (
                   <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200">
                     CRM Vinculado
+                  </span>
+                )}
+                {origemDestinatarios === 'base_geral' && (
+                  <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200">
+                    Base Geral
                   </span>
                 )}
               </div>

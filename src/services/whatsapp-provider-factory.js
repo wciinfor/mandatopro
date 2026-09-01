@@ -42,9 +42,23 @@ export class MetaWhatsAppAdapter extends WhatsAppProviderContract {
   async sendTemplate(payload) {
     const to = payload.to || payload.recipient;
     const templateName = payload.templateName || payload.name;
-    const language = payload.language || 'pt_BR';
+    const language = payload.idiomaCode || payload.language || 'pt_BR';
     const components = payload.components || [];
-    return this.service.sendTemplateMessage(to, templateName, language, components);
+    const response = await this.service.sendTemplateMessage(to, templateName, language, components);
+    const messageId = response?.messageId || response?.id || response?.messages?.[0]?.id || null;
+
+    if (!messageId) {
+      throw new Error('Meta Graph API não retornou um Message ID válido após o envio.');
+    }
+
+    return {
+      success: true,
+      id: messageId,
+      messageId: messageId,
+      recipient: response?.recipient || to,
+      template: templateName,
+      data: response
+    };
   }
 
   async getStatus() {
