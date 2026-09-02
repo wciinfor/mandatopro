@@ -47,7 +47,8 @@ export default async function handler(req, res) {
               status: filtros.status || filtros.situacao,
               search: filtros.search,
               campanhaId: filtros.campanhaId || regras.crm_campaign_id,
-              presencaCampanha: filtros.presencaCampanha
+              presencaCampanha: filtros.presencaCampanha,
+              eleitorIds: filtros.eleitor_ids || filtros.eleitorIds || regras.eleitor_ids || regras.eleitorIds
             });
             contatosCount = Number(resumo?.total || 0);
           } catch (e) {

@@ -23,7 +23,8 @@ export default async function handler(req, res) {
       status: req.query.status,
       search: req.query.search,
       campanhaId: req.query.campanhaId,
-      presencaCampanha: req.query.presencaCampanha
+      presencaCampanha: req.query.presencaCampanha,
+      eleitorIds: req.query.eleitorIds || req.query.eleitor_ids
     };
 
     if (String(req.query.countOnly || '').toLowerCase() === 'true') {

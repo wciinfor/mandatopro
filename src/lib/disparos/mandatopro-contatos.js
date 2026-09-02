@@ -1,4 +1,4 @@
-import { contatoFromPessoa, deduplicarContatos, resumoContatos, toDisparoProContact } from './contatos';
+import { contatoFromPessoa, deduplicarContatos, resumoContatos, toDisparoProContact } from './contatos.js';
 
 const PAGE_SIZE = 1000;
 const MAX_IMPORT_LIMIT = 50000;
@@ -142,6 +142,22 @@ async function fetchPaginated(buildQuery, limit) {
 }
 
 async function buscarEleitores(supabase, filtros, limit) {
+  const idsExplicit = filtros.eleitorIds;
+  if (Array.isArray(idsExplicit)) {
+    if (idsExplicit.length === 0) return [];
+    let rows = [];
+    for (let i = 0; i < idsExplicit.length && rows.length < limit; i += ID_CHUNK_SIZE) {
+      const chunk = idsExplicit.slice(i, i + ID_CHUNK_SIZE);
+      const remaining = limit - rows.length;
+      const data = await fetchPaginated(
+        () => criarQueryEleitores(supabase, filtros, { eleitorIds: chunk }),
+        Math.min(remaining, chunk.length)
+      );
+      rows.push(...data);
+    }
+    return rows.map((row) => contatoFromPessoa(row, 'eleitor'));
+  }
+
   const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit, filtros.presencaCampanha);
   if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return [];
 
@@ -218,7 +234,57 @@ async function countQuery(query) {
   return count || 0;
 }
 
+function normalizarEleitorIds(value) {
+  if (!value) return null;
+  let raw = [];
+  if (Array.isArray(value)) {
+    raw = value;
+  } else if (typeof value === 'string') {
+    raw = value.split(',').map(s => s.trim());
+  } else if (typeof value === 'number') {
+    raw = [value];
+  }
+
+  const ids = raw
+    .map(v => Number(v))
+    .filter(n => Number.isFinite(n) && n > 0);
+
+  return ids.length > 0 ? [...new Set(ids)] : null;
+}
+
+function normalizarFiltros(filtros = {}) {
+  const origem = String(filtros.origem || 'eleitores');
+  const eleitorIds = normalizarEleitorIds(filtros.eleitor_ids || filtros.eleitorIds);
+  const params = {
+    cidade: filtros.cidade,
+    bairro: filtros.bairro,
+    status: filtros.status,
+    search: filtros.search,
+    campanhaId: filtros.campanhaId,
+    presencaCampanha: filtros.presencaCampanha,
+    eleitorIds
+  };
+
+  return { origem, params };
+}
+
 async function contarEleitores(supabase, filtros, limit) {
+  const idsExplicit = filtros.eleitorIds;
+  if (Array.isArray(idsExplicit)) {
+    if (idsExplicit.length === 0) return 0;
+    let total = 0;
+    for (let i = 0; i < idsExplicit.length; i += ID_CHUNK_SIZE) {
+      const chunk = idsExplicit.slice(i, i + ID_CHUNK_SIZE);
+      total += await countQuery(criarQueryEleitores(supabase, filtros, {
+        eleitorIds: chunk,
+        select: 'id',
+        selectOptions: { count: 'exact', head: true },
+        order: false
+      }));
+    }
+    return total;
+  }
+
   const eleitorIds = await buscarEleitoresPorCampanha(supabase, filtros.campanhaId, limit, filtros.presencaCampanha);
   if (Array.isArray(eleitorIds) && eleitorIds.length === 0) return 0;
 
@@ -241,20 +307,6 @@ async function contarEleitores(supabase, filtros, limit) {
     selectOptions: { count: 'exact', head: true },
     order: false
   }));
-}
-
-function normalizarFiltros(filtros = {}) {
-  const origem = String(filtros.origem || 'eleitores');
-  const params = {
-    cidade: filtros.cidade,
-    bairro: filtros.bairro,
-    status: filtros.status,
-    search: filtros.search,
-    campanhaId: filtros.campanhaId,
-    presencaCampanha: filtros.presencaCampanha
-  };
-
-  return { origem, params };
 }
 
 export async function contarContatosMandatoPro(supabase, filtros = {}) {

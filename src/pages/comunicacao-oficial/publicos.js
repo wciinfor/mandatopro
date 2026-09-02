@@ -16,7 +16,11 @@ import {
   faSlidersH,
   faUserCheck,
   faDatabase,
-  faInfoCircle
+  faInfoCircle,
+  faUserPlus,
+  faPhone,
+  faMapMarkerAlt,
+  faListCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { PublicoCard } from '@/components/PublicoCard';
 
@@ -36,10 +40,17 @@ export default function PublicosOficiaisPage() {
 
   // Estados dos filtros de segmentação DENTRO do Modal
   const [modalOrigem, setModalOrigem] = useState('eleitores');
+  const [modoSelecao, setModoSelecao] = useState('filtros'); // 'filtros' | 'selecionados'
   const [modalCidade, setModalCidade] = useState('');
   const [modalBairro, setModalBairro] = useState('');
   const [modalTag, setModalTag] = useState('');
   const [modalSituacao, setModalSituacao] = useState('');
+
+  // Estados para Seleção Individual de Eleitores
+  const [termoBuscaEleitor, setTermoBuscaEleitor] = useState('');
+  const [buscandoEleitores, setBuscandoEleitores] = useState(false);
+  const [resultadosBuscaEleitores, setResultadosBuscaEleitores] = useState([]);
+  const [eleitoresSelecionados, setEleitoresSelecionados] = useState([]); // [{ id, nome, telefone, celular, whatsapp, cidade, bairro }]
 
   // Estado da prévia em tempo real de contatos qualificados no modal
   const [previaContagem, setPreviaContagem] = useState(null);
@@ -73,9 +84,59 @@ export default function PublicosOficiaisPage() {
     carregarPublicosReais();
   }, []);
 
-  // Prévia reativa com debounce ao alterar os filtros no modal
+  // Busca de Eleitores com debounce para a seleção individual
+  useEffect(() => {
+    if (!modalCriarAberto || modalOrigem !== 'eleitores' || modoSelecao !== 'selecionados') {
+      setResultadosBuscaEleitores([]);
+      return;
+    }
+
+    const termo = termoBuscaEleitor.trim();
+    if (termo.length < 2) {
+      setResultadosBuscaEleitores([]);
+      setBuscandoEleitores(false);
+      return;
+    }
+
+    let active = true;
+    setBuscandoEleitores(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/cadastros/eleitores/buscar?q=${encodeURIComponent(termo)}`);
+        if (!res.ok) throw new Error('Falha ao buscar eleitores.');
+        const data = await res.json();
+        if (active) {
+          setResultadosBuscaEleitores(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (active) {
+          console.warn('[PublicosPage] Erro ao buscar eleitores:', err.message);
+          setResultadosBuscaEleitores([]);
+        }
+      } finally {
+        if (active) setBuscandoEleitores(false);
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [termoBuscaEleitor, modalCriarAberto, modalOrigem, modoSelecao]);
+
+  // Prévia reativa com debounce ao alterar os filtros ou a lista de selecionados
   useEffect(() => {
     if (!modalCriarAberto) return;
+
+    // Se estiver no modo selecionados e não tiver nenhum eleitor selecionado
+    if (modalOrigem === 'eleitores' && modoSelecao === 'selecionados') {
+      if (eleitoresSelecionados.length === 0) {
+        setPreviaContagem(0);
+        setCalculandoPrevia(false);
+        return;
+      }
+    }
 
     let active = true;
     setCalculandoPrevia(true);
@@ -87,10 +148,15 @@ export default function PublicosOficiaisPage() {
           countOnly: 'true'
         });
 
-        if (modalCidade.trim()) params.append('cidade', modalCidade.trim());
-        if (modalBairro.trim()) params.append('bairro', modalBairro.trim());
-        if (modalTag.trim()) params.append('search', modalTag.trim());
-        if (modalSituacao) params.append('status', modalSituacao);
+        if (modalOrigem === 'eleitores' && modoSelecao === 'selecionados') {
+          const ids = eleitoresSelecionados.map(e => e.id).join(',');
+          params.append('eleitorIds', ids);
+        } else {
+          if (modalCidade.trim()) params.append('cidade', modalCidade.trim());
+          if (modalBairro.trim()) params.append('bairro', modalBairro.trim());
+          if (modalTag.trim()) params.append('search', modalTag.trim());
+          if (modalSituacao) params.append('status', modalSituacao);
+        }
 
         const res = await fetch(`/api/disparos/contatos/preview?${params.toString()}`);
         if (!res.ok) throw new Error('Falha ao calcular prévia de contatos.');
@@ -113,7 +179,16 @@ export default function PublicosOficiaisPage() {
       active = false;
       clearTimeout(timer);
     };
-  }, [modalCriarAberto, modalOrigem, modalCidade, modalBairro, modalTag, modalSituacao]);
+  }, [
+    modalCriarAberto,
+    modalOrigem,
+    modoSelecao,
+    eleitoresSelecionados,
+    modalCidade,
+    modalBairro,
+    modalTag,
+    modalSituacao
+  ]);
 
   // Recalcular contatos de um público via API
   const handleRecalcular = async (id) => {
@@ -160,13 +235,31 @@ export default function PublicosOficiaisPage() {
     setNovaDescricao('');
     setNovoCanal('whatsapp');
     setModalOrigem('eleitores');
+    setModoSelecao('filtros');
     setModalCidade('');
     setModalBairro('');
     setModalTag('');
     setModalSituacao('');
+    setTermoBuscaEleitor('');
+    setResultadosBuscaEleitores([]);
+    setEleitoresSelecionados([]);
     setErroModal(null);
     setPreviaContagem(null);
     setModalCriarAberto(true);
+  };
+
+  // Adicionar eleitor à lista de selecionados
+  const handleAdicionarEleitor = (eleitor) => {
+    if (!eleitor || !eleitor.id) return;
+    if (eleitoresSelecionados.some(e => e.id === eleitor.id)) {
+      return; // Já selecionado
+    }
+    setEleitoresSelecionados(prev => [...prev, eleitor]);
+  };
+
+  // Remover eleitor da lista de selecionados
+  const handleRemoverEleitor = (id) => {
+    setEleitoresSelecionados(prev => prev.filter(e => e.id !== id));
   };
 
   // Criar novo público persistindo as regras de segmentação definidas no modal
@@ -177,16 +270,28 @@ export default function PublicosOficiaisPage() {
       return;
     }
 
+    if (modalOrigem === 'eleitores' && modoSelecao === 'selecionados' && eleitoresSelecionados.length === 0) {
+      setErroModal('Selecione ao menos um eleitor para salvar esta audiência.');
+      return;
+    }
+
     setSalvando(true);
     setErroModal(null);
 
-    const filtrosAtivos = {
+    let filtrosAtivos = {
       origem: modalOrigem
     };
-    if (modalCidade.trim()) filtrosAtivos.cidade = modalCidade.trim();
-    if (modalBairro.trim()) filtrosAtivos.bairro = modalBairro.trim();
-    if (modalTag.trim()) filtrosAtivos.search = modalTag.trim();
-    if (modalSituacao) filtrosAtivos.status = modalSituacao;
+
+    if (modalOrigem === 'eleitores' && modoSelecao === 'selecionados') {
+      filtrosAtivos.modo = 'selecionados';
+      filtrosAtivos.eleitor_ids = eleitoresSelecionados.map(e => e.id);
+    } else {
+      filtrosAtivos.modo = 'filtros';
+      if (modalCidade.trim()) filtrosAtivos.cidade = modalCidade.trim();
+      if (modalBairro.trim()) filtrosAtivos.bairro = modalBairro.trim();
+      if (modalTag.trim()) filtrosAtivos.search = modalTag.trim();
+      if (modalSituacao) filtrosAtivos.status = modalSituacao;
+    }
 
     const regrasPayload = {
       origem: modalOrigem,
@@ -222,13 +327,15 @@ export default function PublicosOficiaisPage() {
     }
   };
 
-  const temFiltroRestritivo = Boolean(
-    modalCidade.trim() ||
-    modalBairro.trim() ||
-    modalTag.trim() ||
-    modalSituacao ||
-    modalOrigem !== 'eleitores'
-  );
+  const temFiltroRestritivo = modoSelecao === 'selecionados' 
+    ? eleitoresSelecionados.length > 0
+    : Boolean(
+        modalCidade.trim() ||
+        modalBairro.trim() ||
+        modalTag.trim() ||
+        modalSituacao ||
+        modalOrigem !== 'eleitores'
+      );
 
   const filtrarPublicos = publicos.filter((p) =>
     (p.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
@@ -408,7 +515,7 @@ export default function PublicosOficiaisPage() {
                           type="text"
                           value={novoNome}
                           onChange={(e) => setNovoNome(e.target.value)}
-                          placeholder="Ex: Lideranças - Bairro Centro / Eleitores de Belém"
+                          placeholder="Ex: Lideranças - Bairro Centro / Eleitores Selecionados"
                           className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 font-medium text-xs"
                           autoFocus
                         />
@@ -452,7 +559,9 @@ export default function PublicosOficiaisPage() {
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           type="button"
-                          onClick={() => setModalOrigem('eleitores')}
+                          onClick={() => {
+                            setModalOrigem('eleitores');
+                          }}
                           className={`p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-2 cursor-pointer ${
                             modalOrigem === 'eleitores'
                               ? 'border-teal-500 bg-teal-50/50 text-teal-900 font-bold shadow-xs'
@@ -465,7 +574,10 @@ export default function PublicosOficiaisPage() {
 
                         <button
                           type="button"
-                          onClick={() => setModalOrigem('liderancas')}
+                          onClick={() => {
+                            setModalOrigem('liderancas');
+                            setModoSelecao('filtros');
+                          }}
                           className={`p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-2 cursor-pointer ${
                             modalOrigem === 'liderancas'
                               ? 'border-teal-500 bg-teal-50/50 text-teal-900 font-bold shadow-xs'
@@ -478,7 +590,10 @@ export default function PublicosOficiaisPage() {
 
                         <button
                           type="button"
-                          onClick={() => setModalOrigem('funcionarios')}
+                          onClick={() => {
+                            setModalOrigem('funcionarios');
+                            setModoSelecao('filtros');
+                          }}
                           className={`p-2.5 rounded-xl border text-center transition flex items-center justify-center gap-2 cursor-pointer ${
                             modalOrigem === 'funcionarios'
                               ? 'border-teal-500 bg-teal-50/50 text-teal-900 font-bold shadow-xs'
@@ -491,55 +606,233 @@ export default function PublicosOficiaisPage() {
                       </div>
                     </div>
 
-                    {/* Filtros Geográficos e Categóricos */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade</label>
-                        <input
-                          type="text"
-                          value={modalCidade}
-                          onChange={(e) => setModalCidade(e.target.value)}
-                          placeholder="Ex: Belém"
-                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                        />
-                      </div>
+                    {/* Alternância de Modo (Filtros em Massa vs Seleção Individual) quando Origem = Eleitores */}
+                    {modalOrigem === 'eleitores' && (
+                      <div className="pt-2">
+                        <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setModoSelecao('filtros')}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                              modoSelecao === 'filtros'
+                                ? 'bg-white text-teal-800 shadow-xs'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            <FontAwesomeIcon icon={faSlidersH} className="text-xs" />
+                            <span>Segmentação por Filtros</span>
+                          </button>
 
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bairro</label>
-                        <input
-                          type="text"
-                          value={modalBairro}
-                          onChange={(e) => setModalBairro(e.target.value)}
-                          placeholder="Ex: Centro"
-                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                        />
+                          <button
+                            type="button"
+                            onClick={() => setModoSelecao('selecionados')}
+                            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                              modoSelecao === 'selecionados'
+                                ? 'bg-white text-teal-800 shadow-xs'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            <FontAwesomeIcon icon={faListCheck} className="text-xs" />
+                            <span>Seleção Individual de Eleitores</span>
+                            {eleitoresSelecionados.length > 0 && (
+                              <span className="bg-teal-600 text-white rounded-full px-1.5 py-0.2 text-[10px] font-bold">
+                                {eleitoresSelecionados.length}
+                              </span>
+                            )}
+                          </button>
+                        </div>
                       </div>
+                    )}
 
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tags / Busca</label>
-                        <input
-                          type="text"
-                          value={modalTag}
-                          onChange={(e) => setModalTag(e.target.value)}
-                          placeholder="Ex: saúde, educação"
-                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-                        />
-                      </div>
+                    {/* MODO 1: Filtros Geográficos e Categóricos */}
+                    {(modalOrigem !== 'eleitores' || modoSelecao === 'filtros') && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade</label>
+                          <input
+                            type="text"
+                            value={modalCidade}
+                            onChange={(e) => setModalCidade(e.target.value)}
+                            placeholder="Ex: Belém"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                          />
+                        </div>
 
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Situação / Status</label>
-                        <select
-                          value={modalSituacao}
-                          onChange={(e) => setModalSituacao(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none"
-                        >
-                          <option value="">Todos os status</option>
-                          <option value="ATIVO">Ativos / Regulares</option>
-                          <option value="PENDENTE">Pendentes</option>
-                          <option value="INATIVO">Inativos</option>
-                        </select>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bairro</label>
+                          <input
+                            type="text"
+                            value={modalBairro}
+                            onChange={(e) => setModalBairro(e.target.value)}
+                            placeholder="Ex: Centro"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tags / Busca</label>
+                          <input
+                            type="text"
+                            value={modalTag}
+                            onChange={(e) => setModalTag(e.target.value)}
+                            placeholder="Ex: saúde, educação"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Situação / Status</label>
+                          <select
+                            value={modalSituacao}
+                            onChange={(e) => setModalSituacao(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs focus:outline-none"
+                          >
+                            <option value="">Todos os status</option>
+                            <option value="ATIVO">Ativos / Regulares</option>
+                            <option value="PENDENTE">Pendentes</option>
+                            <option value="INATIVO">Inativos</option>
+                          </select>
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* MODO 2: Seleção Individual de Eleitores */}
+                    {modalOrigem === 'eleitores' && modoSelecao === 'selecionados' && (
+                      <div className="space-y-3 pt-1">
+                        {/* Campo de Busca por Nome */}
+                        <div className="relative">
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                            Pesquisar Eleitor por Nome ou CPF
+                          </label>
+                          <div className="relative">
+                            <FontAwesomeIcon icon={faSearch} className="absolute left-3.5 top-3 text-gray-400 text-xs" />
+                            <input
+                              type="text"
+                              value={termoBuscaEleitor}
+                              onChange={(e) => setTermoBuscaEleitor(e.target.value)}
+                              placeholder="Digite ao menos 2 letras do nome para buscar..."
+                              className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                            />
+                            {buscandoEleitores && (
+                              <FontAwesomeIcon icon={faSpinner} className="absolute right-3 top-3 text-teal-600 animate-spin text-xs" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Resultados da Busca */}
+                        {termoBuscaEleitor.trim().length >= 2 && (
+                          <div className="bg-white border border-gray-200 rounded-xl shadow-sm max-h-48 overflow-y-auto divide-y divide-gray-100">
+                            {buscandoEleitores ? (
+                              <div className="p-3 text-center text-gray-400 text-xs flex items-center justify-center gap-2">
+                                <FontAwesomeIcon icon={faSpinner} className="animate-spin text-teal-600" />
+                                <span>Buscando eleitores na base...</span>
+                              </div>
+                            ) : resultadosBuscaEleitores.length > 0 ? (
+                              resultadosBuscaEleitores.map((eleitor) => {
+                                const jaSelecionado = eleitoresSelecionados.some(e => e.id === eleitor.id);
+                                const telefone = eleitor.celular || eleitor.whatsapp || eleitor.telefone || 'Sem telefone';
+                                const localidade = [eleitor.bairro, eleitor.cidade || eleitor.municipio].filter(Boolean).join(' - ');
+
+                                return (
+                                  <div
+                                    key={eleitor.id}
+                                    className="p-2.5 flex items-center justify-between hover:bg-teal-50/40 transition gap-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-gray-800 text-xs truncate">{eleitor.nome}</p>
+                                      <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
+                                        <span className="flex items-center gap-1">
+                                          <FontAwesomeIcon icon={faPhone} className="text-[9px]" />
+                                          {telefone}
+                                        </span>
+                                        {localidade && (
+                                          <span className="flex items-center gap-1">
+                                            <FontAwesomeIcon icon={faMapMarkerAlt} className="text-[9px]" />
+                                            {localidade}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      disabled={jaSelecionado}
+                                      onClick={() => handleAdicionarEleitor(eleitor)}
+                                      className={`px-3 py-1 rounded-lg text-xs font-bold transition shrink-0 flex items-center gap-1 cursor-pointer ${
+                                        jaSelecionado
+                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                          : 'bg-teal-600 hover:bg-teal-700 text-white shadow-xs'
+                                      }`}
+                                    >
+                                      <FontAwesomeIcon icon={jaSelecionado ? faCheckCircle : faUserPlus} className="text-[10px]" />
+                                      <span>{jaSelecionado ? 'Adicionado' : 'Adicionar'}</span>
+                                    </button>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="p-3 text-center text-gray-400 text-xs">
+                                Nenhum eleitor encontrado para &ldquo;{termoBuscaEleitor}&rdquo;
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Seção de Eleitores Selecionados */}
+                        <div className="pt-2">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[11px] font-bold text-gray-700">
+                              Eleitores Selecionados ({eleitoresSelecionados.length})
+                            </span>
+                            {eleitoresSelecionados.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setEleitoresSelecionados([])}
+                                className="text-[10px] text-rose-600 hover:underline font-medium cursor-pointer"
+                              >
+                                Limpar seleção
+                              </button>
+                            )}
+                          </div>
+
+                          {eleitoresSelecionados.length > 0 ? (
+                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 max-h-36 overflow-y-auto space-y-1.5">
+                              {eleitoresSelecionados.map((eleitor) => {
+                                const tel = eleitor.celular || eleitor.whatsapp || eleitor.telefone || '';
+                                return (
+                                  <div
+                                    key={eleitor.id}
+                                    className="bg-white px-2.5 py-1.5 rounded-lg border border-gray-200/80 flex items-center justify-between gap-2 text-xs"
+                                  >
+                                    <div className="min-w-0 flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-teal-50 text-teal-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                        {eleitor.nome?.charAt(0) || 'E'}
+                                      </span>
+                                      <div className="truncate">
+                                        <span className="font-semibold text-gray-800 truncate">{eleitor.nome}</span>
+                                        {tel && <span className="text-[10px] text-gray-400 ml-1.5">({tel})</span>}
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoverEleitor(eleitor.id)}
+                                      className="text-gray-400 hover:text-rose-600 p-1 rounded transition cursor-pointer"
+                                      title="Remover"
+                                    >
+                                      <FontAwesomeIcon icon={faTimes} className="text-xs" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center text-gray-400 text-[11px]">
+                              Nenhum eleitor selecionado. Busque pelo nome acima e clique em &ldquo;Adicionar&rdquo;.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bloco 3: Painel de Prévia Reativa */}
@@ -564,10 +857,17 @@ export default function PublicosOficiaisPage() {
                       <span className="text-xs text-gray-600 font-medium">contatos qualificados com WhatsApp encontrados</span>
                     </div>
 
-                    {!temFiltroRestritivo && (
+                    {modoSelecao === 'filtros' && !temFiltroRestritivo && (
                       <div className="text-[11px] text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg p-2 flex items-center gap-1.5 mt-2">
                         <FontAwesomeIcon icon={faInfoCircle} className="text-amber-600 shrink-0" />
                         <span>Atenção: nenhum filtro restritivo aplicado. Esta audiência incluirá toda a base de {modalOrigem}.</span>
+                      </div>
+                    )}
+
+                    {modalOrigem === 'eleitores' && modoSelecao === 'selecionados' && eleitoresSelecionados.length === 0 && (
+                      <div className="text-[11px] text-gray-500 bg-gray-100/80 border border-gray-200 rounded-lg p-2 flex items-center gap-1.5 mt-2">
+                        <FontAwesomeIcon icon={faInfoCircle} className="text-gray-400 shrink-0" />
+                        <span>Nenhum eleitor selecionado. Adicione contatos individualmente para calcular a prévia.</span>
                       </div>
                     )}
                   </div>
@@ -584,7 +884,7 @@ export default function PublicosOficiaisPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={salvando || calculandoPrevia}
+                      disabled={salvando || calculandoPrevia || (modalOrigem === 'eleitores' && modoSelecao === 'selecionados' && eleitoresSelecionados.length === 0)}
                       className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl font-bold transition flex items-center gap-2 shadow-sm cursor-pointer text-xs"
                     >
                       {salvando ? (
