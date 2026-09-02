@@ -11,7 +11,8 @@ import {
   faSpinner,
   faTimes,
   faCheckCircle,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faTrashAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { PublicoCard } from '@/components/PublicoCard';
 
@@ -37,6 +38,10 @@ export default function PublicosOficiaisPage() {
   const [novoCanal, setNovoCanal] = useState('whatsapp');
   const [salvando, setSalvando] = useState(false);
   const [erroModal, setErroModal] = useState(null);
+
+  // Estado do Modal de Confirmação de Exclusão
+  const [publicoParaExcluir, setPublicoParaExcluir] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   // Carregar públicos reais da API
   const carregarPublicosReais = async () => {
@@ -71,14 +76,18 @@ export default function PublicosOficiaisPage() {
     }
   };
 
-  // Exclusão real com confirmação
-  const handleDeletePublico = async (id, nome) => {
-    if (!window.confirm(`Tem certeza que deseja excluir o público "${nome}"?`)) {
-      return;
-    }
+  // Abrir modal estilizado de exclusão
+  const handleSolicitarExclusao = (id, nome) => {
+    setPublicoParaExcluir({ id, nome });
+  };
 
+  // Confirmar exclusão real
+  const handleConfirmarExclusao = async () => {
+    if (!publicoParaExcluir) return;
+
+    setExcluindo(true);
     try {
-      const res = await fetch(`/api/comunicacao-oficial/publicos?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/comunicacao-oficial/publicos?id=${encodeURIComponent(publicoParaExcluir.id)}`, {
         method: 'DELETE'
       });
 
@@ -87,10 +96,13 @@ export default function PublicosOficiaisPage() {
         throw new Error(data.message || 'Falha ao excluir o público.');
       }
 
-      setPublicos(prev => prev.filter(p => p.id !== id));
+      setPublicos(prev => prev.filter(p => p.id !== publicoParaExcluir.id));
+      setPublicoParaExcluir(null);
     } catch (err) {
       console.error('[PublicosPage] Erro ao excluir público:', err);
       alert(`Erro: ${err.message}`);
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -316,7 +328,7 @@ export default function PublicosOficiaisPage() {
                   key={pub.id}
                   publico={pub}
                   onSync={handleRecalcular}
-                  onDelete={handleDeletePublico}
+                  onDelete={handleSolicitarExclusao}
                 />
               ))}
             </div>
@@ -325,6 +337,58 @@ export default function PublicosOficiaisPage() {
               <FontAwesomeIcon icon={faInbox} className="text-4xl text-gray-200 mb-3" />
               <p className="text-sm font-semibold text-gray-700">Nenhum público cadastrado</p>
               <p className="text-xs text-gray-400 mt-1">Clique em &ldquo;Criar Público&rdquo; para salvar uma segmentação reutilizável.</p>
+            </div>
+          )}
+
+          {/* Modal Estilizado de Confirmação de Exclusão */}
+          {publicoParaExcluir && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-sm overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-150">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                    <FontAwesomeIcon icon={faTrashAlt} className="text-lg" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-sm">Excluir Público</h3>
+                    <p className="text-[11px] text-gray-400">Esta ação não poderá ser desfeita</p>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-100">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Tem certeza que deseja excluir a audiência <strong className="text-gray-900 font-bold">&ldquo;{publicoParaExcluir.nome}&rdquo;</strong>?
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    disabled={excluindo}
+                    onClick={() => setPublicoParaExcluir(null)}
+                    className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={excluindo}
+                    onClick={handleConfirmarExclusao}
+                    className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-rose-200 cursor-pointer"
+                  >
+                    {excluindo ? (
+                      <>
+                        <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
+                        <span>Excluindo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FontAwesomeIcon icon={faTrashAlt} className="text-xs" />
+                        <span>Sim, Excluir</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
