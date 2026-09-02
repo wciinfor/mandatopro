@@ -27,48 +27,87 @@ function deveAtualizarStatus(statusAtual, novoStatus) {
 }
 
 /**
- * Validação de Assinatura HMAC baseada em Standard Webhooks
- * Utiliza o secret configurado em WABLAST_WEBHOOK_SECRET (ou WABLAST_API_KEY como fallback de assinatura)
+ * Validação Oficial de Assinatura HMAC baseada no protocolo Standard Webhooks (WaBlast)
+ * 
+ * Requisitos:
+ * - Headers: webhook-id, webhook-timestamp, webhook-signature
+ * - Formato da assinatura esperada: v1,<assinatura_base64>
+ * - Secret no formato: whsec_<base64>
+ * - Conteúdo assinado: `${webhookId}.${webhookTimestamp}.${rawBodyString}`
+ * - Chave HMAC: decodificação Base64 dos bytes após "whsec_"
+ * - Tolerância anti-replay de timestamp: 5 minutos (300 segundos)
  */
-function validarAssinaturaWaBlast(rawBody, signatureHeader, secret) {
+function validarAssinaturaWaBlast({ rawBody, webhookId, webhookTimestamp, signatureHeader, secret }) {
+  if (!webhookId) {
+    return { status: 'MISSING', reason: 'Header webhook-id ausente' };
+  }
+  if (!webhookTimestamp) {
+    return { status: 'MISSING', reason: 'Header webhook-timestamp ausente' };
+  }
   if (!signatureHeader) {
-    return { status: 'MISSING', reason: 'Header de assinatura ausente' };
+    return { status: 'MISSING', reason: 'Header webhook-signature ausente' };
   }
   if (!secret) {
-    return { status: 'INVALID', reason: 'Secret de webhook WaBlast não configurado no servidor' };
+    return { status: 'INVALID', reason: 'WABLAST_WEBHOOK_SECRET não configurado no servidor' };
   }
 
   try {
-    // Formato padrão: sha256=HEX_SIGNATURE ou t=TIMESTAMP,v1=SIGNATURE
-    let receivedSignature = signatureHeader;
-    let payloadToSign = rawBody.toString('utf8');
+    // 1. Validar tolerância do timestamp (anti-replay: 5 minutos)
+    const tsSeconds = Number(webhookTimestamp);
+    if (!Number.isFinite(tsSeconds)) {
+      return { status: 'INVALID', reason: 'Header webhook-timestamp inválido' };
+    }
 
-    if (signatureHeader.includes('=')) {
-      const parts = signatureHeader.split(',');
-      for (const part of parts) {
-        const [key, val] = part.split('=');
-        if (key?.trim() === 'v1' || key?.trim() === 'sha256' || key?.trim() === 's') {
-          receivedSignature = val?.trim() || '';
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const diffSeconds = Math.abs(nowSeconds - tsSeconds);
+    const TOLERANCIA_SEGUNDOS = 300; // 5 minutos
+
+    if (diffSeconds > TOLERANCIA_SEGUNDOS) {
+      return { status: 'INVALID', reason: `Timestamp fora da janela de tolerância de 5 minutos (drift: ${diffSeconds}s)` };
+    }
+
+    // 2. Extrair a chave binária a partir do secret (whsec_<base64> ou raw)
+    let secretKeyBuffer;
+    const cleanSecret = String(secret || '').trim();
+    if (cleanSecret.startsWith('whsec_')) {
+      const base64Part = cleanSecret.replace('whsec_', '');
+      secretKeyBuffer = Buffer.from(base64Part, 'base64');
+    } else {
+      secretKeyBuffer = Buffer.from(cleanSecret, 'utf8');
+    }
+
+    // 3. Montar o payload assinado: `${webhookId}.${webhookTimestamp}.${rawBodyString}`
+    const rawBodyString = rawBody.toString('utf8');
+    const toSign = `${webhookId}.${webhookTimestamp}.${rawBodyString}`;
+
+    // 4. Calcular o HMAC-SHA256 em Base64
+    const computedSignatureBase64 = crypto
+      .createHmac('sha256', secretKeyBuffer)
+      .update(toSign)
+      .digest('base64');
+
+    const expectedSignatureWithPrefix = `v1,${computedSignatureBase64}`;
+
+    // 5. Comparar com as assinaturas fornecidas no header (pode haver múltiplas assinaturas separadas por espaço)
+    // Exemplo de header: "v1,g0hM9SsE+OTPJTGtAhWS..." ou "v1,..."
+    const receivedSignatures = String(signatureHeader).trim().split(/\s+/);
+    let matched = false;
+
+    const expectedBuffer = Buffer.from(expectedSignatureWithPrefix, 'utf8');
+
+    for (const sig of receivedSignatures) {
+      const receivedBuffer = Buffer.from(sig, 'utf8');
+      if (expectedBuffer.length === receivedBuffer.length) {
+        if (crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
+          matched = true;
+          break;
         }
       }
     }
 
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(payloadToSign)
-      .digest('hex');
-
-    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
-    const receivedBuffer = Buffer.from(receivedSignature, 'utf8');
-
-    if (expectedBuffer.length !== receivedBuffer.length) {
-      return { status: 'INVALID', reason: 'Comprimento de assinatura divergente' };
-    }
-
-    const isMatch = crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
     return {
-      status: isMatch ? 'VALID' : 'INVALID',
-      reason: isMatch ? 'Assinatura válida' : 'Assinatura divergente'
+      status: matched ? 'VALID' : 'INVALID',
+      reason: matched ? 'Assinatura válida' : 'Assinatura divergente'
     };
   } catch (err) {
     return { status: 'INVALID', reason: `Erro ao verificar assinatura: ${err.message}` };
@@ -89,20 +128,35 @@ export default async function handler(req, res) {
   }
 
   const rawBody = await readRawBody(req);
+  
+  const webhookId = req.headers['webhook-id'] 
+    || req.headers['x-webhook-id'] 
+    || req.headers['msg-id'];
+
+  const webhookTimestamp = req.headers['webhook-timestamp'] 
+    || req.headers['x-webhook-timestamp'];
+
   const signatureHeader = req.headers['webhook-signature'] 
     || req.headers['x-wablast-signature'] 
     || req.headers['wablast-signature']
     || req.headers['x-signature']
     || req.headers['signature'];
 
-  const webhookSecret = process.env.WABLAST_WEBHOOK_SECRET || process.env.WABLAST_API_KEY;
+  const webhookSecret = process.env.WABLAST_WEBHOOK_SECRET;
 
-  // 1. Validação de Assinatura
-  if (process.env.NODE_ENV === 'production' || signatureHeader) {
-    const validacao = validarAssinaturaWaBlast(rawBody, signatureHeader, webhookSecret);
+  // 1. Validação de Assinatura Oficial Standard Webhooks
+  if (process.env.NODE_ENV === 'production' || signatureHeader || webhookId) {
+    const validacao = validarAssinaturaWaBlast({
+      rawBody,
+      webhookId,
+      webhookTimestamp,
+      signatureHeader,
+      secret: webhookSecret
+    });
+
     if (validacao.status !== 'VALID') {
       console.warn('[WABLAST WEBHOOK] Assinatura inválida:', validacao.reason);
-      return res.status(401).json({ success: false, error: 'Assinatura inválida' });
+      return res.status(401).json({ success: false, error: 'Assinatura inválida', reason: validacao.reason });
     }
   }
 
