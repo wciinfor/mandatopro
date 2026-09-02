@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     if (provider === 'WABLAST') {
       const templatesWablastAprovados = [
         {
-          id: '1041928374829102',
+          id: 'acao_social_beneficio_01',
           nome: 'acao_social_beneficio_01',
           titulo: 'Acao Social Beneficio 01',
           categoria: 'UTILITY',
@@ -41,16 +41,12 @@ export default async function handler(req, res) {
           componentes: [
             {
               type: 'BODY',
-              text: 'Olá {{1}}, informamos que a sua solicitação de benefício da Ação Social foi processada com sucesso.'
-            },
-            {
-              type: 'FOOTER',
-              text: 'Gabinete MandatoPRO'
+              text: 'Olá, {{1}}.\n\nO benefício {{2}} está disponível.\n\n- Entrega: {{3}}\n\n- Local: {{4}}\n\nApresentar documento com foto.'
             }
           ]
         },
         {
-          id: '1041928374829103',
+          id: 'consulta_grau_oculos',
           nome: 'consulta_grau_oculos',
           titulo: 'Consulta Grau Oculos',
           categoria: 'UTILITY',
@@ -59,16 +55,12 @@ export default async function handler(req, res) {
           componentes: [
             {
               type: 'BODY',
-              text: 'Olá {{1}}, sua consulta oftalmológica para exame de grau está confirmada para {{2}}.'
-            },
-            {
-              type: 'FOOTER',
-              text: 'Gabinete MandatoPRO'
+              text: 'Olá, {{1}}.\n\nSua consulta gratuita de grau, escolha da armação e lentes está disponível.\n\nData e horário: {{2}}\nLocal: {{3}}\n\nApresente documento com foto.\nAtendimento por ordem de chegada.'
             }
           ]
         },
         {
-          id: '1041928374829104',
+          id: 'comunicado_institucional',
           nome: 'comunicado_institucional',
           titulo: 'Comunicado Institucional',
           categoria: 'MARKETING',
@@ -77,25 +69,11 @@ export default async function handler(req, res) {
           componentes: [
             {
               type: 'HEADER',
-              format: 'TEXT',
-              text: 'Informativo Oficial'
+              format: 'IMAGE'
             },
             {
               type: 'BODY',
-              text: 'Prezado(a) {{1}}, confira as principais atualizações e projetos em andamento no nosso mandato.'
-            },
-            {
-              type: 'FOOTER',
-              text: 'Canal Oficial'
-            },
-            {
-              type: 'BUTTONS',
-              buttons: [
-                {
-                  type: 'URL',
-                  text: 'Acessar Portal'
-                }
-              ]
+              text: 'Olá, {{1}}.\n\nGostaríamos de compartilhar uma mensagem de agradecimento.\n\nAgradecemos pela confiança, pela parceria e pela presença ao longo desta caminhada.\n\nSeguimos trabalhando com compromisso, respeito e gratidão por todos que fazem parte dessa trajetória.\n\nDesejamos a você e à sua família muita paz, saúde e esperança.\n\nMuito obrigado!'
             }
           ]
         }

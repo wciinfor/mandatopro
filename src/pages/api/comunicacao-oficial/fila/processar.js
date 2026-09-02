@@ -152,16 +152,33 @@ export default async function handler(req, res) {
 
         const destinatarioNome = item.variaveis_mapeadas?.nome || 'Eleitor';
 
-        // 5.1 Valida e monta dinamicamente os parâmetros do template ({{1}}, {{2}}, {{3}}...)
-        const parameters = extrairEValidarParametrosTemplate(item.variaveis_mapeadas);
-        const components = parameters.length > 0
-          ? [
+        // 5.1 Valida e monta dinamicamente os parâmetros do template (HEADER e BODY)
+        const components = [];
+        const headerImageUrl = item.variaveis_mapeadas?.header_image_url;
+
+        // Se houver imagem de cabeçalho configurada (ex: comunicado_institucional), monta o componente HEADER
+        if (headerImageUrl && typeof headerImageUrl === 'string' && headerImageUrl.trim().length > 0) {
+          components.push({
+            type: 'header',
+            parameters: [
               {
-                type: 'body',
-                parameters: parameters
+                type: 'image',
+                image: {
+                  link: headerImageUrl.trim()
+                }
               }
             ]
-          : [];
+          });
+        }
+
+        // Monta o componente BODY com os parâmetros numéricos ({{1}}, {{2}}...)
+        const parameters = extrairEValidarParametrosTemplate(item.variaveis_mapeadas);
+        if (parameters.length > 0) {
+          components.push({
+            type: 'body',
+            parameters: parameters
+          });
+        }
 
         // 5.2 Localiza ou cria a conversa na Central de Atendimento
         let { data: conversa } = await supabase

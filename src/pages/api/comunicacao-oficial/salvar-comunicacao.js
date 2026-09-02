@@ -176,6 +176,7 @@ export default async function handler(req, res) {
         variaveis_mapeadas: {
           nome: d.nome || 'Contato',
           eleitor_id: body.origemDestinatarios === 'campanha_politica' ? (d.id || null) : null,
+          header_image_url: body.header_image_url || null,
           ...variaveisConfig
         }
       }));

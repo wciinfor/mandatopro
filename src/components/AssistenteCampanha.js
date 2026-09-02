@@ -12,7 +12,8 @@ import {
   faDatabase,
   faFileExcel,
   faExclamationTriangle,
-  faInfoCircle
+  faInfoCircle,
+  faUpload
 } from '@fortawesome/free-solid-svg-icons';
 import { TemplateVisualizerCard } from '@/components/TemplateVisualizerCard';
 
@@ -40,6 +41,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const [carregandoTemplates, setCarregandoTemplates] = useState(false);
   const [erroTemplates, setErroTemplates] = useState(null);
   const [variaveis, setVariaveis] = useState({});
+  const [headerImageUrl, setHeaderImageUrl] = useState('');
+  const [fazendoUploadImagem, setFazendoUploadImagem] = useState(false);
+  const [erroUploadImagem, setErroUploadImagem] = useState(null);
   
   const [agendado, setAgendado] = useState(false);
   const [dataAgendamento, setDataAgendamento] = useState('');
@@ -424,6 +428,14 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
       }
       if (step === 5) {
+        // Valida se o template exige imagem de cabeçalho
+        const temHeaderImage = (templateSelecionado?.componentes || []).some(
+          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+        );
+        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+          return 'Faça o upload ou informe a URL da imagem de cabeçalho obrigatória para este template.';
+        }
+
         const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
         for (const k of chaves) {
           if (!String(variaveis[k] || '').trim()) {
@@ -436,6 +448,14 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
           return 'Selecione um template oficial homologado e aprovado.';
         }
+
+        const temHeaderImage = (templateSelecionado?.componentes || []).some(
+          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+        );
+        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+          return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
+        }
+
         const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
         for (const k of chaves) {
           if (!String(variaveis[k] || '').trim()) {
@@ -452,6 +472,13 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
       }
       if (step === 5) {
+        const temHeaderImage = (templateSelecionado?.componentes || []).some(
+          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+        );
+        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+          return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
+        }
+
         const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
         for (const k of chaves) {
           if (!String(variaveis[k] || '').trim()) {
@@ -515,6 +542,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       template: templateSelecionado.nome,
       template_id: templateSelecionado.id || templateSelecionado.nome,
       idioma: templateSelecionado.idioma || 'pt_BR',
+      header_image_url: headerImageUrl || null,
       variaveis: variaveis,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
@@ -1370,10 +1398,122 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 </div>
               ) : (
                 <div className="p-6 text-center bg-gray-50 border border-gray-100 rounded-xl space-y-1">
-                  <p className="text-xs font-semibold text-gray-700">Este template é estático</p>
+                  <p className="text-xs font-semibold text-gray-700">Este template não possui variáveis no corpo</p>
                   <p className="text-[11px] text-gray-400">
-                    O template oficial selecionado não possui variáveis dinâmicas. O texto aprovado será transmitido na íntegra.
+                    O texto oficial aprovado será transmitido na íntegra.
                   </p>
+                </div>
+              )}
+
+              {/* Se o template exigir HEADER IMAGE (ex: comunicado_institucional), exibe o upload obrigatório */}
+              {(templateSelecionado?.componentes || []).some(
+                c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+              ) && (
+                <div className="p-4 bg-teal-50/50 border-2 border-dashed border-teal-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-teal-900">Imagem de Cabeçalho (HEADER IMAGE) <span className="text-rose-500">*</span></p>
+                      <p className="text-[11px] text-teal-700 mt-0.5">
+                        Este template oficial exige uma imagem pública de cabeçalho anexada ao disparo.
+                      </p>
+                    </div>
+                    <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-2 py-0.5 rounded border border-teal-300">
+                      Obrigatório
+                    </span>
+                  </div>
+
+                  <div className="pt-1">
+                    {!headerImageUrl ? (
+                      <label className="inline-flex cursor-pointer bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-lg text-xs transition items-center gap-2 shadow-xs">
+                        <FontAwesomeIcon icon={faUpload} />
+                        <span>{fazendoUploadImagem ? 'Enviando imagem...' : 'Selecionar Imagem do Cabeçalho'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={fazendoUploadImagem}
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            setFazendoUploadImagem(true);
+                            setErroUploadImagem(null);
+                            if (erroAlerta) setErroAlerta(null);
+
+                            try {
+                              const reader = new FileReader();
+                              reader.onload = async (event) => {
+                                const base64Data = String(event.target.result || '').split(',')[1];
+                                const res = await fetch('/api/documentos/upload', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    nome: `header_${templateSelecionado.nome}_${Date.now()}`,
+                                    categoria: 'artes',
+                                    arquivo_nome: file.name,
+                                    mime_type: file.type,
+                                    arquivo_base64: base64Data
+                                  })
+                                });
+
+                                const data = await res.json();
+                                if (!res.ok || !data.success) {
+                                  throw new Error(data.message || 'Falha ao fazer upload da imagem.');
+                                }
+
+                                const publicUrl = data.documento?.url_arquivo;
+                                if (!publicUrl) throw new Error('URL pública da imagem não foi gerada.');
+                                setHeaderImageUrl(publicUrl);
+                              };
+                              reader.readAsDataURL(file);
+                            } catch (err) {
+                              console.error('Erro no upload da imagem:', err);
+                              setErroUploadImagem(err.message || 'Erro ao processar imagem.');
+                            } finally {
+                              setFazendoUploadImagem(false);
+                            }
+                          }}
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+
+                  {erroUploadImagem && (
+                    <p className="text-[11px] text-rose-600 font-medium">{erroUploadImagem}</p>
+                  )}
+
+                  {headerImageUrl && (
+                    <div className="space-y-2 pt-1">
+                      <div className="relative p-2 bg-white rounded-lg border border-teal-200 inline-block shadow-xs">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={headerImageUrl}
+                          alt="Prévia do Cabeçalho"
+                          className="max-h-40 rounded object-cover border border-gray-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setHeaderImageUrl('')}
+                          className="absolute -top-2 -right-2 bg-rose-600 hover:bg-rose-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow transition"
+                          title="Remover Imagem"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          ✓ Imagem carregada com sucesso
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setHeaderImageUrl('')}
+                          className="text-[11px] text-rose-600 hover:underline font-semibold"
+                        >
+                          Substituir imagem
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
