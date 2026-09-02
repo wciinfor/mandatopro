@@ -52,6 +52,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const [mandatoOrigem, setMandatoOrigem] = useState('eleitores');
   const [mandatoCampanhaId, setMandatoCampanhaId] = useState('');
   const [mandatoPresencaCampanha, setMandatoPresencaCampanha] = useState('');
+  const [mandatoEleitorIds, setMandatoEleitorIds] = useState(null);
   
   const [filtroCidade, setFiltroCidade] = useState('');
   const [filtroBairro, setFiltroBairro] = useState('');
@@ -73,10 +74,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     setCarregandoContaOficial(true);
     try {
       const res = await fetch('/api/whatsapp-business/config');
-      if (res.ok) {
-        const data = await res.json();
-        setContaOficial(data);
-      }
+      if (!res.ok) throw new Error('Falha ao consultar conta oficial');
+      const data = await res.json();
+      setContaOficial(data.config || null);
     } catch (err) {
       console.warn('Aviso ao consultar conta WhatsApp oficial:', err?.message);
     } finally {
@@ -161,12 +161,23 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const selecionarPublicoSalvo = (pub) => {
     if (!pub) {
       setPublicoSelecionado(null);
+      setMandatoEleitorIds(null);
       return;
     }
 
     setPublicoSelecionado(pub);
     const regras = pub.regras || {};
     const filtros = regras.filtros || regras || {};
+
+    // Extrai e normaliza lista explícita de eleitor_ids caso exista
+    const rawIds = filtros.eleitor_ids || filtros.eleitorIds || regras.eleitor_ids || regras.eleitorIds || null;
+    let idsStr = null;
+    if (Array.isArray(rawIds) && rawIds.length > 0) {
+      idsStr = rawIds.map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0).join(',');
+    } else if (typeof rawIds === 'string' && rawIds.trim().length > 0) {
+      idsStr = rawIds.trim();
+    }
+    setMandatoEleitorIds(idsStr);
 
     // Injeta os filtros salvos nos estados existentes
     setMandatoOrigem(filtros.origem || regras.origem || 'eleitores');
@@ -209,6 +220,10 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           presencaCampanha: mandatoPresencaCampanha
         };
 
+        if (origemDestinatarios === 'publico_salvo' && mandatoEleitorIds) {
+          baseParams.eleitorIds = mandatoEleitorIds;
+        }
+
         // 1. Busca os contatos da lista para o preview
         const paramsPreview = new URLSearchParams(baseParams);
         const res = await fetch(`/api/disparos/contatos/preview?${paramsPreview.toString()}`);
@@ -244,7 +259,17 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       active = false;
       clearTimeout(timer);
     };
-  }, [origemDestinatarios, mandatoOrigem, mandatoCampanhaId, mandatoPresencaCampanha, filtroCidade, filtroBairro, filtroSituacao, mandatoLimite]);
+  }, [
+    origemDestinatarios,
+    mandatoOrigem,
+    mandatoCampanhaId,
+    mandatoPresencaCampanha,
+    mandatoEleitorIds,
+    filtroCidade,
+    filtroBairro,
+    filtroSituacao,
+    mandatoLimite
+  ]);
 
   // Alinhamento direto dos contatos retornados pela API oficial (apenas com c.valido === true)
   const destinatariosFiltrados = contatosReais.filter(c => c.valido === true);
@@ -824,6 +849,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                         type="button"
                         onClick={() => {
                           setPublicoSelecionado(null);
+                          setMandatoEleitorIds(null);
                         }}
                         className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
                       >
@@ -976,105 +1002,125 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 </span>
               </div>
               
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Origem da Base</label>
-                  <select
-                    value={mandatoOrigem}
-                    onChange={(e) => setMandatoOrigem(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none"
-                  >
-                    <option value="eleitores">Eleitores</option>
-                    <option value="liderancas">Lideranças</option>
-                    <option value="funcionarios">Equipe / Gabinete</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Situação / Status</label>
-                  <select
-                    value={filtroSituacao}
-                    onChange={(e) => setFiltroSituacao(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none"
-                  >
-                    <option value="">Todos os status</option>
-                    <option value="ATIVO">Ativos</option>
-                    <option value="PENDENTE">Pendentes</option>
-                    <option value="INATIVO">Inativos</option>
-                  </select>
-                </div>
-
-                {origemDestinatarios === 'campanha_politica' && (
-                  <>
+              {origemDestinatarios === 'publico_salvo' && mandatoEleitorIds && (
+                <div className="bg-teal-50 border border-teal-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-teal-900">
+                  <div className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faUsers} className="text-teal-600 text-sm" />
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Campanha do CRM</label>
-                      <select
-                        value={mandatoCampanhaId}
-                        onChange={(e) => {
-                          const newId = e.target.value;
-                          setMandatoCampanhaId(newId);
-                          setCampanhaSelecionada(campanhasCRM.find(c => c.id === newId) || null);
-                        }}
-                        disabled={mandatoOrigem !== 'eleitores'}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
-                      >
-                        <option value="">Todas as campanhas</option>
-                        {campanhasCRM.map(c => (
-                          <option key={c.id} value={c.id}>{c.nome}</option>
-                        ))}
-                      </select>
+                      <p className="font-bold text-xs">Audiência com Seleção Individual de Eleitores</p>
+                      <p className="text-[11px] text-teal-700 mt-0.5">
+                        Esta audiência foi configurada com <strong className="font-semibold">{mandatoEleitorIds.split(',').length} eleitor(es)</strong> selecionados manualmente.
+                      </p>
                     </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Presença na Ação</label>
-                      <select
-                        value={mandatoPresencaCampanha}
-                        onChange={(e) => setMandatoPresencaCampanha(e.target.value)}
-                        disabled={mandatoOrigem !== 'eleitores' || !mandatoCampanhaId}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
-                      >
-                        <option value="">Todos</option>
-                        <option value="presentes">Presentes na campanha</option>
-                        <option value="ausentes">Ausentes na campanha</option>
-                      </select>
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade / Município</label>
-                  <input
-                    type="text"
-                    value={filtroCidade}
-                    onChange={(e) => setFiltroCidade(e.target.value)}
-                    placeholder="Filtrar por cidade..."
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
-                  />
+                  </div>
+                  <span className="text-[10px] bg-teal-100/80 text-teal-800 font-bold px-2.5 py-1 rounded-full border border-teal-300">
+                    Contatos Fixos
+                  </span>
                 </div>
+              )}
 
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bairro</label>
-                  <input
-                    type="text"
-                    value={filtroBairro}
-                    onChange={(e) => setFiltroBairro(e.target.value)}
-                    placeholder="Filtrar por bairro..."
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
-                  />
-                </div>
+              {/* Se for audiência de seleção individual, oculta os filtros genéricos desnecessários para evitar confusão */}
+              {!(origemDestinatarios === 'publico_salvo' && mandatoEleitorIds) && (
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Origem da Base</label>
+                    <select
+                      value={mandatoOrigem}
+                      onChange={(e) => setMandatoOrigem(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none"
+                    >
+                      <option value="eleitores">Eleitores</option>
+                      <option value="liderancas">Lideranças</option>
+                      <option value="funcionarios">Equipe / Gabinete</option>
+                    </select>
+                  </div>
 
-                <div className={origemDestinatarios === 'campanha_politica' ? 'col-span-2' : ''}>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Limite Máximo de Contatos</label>
-                  <input
-                    type="number"
-                    value={mandatoLimite}
-                    onChange={(e) => setMandatoLimite(e.target.value)}
-                    min="1"
-                    max="50000"
-                    className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
-                  />
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Situação / Status</label>
+                    <select
+                      value={filtroSituacao}
+                      onChange={(e) => setFiltroSituacao(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none"
+                    >
+                      <option value="">Todos os status</option>
+                      <option value="ATIVO">Ativos</option>
+                      <option value="PENDENTE">Pendentes</option>
+                      <option value="INATIVO">Inativos</option>
+                    </select>
+                  </div>
+
+                  {origemDestinatarios === 'campanha_politica' && (
+                    <>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Campanha do CRM</label>
+                        <select
+                          value={mandatoCampanhaId}
+                          onChange={(e) => {
+                            const newId = e.target.value;
+                            setMandatoCampanhaId(newId);
+                            setCampanhaSelecionada(campanhasCRM.find(c => c.id === newId) || null);
+                          }}
+                          disabled={mandatoOrigem !== 'eleitores'}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
+                        >
+                          <option value="">Todas as campanhas</option>
+                          {campanhasCRM.map(c => (
+                            <option key={c.id} value={c.id}>{c.nome}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Presença na Ação</label>
+                        <select
+                          value={mandatoPresencaCampanha}
+                          onChange={(e) => setMandatoPresencaCampanha(e.target.value)}
+                          disabled={mandatoOrigem !== 'eleitores' || !mandatoCampanhaId}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs focus:outline-none disabled:opacity-50"
+                        >
+                          <option value="">Todos</option>
+                          <option value="presentes">Presentes na campanha</option>
+                          <option value="ausentes">Ausentes na campanha</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade / Município</label>
+                    <input
+                      type="text"
+                      value={filtroCidade}
+                      onChange={(e) => setFiltroCidade(e.target.value)}
+                      placeholder="Filtrar por cidade..."
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      value={filtroBairro}
+                      onChange={(e) => setFiltroBairro(e.target.value)}
+                      placeholder="Filtrar por bairro..."
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                    />
+                  </div>
+
+                  <div className={origemDestinatarios === 'campanha_politica' ? 'col-span-2' : ''}>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Limite Máximo de Contatos</label>
+                    <input
+                      type="number"
+                      value={mandatoLimite}
+                      onChange={(e) => setMandatoLimite(e.target.value)}
+                      min="1"
+                      max="50000"
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="border-t border-gray-100 pt-3 mt-3 space-y-2">
                 <div className="flex items-center justify-between">
