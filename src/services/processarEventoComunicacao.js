@@ -119,6 +119,7 @@ export async function processarEventoMensagem(supabase, evento) {
     const { error: errUpdateComm } = await supabase
       .from('communication_conversations')
       .update({
+        status: 'nova',
         last_message_preview: evento.conteudo,
         last_message_at: evento.timestamp,
         unread_count: (conversaComm.unread_count || 0) + 1
