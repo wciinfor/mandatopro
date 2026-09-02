@@ -731,17 +731,23 @@ export default function Dashboard() {
                 </div>
               ) : (metricasDisparos.campanhasRecentes || []).length > 0 ? (
                 (metricasDisparos.campanhasRecentes || []).slice(0, 4).map((c) => {
-                  const statusNormalized = String(c.status || '').toLowerCase();
+                  const statusNormalized = String(c.status || '').toLowerCase().trim();
                   let statusBadge = { bg: 'bg-teal-50 text-teal-700 border-teal-200', label: 'Na Fila' };
 
-                  if (['executando', 'processando', 'ativa'].includes(statusNormalized)) {
-                    statusBadge = { bg: 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse', label: 'Executando' };
-                  } else if (['concluida', 'concluído', 'enviada'].includes(statusNormalized)) {
+                  if (['concluido', 'concluído', 'concluida', 'concluída', 'enviada', 'finalizada'].includes(statusNormalized)) {
                     statusBadge = { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Concluída' };
+                  } else if (['executando', 'processando', 'em_andamento', 'ativa'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse', label: 'Executando' };
                   } else if (['agendado', 'agendada'].includes(statusNormalized)) {
                     statusBadge = { bg: 'bg-purple-50 text-purple-700 border-purple-200', label: 'Agendada' };
-                  } else if (['rascunho', 'pausado', 'cancelado'].includes(statusNormalized)) {
-                    statusBadge = { bg: 'bg-gray-100 text-gray-700 border-gray-200', label: c.status };
+                  } else if (['falha', 'erro', 'falhou'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-rose-50 text-rose-700 border-rose-200', label: 'Falha' };
+                  } else if (['pausado', 'pausada'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-amber-100 text-amber-800 border-amber-300', label: 'Pausada' };
+                  } else if (['rascunho', 'cancelado', 'cancelada'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-gray-100 text-gray-700 border-gray-200', label: c.status || 'Rascunho' };
+                  } else if (['na fila', 'pendente', 'aguardando'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-teal-50 text-teal-700 border-teal-200', label: 'Na Fila' };
                   }
 
                   const total = c.totalDestinatarios || 0;
