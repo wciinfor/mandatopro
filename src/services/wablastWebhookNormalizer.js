@@ -76,26 +76,70 @@ export class WaBlastWebhookNormalizer {
     // ─── 3. MENSAGEM RECEBIDA (INBOUND) ────────────────────────────────────────
     if (eventType === 'message.received' || eventType === 'messages.inbound' || payload.messages) {
       const data = payload.data || (payload.messages && payload.messages[0]) || payload;
-      const providerMessageId = data.id 
+      const msgObj = data.message || (data.messages && data.messages[0]) || data;
+
+      const providerMessageId = msgObj.id 
+        || msgObj.message_id 
+        || msgObj.meta_message_id 
+        || msgObj.wamid 
+        || data.id 
         || data.message_id 
         || data.meta_message_id 
         || data.wamid 
-        || data.message?.id 
         || payload.id 
         || null;
-      const sender = data.from || data.sender || payload.from || null;
-      const textContent = typeof data.text === 'object' ? data.text?.body : (data.text || data.body || data.content || '');
+
+      const rawSender = msgObj.from 
+        || msgObj.sender 
+        || msgObj.sender_phone 
+        || data.from 
+        || data.sender 
+        || data.sender_phone 
+        || payload.from 
+        || null;
+
+      // Normaliza o telefone do remetente (apenas dígitos) para compatibilidade com a Central e banco
+      const cleanSender = rawSender ? String(rawSender).replace(/\D+/g, '') : null;
+
+      let textContent = '';
+      if (typeof msgObj.text === 'object' && msgObj.text?.body) {
+        textContent = msgObj.text.body;
+      } else if (typeof data.text === 'object' && data.text?.body) {
+        textContent = data.text.body;
+      } else if (msgObj.text && typeof msgObj.text === 'string') {
+        textContent = msgObj.text;
+      } else if (msgObj.body) {
+        textContent = msgObj.body;
+      } else if (msgObj.content) {
+        textContent = msgObj.content;
+      } else if (data.text && typeof data.text === 'string') {
+        textContent = data.text;
+      } else if (data.body) {
+        textContent = data.body;
+      } else if (data.content) {
+        textContent = data.content;
+      }
+
+      const senderName = msgObj.contact_name 
+        || msgObj.sender_name 
+        || data.contact_name 
+        || data.sender_name 
+        || data.name 
+        || cleanSender 
+        || 'Contato';
 
       return {
         tipo: 'mensagem',
         rawType: eventType,
         provider_message_id: providerMessageId,
-        contact_id: sender,
-        contato_nome: data.contact_name || data.sender_name || sender || 'Contato',
-        timestamp: payload.timestamp || data.timestamp || new Date().toISOString(),
-        mensagem_tipo: data.type || 'text',
+        contact_id: cleanSender,
+        contato_nome: senderName,
+        timestamp: payload.timestamp || data.timestamp || msgObj.timestamp || new Date().toISOString(),
+        mensagem_tipo: msgObj.type || data.type || 'text',
         conteudo: textContent,
-        media_id: data.media_id || null
+        media_id: msgObj.media_id || data.media_id || null,
+        waba_id: data.waba_id || payload.waba_id || null,
+        phone_number_id: data.phone_number_id || payload.phone_number_id || null
       };
     }
 
