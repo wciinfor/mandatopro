@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowRight,
@@ -11,10 +11,14 @@ import {
   faUserTimes,
   faDatabase,
   faFileExcel,
+  faFileAlt,
   faExclamationTriangle,
   faInfoCircle,
-  faUpload
+  faUpload,
+  faTrash
 } from '@fortawesome/free-solid-svg-icons';
+import * as XLSX from 'xlsx';
+import { normalizarTelefone, deduplicarContatos } from '@/lib/disparos/contatos';
 import { TemplateVisualizerCard } from '@/components/TemplateVisualizerCard';
 
 export default function AssistenteCampanha({ onCancel, onSave }) {
@@ -72,6 +76,148 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   const [contaOficial, setContaOficial] = useState(null);
   const [carregandoContaOficial, setCarregandoContaOficial] = useState(false);
+
+  // Estados de Upload de Planilha / CSV
+  const fileInputCsvRef = useRef(null);
+  const [arquivoCSV, setArquivoCSV] = useState(null);
+  const [contatosCSV, setContatosCSV] = useState([]);
+  const [carregandoCSV, setCarregandoCSV] = useState(false);
+  const [erroCSV, setErroCSV] = useState(null);
+
+  // Processa e normaliza planilha CSV / Excel carregada pelo usuário
+  const processarArquivoPlanilha = async (file) => {
+    if (!file) return;
+    setCarregandoCSV(true);
+    setErroCSV(null);
+    if (erroAlerta) setErroAlerta(null);
+
+    const nomeArquivo = file.name || '';
+    const extensao = nomeArquivo.split('.').pop().toLowerCase();
+    const extensoesValidas = ['csv', 'xlsx', 'xls'];
+
+    if (!extensoesValidas.includes(extensao)) {
+      setErroCSV('Formato de arquivo não suportado. Envie um arquivo .csv, .xlsx ou .xls.');
+      setCarregandoCSV(false);
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setErroCSV('O arquivo excede o limite máximo de 15MB.');
+      setCarregandoCSV(false);
+      return;
+    }
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      if (!Array.isArray(rawRows) || rawRows.length === 0) {
+        setErroCSV('A planilha enviada está vazia ou não contém dados legíveis.');
+        setCarregandoCSV(false);
+        return;
+      }
+
+      const parsedContatos = rawRows.map((row, idx) => {
+        // Encontra as melhores colunas de telefone e nome independente da nomenclatura
+        const chaves = Object.keys(row);
+        
+        const chaveTelefone = chaves.find(k => {
+          const l = k.toLowerCase().trim().replace(/[^a-z]/g, '');
+          return ['whatsapp', 'telefone', 'celular', 'phone', 'mobile', 'fone', 'tel', 'contato'].includes(l);
+        });
+
+        const chaveNome = chaves.find(k => {
+          const l = k.toLowerCase().trim().replace(/[^a-z]/g, '');
+          return ['nome', 'name', 'contato', 'eleitor', 'pessoa', 'cliente'].includes(l);
+        });
+
+        const chaveCidade = chaves.find(k => {
+          const l = k.toLowerCase().trim().replace(/[^a-z]/g, '');
+          return ['cidade', 'municipio', 'city'].includes(l);
+        });
+
+        const chaveBairro = chaves.find(k => {
+          const l = k.toLowerCase().trim().replace(/[^a-z]/g, '');
+          return ['bairro', 'neighborhood', 'distrito'].includes(l);
+        });
+
+        const telOriginal = String(
+          (chaveTelefone ? row[chaveTelefone] : '') ||
+          row.whatsapp ||
+          row.telefone ||
+          row.celular ||
+          row.phone ||
+          ''
+        ).trim();
+
+        const nomeOriginal = String(
+          (chaveNome ? row[chaveNome] : '') ||
+          row.nome ||
+          row.name ||
+          `Contato ${idx + 1}`
+        ).trim();
+
+        const cidadeOriginal = String(
+          (chaveCidade ? row[chaveCidade] : '') ||
+          row.cidade ||
+          row.municipio ||
+          ''
+        ).trim();
+
+        const bairroOriginal = String(
+          (chaveBairro ? row[chaveBairro] : '') ||
+          row.bairro ||
+          ''
+        ).trim();
+
+        const telNormalizado = normalizarTelefone(telOriginal);
+
+        return {
+          origem: 'csv',
+          origemId: `csv_${idx + 1}`,
+          nome: nomeOriginal,
+          telefoneOriginal: telOriginal,
+          telefoneNormalizado: telNormalizado,
+          cidade: cidadeOriginal,
+          bairro: bairroOriginal,
+          valido: Boolean(telNormalizado),
+          motivoInvalido: telNormalizado ? '' : (telOriginal ? 'Telefone inválido' : 'Telefone ausente'),
+          duplicado: false
+        };
+      });
+
+      const contatosDeduplicados = deduplicarContatos(parsedContatos);
+      setContatosCSV(contatosDeduplicados);
+      setArquivoCSV({
+        nome: file.name,
+        tamanho: file.size,
+        totalLinhas: rawRows.length
+      });
+
+      // Se o nome da comunicação estiver vazio, sugere com base no arquivo
+      if (!nome.trim()) {
+        const nomeBase = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        setNome(`Disparo - ${nomeBase}`);
+      }
+    } catch (err) {
+      console.error('Erro ao processar planilha CSV:', err);
+      setErroCSV(`Falha ao ler o arquivo: ${err.message || 'Verifique se a planilha está formatada corretamente.'}`);
+    } finally {
+      setCarregandoCSV(false);
+    }
+  };
+
+  const limparArquivoCSV = () => {
+    setArquivoCSV(null);
+    setContatosCSV([]);
+    setErroCSV(null);
+    if (fileInputCsvRef.current) {
+      fileInputCsvRef.current.value = '';
+    }
+  };
 
   // Carrega configuração da conta oficial de WhatsApp ativa no tenant (YCloud / Meta)
   const carregarContaOficial = async () => {
@@ -275,11 +421,42 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     mandatoLimite
   ]);
 
-  // Alinhamento direto dos contatos retornados pela API oficial (apenas com c.valido === true)
-  const destinatariosFiltrados = contatosReais.filter(c => c.valido === true);
+  // Alinhamento direto dos contatos (apenas com c.valido === true)
+  const destinatariosFiltrados = origemDestinatarios === 'csv'
+    ? contatosCSV.filter(c => c.valido === true)
+    : contatosReais.filter(c => c.valido === true);
   
   // Computa o detalhamento exato dos registros excluídos com base na amostragem real e no resumo do backend
   const detalhesExcluidos = (() => {
+    if (origemDestinatarios === 'csv') {
+      let semTelefone = 0;
+      let invalidos = 0;
+      let duplicados = 0;
+
+      contatosCSV.forEach(c => {
+        if (!c.valido) {
+          if (c.duplicado || c.motivoInvalido === 'Telefone duplicado') {
+            duplicados++;
+          } else if (!c.telefoneOriginal || c.motivoInvalido === 'Telefone ausente' || c.motivoInvalido === 'Telefone ausente ou incompleto') {
+            semTelefone++;
+          } else {
+            invalidos++;
+          }
+        }
+      });
+
+      const totalEncontrados = contatosCSV.length;
+      const totalExcluidos = semTelefone + invalidos + duplicados;
+
+      return {
+        totalEncontrados,
+        semTelefone,
+        invalidos,
+        duplicados,
+        totalExcluidos
+      };
+    }
+
     let semTelefone = 0;
     let invalidos = 0;
     let duplicados = 0;
@@ -467,11 +644,36 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     } else {
       // Fluxo CSV
       if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
+      if (step === 3) {
+        if (!arquivoCSV) return 'Selecione um arquivo de planilha (.csv, .xlsx ou .xls) para continuar.';
+        if (carregandoCSV) return 'Aguarde o processamento do arquivo.';
+        if (destinatariosFiltrados.length === 0) return 'A planilha não possui contatos com telefone válido para envio.';
+      }
       if (step === 4) {
         if (!templateSelecionado) return 'Selecione um template oficial homologado.';
         if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
       }
       if (step === 5) {
+        const temHeaderImage = (templateSelecionado?.componentes || []).some(
+          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+        );
+        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+          return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
+        }
+
+        const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
+        for (const k of chaves) {
+          if (!String(variaveis[k] || '').trim()) {
+            return `Preencha a variável obrigatória {{${k}}} do template.`;
+          }
+        }
+      }
+      if (step >= 6) {
+        if (destinatariosFiltrados.length === 0) return 'A lista não possui destinatários aptos para disparo.';
+        if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
+          return 'Selecione um template oficial homologado e aprovado.';
+        }
+
         const temHeaderImage = (templateSelecionado?.componentes || []).some(
           c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
         );
@@ -511,23 +713,17 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       return;
     }
 
-    const isBaseOrPublico = (
-      origemDestinatarios === 'campanha_politica' ||
-      origemDestinatarios === 'base_geral' ||
-      origemDestinatarios === 'publico_salvo'
-    );
+    const listaFinal = destinatariosFiltrados.map(c => ({
+      id: c.origemId || c.id,
+      nome: c.nome || 'Contato',
+      telefone_limpo: c.telefoneNormalizado || c.phone,
+      telefone_original: c.telefoneOriginal || c.phone
+    }));
 
-    const listaFinal = isBaseOrPublico
-      ? destinatariosFiltrados.map(c => ({
-          id: c.origemId || c.id,
-          nome: c.nome || 'Contato',
-          telefone_limpo: c.telefoneNormalizado || c.phone,
-          telefone_original: c.telefoneOriginal || c.phone
-        }))
-      : [];
-
-    let publicoLabel = 'Upload de Lista CSV';
-    if (origemDestinatarios === 'publico_salvo' && publicoSelecionado) {
+    let publicoLabel = 'Upload de Planilha CSV';
+    if (origemDestinatarios === 'csv' && arquivoCSV) {
+      publicoLabel = `Planilha: ${arquivoCSV.nome} (${destinatariosFiltrados.length} contatos)`;
+    } else if (origemDestinatarios === 'publico_salvo' && publicoSelecionado) {
       publicoLabel = `${publicoSelecionado.nome} (${destinatariosFiltrados.length} contatos)`;
     } else if (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') {
       publicoLabel = `Base ${mandatoOrigem.toUpperCase()} - ${destinatariosFiltrados.length} contatos`;
@@ -546,7 +742,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       variaveis: variaveis,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
-      total_destinatarios: isBaseOrPublico ? destinatariosFiltrados.length : 0,
+      total_destinatarios: destinatariosFiltrados.length,
       campaign_id: mandatoCampanhaId || null,
       destinatarios: listaFinal,
       enviadas: 0,
@@ -1198,14 +1394,144 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
-          {/* Importar arquivo CSV */}
+          {/* Importar arquivo CSV / Excel */}
           {step === 3 && origemDestinatarios === 'csv' && (
             <div className="space-y-4">
-              <label className="block text-xs font-semibold text-gray-700">Fazer Upload de arquivo CSV</label>
-              <div className="border-2 border-dashed border-gray-200 hover:border-teal-400 rounded-xl p-8 text-center cursor-pointer transition">
-                <p className="text-sm font-semibold text-gray-700">Arraste ou clique para selecionar arquivo</p>
-                <p className="text-[10px] text-gray-400 mt-1">Formato suportado: .csv (máximo 5MB)</p>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Fazer Upload de Planilha (.xlsx, .xls ou .csv) <span className="text-rose-500">*</span>
+                </label>
+                {arquivoCSV && (
+                  <button
+                    type="button"
+                    onClick={limparArquivoCSV}
+                    className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                    <span>Substituir Planilha</span>
+                  </button>
+                )}
               </div>
+
+              {/* Input de arquivo invisível ativado pelo clique no dropzone */}
+              <input
+                ref={fileInputCsvRef}
+                type="file"
+                accept=".csv, .xlsx, .xls, text/csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) processarArquivoPlanilha(file);
+                }}
+              />
+
+              {!arquivoCSV ? (
+                <div
+                  onClick={() => fileInputCsvRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) processarArquivoPlanilha(file);
+                  }}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition ${
+                    carregandoCSV
+                      ? 'border-teal-400 bg-teal-50/20 pointer-events-none'
+                      : 'border-gray-300 hover:border-teal-500 hover:bg-teal-50/20 bg-gray-50/50'
+                  }`}
+                >
+                  {carregandoCSV ? (
+                    <div className="space-y-2">
+                      <FontAwesomeIcon icon={faSpinner} spin className="text-teal-600 text-2xl" />
+                      <p className="text-xs text-gray-600 font-medium">Lendo e normalizando contatos da planilha...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mx-auto text-lg border border-teal-200">
+                        <FontAwesomeIcon icon={faUpload} />
+                      </div>
+                      <p className="text-sm font-bold text-gray-700">Arraste ou clique para selecionar arquivo</p>
+                      <p className="text-[11px] text-gray-400">
+                        Formatos suportados: <strong>.csv, .xlsx, .xls</strong> (máximo 15MB)
+                      </p>
+                      <div className="inline-block mt-2 bg-white px-3 py-1 rounded-full border border-gray-200 text-[10px] text-gray-500 font-medium">
+                        Colunas automáticas: Telefone / WhatsApp e Nome
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 bg-teal-50/40 border border-teal-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-teal-600 text-white flex items-center justify-center text-base shrink-0">
+                        <FontAwesomeIcon icon={faFileExcel} />
+                      </div>
+                      <div className="truncate">
+                        <p className="font-bold text-xs text-gray-800 truncate">{arquivoCSV.nome}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {(arquivoCSV.tamanho / 1024).toFixed(1)} KB · {arquivoCSV.totalLinhas} linhas processadas
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-teal-800 bg-teal-100 px-2.5 py-1 rounded-full border border-teal-300 shrink-0">
+                      {destinatariosFiltrados.length} contatos aptos
+                    </span>
+                  </div>
+
+                  <div className="border-t border-teal-100 pt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-gray-700">
+                        Amostra de Destinatários da Planilha
+                      </label>
+                      <span className="text-[10px] text-gray-400 font-medium">
+                        {destinatariosFiltrados.length} contato(s) apto(s)
+                      </span>
+                    </div>
+
+                    {destinatariosFiltrados.length > 0 ? (
+                      <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                        {destinatariosFiltrados.slice(0, 5).map((contato, idx) => (
+                          <div
+                            key={contato.id || idx}
+                            className="p-2 rounded-lg bg-white border border-gray-100 flex items-center justify-between text-[11px]"
+                          >
+                            <div className="truncate pr-2">
+                              <p className="font-bold text-gray-800 truncate">{contato.nome || 'Sem Nome'}</p>
+                              <p className="text-[10px] text-gray-400">
+                                {contato.cidade || 'Cidade não informada'} {contato.bairro ? `· ${contato.bairro}` : ''}
+                              </p>
+                            </div>
+                            <span className="font-mono text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 shrink-0">
+                              {contato.telefoneNormalizado || contato.phone || contato.telefone}
+                            </span>
+                          </div>
+                        ))}
+                        {destinatariosFiltrados.length > 5 && (
+                          <p className="text-center text-[10px] text-gray-400 pt-1">
+                            + {destinatariosFiltrados.length - 5} contatos aptos adicionais nesta planilha.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-3 text-center text-xs text-amber-800 bg-amber-50 rounded-lg border border-amber-200">
+                        Nenhum telefone válido identificado. Verifique se a planilha possui uma coluna de Telefone ou WhatsApp.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {erroCSV && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="shrink-0" />
+                  <span>{erroCSV}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -1538,16 +1864,24 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-extrabold text-xs text-gray-800">
-                        {origemDestinatarios === 'campanha_politica' ? 'Campanha / Ação do CRM' : 'Base de Dados Geral'}
+                        {origemDestinatarios === 'csv' 
+                          ? 'Importação de Planilha' 
+                          : (origemDestinatarios === 'campanha_politica' 
+                              ? 'Campanha / Ação do CRM' 
+                              : (origemDestinatarios === 'publico_salvo' ? 'Público Salvo' : 'Base de Dados Geral'))}
                       </p>
                       <p className="text-[11px] text-gray-500 mt-0.5">
-                        {origemDestinatarios === 'campanha_politica' 
-                          ? (campanhaSelecionada ? `Ação: ${campanhaSelecionada.nome}` : 'Nenhuma campanha vinculada')
-                          : `Escopo: ${mandatoOrigem === 'eleitores' ? 'Eleitores' : mandatoOrigem === 'liderancas' ? 'Lideranças' : 'Equipe / Gabinete'}`}
+                        {origemDestinatarios === 'csv'
+                          ? `Arquivo: ${arquivoCSV?.nome || 'Planilha externa'}`
+                          : (origemDestinatarios === 'campanha_politica' 
+                              ? (campanhaSelecionada ? `Ação: ${campanhaSelecionada.nome}` : 'Nenhuma campanha vinculada')
+                              : (origemDestinatarios === 'publico_salvo'
+                                  ? (publicoSelecionado ? `Audiência: ${publicoSelecionado.nome}` : 'Audiência Salva')
+                                  : `Escopo: ${mandatoOrigem === 'eleitores' ? 'Eleitores' : mandatoOrigem === 'liderancas' ? 'Lideranças' : 'Equipe / Gabinete'}`))}
                       </p>
                     </div>
                     <span className="bg-white text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200">
-                      {mandatoOrigem.toUpperCase()}
+                      {origemDestinatarios === 'csv' ? 'PLANILHA CSV' : mandatoOrigem.toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -1555,12 +1889,18 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 {/* 2. Segmentação & Volumetria */}
                 <div className="border-b border-gray-200/60 pb-2.5 space-y-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase block">2. Segmentação & Volumetria</span>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600">
-                    <div>Cidade: <strong className="text-gray-800">{filtroCidade || 'Todas'}</strong></div>
-                    <div>Bairro: <strong className="text-gray-800">{filtroBairro || 'Todos'}</strong></div>
-                    <div>Situação: <strong className="text-gray-800">{filtroSituacao || 'Todos os status'}</strong></div>
-                    <div>Limite: <strong className="text-gray-800">{mandatoLimite} contatos</strong></div>
-                  </div>
+                  {origemDestinatarios !== 'csv' ? (
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+                      <div>Cidade: <strong className="text-gray-800">{filtroCidade || 'Todas'}</strong></div>
+                      <div>Bairro: <strong className="text-gray-800">{filtroBairro || 'Todos'}</strong></div>
+                      <div>Situação: <strong className="text-gray-800">{filtroSituacao || 'Todos os status'}</strong></div>
+                      <div>Limite: <strong className="text-gray-800">{mandatoLimite} contatos</strong></div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-gray-600">
+                      Origem: <strong className="text-gray-800">{arquivoCSV?.nome || 'Arquivo carregado'}</strong> ({arquivoCSV?.totalLinhas || 0} linhas processadas)
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2 pt-1">
                     <div className="bg-white p-2 rounded-lg border border-gray-200 text-center">
                       <span className="text-[9px] font-bold text-gray-400 uppercase block">Encontrados</span>
@@ -1710,19 +2050,26 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       {/* Coluna Direita: Resumo da Base Selecionada (Etapa 2/3) ou Prévia do Template (Etapas 4+) */}
       <div className="bg-gray-50/60 rounded-2xl p-5 border border-gray-100 flex flex-col justify-between">
         <div>
-          {step <= 3 && (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') ? (
+          {step <= 3 && (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral' || origemDestinatarios === 'csv') ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
                 <div>
                   <h4 className="font-bold text-xs text-gray-700 uppercase tracking-wider">
-                    Resumo da Base Selecionada
+                    {origemDestinatarios === 'csv' ? 'Resumo da Planilha' : 'Resumo da Base Selecionada'}
                   </h4>
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    {origemDestinatarios === 'base_geral'
-                      ? `Base Geral: ${mandatoOrigem.toUpperCase()}`
-                      : (campanhaSelecionada ? `Ação: ${campanhaSelecionada.nome}` : 'Base MandatoPRO')}
+                    {origemDestinatarios === 'csv'
+                      ? (arquivoCSV ? `Arquivo: ${arquivoCSV.nome}` : 'Aguardando seleção de planilha')
+                      : (origemDestinatarios === 'base_geral'
+                          ? `Base Geral: ${mandatoOrigem.toUpperCase()}`
+                          : (campanhaSelecionada ? `Ação: ${campanhaSelecionada.nome}` : 'Base MandatoPRO'))}
                   </p>
                 </div>
+                {origemDestinatarios === 'csv' && (
+                  <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200">
+                    Planilha Externa
+                  </span>
+                )}
                 {campanhaSelecionada && origemDestinatarios === 'campanha_politica' && (
                   <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-teal-200">
                     CRM Vinculado
