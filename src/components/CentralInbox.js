@@ -14,6 +14,8 @@ import {
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { ConversaCard, MensagemItem } from '@/components/ConversaBaseComponents';
 import { ConversasService } from '@/services/conversasService';
+import { createClient } from '@/lib/supabaseClient';
+
 
 const MOCK_MENSAGENS = {
   'conv-1': [
