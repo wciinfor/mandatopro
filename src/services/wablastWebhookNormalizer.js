@@ -76,7 +76,13 @@ export class WaBlastWebhookNormalizer {
     // ─── 3. MENSAGEM RECEBIDA (INBOUND) ────────────────────────────────────────
     if (eventType === 'message.received' || eventType === 'messages.inbound' || payload.messages) {
       const data = payload.data || (payload.messages && payload.messages[0]) || payload;
-      const providerMessageId = data.id || data.message_id || payload.id || null;
+      const providerMessageId = data.id 
+        || data.message_id 
+        || data.meta_message_id 
+        || data.wamid 
+        || data.message?.id 
+        || payload.id 
+        || null;
       const sender = data.from || data.sender || payload.from || null;
       const textContent = typeof data.text === 'object' ? data.text?.body : (data.text || data.body || data.content || '');
 
