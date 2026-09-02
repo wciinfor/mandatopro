@@ -217,12 +217,15 @@ export default async function handler(req, res) {
 
           if (!errConv) conversaId = novaConversa?.id;
         } else {
+          const statusAtual = conversaExistente.status;
+          const novoStatus = (statusAtual === 'concluida' || statusAtual === 'aguardando_eleitor') ? 'nova' : statusAtual;
+
           await supabase
             .from('atendimento_connect_conversas')
             .update({
               eleitor_id: conversaExistente.eleitor_id || eleitor?.id || null,
               contato_nome: conversaExistente.contato_nome || eleitor?.nome || contatoNome,
-              status: conversaExistente.status === 'concluida' ? 'nova' : conversaExistente.status,
+              status: novoStatus,
               unread_count: (conversaExistente.unread_count || 0) + 1,
               ultima_mensagem: mensagemTexto,
               ultima_mensagem_em: now,

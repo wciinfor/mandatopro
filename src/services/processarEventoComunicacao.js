@@ -190,7 +190,8 @@ export async function processarEventoMensagem(supabase, evento) {
         console.log(`[ATENDIMENTO CONNECT] conversa criada: id=${conversaConnectId} telefone=${telefoneLimpo}`);
       }
     } else {
-      const novoStatus = conversaConnectExistente.status === 'concluida' ? 'nova' : conversaConnectExistente.status;
+      const statusAtual = conversaConnectExistente.status;
+      const novoStatus = (statusAtual === 'concluida' || statusAtual === 'aguardando_eleitor') ? 'nova' : statusAtual;
       const novoUnread = (conversaConnectExistente.unread_count || 0) + 1;
 
       const { error: errUpdateConnect } = await supabase

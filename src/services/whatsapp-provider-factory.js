@@ -81,8 +81,19 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
     return String(num || '').replace(/\D/g, '');
   }
 
+  _resolveFromNumber() {
+    // Para a API YCloud, o remetente ('from') DEVE ser o número de telefone no padrão E.164 (ex: +559180823372)
+    // NUNCA utilizar phoneNumberId / phone_number_id, pois estes são IDs internos de hardware/WABA da Graph API Meta
+    const raw = this.account?.displayPhoneNumber
+      || this.account?.display_phone_number
+      || this.account?.from
+      || this.account?.phone
+      || '';
+    return this._cleanNumber(raw);
+  }
+
   async sendMessage(payload) {
-    const rawFrom = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
+    const rawFrom = payload.from || this._resolveFromNumber();
     const rawTo = payload.to || payload.recipient;
     const textBody = payload.text?.body || payload.text || payload.message || payload.body;
 
@@ -97,7 +108,7 @@ export class YCloudWhatsAppAdapter extends WhatsAppProviderContract {
   }
 
   async sendTemplate(payload) {
-    const rawFrom = this.account?.phoneNumberId || this.account?.displayPhoneNumber || this.account?.phone_number_id || '';
+    const rawFrom = payload.from || this._resolveFromNumber();
     const rawTo = payload.to || payload.recipient;
 
     // Normalização flexível das entradas de template
