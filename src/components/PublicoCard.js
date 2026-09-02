@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUsers, faRefresh, faTags, faMapMarkerAlt } from '@fortawesome/free-solid-svg-icons';
+import { faUsers, faRefresh, faTags, faMapMarkerAlt, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
 
 /**
  * Card visual representativo de um Público (Audiência segmentada).
@@ -8,8 +8,9 @@ import { faUsers, faRefresh, faTags, faMapMarkerAlt } from '@fortawesome/free-so
  * @param {Object} props
  * @param {import('@/lib/model-publicos-oficiais').PublicoOficial} props.publico
  * @param {Function} [props.onSync]
+ * @param {Function} [props.onDelete]
  */
-export function PublicoCard({ publico, onSync }) {
+export function PublicoCard({ publico, onSync, onDelete }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4 hover:shadow-md transition duration-200">
       <div className="flex justify-between items-start gap-2">
@@ -60,15 +61,26 @@ export function PublicoCard({ publico, onSync }) {
         <span>
           Atualizado em: {new Date(publico.ultima_atualizacao).toLocaleDateString('pt-BR')}
         </span>
-        {onSync && (
-          <button
-            onClick={() => onSync(publico.id)}
-            className="text-teal-600 hover:text-teal-800 font-bold flex items-center gap-1 transition text-[10px]"
-            title="Recalcular contatos"
-          >
-            <FontAwesomeIcon icon={faRefresh} /> Recalcular
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {onSync && (
+            <button
+              onClick={() => onSync(publico.id)}
+              className="text-teal-600 hover:text-teal-800 font-bold flex items-center gap-1 transition text-[10px]"
+              title="Recalcular contatos"
+            >
+              <FontAwesomeIcon icon={faRefresh} /> Recalcular
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(publico.id, publico.nome)}
+              className="text-red-500 hover:text-red-700 font-bold flex items-center gap-1 transition text-[10px]"
+              title="Excluir público"
+            >
+              <FontAwesomeIcon icon={faTrashAlt} /> Excluir
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

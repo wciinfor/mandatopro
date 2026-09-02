@@ -24,6 +24,12 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const [pesquisaCampanha, setPesquisaCampanha] = useState('');
   const [campanhaSelecionada, setCampanhaSelecionada] = useState(null);
 
+  // Estados de Públicos Salvos / Audiências
+  const [publicosSalvos, setPublicosSalvos] = useState([]);
+  const [carregandoPublicos, setCarregandoPublicos] = useState(false);
+  const [erroPublicos, setErroPublicos] = useState(null);
+  const [pesquisaPublico, setPesquisaPublico] = useState('');
+
   const [nome, setNome] = useState('');
   const [canal, setCanal] = useState('whatsapp');
   const [erroAlerta, setErroAlerta] = useState(null);
@@ -125,14 +131,67 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     }
   };
 
+  // Carrega a lista de públicos / audiências salvas reais via GET /api/comunicacao-oficial/publicos
+  const carregarPublicosSalvos = async () => {
+    setCarregandoPublicos(true);
+    setErroPublicos(null);
+    try {
+      const res = await fetch('/api/comunicacao-oficial/publicos');
+      if (res.ok) {
+        const data = await res.json();
+        setPublicosSalvos(Array.isArray(data) ? data : []);
+      } else {
+        throw new Error('Falha ao carregar públicos salvos.');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar públicos salvos:', err);
+      setErroPublicos(err.message || 'Erro ao carregar públicos.');
+    } finally {
+      setCarregandoPublicos(false);
+    }
+  };
+
   useEffect(() => {
     carregarCampanhasCRM();
+    carregarPublicosSalvos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Aplica as regras de um público salvo nos filtros do assistente
+  const selecionarPublicoSalvo = (pub) => {
+    if (!pub) {
+      setPublicoSelecionado(null);
+      return;
+    }
+
+    setPublicoSelecionado(pub);
+    const regras = pub.regras || {};
+    const filtros = regras.filtros || regras || {};
+
+    // Injeta os filtros salvos nos estados existentes
+    setMandatoOrigem(filtros.origem || regras.origem || 'eleitores');
+    setFiltroCidade(filtros.cidade || '');
+    setFiltroBairro(filtros.bairro || '');
+    setFiltroSituacao(filtros.status || filtros.situacao || '');
+    setFiltroSexo(filtros.sexo || '');
+    setFiltroFaixaEtaria(filtros.faixa_etaria || '');
+    if (filtros.limit) setMandatoLimite(Number(filtros.limit) || 1000);
+
+    // Preenche nome da comunicação se estiver vazio
+    if (!nome.trim() || publicosSalvos.some(p => p.nome === nome)) {
+      setNome(pub.nome);
+    }
+
+    if (erroAlerta) setErroAlerta(null);
+  };
+
   // Atualiza contatos e resumo com debouncing via GET /api/disparos/contatos/preview
   useEffect(() => {
-    if (origemDestinatarios !== 'campanha_politica' && origemDestinatarios !== 'base_geral') return;
+    if (
+      origemDestinatarios !== 'campanha_politica' &&
+      origemDestinatarios !== 'base_geral' &&
+      origemDestinatarios !== 'publico_salvo'
+    ) return;
 
     let active = true;
     setCarregandoContatos(true);
@@ -325,11 +384,15 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const getErrosEtapa = () => {
     if (step === 1) return null;
     
-    if (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') {
+    if (
+      origemDestinatarios === 'campanha_politica' ||
+      origemDestinatarios === 'base_geral' ||
+      origemDestinatarios === 'publico_salvo'
+    ) {
       if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
       if (step === 3) {
         if (carregandoContatos) return 'Aguarde o cálculo e validação dos contatos da base.';
-        if (destinatariosFiltrados.length === 0) return 'A base selecionada não retornou destinatários aptos para envio.';
+        if (destinatariosFiltrados.length === 0) return 'A audiência selecionada não retornou destinatários aptos para envio.';
       }
       if (step === 4) {
         if (!templateSelecionado) return 'Selecione um template oficial homologado.';
@@ -396,7 +459,13 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       return;
     }
 
-    const listaFinal = (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral')
+    const isBaseOrPublico = (
+      origemDestinatarios === 'campanha_politica' ||
+      origemDestinatarios === 'base_geral' ||
+      origemDestinatarios === 'publico_salvo'
+    );
+
+    const listaFinal = isBaseOrPublico
       ? destinatariosFiltrados.map(c => ({
           id: c.origemId || c.id,
           nome: c.nome || 'Contato',
@@ -405,20 +474,26 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }))
       : [];
 
+    let publicoLabel = 'Upload de Lista CSV';
+    if (origemDestinatarios === 'publico_salvo' && publicoSelecionado) {
+      publicoLabel = `${publicoSelecionado.nome} (${destinatariosFiltrados.length} contatos)`;
+    } else if (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') {
+      publicoLabel = `Base ${mandatoOrigem.toUpperCase()} - ${destinatariosFiltrados.length} contatos`;
+    }
+
     onSave({
       nome,
       canal,
       origemDestinatarios,
-      publico: (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral')
-        ? `Base ${mandatoOrigem.toUpperCase()} - ${destinatariosFiltrados.length} contatos`
-        : 'Upload de Lista CSV',
+      publico: publicoLabel,
+      audience_id: publicoSelecionado?.id || null,
       template: templateSelecionado.nome,
       template_id: templateSelecionado.id || templateSelecionado.nome,
       idioma: templateSelecionado.idioma || 'pt_BR',
       variaveis: variaveis,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
-      total_destinatarios: (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') ? destinatariosFiltrados.length : 0,
+      total_destinatarios: isBaseOrPublico ? destinatariosFiltrados.length : 0,
       campaign_id: mandatoCampanhaId || null,
       destinatarios: listaFinal,
       enviadas: 0,
@@ -445,11 +520,11 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
               <h3 className="font-bold text-gray-800 text-lg">
                 {step === 1 && 'Origem dos Destinatários'}
                 
-                {/* Títulos do fluxo com Campanha / Base MandatoPRO */}
-                {(origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') && (
+                {/* Títulos do fluxo com Campanha / Base MandatoPRO / Públicos Salvos */}
+                {(origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral' || origemDestinatarios === 'publico_salvo') && (
                   <>
                     {step === 2 && 'Informações do Disparo'}
-                    {step === 3 && 'Selecionar Público da Base MandatoPRO'}
+                    {step === 3 && (origemDestinatarios === 'publico_salvo' ? 'Confirmar Público e Destinatários' : 'Selecionar Público da Base MandatoPRO')}
                     {step === 4 && 'Selecionar Template'}
                     {step === 5 && 'Configurar Variáveis'}
                     {step === 6 && 'Revisão da Comunicação'}
@@ -526,6 +601,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                     setOrigemDestinatarios('base_geral');
                     setMandatoCampanhaId('');
                     setCampanhaSelecionada(null);
+                    setPublicoSelecionado(null);
                     setErroAlerta(null);
                   }}
                   className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start justify-between ${
@@ -556,12 +632,49 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   </div>
                 </div>
 
-                {/* Card 3: Importar Planilha */}
+                {/* Card 3: Públicos Salvos (Audiências Pré-definidas) */}
+                <div
+                  onClick={() => {
+                    setOrigemDestinatarios('publico_salvo');
+                    setMandatoCampanhaId('');
+                    setCampanhaSelecionada(null);
+                    setErroAlerta(null);
+                  }}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start justify-between ${
+                    origemDestinatarios === 'publico_salvo'
+                      ? 'border-teal-500 bg-teal-50/20 shadow-xs'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className={`p-2.5 rounded-lg text-sm flex items-center justify-center ${
+                      origemDestinatarios === 'publico_salvo' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      <FontAwesomeIcon icon={faUserCheck} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs text-gray-800">Públicos Salvos (Audiências Pré-definidas)</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                        Selecione uma segmentação de contatos previamente criada e salva no módulo de Públicos.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-0.5">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      origemDestinatarios === 'publico_salvo' ? 'border-teal-500 bg-teal-500' : 'border-gray-300'
+                    }`}>
+                      {origemDestinatarios === 'publico_salvo' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card 4: Importar Planilha */}
                 <div
                   onClick={() => {
                     setOrigemDestinatarios('csv');
                     setMandatoCampanhaId('');
                     setCampanhaSelecionada(null);
+                    setPublicoSelecionado(null);
                     setErroAlerta(null);
                   }}
                   className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-start justify-between ${
@@ -699,6 +812,76 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 </div>
               )}
 
+              {/* Seleção de Público Salvo (apenas no fluxo de Públicos Salvos) */}
+              {origemDestinatarios === 'publico_salvo' && (
+                <div className="space-y-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-gray-700">
+                      Selecione uma Audiência Salva <span className="text-rose-500">*</span>
+                    </label>
+                    {publicoSelecionado && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPublicoSelecionado(null);
+                        }}
+                        className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
+                      >
+                        Limpar Seleção
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={pesquisaPublico}
+                    onChange={(e) => setPesquisaPublico(e.target.value)}
+                    placeholder="Pesquisar público cadastrado..."
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                  />
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {carregandoPublicos ? (
+                      <div className="p-4 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                        <FontAwesomeIcon icon={faSpinner} className="animate-spin text-teal-600" />
+                        <span>Carregando públicos...</span>
+                      </div>
+                    ) : erroPublicos ? (
+                      <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl">
+                        {erroPublicos}
+                      </div>
+                    ) : publicosSalvos.filter(p => (p.nome || '').toLowerCase().includes(pesquisaPublico.toLowerCase())).length > 0 ? (
+                      publicosSalvos
+                        .filter(p => (p.nome || '').toLowerCase().includes(pesquisaPublico.toLowerCase()))
+                        .map(p => {
+                          const isSelected = publicoSelecionado?.id === p.id;
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => selecionarPublicoSalvo(isSelected ? null : p)}
+                              className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between text-xs ${
+                                isSelected
+                                  ? 'border-teal-500 bg-teal-50/20 shadow-xs'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <div>
+                                <p className="font-bold text-gray-800">{p.nome}</p>
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                  {p.descricao || 'Audiência salva'} · {p.quantidade_contatos || 0} contatos calculados
+                                </p>
+                              </div>
+                              {isSelected && <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600 text-sm" />}
+                            </div>
+                          );
+                        })
+                    ) : (
+                      <div className="text-center py-4 text-xs text-gray-400 bg-gray-50 rounded-xl">
+                        Nenhum público salvo encontrado. Cadastre audiências no módulo de Públicos.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Seleção de Campanha do CRM (apenas no fluxo de Campanha/CRM) */}
               {origemDestinatarios === 'campanha_politica' && (
                 <div className="space-y-3 pt-3 border-t border-gray-100">
@@ -774,16 +957,22 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           )}
 
           {/* Resumo dos Destinatários na Base do MandatoPRO com Filtros Reais */}
-          {step === 3 && (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') && (
+          {step === 3 && (
+            origemDestinatarios === 'campanha_politica' ||
+            origemDestinatarios === 'base_geral' ||
+            origemDestinatarios === 'publico_salvo'
+          ) && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-gray-700">
                   {origemDestinatarios === 'campanha_politica' 
                     ? 'Filtros de Campanha e Segmentação' 
+                    : origemDestinatarios === 'publico_salvo'
+                    ? 'Regras da Audiência Selecionada'
                     : 'Filtros da Base de Dados Geral'}
                 </label>
                 <span className="text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full font-semibold border border-teal-200">
-                  {mandatoOrigem.toUpperCase()}
+                  {origemDestinatarios === 'publico_salvo' && publicoSelecionado ? publicoSelecionado.nome : mandatoOrigem.toUpperCase()}
                 </span>
               </div>
               
