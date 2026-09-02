@@ -40,9 +40,10 @@ export class WaBlastWebhookNormalizer {
     }
 
     // ─── 2. STATUS DE MENSAGEM (sent, delivered, read, failed) ─────────────────
+    // Exclui message.received explicitamente para que seja tratado pelo bloco de INBOUND (Bloco 3)
     if (
-      eventType.startsWith('message.') ||
-      eventType.startsWith('messages.') ||
+      (eventType.startsWith('message.') && eventType !== 'message.received') ||
+      (eventType.startsWith('messages.') && eventType !== 'messages.inbound') ||
       eventType === 'message_status'
     ) {
       const data = payload.data || payload;
