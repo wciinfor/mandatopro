@@ -161,28 +161,6 @@ export default class WaBlastApiService {
   }
 
   /**
-   * Obtém a lista de templates de mensagem de uma conta conectada no WaBlast
-   * GET /v1/accounts/{accountId}/templates
-   * 
-   * @param {string} accountId - ID da conta WaBlast
-   * @param {Object} [options={}] - Filtros opcionais (status, etc.)
-   */
-  async getTemplates(accountId, options = {}) {
-    if (!accountId) {
-      throw new Error('WaBlastApiService.getTemplates: accountId é obrigatório');
-    }
-
-    let endpoint = `/v1/accounts/${encodeURIComponent(accountId)}/templates`;
-    if (options.status) {
-      endpoint += `?status=${encodeURIComponent(options.status)}`;
-    }
-
-    return this.request(endpoint, {
-      method: 'GET'
-    });
-  }
-
-  /**
    * Registra um domínio permitido para redirecionamento no onboarding
    * POST /v1/onboarding/domains
    * 
