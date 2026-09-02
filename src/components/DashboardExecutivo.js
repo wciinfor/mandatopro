@@ -10,8 +10,9 @@ import {
   faClock,
   faInbox,
   faUserClock,
-  faUserTie,
-  faLightbulb
+  faLightbulb,
+  faComments,
+  faServer
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { DashboardCampaignService } from '@/services/dashboardCampaignService';
@@ -19,61 +20,46 @@ import { DashboardAttendanceService } from '@/services/dashboardAttendanceServic
 import { InsightCard } from '@/components/InsightCard';
 import { InsightsComunicacaoService } from '@/services/insightsComunicacaoService';
 
-// Mocks de dados consolidados locais para o Dashboard Executivo (Removido os mocks de atendimento)
-const CHART_DIARIO_ENVIO = [
-  { dia: 'Seg', total: 400 },
-  { dia: 'Ter', total: 800 },
-  { dia: 'Qua', total: 1200 },
-  { dia: 'Qui', total: 1100 },
-  { dia: 'Sex', total: 1450 }
-];
-
-const CANAL_STATS = [
-  { canal: 'WhatsApp Business', total: 1100, icon: faWhatsapp, bg: 'bg-emerald-500' },
-  { canal: 'WhatsApp Legacy', total: 250, icon: faWhatsapp, bg: 'bg-teal-600' },
-  { canal: 'Instagram Direct', total: 100, icon: faInstagram, bg: 'bg-pink-600' }
-];
-
-const RANKING_CAMPANHAS = [
-  { id: '1', nome: 'Informativo Obras Verão', taxa: 98.2, total: 450 },
-  { id: '2', nome: 'Gabinete Itinerante - Convite', taxa: 96.5, total: 1200 }
-];
-
-const RANKING_OPERADORES = [
-  { id: '1', nome: 'Rodrigo Lima', atendimentos: 45, tempo: '3m 15s' },
-  { id: '2', nome: 'Fernanda Costa', atendimentos: 38, tempo: '5m 02s' }
-];
-
 export default function DashboardExecutivo() {
+  const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
+    totalCampanhas: 0,
     campanhasAtivas: 0,
     mensagensEnviadasHoje: 0,
+    totalEnviadas: 0,
+    mensagensEntrada: 0,
+    mensagensSaida: 0,
     entregues: 0,
     lidas: 0,
     falhas: 0,
     taxaEntrega: 0,
-    taxaLeitura: 0
+    taxaLeitura: 0,
+    historicoUltimos7Dias: [],
+    porProvedor: {},
+    campanhasRecentes: []
   });
 
   const [attendance, setAttendance] = useState({
     conversasAbertas: 0,
     conversasAguardando: 0,
-    tempoMedioResposta: '0m 00s'
+    tempoMedioResposta: 'Não disponível',
+    novas: 0,
+    emAtendimento: 0,
+    aguardandoEleitor: 0,
+    concluidas: 0,
+    totalConversas: 0,
+    totalNaoLidas: 0,
+    porCanal: {}
   });
 
-  const [insights] = useState(() => {
-    const dadosAnalise = {
-      campanhas: [{ id: '1', nome: 'Informativo Obras Verão', total_destinatarios: 450, entregues: 380 }],
-      templates: [{ nome: 'convite_gabinete_bairro', taxaLeitura: 84.5 }],
-      operadores: [{ id: '1', nome: 'Fernanda Costa', minutosResposta: 18 }]
-    };
-    return InsightsComunicacaoService.gerarInsightsLocais(dadosAnalise);
-  });
+  const [insights, setInsights] = useState([]);
 
   const carregarMétricasCampanhas = async () => {
     try {
       const data = await DashboardCampaignService.obterIndicadoresCampanha();
-      setMetrics(data);
+      if (data) {
+        setMetrics(prev => ({ ...prev, ...data }));
+      }
     } catch (err) {
       console.error('Falha ao obter os dados do DashboardCampaignService:', err);
     }
@@ -82,16 +68,81 @@ export default function DashboardExecutivo() {
   const carregarMétricasAtendimento = async () => {
     try {
       const data = await DashboardAttendanceService.obterIndicadoresAtendimento();
-      setAttendance(data);
+      if (data) {
+        setAttendance(prev => ({
+          ...prev,
+          ...data,
+          tempoMedioResposta: 'Não disponível'
+        }));
+      }
     } catch (err) {
       console.error('Falha ao obter os dados do DashboardAttendanceService:', err);
     }
   };
 
   useEffect(() => {
-    carregarMétricasCampanhas();
-    carregarMétricasAtendimento();
+    const carregarTudo = async () => {
+      setLoading(true);
+      await Promise.all([carregarMétricasCampanhas(), carregarMétricasAtendimento()]);
+      setLoading(false);
+    };
+    carregarTudo();
   }, []);
+
+  // Recalcular insights quando as métricas reais forem carregadas
+  useEffect(() => {
+    const dadosAnalise = {
+      campanhas: metrics.campanhasRecentes || [],
+      templates: [],
+      operadores: []
+    };
+    const gerados = InsightsComunicacaoService.gerarInsightsLocais(dadosAnalise);
+    setInsights(gerados);
+  }, [metrics]);
+
+  // Provedores com dados reais
+  const provedoresMapeados = Object.entries(metrics.porProvedor || {}).map(([prov, total]) => {
+    let nome = prov;
+    let bg = 'bg-teal-500';
+    let icon = faWhatsapp;
+
+    if (prov === 'WHATSAPP') {
+      nome = 'WhatsApp Oficial (Meta / WaBlast)';
+      bg = 'bg-emerald-500';
+      icon = faWhatsapp;
+    } else if (prov === 'YCLOUD') {
+      nome = 'YCloud WhatsApp';
+      bg = 'bg-teal-600';
+      icon = faWhatsapp;
+    } else if (prov === 'WABLAST') {
+      nome = 'WaBlast Oficial';
+      bg = 'bg-green-600';
+      icon = faWhatsapp;
+    } else if (prov === 'INSTAGRAM') {
+      nome = 'Instagram Direct';
+      bg = 'bg-pink-600';
+      icon = faInstagram;
+    }
+
+    return { provedor: nome, total, bg, icon };
+  });
+
+  const totalMensagensProvedores = provedoresMapeados.reduce((acc, curr) => acc + curr.total, 0);
+
+  // Histórico de 7 dias real
+  const historico7Dias = metrics.historicoUltimos7Dias && metrics.historicoUltimos7Dias.length > 0
+    ? metrics.historicoUltimos7Dias
+    : [
+        { dia: 'Seg', total: 0 },
+        { dia: 'Ter', total: 0 },
+        { dia: 'Qua', total: 0 },
+        { dia: 'Qui', total: 0 },
+        { dia: 'Sex', total: 0 },
+        { dia: 'Sáb', total: 0 },
+        { dia: 'Dom', total: 0 }
+      ];
+
+  const maxDiario = Math.max(...historico7Dias.map(h => h.total || 0), 1);
 
   return (
     <div className="space-y-6">
@@ -104,8 +155,8 @@ export default function DashboardExecutivo() {
             <FontAwesomeIcon icon={faBullhorn} className="text-sm" />
           </span>
           <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Campanhas Ativas</p>
-            <p className="text-base font-bold text-gray-800">{metrics.campanhasAtivas}</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Campanhas</p>
+            <p className="text-base font-bold text-gray-800">{metrics.totalCampanhas}</p>
           </div>
         </div>
 
@@ -114,8 +165,8 @@ export default function DashboardExecutivo() {
             <FontAwesomeIcon icon={faPaperPlane} className="text-sm" />
           </span>
           <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Enviadas Hoje</p>
-            <p className="text-base font-bold text-gray-800">{metrics.mensagensEnviadasHoje}</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Enviadas (Total)</p>
+            <p className="text-base font-bold text-gray-800">{metrics.totalEnviadas}</p>
           </div>
         </div>
 
@@ -151,7 +202,7 @@ export default function DashboardExecutivo() {
 
       </div>
 
-      {/* Grid de Taxas e Tempos */}
+      {/* Grid de Taxas e Conversas da Central */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-teal-50/60 to-emerald-50/20 border border-teal-100 rounded-2xl p-4 text-center shadow-xs">
           <p className="text-[10px] font-bold text-teal-800 uppercase">Taxa de Entrega</p>
@@ -168,109 +219,134 @@ export default function DashboardExecutivo() {
         </div>
 
         <div className="bg-gradient-to-br from-amber-50/60 to-yellow-50/20 border border-amber-100 rounded-2xl p-4 text-center shadow-xs">
-          <p className="text-[10px] font-bold text-amber-800 uppercase">Tempo de Resposta</p>
+          <p className="text-[10px] font-bold text-amber-800 uppercase">Novas Respostas</p>
           <p className="text-2xl font-bold text-amber-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faClock} className="text-sm" /> {attendance.tempoMedioResposta}
+            <FontAwesomeIcon icon={faComments} className="text-sm" /> {attendance.novas}
           </p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-50/60 to-purple-100/20 border border-purple-100 rounded-2xl p-4 text-center shadow-xs">
-          <p className="text-[10px] font-bold text-purple-800 uppercase">Aguardando Atend.</p>
+          <p className="text-[10px] font-bold text-purple-800 uppercase">Total de Conversas</p>
           <p className="text-2xl font-bold text-purple-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faUserClock} className="text-sm" /> {attendance.conversasAguardando} / {attendance.conversasAbertas}
+            <FontAwesomeIcon icon={faInbox} className="text-sm" /> {attendance.totalConversas}
           </p>
         </div>
       </div>
 
-      {/* Gráficos e Rankings */}
+      {/* Gráficos e Detalhamentos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Gráfico Diário de Envios */}
+        {/* Gráfico Diário de Mensagens Reais */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
-          <h4 className="font-bold text-sm text-gray-800">Volumetria Diária de Envios</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-gray-800">Volumetria dos Últimos 7 Dias</h4>
+            <span className="text-[10px] font-semibold text-gray-400">Total: {metrics.mensagensEntrada + metrics.mensagensSaida} mensagens</span>
+          </div>
           <div className="h-48 flex items-end gap-3 justify-between pt-6 border-b border-gray-100 px-2">
-            {CHART_DIARIO_ENVIO.map((item, idx) => {
-              const max = 1500;
-              const heightPct = Math.round((item.total / max) * 100);
+            {historico7Dias.map((item, idx) => {
+              const heightPct = Math.min(Math.round(((item.total || 0) / maxDiario) * 100), 100);
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
                   <span className="text-[9px] font-bold text-teal-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.total}
+                    {item.total || 0}
                   </span>
                   <div
-                    className="w-full bg-teal-600/80 hover:bg-teal-600 rounded-t-lg transition-all duration-300"
-                    style={{ height: `${heightPct}%` }}
+                    className="w-full bg-teal-600/80 hover:bg-teal-600 rounded-t-lg transition-all duration-300 min-h-[4px]"
+                    style={{ height: `${Math.max(heightPct, 4)}%` }}
                   />
                   <span className="text-[10px] font-medium text-gray-500">{item.dia}</span>
                 </div>
               );
             })}
           </div>
+          <div className="flex items-center justify-around text-[11px] text-gray-500 pt-1">
+            <span>📥 Recebidas: <strong className="text-gray-800">{metrics.mensagensEntrada}</strong></span>
+            <span>📤 Enviadas: <strong className="text-gray-800">{metrics.mensagensSaida}</strong></span>
+          </div>
         </div>
 
-        {/* Gráfico por Canal */}
+        {/* Distribuição Real por Provedor */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4 flex flex-col justify-between">
-          <h4 className="font-bold text-sm text-gray-800">Distribuição por Canal</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-gray-800">Distribuição por Provedor</h4>
+            <span className="text-[10px] font-semibold text-gray-400"><FontAwesomeIcon icon={faServer} className="mr-1" />Ativos</span>
+          </div>
           <div className="space-y-3.5">
-            {CANAL_STATS.map((c, idx) => {
-              const totalGeral = CANAL_STATS.reduce((acc, curr) => acc + curr.total, 0);
-              const pct = totalGeral > 0 ? Math.round((c.total / totalGeral) * 100) : 0;
-              return (
-                <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <FontAwesomeIcon icon={c.icon} className="text-gray-400" />
-                      {c.canal}
-                    </span>
-                    <span className="font-bold">{c.total} ({pct}%)</span>
+            {provedoresMapeados.length > 0 ? (
+              provedoresMapeados.map((c, idx) => {
+                const pct = totalMensagensProvedores > 0 ? Math.round((c.total / totalMensagensProvedores) * 100) : 0;
+                return (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <FontAwesomeIcon icon={c.icon} className="text-gray-400" />
+                        {c.provedor}
+                      </span>
+                      <span className="font-bold">{c.total} ({pct}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${c.bg} rounded-full`} style={{ width: `${pct}%` }} />
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${c.bg} rounded-full`} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <p className="text-xs text-gray-400 py-6 text-center">Nenhum provedor com tráfego registrado.</p>
+            )}
           </div>
+          <p className="text-[10px] text-gray-400 text-center">Baseado nas mensagens oficiais registradas no banco.</p>
         </div>
 
-        {/* Ranking de Campanhas */}
+        {/* Campanhas Cadastradas Recentes */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
-          <h4 className="font-bold text-sm text-gray-800">Ranking de Campanhas Eficientes</h4>
-          <div className="divide-y divide-gray-100 text-xs">
-            {RANKING_CAMPANHAS.map((c) => (
-              <div key={c.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-800">{c.nome}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Envios: {c.total}</p>
-                </div>
-                <span className="bg-green-50 text-green-700 font-bold border border-green-200 px-2.5 py-1 rounded-lg">
-                  {c.taxa}% sucesso
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-gray-800">Campanhas Recentes</h4>
+            <span className="text-[10px] font-semibold text-gray-400">{metrics.totalCampanhas} no total</span>
           </div>
-        </div>
-
-        {/* Ranking de Operadores */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
-          <h4 className="font-bold text-sm text-gray-800">Desempenho da Equipe (Operadores)</h4>
           <div className="divide-y divide-gray-100 text-xs">
-            {RANKING_OPERADORES.map((op) => (
-              <div key={op.id} className="py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-[10px]">
-                    {op.nome.charAt(0)}
+            {metrics.campanhasRecentes && metrics.campanhasRecentes.length > 0 ? (
+              metrics.campanhasRecentes.map((c) => (
+                <div key={c.id} className="py-3 flex items-center justify-between">
+                  <div className="min-w-0 pr-2">
+                    <p className="font-semibold text-gray-800 truncate">{c.nome}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      Criada em {c.criadoEm ? new Date(c.criadoEm).toLocaleDateString('pt-BR') : '—'}
+                    </p>
+                  </div>
+                  <span className="bg-teal-50 text-teal-700 font-bold border border-teal-200 px-2 py-0.5 rounded-lg text-[10px] uppercase flex-shrink-0">
+                    {c.status || 'Ativa'}
                   </span>
-                  <div>
-                    <p className="font-semibold text-gray-800">{op.nome}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Atendimentos: {op.atendimentos}</p>
-                  </div>
                 </div>
-                <span className="text-gray-500 font-semibold flex items-center gap-1">
-                  <FontAwesomeIcon icon={faClock} className="text-teal-600 text-[10px]" /> {op.tempo}
-                </span>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-xs text-gray-400 py-6 text-center">Nenhuma campanha cadastrada.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Status das Conversas na Central */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-sm text-gray-800">Status da Central de Atendimento</h4>
+            <span className="text-[10px] font-semibold text-gray-400">{attendance.totalConversas} conversas</span>
+          </div>
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-blue-50/50 border border-blue-100/50">
+              <span className="font-medium text-blue-900">Novas Respostas (Inbound)</span>
+              <span className="font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-lg">{attendance.novas}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-amber-50/50 border border-amber-100/50">
+              <span className="font-medium text-amber-900">Em Atendimento</span>
+              <span className="font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-lg">{attendance.emAtendimento}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-purple-50/50 border border-purple-100/50">
+              <span className="font-medium text-purple-900">Aguardando Eleitor</span>
+              <span className="font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-lg">{attendance.aguardandoEleitor}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-gray-50 border border-gray-200/50">
+              <span className="font-medium text-gray-700">Finalizadas</span>
+              <span className="font-bold text-gray-600 bg-gray-200/80 px-2 py-0.5 rounded-lg">{attendance.concluidas}</span>
+            </div>
           </div>
         </div>
 
@@ -302,3 +378,4 @@ export default function DashboardExecutivo() {
     </div>
   );
 }
+
