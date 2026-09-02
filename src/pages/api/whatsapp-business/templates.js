@@ -3,9 +3,10 @@ import { obterUsuarioAutenticado } from '@/lib/api-auth';
 import { buscarContaWhatsappPrincipal } from '@/lib/whatsapp-business-accounts';
 import { createYCloudApiService } from '@/services/ycloud-api';
 import { MetaGraphClient } from '@/lib/meta-graph-client';
+import { createWaBlastApiService } from '@/services/wablast-api';
 
 /**
- * Endpoint para listar templates WhatsApp aprovados do provedor ativo (Meta ou YCloud)
+ * Endpoint para listar templates WhatsApp aprovados do provedor ativo (Meta, YCloud ou WaBlast)
  */
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -27,7 +28,44 @@ export default async function handler(req, res) {
 
     const provider = String(conta.provider || 'META').toUpperCase();
 
-    // 1. Provedor YCLOUD: consulta diretamente a API oficial da YCloud
+    // 1. Provedor WABLAST: consulta templates via WaBlast Partner API
+    if (provider === 'WABLAST') {
+      const accountId = conta.wablast_account_id;
+      if (!accountId) {
+        return res.status(200).json({
+          success: true,
+          provider: 'WABLAST',
+          templates: []
+        });
+      }
+
+      const wablastService = createWaBlastApiService();
+      const response = await wablastService.getTemplates(accountId, { status: 'APPROVED' });
+      const items = response?.items || response?.data || (Array.isArray(response) ? response : []);
+
+      const templatesAprovados = items.filter(tmpl => {
+        const status = String(tmpl.status || 'APPROVED').toUpperCase();
+        return status === 'APPROVED';
+      });
+
+      const templatesFormatados = templatesAprovados.map((tmpl) => ({
+        id: tmpl.id || tmpl.name,
+        nome: tmpl.name,
+        titulo: tmpl.name ? tmpl.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : (tmpl.title || ''),
+        categoria: tmpl.category || 'MARKETING',
+        idioma: tmpl.language || 'pt_BR',
+        status: tmpl.status || 'APPROVED',
+        componentes: tmpl.components || []
+      }));
+
+      return res.status(200).json({
+        success: true,
+        provider: 'WABLAST',
+        templates: templatesFormatados
+      });
+    }
+
+    // 2. Provedor YCLOUD: consulta diretamente a API oficial da YCloud
     if (provider === 'YCLOUD') {
       const apiKey = conta.ycloud_api_key || conta.access_token;
       if (!apiKey) {
@@ -59,7 +97,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Provedor META: consulta a WABA via Meta Graph API
+    // 3. Provedor META: consulta a WABA via Meta Graph API
     if (provider === 'META') {
       const accessToken = conta.access_token;
       const wabaId = conta.waba_id;

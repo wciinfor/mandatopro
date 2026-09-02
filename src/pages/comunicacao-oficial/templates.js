@@ -5,54 +5,32 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileSignature, faSyncAlt, faPlus, faInbox, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { TemplateVisualizerCard } from '@/components/TemplateVisualizerCard';
 
-// Mocks de templates oficiais contendo Cabeçalho, Corpo, Rodapé, Botões e Variáveis
-const MOCK_TEMPLATES = [
-  {
-    id: 'tmpl-1',
-    nome: 'convite_gabinete_bairro',
-    categoria: 'MARKETING',
-    idioma: 'pt_BR',
-    status: 'APPROVED',
-    canal: 'whatsapp',
-    ultima_sincronizacao: new Date().toISOString(),
-    componentes: [
-      { type: 'HEADER', format: 'TEXT', text: '📢 Convite Especial' },
-      { type: 'BODY', text: 'Olá {{1}},\n\nGostaríamos de convidar você e sua família para o nosso Gabinete Itinerante neste sábado, às 10h, na Praça Principal do bairro {{2}}.\n\nContamos com a sua presença!' },
-      { type: 'FOOTER', text: 'Mandato Proativo - Canal Oficial' },
-      { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Ver Localização' }] }
-    ]
-  },
-  {
-    id: 'tmpl-2',
-    nome: 'atualizacao_solicitacao_status',
-    categoria: 'UTILITY',
-    idioma: 'pt_BR',
-    status: 'PENDING',
-    canal: 'whatsapp',
-    ultima_sincronizacao: new Date(Date.now() - 3600000).toISOString(),
-    componentes: [
-      { type: 'BODY', text: 'Olá {{1}},\n\nInformamos que a sua solicitação nº {{2}} mudou de status para: *{{3}}*.\n\nAcompanhe os detalhes em nossa plataforma.' }
-    ]
-  }
-];
-
 export default function TemplatesOficiaisPage() {
-  const [templates, setTemplates] = useState(MOCK_TEMPLATES);
+  const [templates, setTemplates] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState(null);
   const [busca, setBusca] = useState('');
   const [sincronizando, setSincronizando] = useState(false);
 
   const carregarTemplatesReais = async () => {
+    setCarregando(true);
+    setErro(null);
     try {
       const res = await fetch('/api/whatsapp-business/templates');
       if (res.ok) {
         const body = await res.json();
-        const lista = body?.data || body?.templates || (Array.isArray(body) ? body : []);
-        if (lista.length > 0) {
-          setTemplates(lista);
-        }
+        const lista = body?.templates || body?.data || (Array.isArray(body) ? body : []);
+        setTemplates(lista);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error || 'Falha ao carregar templates da conta oficial.');
       }
     } catch (err) {
-      console.warn('Usando lista local de templates:', err);
+      console.error('Erro ao carregar templates oficiais:', err);
+      setErro(err.message || 'Erro ao carregar templates oficiais.');
+      setTemplates([]);
+    } finally {
+      setCarregando(false);
     }
   };
 
@@ -65,9 +43,7 @@ export default function TemplatesOficiaisPage() {
     try {
       await carregarTemplatesReais();
     } finally {
-      setTimeout(() => {
-        setSincronizando(false);
-      }, 800);
+      setSincronizando(false);
     }
   };
 
@@ -115,8 +91,26 @@ export default function TemplatesOficiaisPage() {
             />
           </div>
 
-          {/* Grid de Templates */}
-          {filtrarTemplates.length > 0 ? (
+          {/* Erro ao carregar */}
+          {erro && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-xs text-red-700">
+              <span>{erro}</span>
+              <button
+                onClick={carregarTemplatesReais}
+                className="font-bold underline hover:text-red-900 cursor-pointer ml-2 shrink-0"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {/* Loading */}
+          {carregando ? (
+            <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100 flex flex-col items-center justify-center gap-3">
+              <FontAwesomeIcon icon={faSyncAlt} className="text-3xl text-teal-600 animate-spin" />
+              <p className="text-sm">Carregando templates homologados da conta oficial...</p>
+            </div>
+          ) : filtrarTemplates.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filtrarTemplates.map((tmpl) => (
                 <TemplateVisualizerCard key={tmpl.id} template={tmpl} />
