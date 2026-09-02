@@ -89,7 +89,7 @@ export default async function handler(req, res) {
         tenant_id: conversa.tenant_id,
         conversation_id: id,
         provider_message_id: wamid,
-        provider: contaSelecionada.provider || conversa.provider || 'whatsapp',
+        provider: String(contaSelecionada.provider || conversa.provider || 'META').toUpperCase(),
         channel: conversa.channel || 'whatsapp',
         direction: 'saida',
         mensagem: textoMensagem.trim(),

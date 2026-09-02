@@ -18,19 +18,22 @@ export class DashboardCampaignRepository {
     seteDiasAtras.setDate(seteDiasAtras.getDate() - 6);
     seteDiasAtras.setHours(0, 0, 0, 0);
 
-    // 1. Campanhas Ativas / Totais (tabela 'campanhas' do MandatoPRO)
+    // 1. Campanhas de Comunicação Oficial (communication_campaigns)
     let queryCampanhas = this.supabase
-      .from('campanhas')
-      .select('id, nome, status, data_campanha, created_at');
+      .from('communication_campaigns')
+      .select('id, nome, status, total_destinatarios, created_at, communication_templates(nome), communication_audiences(nome)')
+      .order('created_at', { ascending: false });
+
+    if (tenantId) queryCampanhas = queryCampanhas.eq('tenant_id', tenantId);
 
     const { data: campanhas, error: errCampanhas } = await queryCampanhas;
     if (errCampanhas) {
-      console.warn('[DashboardCampaignRepository] Erro ao consultar campanhas:', errCampanhas.message);
+      console.warn('[DashboardCampaignRepository] Erro ao consultar communication_campaigns:', errCampanhas.message);
     }
 
     const listaCampanhas = campanhas || [];
     const totalCampanhas = listaCampanhas.length;
-    const campanhasAtivas = listaCampanhas.filter(c => ['ativa', 'planejada', 'em_andamento', 'executando'].includes(String(c.status || '').toLowerCase())).length;
+    const campanhasAtivas = listaCampanhas.filter(c => ['ativa', 'executando', 'processando', 'na fila', 'agendado'].includes(String(c.status || '').toLowerCase())).length;
 
 
     // 2. Itens das Campanhas (communication_campaign_items)
@@ -154,13 +157,22 @@ export class DashboardCampaignRepository {
       taxaLeitura: Math.min(taxaLeitura, 100),
       historicoUltimos7Dias: Object.values(historicoDias),
       porProvedor,
-      campanhasRecentes: listaCampanhas.slice(0, 5).map(c => ({
-        id: c.id,
-        nome: c.nome,
-        status: c.status,
-        totalDestinatarios: c.total_recipients || 0,
-        criadoEm: c.created_at
-      }))
+      campanhasRecentes: listaCampanhas.slice(0, 5).map(c => {
+        const itensCampanha = listaItens.filter(i => i.campaign_id === c.id);
+        const enviadas = itensCampanha.filter(i => ['enviado', 'sent', 'entregue', 'delivered', 'lida', 'read'].includes(String(i.status || '').toLowerCase())).length;
+        const total = c.total_destinatarios || itensCampanha.length || 0;
+
+        return {
+          id: c.id,
+          nome: c.nome,
+          template: c.communication_templates?.nome || 'Oficial',
+          publico: c.communication_audiences?.nome || 'Destinatários',
+          status: c.status || 'Na Fila',
+          enviadas,
+          totalDestinatarios: total,
+          criadoEm: c.created_at
+        };
+      })
     };
   }
 }

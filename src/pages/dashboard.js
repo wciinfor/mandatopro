@@ -1,7 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Image from 'next/image';
 import {
-  faUniversity, faUsers, faExclamationTriangle, faBullhorn, faCalendarAlt, faBirthdayCake, faTrophy, faEye, faCheckCircle, faTimesCircle, faClock, faMapMarkerAlt
+  faUniversity, faUsers, faExclamationTriangle, faBullhorn, faCalendarAlt, faBirthdayCake, faTrophy, faEye, faCheckCircle, faTimesCircle, faClock, faMapMarkerAlt, faPaperPlane, faServer
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,13 +28,23 @@ export default function Dashboard() {
     eleitoresInativos: 0,
     totalLiderancas: 0,
     campanhasAtivas: 0,
-    totalAtendimentos: 0,
-    aniversariantesHoje: 0,
-    aniversariantesSemana: 0,
-    aniversariantesMes: 0,
-    proximosAniversariantes: []
+    totalAtendimentos: 0
   });
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // Estados de Comunicação Oficial e Disparos
+  const [metricasDisparos, setMetricasDisparos] = useState({
+    totalEnviadas: 0,
+    mensagensEnviadasHoje: 0,
+    entregues: 0,
+    lidas: 0,
+    falhas: 0,
+    taxaEntrega: 0,
+    taxaLeitura: 0,
+    porProvedor: {},
+    campanhasRecentes: []
+  });
+  const [disparosLoading, setDisparosLoading] = useState(true);
   const [charts, setCharts] = useState({
     eleitoresSeries: [],
     campanhasSeries: []
@@ -103,29 +113,40 @@ export default function Dashboard() {
     carregarStats();
   }, [userSnapshot.nivel]);
 
-  // Aniversariantes carregados de forma independente para não bloquear os cards
+  // Carrega métricas e últimos disparos da Comunicação Oficial de forma independente
   useEffect(() => {
     if (!userSnapshot.nivel || !hasModuleAccess(userSnapshot.nivel, MODULES.DASHBOARD)) return;
-    const carregarAniversariantes = async () => {
+    let ativo = true;
+
+    const carregarMetricasDisparos = async () => {
       try {
-        const response = await fetch('/api/aniversariantes?limit=10');
+        setDisparosLoading(true);
+        const response = await fetch('/api/comunicacao-oficial/dashboard/campanhas');
         if (!response.ok) return;
         const data = await response.json();
-        const resumo = data.resumo || {};
-        setStats(prev => ({
-          ...prev,
-          aniversariantesHoje: resumo.aniversariantesHoje || 0,
-          aniversariantesSemana: resumo.aniversariantesSemana || 0,
-          aniversariantesMes: resumo.aniversariantesMes || 0,
-          proximosAniversariantes: Array.isArray(data.proximosAniversariantes)
-            ? data.proximosAniversariantes
-            : []
-        }));
+        
+        if (ativo) {
+          setMetricasDisparos({
+            totalEnviadas: data.totalEnviadas || 0,
+            mensagensEnviadasHoje: data.mensagensEnviadasHoje || 0,
+            entregues: data.entregues || 0,
+            lidas: data.lidas || 0,
+            falhas: data.falhas || 0,
+            taxaEntrega: data.taxaEntrega || 0,
+            taxaLeitura: data.taxaLeitura || 0,
+            porProvedor: data.porProvedor || {},
+            campanhasRecentes: Array.isArray(data.campanhasRecentes) ? data.campanhasRecentes : []
+          });
+        }
       } catch (error) {
-        console.error('Erro ao carregar aniversariantes:', error);
+        console.error('Erro ao carregar métricas de disparos:', error);
+      } finally {
+        if (ativo) setDisparosLoading(false);
       }
     };
-    carregarAniversariantes();
+
+    carregarMetricasDisparos();
+    return () => { ativo = false; };
   }, [userSnapshot.nivel]);
 
   useEffect(() => {
@@ -408,31 +429,15 @@ export default function Dashboard() {
   // Registra acesso ao dashboard
   useRegistrarAcesso(usuario, 'DASHBOARD', 'Dashboard');
 
-  // Carregar últimas solicitações do Supabase
-  useEffect(() => {
-    if (!userSnapshot.id || userSnapshot.nivel === 'OPERADOR') return;
-    let ativo = true;
-    const carregarSolicitacoes = async () => {
-      try {
-        setSolicitacoesLoading(true);
-        const response = await fetch('/api/solicitacoes?limit=4&offset=0');
-        if (!response.ok) return;
-        const data = await response.json();
-        if (ativo) setSolicitacoes(Array.isArray(data.data) ? data.data : []);
-      } catch (error) {
-        console.error('Erro ao carregar solicitações:', error);
-      } finally {
-        if (ativo) setSolicitacoesLoading(false);
-      }
-    };
-    carregarSolicitacoes();
-    return () => { ativo = false; };
-  }, [userSnapshot.id, userSnapshot.nivel]);
-
-  // Filtrar solicitações baseado no perfil
-  const solicitacoesFiltradas = solicitacoes;
-
-  const mostrarSolicitacoes = user?.nivel !== 'OPERADOR';
+  // Mapeamento dos provedores reais para o resumo
+  const provedoresResumo = useMemo(() => {
+    const p = metricasDisparos.porProvedor || {};
+    return [
+      { key: 'META', label: 'Meta', total: p.META || 0, bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+      { key: 'WABLAST', label: 'WaBlast', total: p.WABLAST || 0, bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+      { key: 'YCLOUD', label: 'YCloud', total: p.YCLOUD || 0, bg: 'bg-teal-50 text-teal-700 border-teal-200' }
+    ];
+  }, [metricasDisparos.porProvedor]);
   
   // Filtrar eventos baseado no perfil
   const eventosFiltrados = agendaEventos.filter((evento) => {
@@ -702,164 +707,183 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Últimas Solicitações */}
-        {mostrarSolicitacoes && (
-          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-teal-100">
+        {/* CARD 2: Últimos Disparos */}
+        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-teal-100 flex flex-col justify-between">
+          <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base lg:text-lg font-bold text-teal-700 flex items-center gap-2">
-                <FontAwesomeIcon icon={faExclamationTriangle} /> ÚLTIMAS SOLICITAÇÕES
+                <FontAwesomeIcon icon={faBullhorn} /> ÚLTIMOS DISPAROS
               </h3>
               <button 
-                onClick={() => window.location.href = '/solicitacoes'}
+                onClick={() => window.location.href = '/comunicacao-oficial/campanhas'}
                 className="text-xs text-teal-600 hover:text-teal-700 font-semibold"
               >
-                Ver todas →
+                Ver todos →
               </button>
             </div>
-            <div className="space-y-2">
-              {solicitacoesFiltradas.slice(0, 4).map((sol) => {
-                const statusConfig = {
-                  'NOVA': { icon: faClock, color: 'text-blue-600', bg: 'bg-blue-50', badge: 'bg-blue-500', texto: 'Nova' },
-                  'EM_ANDAMENTO': { icon: faClock, color: 'text-yellow-600', bg: 'bg-yellow-50', badge: 'bg-yellow-500', texto: 'Em Andamento' },
-                  'ATENDIDA': { icon: faCheckCircle, color: 'text-green-600', bg: 'bg-green-50', badge: 'bg-green-500', texto: 'Atendida' },
-                  'RECUSADA': { icon: faTimesCircle, color: 'text-red-600', bg: 'bg-red-50', badge: 'bg-red-500', texto: 'Recusada' }
-                };
-                const config = statusConfig[sol.status] || statusConfig['NOVA'];
-                
-                return (
-                  <div key={sol.id} className={`flex items-center gap-2 text-xs lg:text-sm p-2 ${config.bg} rounded-lg hover:shadow-md transition-shadow cursor-pointer`}
-                    onClick={() => window.location.href = `/solicitacoes/${sol.id}`}>
-                    <span className={`${config.badge} text-white px-2 py-1 rounded-md text-xs font-semibold whitespace-nowrap`}>
-                      {config.texto}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-800 truncate">{sol.titulo}</div>
-                      <div className="text-xs text-gray-600">{sol.protocolo} • {sol.solicitante}</div>
+
+            <div className="space-y-2.5">
+              {disparosLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-2.5 bg-gray-50 rounded-lg animate-pulse h-14" />
+                  ))}
+                </div>
+              ) : (metricasDisparos.campanhasRecentes || []).length > 0 ? (
+                (metricasDisparos.campanhasRecentes || []).slice(0, 4).map((c) => {
+                  const statusNormalized = String(c.status || '').toLowerCase();
+                  let statusBadge = { bg: 'bg-teal-50 text-teal-700 border-teal-200', label: 'Na Fila' };
+
+                  if (['executando', 'processando', 'ativa'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse', label: 'Executando' };
+                  } else if (['concluida', 'concluído', 'enviada'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Concluída' };
+                  } else if (['agendado', 'agendada'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-purple-50 text-purple-700 border-purple-200', label: 'Agendada' };
+                  } else if (['rascunho', 'pausado', 'cancelado'].includes(statusNormalized)) {
+                    statusBadge = { bg: 'bg-gray-100 text-gray-700 border-gray-200', label: c.status };
+                  }
+
+                  const total = c.totalDestinatarios || 0;
+                  const enviadas = c.enviadas || 0;
+                  const pct = total > 0 ? Math.min(Math.round((enviadas / total) * 100), 100) : 0;
+                  const dataFormatada = c.criadoEm
+                    ? new Date(c.criadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : '';
+
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => window.location.href = `/comunicacao-oficial/campanhas/${c.id}`}
+                      className="p-2.5 bg-gray-50/80 hover:bg-teal-50/40 border border-gray-100 hover:border-teal-200 rounded-xl transition-all cursor-pointer space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-xs text-gray-800 truncate">{c.nome}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.bg} shrink-0`}>
+                          {statusBadge.label}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-gray-500">
+                        <span className="truncate">Template: <strong className="text-gray-700">{c.template}</strong></span>
+                        <span className="text-[10px] text-gray-400">{dataFormatada}</span>
+                      </div>
+
+                      <div className="space-y-1 pt-0.5">
+                        <div className="flex items-center justify-between text-[10px] text-gray-500">
+                          <span>Envios: <strong className="text-teal-700">{enviadas}</strong>/{total}</span>
+                          <span className="font-bold">{pct}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-teal-600 h-1.5 rounded-full transition-all duration-300"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-              {solicitacoesFiltradas.length === 0 && (
-                <div className="text-center py-4 text-gray-500 text-sm">
-                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-2xl mb-2 text-gray-300" />
-                  <p>Nenhuma solicitação recente</p>
+                  );
+                })
+              ) : (
+                <div className="text-center py-6 text-gray-400 text-xs">
+                  <FontAwesomeIcon icon={faPaperPlane} className="text-2xl mb-2 text-gray-300" />
+                  <p>Nenhum disparo realizado recentemente.</p>
                 </div>
               )}
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Aniversariantes */}
-        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-teal-100">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base lg:text-lg font-bold text-teal-700 flex items-center gap-2">
-              <FontAwesomeIcon icon={faBirthdayCake} /> ANIVERSARIANTES
-            </h3>
-            <button 
-              onClick={() => window.location.href = '/aniversariantes'}
-              className="text-xs text-teal-600 hover:text-teal-700 font-semibold"
-            >
-              Ver todos →
-            </button>
-          </div>
-          <div className="space-y-3">
-            {(stats.proximosAniversariantes || [])
-              .filter((pessoa) => {
-                const diasAte = Number(pessoa?.diasAte);
-                return Number.isFinite(diasAte) ? diasAte >= 0 && diasAte <= 30 : true;
-              })
-              .slice(0, 5)
-              .map((pessoa) => {
-              const hierarquia = String(pessoa.hierarquia || pessoa.tipo || 'ELEITOR').toUpperCase();
-              let diffDays = Number(pessoa?.diasAte);
+        {/* CARD 1: Resumo de Disparos */}
+        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-teal-100 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base lg:text-lg font-bold text-teal-700 flex items-center gap-2">
+                <FontAwesomeIcon icon={faWhatsapp} className="text-emerald-600" /> RESUMO DE DISPAROS
+              </h3>
+              <button 
+                onClick={() => window.location.href = '/comunicacao-oficial/dashboard'}
+                className="text-xs text-teal-600 hover:text-teal-700 font-semibold"
+              >
+                Ver Central →
+              </button>
+            </div>
 
-              if (!Number.isFinite(diffDays)) {
-                const hoje = new Date();
-                hoje.setHours(0, 0, 0, 0);
-                const aniversario = new Date(hoje.getFullYear(), Number(pessoa.mes) - 1, Number(pessoa.dia));
-                if (aniversario < hoje) {
-                  aniversario.setFullYear(hoje.getFullYear() + 1);
-                }
-                diffDays = Math.round((aniversario - hoje) / (1000 * 60 * 60 * 24));
-              }
-
-              diffDays = Math.max(0, Math.floor(diffDays));
-              
-              const isHoje = diffDays === 0;
-              const isAmanha = diffDays === 1;
-              
-              return (
-                <div key={`${pessoa.tipo}-${pessoa.id}`} className={`p-2 rounded-lg ${isHoje ? 'bg-pink-50 border-2 border-pink-300' : 'bg-teal-50'}`}>
-                  <div className="flex items-center gap-2">
-                    {pessoa.foto ? (
-                      <Image
-                        src={pessoa.foto}
-                        alt={pessoa.nome}
-                        width={40}
-                        height={40}
-                        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-bold text-xs">
-                          {pessoa.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-800 text-sm truncate">{pessoa.nome}</div>
-                      <div className="flex items-center gap-2 text-xs flex-wrap">
-                        <span className="text-gray-600">
-                          {pessoa.dia}/{pessoa.mes}
-                        </span>
-                        <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
-                          hierarquia === 'LIDERANCA'
-                            ? 'bg-purple-100 text-purple-700'
-                            : hierarquia === 'FUNCIONARIO'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {hierarquia === 'LIDERANCA' ? 'Liderança' : hierarquia === 'FUNCIONARIO' ? 'Funcionário' : 'Eleitor'}
-                        </span>
-                        {isHoje && (
-                          <span className="bg-pink-500 text-white px-1.5 py-0.5 rounded-full font-semibold text-xs">
-                            🎉 HOJE!
-                          </span>
-                        )}
-                        {isAmanha && (
-                          <span className="bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-semibold text-xs">
-                            Amanhã
-                          </span>
-                        )}
-                        {!isHoje && !isAmanha && (
-                          <span className="text-teal-600">
-                            {diffDays} {diffDays === 1 ? 'dia' : 'dias'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => window.location.href = `/comunicacao?userId=${pessoa.id}`}
-                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg flex items-center gap-1.5 flex-shrink-0 transition-all hover:scale-105 shadow-sm"
-                      title="Enviar mensagem no WhatsApp"
-                    >
-                      <FontAwesomeIcon icon={faWhatsapp} className="text-base" />
-                      <span className="text-xs font-semibold">Mensagem</span>
-                    </button>
+            {disparosLoading ? (
+              <div className="space-y-3">
+                <div className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+                <div className="h-16 bg-gray-50 rounded-xl animate-pulse" />
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {/* Total Enviadas e Hoje */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="p-3 bg-teal-50/70 border border-teal-100 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block">Total Enviadas</span>
+                    <span className="text-xl font-extrabold text-teal-900">{metricasDisparos.totalEnviadas}</span>
+                  </div>
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Enviadas Hoje</span>
+                    <span className="text-xl font-extrabold text-emerald-900">{metricasDisparos.mensagensEnviadasHoje}</span>
                   </div>
                 </div>
-              );
-            })}
-            {((stats.proximosAniversariantes || []).filter((pessoa) => {
-              const diasAte = Number(pessoa?.diasAte);
-              return Number.isFinite(diasAte) ? diasAte >= 0 && diasAte <= 30 : true;
-            }).length === 0) && (
-              <div className="text-center py-6 text-gray-500 text-sm">
-                <FontAwesomeIcon icon={faBirthdayCake} className="text-3xl mb-2 text-gray-300" />
-                <p>Nenhum aniversariante nos próximos dias</p>
+
+                {/* Taxa de Entrega */}
+                <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-gray-700">Taxa de Entrega</span>
+                    <span className="font-extrabold text-emerald-600">{metricasDisparos.taxaEntrega}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(metricasDisparos.taxaEntrega || 0, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Mini Grid: Entregues / Lidas / Falhas */}
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <span className="text-[10px] text-emerald-700 font-semibold block">Entregues</span>
+                    <span className="font-bold text-emerald-900">{metricasDisparos.entregues}</span>
+                  </div>
+                  <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <span className="text-[10px] text-blue-700 font-semibold block">Lidas</span>
+                    <span className="font-bold text-blue-900">{metricasDisparos.lidas}</span>
+                  </div>
+                  <div className="p-2 bg-rose-50 rounded-lg border border-rose-100">
+                    <span className="text-[10px] text-rose-700 font-semibold block">Falhas</span>
+                    <span className="font-bold text-rose-900">{metricasDisparos.falhas}</span>
+                  </div>
+                </div>
+
+                {/* Provedores Ativos */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                    <FontAwesomeIcon icon={faServer} className="mr-1" /> Provedores Ativos
+                  </span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {provedoresResumo.map((p) => (
+                      <div key={p.key} className={`p-1.5 rounded-lg border text-center ${p.bg}`}>
+                        <span className="text-[9px] font-bold uppercase block">{p.label}</span>
+                        <span className="text-xs font-extrabold">{p.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
+          </div>
+
+          <div className="pt-4">
+            <button
+              onClick={() => window.location.href = '/comunicacao-oficial/campanhas'}
+              className="w-full py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2"
+            >
+              <FontAwesomeIcon icon={faPaperPlane} />
+              <span>Iniciar Novo Disparo</span>
+            </button>
           </div>
         </div>
 

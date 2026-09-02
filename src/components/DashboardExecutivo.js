@@ -106,19 +106,25 @@ export default function DashboardExecutivo() {
     let bg = 'bg-teal-500';
     let icon = faWhatsapp;
 
-    if (prov === 'WHATSAPP') {
-      nome = 'WhatsApp Oficial (Meta / WaBlast)';
-      bg = 'bg-emerald-500';
+    const provUpper = String(prov || '').toUpperCase();
+
+    if (provUpper === 'META') {
+      nome = 'WhatsApp Oficial — Meta';
+      bg = 'bg-blue-600';
       icon = faWhatsapp;
-    } else if (prov === 'YCLOUD') {
+    } else if (provUpper === 'WABLAST') {
+      nome = 'WhatsApp Oficial — WaBlast';
+      bg = 'bg-emerald-600';
+      icon = faWhatsapp;
+    } else if (provUpper === 'YCLOUD') {
       nome = 'YCloud WhatsApp';
       bg = 'bg-teal-600';
       icon = faWhatsapp;
-    } else if (prov === 'WABLAST') {
-      nome = 'WaBlast Oficial';
-      bg = 'bg-green-600';
+    } else if (provUpper === 'WHATSAPP') {
+      nome = 'WhatsApp Oficial — Legado';
+      bg = 'bg-gray-500';
       icon = faWhatsapp;
-    } else if (prov === 'INSTAGRAM') {
+    } else if (provUpper === 'INSTAGRAM') {
       nome = 'Instagram Direct';
       bg = 'bg-pink-600';
       icon = faInstagram;

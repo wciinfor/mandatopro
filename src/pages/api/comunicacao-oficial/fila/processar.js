@@ -226,13 +226,14 @@ export default async function handler(req, res) {
           : `[Disparo Oficial Template: ${templateNome}] Olá ${destinatarioNome}`;
 
         // 6.1 Registra a mensagem de saída na Central de Atendimento
+        const realProvider = String(contaSelecionada.provider || 'META').toUpperCase();
         await supabase
           .from('communication_messages')
           .insert({
             tenant_id: campanha.tenant_id,
             conversation_id: conversa.id,
             provider_message_id: wamid,
-            provider: 'whatsapp',
+            provider: realProvider,
             channel: 'whatsapp',
             direction: 'saida',
             mensagem: textoMensagem
