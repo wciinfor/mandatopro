@@ -107,24 +107,43 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Cria uma audiência correspondente na tabela communication_audiences para o disparo
-    let audienceId = null;
-    const { data: novaAud, error: errAud } = await supabase
-      .from('communication_audiences')
-      .insert({
-        tenant_id: tenantId,
-        nome: body.publico || 'Público da Comunicação',
-        regras: {
-          origem: body.origemDestinatarios,
-          crm_campaign_id: body.campaign_id || null,
-          filtros: body.filtros || {}
-        }
-      })
-      .select('id')
-      .single();
+    // 2. Reutiliza audiência existente ou cria uma nova se não informada
+    let audienceId = body.audience_id ? Number(body.audience_id) : null;
 
-    if (!errAud && novaAud) {
-      audienceId = novaAud.id;
+    if (audienceId) {
+      // Valida explicitamente se a audiência pertence ao tenant autenticado
+      const { data: audExistente, error: errValidaAud } = await supabase
+        .from('communication_audiences')
+        .select('id, tenant_id')
+        .eq('id', audienceId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (errValidaAud || !audExistente) {
+        return res.status(403).json({
+          success: false,
+          message: 'Público / Audiência informada não existe ou não pertence a este tenant.'
+        });
+      }
+    } else {
+      // Cria uma audiência correspondente na tabela communication_audiences para o disparo
+      const { data: novaAud, error: errAud } = await supabase
+        .from('communication_audiences')
+        .insert({
+          tenant_id: tenantId,
+          nome: body.publico || 'Público da Comunicação',
+          regras: {
+            origem: body.origemDestinatarios,
+            crm_campaign_id: body.campaign_id || null,
+            filtros: body.filtros || {}
+          }
+        })
+        .select('id')
+        .single();
+
+      if (!errAud && novaAud) {
+        audienceId = novaAud.id;
+      }
     }
 
     // 3. Persiste a comunicação na tabela principal de campanhas de disparos (communication_campaigns)
