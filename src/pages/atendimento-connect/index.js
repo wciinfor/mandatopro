@@ -58,6 +58,29 @@ function formatTempo(value) {
   return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function formatCanalResposta(canalResolvido, conversaAtiva) {
+  const provider = (canalResolvido?.provider || conversaAtiva?.metadata?.provider || (conversaAtiva?.metadata?.origem === 'ycloud' ? 'YCLOUD' : null) || '').toUpperCase();
+  const rawNum = canalResolvido?.numero_gabinete || conversaAtiva?.metadata?.numero_gabinete || conversaAtiva?.metadata?.phoneNumberId || '';
+  const numLimpo = rawNum && rawNum !== 'N/A' ? formatTelefone(rawNum) : '';
+
+  if (provider === 'YCLOUD') {
+    return `Canal: YCloud ${numLimpo ? `— ${numLimpo}` : '— +55 91 8082-3372'}`;
+  }
+  if (provider === 'WABLAST') {
+    return `Canal: WaBlast ${numLimpo ? `— ${numLimpo}` : '— +55 91 8089-6907'}`;
+  }
+  if (provider === 'META') {
+    return `Canal: Meta ${numLimpo ? `— ${numLimpo}` : '— +55 91 8088-6129'}`;
+  }
+
+  if (numLimpo) {
+    return `Canal: WhatsApp — ${numLimpo}`;
+  }
+
+  return 'Canal: WhatsApp — conta principal';
+}
+
+
 export default function AtendimentoConnect() {
   const { user } = useAuth();
   const [conversas, setConversas] = useState([]);
@@ -76,6 +99,8 @@ export default function AtendimentoConnect() {
   const [templateSelecionado, setTemplateSelecionado] = useState(null);
   const [variaveisTemplate, setVariaveisTemplate] = useState({});
   const [enviandoTemplate, setEnviandoTemplate] = useState(false);
+  const [canalResolvido, setCanalResolvido] = useState(null);
+  const [avisoJanela, setAvisoJanela] = useState('');
 
   const carregarTemplatesOficiais = useCallback(async () => {
     setCarregandoTemplates(true);
@@ -194,6 +219,9 @@ export default function AtendimentoConnect() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.message || 'Erro ao carregar conversa');
       const novasMsgs = payload.data || [];
+      if (payload.canalResolvido) {
+        setCanalResolvido(payload.canalResolvido);
+      }
 
       // Atualiza setMensagens SOMENTE se houver alteração real para evitar re-renderizações desnecessárias / piscar
       setMensagens((prev) => {
@@ -459,9 +487,24 @@ export default function AtendimentoConnect() {
         body: JSON.stringify({ mensagem: texto, direcao: modoResposta })
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.message || 'Erro ao registrar resposta');
+
+      if (!response.ok) {
+        if (payload?.code === 'WINDOW_24H_CLOSED' || response.status === 422) {
+          if (payload?.data) {
+            setMensagens((prev) => [...prev, payload.data]);
+          }
+          setAvisoJanela(payload?.message || 'A janela de 24 horas está fechada. Envie uma mensagem usando um template aprovado.');
+          // Abre e carrega automaticamente o modal existente de Template WhatsApp
+          carregarTemplatesOficiais();
+          setModalTemplateAberto(true);
+          return;
+        }
+        throw new Error(payload?.message || 'Erro ao registrar resposta');
+      }
+
       setMensagens((prev) => [...prev, payload.data]);
       setResposta('');
+      setAvisoJanela('');
       await carregarConversas();
       setTimeout(() => {
         if (containerMensagensRef.current) {
@@ -531,16 +574,24 @@ export default function AtendimentoConnect() {
     }
   };
 
-  // Identifica se a última mensagem enviada falhou devido à expiração da janela de 24 horas (erro 131047)
+  // Identifica se a janela de 24 horas está fechada
   const ultimaMsgSaida = [...mensagens].reverse().find(m => m.direcao === 'saida');
+  const rawUltima = ultimaMsgSaida?.rawPayload || ultimaMsgSaida?.raw_payload || {};
+  const erroMsgUltima = String(rawUltima.error?.message || rawUltima.errorMessage || '').toLowerCase();
+  const erroCodeUltima = String(rawUltima.error?.code || rawUltima.errorCode || rawUltima.statusUpdate?.errorCode || '');
+
   const janelaExpirada = Boolean(
-    ultimaMsgSaida &&
-    ultimaMsgSaida.status === 'failed' &&
+    avisoJanela ||
     (
-      ultimaMsgSaida.rawPayload?.errorCode === '131047' ||
-      ultimaMsgSaida.rawPayload?.statusUpdate?.errorCode === '131047' ||
-      ultimaMsgSaida.raw_payload?.errorCode === '131047' ||
-      ultimaMsgSaida.raw_payload?.statusUpdate?.errorCode === '131047'
+      ultimaMsgSaida &&
+      (ultimaMsgSaida.status === 'failed' || ultimaMsgSaida.status === 'falhou') &&
+      (
+        erroCodeUltima === '131047' ||
+        erroMsgUltima.includes('janela 24h fechada') ||
+        erroMsgUltima.includes('janela 24 horas fechada') ||
+        erroMsgUltima.includes('out of 24 hours') ||
+        erroMsgUltima.includes('re-engagement message')
+      )
     )
   );
 
@@ -694,7 +745,13 @@ export default function AtendimentoConnect() {
                           )}
                         </div>
                         <p className="text-sm text-gray-600">{formatTelefone(ativa.contatoTelefone)}</p>
-                        <p className="text-xs text-gray-500 mt-1">{STATUS_LABEL[ativa.status]} · {ativa.campanha?.titulo || 'Sem campanha vinculada'}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-500">{STATUS_LABEL[ativa.status]} · {ativa.campanha?.titulo || 'Sem campanha vinculada'}</p>
+                          <span className="text-xs text-gray-300">|</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+                            {formatCanalResposta(canalResolvido, ativa)}
+                          </span>
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -807,7 +864,7 @@ export default function AtendimentoConnect() {
                         <div className="flex items-center gap-2">
                           <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-600 text-sm shrink-0" />
                           <span>
-                            A janela de 24 horas para mensagens de texto expirou. Para retomar o contato, envie um Modelo de Mensagem (Template).
+                            {avisoJanela || 'A janela de 24 horas para mensagens de texto expirou. Para retomar o contato, envie um Modelo de Mensagem (Template).'}
                           </span>
                         </div>
                         <button

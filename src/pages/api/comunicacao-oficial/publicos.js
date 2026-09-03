@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterTenantId } from '@/lib/tenant';
 import { contarContatosMandatoPro } from '@/lib/disparos/mandatopro-contatos';
 
 export const runtime = 'nodejs';
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    const tenantId = usuario.tenant_id;
+    const tenantId = obterTenantId(usuario);
     if (!tenantId) {
       return res.status(403).json({ success: false, message: 'Tenant não associado ao usuário.' });
     }

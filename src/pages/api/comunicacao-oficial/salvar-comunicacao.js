@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterTenantId } from '@/lib/tenant';
 
 /**
  * API Handler para criar e persistir a Comunicação Oficial na tabela communication_campaigns.
@@ -9,7 +10,12 @@ export default async function handler(req, res) {
     try {
       const supabase = createServerClient();
       const { usuario } = await obterUsuarioAutenticado(req, supabase);
-      const tenantId = usuario?.tenant_id || '00000000-0000-0000-0000-000000000000';
+      exigirUsuario(usuario);
+
+      const tenantId = obterTenantId(usuario);
+      if (!tenantId) {
+        return res.status(403).json({ error: 'Tenant não associado ao usuário autenticado.' });
+      }
 
       const { data: campanhas, error } = await supabase
         .from('communication_campaigns')
@@ -73,7 +79,10 @@ export default async function handler(req, res) {
 
     const body = req.body || {};
 
-    const tenantId = usuario.tenant_id || '00000000-0000-0000-0000-000000000000';
+    const tenantId = obterTenantId(usuario);
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Tenant não associado ao usuário autenticado.' });
+    }
 
     // 1. Busca ou cria um template_id correspondente ao template_nome da Meta
     let templateId = null;

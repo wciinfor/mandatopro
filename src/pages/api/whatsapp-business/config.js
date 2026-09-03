@@ -28,6 +28,10 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const tenantId = obterTenantId(usuario);
+      if (!tenantId) {
+        return res.status(403).json({ success: false, error: 'Tenant não associado ao usuário autenticado.' });
+      }
+
       const conta = await buscarContaWhatsappPrincipal(supabase, usuario);
       const contaNormalizada = normalizarWhatsappAccount(conta);
 
@@ -43,7 +47,7 @@ export default async function handler(req, res) {
           ycloud_api_key,
           whatsapp_business_numbers (phone_number_id, display_phone_number, verified_name, status)
         `)
-        .eq('tenant_id', tenantId || contaNormalizada.tenantId || 1)
+        .eq('tenant_id', tenantId)
         .eq('status', 'ATIVO');
 
       const contaWablastRaw = (todasContas || []).find(c => c.provider === 'WABLAST');

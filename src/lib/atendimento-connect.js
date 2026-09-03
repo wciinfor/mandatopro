@@ -68,8 +68,10 @@ export function toPublicMensagem(row = {}) {
     mediaTipo: row.media_tipo || null,
     providerMessageId: row.provider_message_id || null,
     status: row.status || 'registrada',
+    rawPayload: row.raw_payload || row.rawPayload || null,
     usuarioId: row.usuario_id || null,
     createdAt: row.created_at || null,
     usuario: row.usuarios || null
   };
 }
+

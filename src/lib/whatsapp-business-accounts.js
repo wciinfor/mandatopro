@@ -828,4 +828,211 @@ export async function salvarContaWhatsappWaBlast(supabase, usuario, dados = {}) 
   return buscarContaWhatsappPrincipal(supabase, usuario);
 }
 
+/**
+ * Resolve a conta de WhatsApp correta para responder a uma conversa de atendimento,
+ * garantindo que a resposta saia pelo mesmo provedor e número do gabinete que recebeu
+ * a última mensagem de entrada do eleitor (preservando a janela de 24 horas aberta).
+ *
+ * Ordem estrita de resolução:
+ * 1. Última mensagem de ENTRADA da conversa (analisando destinatário `to`, provider, WABA ID ou phoneNumberId).
+ * 2. Metadados da própria conversa (`metadata.provider`, `metadata.origem`, `metadata.numero_gabinete`).
+ * 3. Fallback: conta principal ativa do tenant (`buscarContaWhatsappPrincipal`).
+ *
+ * @param {Object} supabase - Cliente Supabase do servidor
+ * @param {Object} conversa - Registro da conversa em atendimento_connect_conversas
+ * @param {Object} usuario - Usuário autenticado
+ * @returns {Promise<{ conta: Object, resolucaoInfo: Object }>}
+ */
+export async function resolverContaWhatsappDaConversa(supabase, conversa, usuario) {
+  const tenantId = obterTenantId(usuario) || Number(conversa?.tenant_id || 1);
+
+  // 1. Busca todas as contas ativas do tenant com seus números
+  const { data: todasContas, error: errContas } = await supabase
+    .from('whatsapp_business_accounts')
+    .select(`
+      id,
+      tenant_id,
+      provider,
+      nome,
+      principal,
+      status,
+      access_token,
+      ycloud_api_key,
+      wablast_account_id,
+      wablast_waba_id,
+      waba_id,
+      whatsapp_business_numbers (
+        id,
+        phone_number_id,
+        display_phone_number,
+        display_name,
+        verified_name,
+        status,
+        principal
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .eq('status', 'ATIVO');
+
+  if (errContas) {
+    console.error('[RESOLVER CONTA CONVERSA] Erro ao buscar contas ativas:', errContas.message);
+  }
+
+  const contas = todasContas || [];
+
+  let contaResolvida = null;
+  let motivoResolucao = 'fallback_principal';
+  let numeroGabineteIdentificado = null;
+
+  // Helper para buscar conta por telefone do gabinete
+  const encontrarContaPorTelefone = (telBruto) => {
+    if (!telBruto) return null;
+    const clean = String(telBruto).replace(/\D/g, '');
+    if (!clean) return null;
+
+    return contas.find(c => {
+      const nums = Array.isArray(c.whatsapp_business_numbers) ? c.whatsapp_business_numbers : [];
+      return nums.some(n => {
+        const cleanDisplay = String(n.display_phone_number || '').replace(/\D/g, '');
+        const cleanPhoneId = String(n.phone_number_id || '').replace(/\D/g, '');
+        return cleanDisplay === clean || cleanPhoneId === clean;
+      });
+    });
+  };
+
+  // Helper para buscar conta por WABA ID
+  const encontrarContaPorWaba = (wabaId) => {
+    if (!wabaId) return null;
+    const wabaStr = String(wabaId).trim();
+    return contas.find(c => {
+      return String(c.waba_id || '').trim() === wabaStr
+        || String(c.wablast_waba_id || '').trim() === wabaStr;
+    });
+  };
+
+  // Helper para buscar conta por provider ('YCLOUD', 'WABLAST', 'META')
+  const encontrarContaPorProvider = (providerNome) => {
+    if (!providerNome) return null;
+    const provNorm = String(providerNome).toUpperCase();
+    return contas.find(c => String(c.provider || '').toUpperCase() === provNorm);
+  };
+
+  // ─── PASSO 1: Analisar última mensagem de ENTRADA da conversa ───────────────
+  if (conversa?.id) {
+    const { data: ultEntrada, error: errEntrada } = await supabase
+      .from('atendimento_connect_mensagens')
+      .select('id, direcao, raw_payload, created_at')
+      .eq('conversa_id', conversa.id)
+      .eq('direcao', 'entrada')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!errEntrada && ultEntrada) {
+      const payload = ultEntrada.raw_payload || {};
+      const inboundMsg = payload.whatsappInboundMessage || {};
+
+      // 1.1 Tentar pelo número receptor (`to`) no payload da mensagem de entrada
+      const receptorRaw = inboundMsg.to || payload.to || payload.recipient || null;
+      if (receptorRaw) {
+        const contaPorReceptor = encontrarContaPorTelefone(receptorRaw);
+        if (contaPorReceptor) {
+          contaResolvida = contaPorReceptor;
+          numeroGabineteIdentificado = receptorRaw;
+          motivoResolucao = 'ultima_entrada_numero_to';
+        }
+      }
+
+      // 1.2 Tentar pelo WABA ID no payload da mensagem de entrada
+      if (!contaResolvida) {
+        const wabaEntrada = inboundMsg.wabaId || payload.waba_id || payload.wabaId || null;
+        if (wabaEntrada) {
+          const contaPorWaba = encontrarContaPorWaba(wabaEntrada);
+          if (contaPorWaba) {
+            contaResolvida = contaPorWaba;
+            motivoResolucao = 'ultima_entrada_waba_id';
+          }
+        }
+      }
+
+      // 1.3 Tentar por indicação explícita de provider na mensagem de entrada
+      if (!contaResolvida) {
+        const provEntrada = payload.provider || (payload.type?.startsWith('whatsapp.') ? 'YCLOUD' : null);
+        if (provEntrada) {
+          const contaPorProv = encontrarContaPorProvider(provEntrada);
+          if (contaPorProv) {
+            contaResolvida = contaPorProv;
+            motivoResolucao = 'ultima_entrada_provider';
+          }
+        }
+      }
+    }
+  }
+
+  // ─── PASSO 2: Analisar metadados da Conversa (`metadata`) ───────────────────
+  if (!contaResolvida && conversa?.metadata && typeof conversa.metadata === 'object') {
+    const meta = conversa.metadata;
+
+    // 2.1 Pelo número do gabinete registrado no metadata
+    if (meta.numero_gabinete || meta.phoneNumberId) {
+      const contaPorMetaTel = encontrarContaPorTelefone(meta.numero_gabinete || meta.phoneNumberId);
+      if (contaPorMetaTel) {
+        contaResolvida = contaPorMetaTel;
+        numeroGabineteIdentificado = meta.numero_gabinete || meta.phoneNumberId;
+        motivoResolucao = 'metadata_conversa_numero_gabinete';
+      }
+    }
+
+    // 2.2 Pelo WABA ID no metadata
+    if (!contaResolvida && meta.wabaId) {
+      const contaPorMetaWaba = encontrarContaPorWaba(meta.wabaId);
+      if (contaPorMetaWaba) {
+        contaResolvida = contaPorMetaWaba;
+        motivoResolucao = 'metadata_conversa_waba_id';
+      }
+    }
+
+    // 2.3 Pelo provider ou origem no metadata
+    if (!contaResolvida) {
+      let provSugerido = meta.provider || null;
+      if (!provSugerido && meta.origem === 'ycloud') provSugerido = 'YCLOUD';
+      if (!provSugerido && meta.origem === 'wablast') provSugerido = 'WABLAST';
+      if (!provSugerido && meta.origem === 'whatsapp_meta') provSugerido = 'META';
+
+      if (provSugerido) {
+        const contaPorMetaProv = encontrarContaPorProvider(provSugerido);
+        if (contaPorMetaProv) {
+          contaResolvida = contaPorMetaProv;
+          motivoResolucao = 'metadata_conversa_origem_provider';
+        }
+      }
+    }
+  }
+
+  // ─── PASSO 3: Fallback final para a conta principal do tenant ────────────────
+  if (!contaResolvida) {
+    contaResolvida = await buscarContaWhatsappPrincipal(supabase, usuario);
+    motivoResolucao = 'fallback_conta_principal';
+  }
+
+  const normalizada = normalizarWhatsappAccount(contaResolvida);
+  const numeroGabineteFinal = numeroGabineteIdentificado || normalizada.displayPhoneNumber || normalizada.phoneNumberId || 'N/A';
+
+  const resolucaoInfo = {
+    conversaId: conversa?.id || null,
+    provider: contaResolvida?.provider || normalizada.provider || 'DESCONHECIDO',
+    account_id: contaResolvida?.id || normalizada.id || null,
+    numero_gabinete: numeroGabineteFinal,
+    motivo_resolucao: motivoResolucao
+  };
+
+  console.log('[ATENDIMENTO CONNECT RESOLVER] Conta resolvida para resposta:', resolucaoInfo);
+
+  return {
+    conta: contaResolvida,
+    resolucaoInfo
+  };
+}
+
+
 

@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterTenantId } from '@/lib/tenant';
 import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 
 /**
@@ -21,21 +22,27 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // 1. Busca os metadados da comunicação
+    const tenantId = obterTenantId(usuario);
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Tenant não associado ao usuário autenticado.' });
+    }
+
+    // 1. Busca os metadados da comunicação garantindo isolamento de tenant
     const { data: campanha, error: errCamp } = await supabase
       .from('communication_campaigns')
       .select('*, communication_templates(nome), communication_audiences(nome, regras)')
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (errCamp || !campanha) {
-      return res.status(404).json({ error: 'Comunicação oficial não localizada.' });
+      return res.status(404).json({ error: 'Comunicação oficial não localizada ou não pertence a este tenant.' });
     }
 
     // 2. Resolve a conta oficial de WhatsApp ativa e configurada
     let contaOficial = null;
     try {
-      const rowConta = await buscarContaWhatsappPrincipal(supabase, { tenantId: usuario.tenant_id });
+      const rowConta = await buscarContaWhatsappPrincipal(supabase, { tenant_id: tenantId });
       if (rowConta) {
         contaOficial = normalizarWhatsappAccount(rowConta);
       }

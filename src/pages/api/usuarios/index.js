@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
+import { obterTenantId } from '@/lib/tenant';
 import {
   gerarTraceId,
   parsePaginacao,
@@ -114,12 +115,18 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: authError?.message || 'Erro ao criar usuário', traceId });
       }
 
+      const tenantIdCriador = obterTenantId(usuario);
+      if (!tenantIdCriador) {
+        return res.status(400).json({ message: 'Tenant do administrador autenticado não identificado', traceId });
+      }
+
       const payload = {
         email,
         nome,
         nivel,
         status,
         lideranca_id: body.lideranca_id ? Number(body.lideranca_id) : null,
+        tenant_id: tenantIdCriador,
         auth_user_id: authData.user.id,
         ativo: status === 'ATIVO',
         created_at: new Date().toISOString(),

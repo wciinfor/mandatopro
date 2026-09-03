@@ -1,7 +1,11 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 import { exigirAcessoAtendimentoConnect, toPublicMensagem } from '@/lib/atendimento-connect';
-import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
+import {
+  buscarContaWhatsappPrincipal,
+  normalizarWhatsappAccount,
+  resolverContaWhatsappDaConversa
+} from '@/lib/whatsapp-business-accounts';
 import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
 
 export const runtime = 'nodejs';
@@ -20,15 +24,37 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('atendimento_connect_mensagens')
-        .select('*, usuarios:usuario_id (id, nome, nivel)')
-        .eq('conversa_id', conversaId)
-        .order('created_at', { ascending: true })
-        .limit(300);
+      const [{ data, error }, { data: conversa }] = await Promise.all([
+        supabase
+          .from('atendimento_connect_mensagens')
+          .select('*, usuarios:usuario_id (id, nome, nivel)')
+          .eq('conversa_id', conversaId)
+          .order('created_at', { ascending: true })
+          .limit(300),
+        supabase
+          .from('atendimento_connect_conversas')
+          .select('*')
+          .eq('id', conversaId)
+          .single()
+      ]);
 
       if (error) throw error;
-      return res.status(200).json({ success: true, data: (data || []).map(toPublicMensagem) });
+
+      let canalResolvido = null;
+      if (conversa) {
+        try {
+          const { resolucaoInfo } = await resolverContaWhatsappDaConversa(supabase, conversa, usuario);
+          canalResolvido = resolucaoInfo;
+        } catch (e) {
+          console.warn('[ATENDIMENTO CONNECT GET] Falha ao resolver canal da conversa:', e?.message);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: (data || []).map(toPublicMensagem),
+        canalResolvido
+      });
     }
 
     if (req.method === 'POST') {
@@ -66,11 +92,11 @@ export default async function handler(req, res) {
 
       let mensagemFinal = mensagemInserida;
 
-      // 2. Se for uma mensagem de saída para o contato, envia via WhatsApp Provider (META ou YCloud)
+      // 2. Se for uma mensagem de saída para o contato, envia via WhatsApp Provider (META, WABLAST ou YCloud)
       if (direcao === 'saida') {
         const { data: conversa, error: errConv } = await supabase
           .from('atendimento_connect_conversas')
-          .select('contato_telefone')
+          .select('*')
           .eq('id', conversaId)
           .single();
 
@@ -83,7 +109,7 @@ export default async function handler(req, res) {
           });
         }
 
-        const contaRaw = await buscarContaWhatsappPrincipal(supabase, usuario);
+        const { conta: contaRaw, resolucaoInfo } = await resolverContaWhatsappDaConversa(supabase, conversa, usuario);
         if (!contaRaw) {
           console.error('[ATENDIMENTO CONNECT SEND] Nenhuma conta WhatsApp Business ativa configurada');
           return res.status(400).json({
@@ -146,12 +172,60 @@ export default async function handler(req, res) {
             mensagemFinal = msgAtualizada;
           }
         } catch (sendError) {
-          // Em caso de falha de envio, mantem status='pendente_envio', loga o erro sem segredos e retorna erro 500
           console.error('[ATENDIMENTO CONNECT SEND] Erro no provedor WhatsApp:', sendError?.message || sendError);
+
+          const errorMessage = String(sendError?.message || sendError || '');
+          const errorDetails = sendError?.details || {};
+          const isWindowClosed = (
+            errorMessage.toLowerCase().includes('janela 24h fechada') ||
+            errorMessage.toLowerCase().includes('janela 24 horas fechada') ||
+            errorMessage.toLowerCase().includes('out of 24 hours') ||
+            errorMessage.toLowerCase().includes('re-engagement message') ||
+            errorMessage.includes('131047') ||
+            String(sendError?.code || '') === '131047' ||
+            String(errorDetails?.error?.code || '') === '131047' ||
+            String(errorDetails?.code || '') === '131047'
+          );
+
+          // Atualiza a mensagem no banco para status='falhou', registrando o erro original
+          const errorPayload = {
+            status: 'falhou',
+            raw_payload: {
+              ...(mensagemInserida.raw_payload || {}),
+              error: {
+                message: errorMessage,
+                code: sendError?.code || (isWindowClosed ? '131047' : 'SEND_ERROR'),
+                details: errorDetails
+              },
+              provider: resolucaoInfo?.provider || null,
+              provider_account_id: resolucaoInfo?.account_id || null,
+              numero_gabinete: resolucaoInfo?.numero_gabinete || null,
+              failed_at: new Date().toISOString()
+            }
+          };
+
+          const { data: msgFalha } = await supabase
+            .from('atendimento_connect_mensagens')
+            .update(errorPayload)
+            .eq('id', mensagemInserida.id)
+            .select('*, usuarios:usuario_id (id, nome, nivel)')
+            .single();
+
+          const dadosRetorno = toPublicMensagem(msgFalha || { ...mensagemInserida, ...errorPayload });
+
+          if (isWindowClosed) {
+            return res.status(422).json({
+              success: false,
+              code: 'WINDOW_24H_CLOSED',
+              message: 'A janela de 24 horas está fechada. Envie uma mensagem usando um template aprovado.',
+              data: dadosRetorno
+            });
+          }
+
           return res.status(500).json({
             success: false,
-            message: `Falha ao enviar mensagem via WhatsApp: ${sendError?.message || 'Erro no provedor'}`,
-            data: toPublicMensagem(mensagemInserida)
+            message: `Falha ao enviar mensagem via WhatsApp: ${errorMessage || 'Erro no provedor'}`,
+            data: dadosRetorno
           });
         }
       }

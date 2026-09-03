@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterTenantId } from '@/lib/tenant';
 
 /**
  * API Handler para gerenciar ações de controle da Comunicação Oficial (Pausar, Retomar, Cancelar).
@@ -21,15 +22,21 @@ export default async function handler(req, res) {
     const { usuario } = await obterUsuarioAutenticado(req, supabase);
     exigirUsuario(usuario);
 
-    // 1. Busca a campanha correspondente
+    const tenantId = obterTenantId(usuario);
+    if (!tenantId) {
+      return res.status(403).json({ error: 'Tenant não associado ao usuário autenticado.' });
+    }
+
+    // 1. Busca a campanha correspondente garantindo isolamento de tenant
     const { data: campanha, error: errGet } = await supabase
       .from('communication_campaigns')
       .select('*')
       .eq('id', id)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (errGet || !campanha) {
-      return res.status(404).json({ error: 'Campanha não encontrada.' });
+      return res.status(404).json({ error: 'Campanha não encontrada ou não pertence a este tenant.' });
     }
 
     let novoStatus = campanha.status;
@@ -51,7 +58,7 @@ export default async function handler(req, res) {
         .from('communication_campaigns')
         .delete()
         .eq('id', id)
-        .eq('tenant_id', usuario.tenant_id || 1);
+        .eq('tenant_id', tenantId);
 
       if (errDelete) throw errDelete;
 
