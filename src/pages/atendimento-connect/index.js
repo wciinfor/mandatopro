@@ -101,6 +101,7 @@ export default function AtendimentoConnect() {
   const [enviandoTemplate, setEnviandoTemplate] = useState(false);
   const [canalResolvido, setCanalResolvido] = useState(null);
   const [avisoJanela, setAvisoJanela] = useState('');
+  const [modalAtendimentoAberto, setModalAtendimentoAberto] = useState(false);
 
   const carregarTemplatesOficiais = useCallback(async () => {
     setCarregandoTemplates(true);
@@ -633,8 +634,8 @@ export default function AtendimentoConnect() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4 flex-1 min-h-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3 overflow-y-auto pr-1">
+          <div className="flex-1 min-h-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 h-full overflow-y-auto pr-1">
               {COLUNAS.map((coluna) => (
                 <section key={coluna.id} className={`bg-white rounded-lg shadow-sm border-t-4 ${coluna.color} flex flex-col h-full`}>
                   <header className="px-3 py-3 border-b flex items-center justify-between shrink-0">
@@ -654,10 +655,13 @@ export default function AtendimentoConnect() {
                       porStatus[coluna.id].map((conversa) => (
                         <article
                           key={conversa.id}
-                          className={`border rounded-lg p-3 cursor-pointer transition bg-white hover:border-teal-400 ${
+                          className={`border rounded-lg p-3 cursor-pointer transition bg-white hover:border-teal-400 hover:shadow-md ${
                             ativa?.id === conversa.id ? 'border-teal-500 ring-2 ring-teal-100' : 'border-gray-200'
                           }`}
-                          onClick={() => setAtiva(conversa)}
+                          onClick={() => {
+                            setAtiva(conversa);
+                            setModalAtendimentoAberto(true);
+                          }}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -726,217 +730,243 @@ export default function AtendimentoConnect() {
                 </section>
               ))}
             </div>
+          </div>
 
-            <aside className="bg-white rounded-lg shadow-sm flex flex-col h-full min-h-0">
-              {ativa ? (
-                <>
-                  <header className="p-4 border-b shrink-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-lg font-bold text-gray-900">{ativa.contatoNome}</h2>
-                          {ativa.canal && (
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
-                              (CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).bg
-                            }`}>
-                              <FontAwesomeIcon icon={(CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).icon} className="text-[10px]" />
-                              {(CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).label}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600">{formatTelefone(ativa.contatoTelefone)}</p>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <p className="text-xs text-gray-500">{STATUS_LABEL[ativa.status]} · {ativa.campanha?.titulo || 'Sem campanha vinculada'}</p>
-                          <span className="text-xs text-gray-300">|</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
-                            {formatCanalResposta(canalResolvido, ativa)}
+          {/* Modal de Atendimento e Conversa */}
+          {modalAtendimentoAberto && ativa && (
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-4xl h-[92vh] max-h-[850px] overflow-hidden flex flex-col">
+                <header className="p-4 border-b shrink-0 bg-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg font-bold text-gray-900 truncate">{ativa.contatoNome}</h2>
+                        {ativa.canal && (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            (CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).bg
+                          }`}>
+                            <FontAwesomeIcon icon={(CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).icon} className="text-[10px]" />
+                            {(CANAL_CONFIGS[ativa.canal] || CANAL_CONFIGS['whatsapp_legacy']).label}
                           </span>
-                        </div>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => assumir(ativa)}
-                        className="px-3 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 flex items-center gap-2"
-                      >
-                        <FontAwesomeIcon icon={faUserCheck} />
-                        Assumir
-                      </button>
+                      <p className="text-sm text-gray-600">{formatTelefone(ativa.contatoTelefone)}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <p className="text-xs text-gray-500">{STATUS_LABEL[ativa.status]} · {ativa.campanha?.titulo || 'Sem campanha vinculada'}</p>
+                        <span className="text-xs text-gray-300">|</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
+                          {formatCanalResposta(canalResolvido, ativa)}
+                        </span>
+                      </div>
                     </div>
-                  </header>
 
-                  <div ref={containerMensagensRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0">
-                    {carregandoMensagens ? (
-                      <div className="text-sm text-gray-500 text-center py-8">Carregando conversa...</div>
-                    ) : mensagens.length ? (
-                      mensagens.map((mensagem) => {
-                        const isSaida = mensagem.direcao === 'saida';
-                        const isEntrada = mensagem.direcao === 'entrada';
-                        const isNota = !isSaida && !isEntrada;
-
-                        const raw = mensagem.rawPayload || mensagem.raw_payload || {};
-                        const statusNorm = String(mensagem.status || '').toLowerCase();
-                        const isFailed = statusNorm === 'failed';
-                        const isPendente = statusNorm === 'pendente_envio';
-
-                        const erroMsg = raw.errorMessage || raw.statusUpdate?.errorMessage || raw.error?.message || null;
-                        const erroCode = raw.errorCode || raw.statusUpdate?.errorCode || raw.error?.code || null;
-
-                        return (
-                          <div
-                            key={mensagem.id}
-                            className={`max-w-[88%] rounded-xl px-3.5 py-2.5 text-sm shadow-sm transition-all ${
-                              isEntrada
-                                ? 'bg-white border border-gray-200 text-gray-800 mr-auto'
-                                : isNota
-                                  ? 'bg-amber-50 border border-amber-200 text-amber-900 mx-auto'
-                                  : isFailed
-                                    ? 'bg-rose-50 border border-rose-200 text-rose-950 ml-auto'
-                                    : isPendente
-                                      ? 'bg-teal-700/80 border border-teal-600/50 text-teal-50 ml-auto opacity-90'
-                                      : 'bg-teal-600 text-white ml-auto'
-                            }`}
-                          >
-                            <p className="whitespace-pre-wrap">{mensagem.mensagem}</p>
-
-                            {/* Informação de Erro em caso de Falha */}
-                            {isFailed && (
-                              <div className="mt-2 pt-1.5 border-t border-rose-200/70 text-[11px] text-rose-700 flex items-start gap-1.5 font-medium">
-                                <FontAwesomeIcon icon={faCircleExclamation} className="text-rose-500 mt-0.5 shrink-0" />
-                                <span>
-                                  Falha no envio{erroCode ? ` (Erro ${erroCode})` : ''}
-                                  {erroMsg ? `: ${erroMsg}` : ''}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Rodapé da Mensagem (Horário, Usuário e Ícone de Status) */}
-                            <div className={`text-[11px] mt-1.5 flex items-center justify-end gap-1.5 ${
-                              isEntrada
-                                ? 'text-gray-400'
-                                : isNota
-                                  ? 'text-amber-700/70'
-                                  : isFailed
-                                    ? 'text-rose-600/80'
-                                    : 'text-teal-100/90'
-                            }`}>
-                              <span>{formatTempo(mensagem.createdAt || mensagem.created_at)}</span>
-                              {mensagem.usuario?.nome && <span>· {mensagem.usuario.nome}</span>}
-
-                              {/* Indicadores Visuais de Status para Mensagens de Saída */}
-                              {isSaida && (
-                                <span className="inline-flex items-center ml-0.5" title={`Status: ${mensagem.status}`}>
-                                  {isFailed && (
-                                    <span className="text-rose-600 font-bold flex items-center gap-1">
-                                      <FontAwesomeIcon icon={faCircleExclamation} className="text-[10px]" />
-                                      Não entregue
-                                    </span>
-                                  )}
-                                  {isPendente && (
-                                    <FontAwesomeIcon icon={faClock} className="text-[10px] text-teal-200 animate-pulse" title="Pendente de envio" />
-                                  )}
-                                  {statusNorm === 'enviada' && (
-                                    <FontAwesomeIcon icon={faCheck} className="text-[10px] text-teal-200" title="Enviada ao servidor" />
-                                  )}
-                                  {statusNorm === 'sent' && (
-                                    <FontAwesomeIcon icon={faCheck} className="text-[10px] text-teal-200" title="Enviada" />
-                                  )}
-                                  {statusNorm === 'delivered' && (
-                                    <FontAwesomeIcon icon={faCheckDouble} className="text-[10px] text-teal-200" title="Entregue" />
-                                  )}
-                                  {statusNorm === 'read' && (
-                                    <FontAwesomeIcon icon={faCheckDouble} className="text-[10px] text-emerald-300" title="Lida" />
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-sm text-gray-500 text-center py-8">Nenhuma mensagem registrada.</div>
-                    )}
-                  </div>
-
-                  <footer className="p-4 border-t space-y-3 shrink-0">
-                    {/* Alerta de Janela de 24h expirada */}
-                    {janelaExpirada && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-600 text-sm shrink-0" />
-                          <span>
-                            {avisoJanela || 'A janela de 24 horas para mensagens de texto expirou. Para retomar o contato, envie um Modelo de Mensagem (Template).'}
-                          </span>
-                        </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {ativa.status !== 'em_atendimento' && (
                         <button
                           type="button"
-                          onClick={() => {
-                            carregarTemplatesOficiais();
-                            setModalTemplateAberto(true);
-                          }}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition shrink-0 flex items-center gap-1.5"
+                          onClick={() => assumir(ativa)}
+                          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 flex items-center gap-1.5 transition"
                         >
-                          <FontAwesomeIcon icon={faFileSignature} />
-                          Enviar Template
+                          <FontAwesomeIcon icon={faUserCheck} />
+                          Assumir
                         </button>
-                      </div>
-                    )}
+                      )}
+                      {ativa.status !== 'concluida' && (
+                        <button
+                          type="button"
+                          onClick={() => mover(ativa, 'concluida')}
+                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1.5 transition"
+                        >
+                          <FontAwesomeIcon icon={faCheck} />
+                          Concluir
+                        </button>
+                      )}
+                      {ativa.status !== 'resolver_depois' && (
+                        <button
+                          type="button"
+                          onClick={() => mover(ativa, 'resolver_depois')}
+                          className="px-3 py-1.5 bg-gray-600 text-white rounded-lg text-xs font-semibold hover:bg-gray-700 flex items-center gap-1.5 transition"
+                        >
+                          <FontAwesomeIcon icon={faPen} />
+                          Depois
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setModalAtendimentoAberto(false)}
+                        className="h-8 w-8 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center transition ml-1"
+                        title="Fechar atendimento"
+                      >
+                        <FontAwesomeIcon icon={faXmark} className="text-lg" />
+                      </button>
+                    </div>
+                  </div>
+                </header>
 
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setModoResposta('nota')}
-                        className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'nota' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'}`}
-                      >
-                        Nota interna
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setModoResposta('saida')}
-                        className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'saida' ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-                      >
-                        Resposta
-                      </button>
+                <div ref={containerMensagensRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0">
+                  {carregandoMensagens ? (
+                    <div className="text-sm text-gray-500 text-center py-8">Carregando conversa...</div>
+                  ) : mensagens.length ? (
+                    mensagens.map((mensagem) => {
+                      const isSaida = mensagem.direcao === 'saida';
+                      const isEntrada = mensagem.direcao === 'entrada';
+                      const isNota = !isSaida && !isEntrada;
+
+                      const raw = mensagem.rawPayload || mensagem.raw_payload || {};
+                      const statusNorm = String(mensagem.status || '').toLowerCase();
+                      const isFailed = statusNorm === 'failed' || statusNorm === 'falhou';
+                      const isPendente = statusNorm === 'pendente_envio';
+
+                      const erroMsg = raw.errorMessage || raw.statusUpdate?.errorMessage || raw.error?.message || null;
+                      const erroCode = raw.errorCode || raw.statusUpdate?.errorCode || raw.error?.code || null;
+
+                      return (
+                        <div
+                          key={mensagem.id}
+                          className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm shadow-sm transition-all ${
+                            isEntrada
+                              ? 'bg-white border border-gray-200 text-gray-800 mr-auto'
+                              : isNota
+                                ? 'bg-amber-50 border border-amber-200 text-amber-900 mx-auto'
+                                : isFailed
+                                  ? 'bg-rose-50 border border-rose-200 text-rose-950 ml-auto'
+                                  : isPendente
+                                    ? 'bg-teal-700/80 border border-teal-600/50 text-teal-50 ml-auto opacity-90'
+                                    : 'bg-teal-600 text-white ml-auto'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{mensagem.mensagem}</p>
+
+                          {/* Informação de Erro em caso de Falha */}
+                          {isFailed && (
+                            <div className="mt-2 pt-1.5 border-t border-rose-200/70 text-[11px] text-rose-700 flex items-start gap-1.5 font-medium">
+                              <FontAwesomeIcon icon={faCircleExclamation} className="text-rose-500 mt-0.5 shrink-0" />
+                              <span>
+                                Falha no envio{erroCode ? ` (Erro ${erroCode})` : ''}
+                                {erroMsg ? `: ${erroMsg}` : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Rodapé da Mensagem (Horário, Usuário e Ícone de Status) */}
+                          <div className={`text-[11px] mt-1.5 flex items-center justify-end gap-1.5 ${
+                            isEntrada
+                              ? 'text-gray-400'
+                              : isNota
+                                ? 'text-amber-700/70'
+                                : isFailed
+                                  ? 'text-rose-600/80'
+                                  : 'text-teal-100/90'
+                          }`}>
+                            <span>{formatTempo(mensagem.createdAt || mensagem.created_at)}</span>
+                            {mensagem.usuario?.nome && <span>· {mensagem.usuario.nome}</span>}
+
+                            {/* Indicadores Visuais de Status para Mensagens de Saída */}
+                            {isSaida && (
+                              <span className="inline-flex items-center ml-0.5" title={`Status: ${mensagem.status}`}>
+                                {isFailed && (
+                                  <span className="text-rose-600 font-bold flex items-center gap-1">
+                                    <FontAwesomeIcon icon={faCircleExclamation} className="text-[10px]" />
+                                    Não entregue
+                                  </span>
+                                )}
+                                {isPendente && (
+                                  <FontAwesomeIcon icon={faClock} className="text-[10px] text-teal-200 animate-pulse" title="Pendente de envio" />
+                                )}
+                                {statusNorm === 'enviada' && (
+                                  <FontAwesomeIcon icon={faCheck} className="text-[10px] text-teal-200" title="Enviada ao servidor" />
+                                )}
+                                {statusNorm === 'sent' && (
+                                  <FontAwesomeIcon icon={faCheck} className="text-[10px] text-teal-200" title="Enviada" />
+                                )}
+                                {statusNorm === 'delivered' && (
+                                  <FontAwesomeIcon icon={faCheckDouble} className="text-[10px] text-teal-200" title="Entregue" />
+                                )}
+                                {statusNorm === 'read' && (
+                                  <FontAwesomeIcon icon={faCheckDouble} className="text-[10px] text-emerald-300" title="Lida" />
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center py-8">Nenhuma mensagem registrada.</div>
+                  )}
+                </div>
+
+                <footer className="p-4 border-t space-y-3 shrink-0 bg-white">
+                  {/* Alerta de Janela de 24h expirada */}
+                  {janelaExpirada && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-600 text-sm shrink-0" />
+                        <span>
+                          {avisoJanela || 'A janela de 24 horas para mensagens de texto expirou. Para retomar o contato, envie um Modelo de Mensagem (Template).'}
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           carregarTemplatesOficiais();
                           setModalTemplateAberto(true);
                         }}
-                        className="px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1.5 ml-auto"
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition shrink-0 flex items-center gap-1.5"
                       >
-                        <FontAwesomeIcon icon={faFileSignature} className="text-teal-600" />
-                        Template WhatsApp
+                        <FontAwesomeIcon icon={faFileSignature} />
+                        Enviar Template
                       </button>
                     </div>
-                    <textarea
-                      value={resposta}
-                      onChange={(event) => setResposta(event.target.value)}
-                      rows={3}
-                      placeholder={modoResposta === 'nota' ? 'Adicionar nota para a equipe' : 'Escrever resposta ao eleitor'}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500"
-                    />
+                  )}
+
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={enviarResposta}
-                      disabled={!resposta.trim()}
-                      className="w-full bg-teal-600 text-white rounded-lg py-2 font-semibold hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                      onClick={() => setModoResposta('nota')}
+                      className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'nota' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'}`}
                     >
-                      <FontAwesomeIcon icon={modoResposta === 'nota' ? faMessage : faPaperPlane} />
-                      {modoResposta === 'nota' ? 'Registrar nota' : 'Registrar resposta'}
+                      Nota interna
                     </button>
-                  </footer>
-                </>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-center p-8 text-gray-500">
-                  <div>
-                    <FontAwesomeIcon icon={faMessage} className="text-5xl text-gray-300 mb-3" />
-                    <h2 className="font-bold text-gray-700">Selecione uma conversa</h2>
-                    <p className="text-sm">Abra um card para ver o historico e registrar o atendimento.</p>
+                    <button
+                      type="button"
+                      onClick={() => setModoResposta('saida')}
+                      className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'saida' ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+                    >
+                      Resposta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        carregarTemplatesOficiais();
+                        setModalTemplateAberto(true);
+                      }}
+                      className="px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1.5 ml-auto"
+                    >
+                      <FontAwesomeIcon icon={faFileSignature} className="text-teal-600" />
+                      Template WhatsApp
+                    </button>
                   </div>
-                </div>
-              )}
-            </aside>
-          </div>
+                  <textarea
+                    value={resposta}
+                    onChange={(event) => setResposta(event.target.value)}
+                    rows={3}
+                    placeholder={modoResposta === 'nota' ? 'Adicionar nota para a equipe' : 'Escrever resposta ao eleitor'}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={enviarResposta}
+                    disabled={!resposta.trim()}
+                    className="w-full bg-teal-600 text-white rounded-lg py-2.5 font-semibold hover:bg-teal-700 disabled:opacity-50 flex items-center justify-center gap-2 transition"
+                  >
+                    <FontAwesomeIcon icon={modoResposta === 'nota' ? faMessage : faPaperPlane} />
+                    {modoResposta === 'nota' ? 'Registrar nota' : 'Registrar resposta'}
+                  </button>
+                </footer>
+              </div>
+            </div>
+          )}
 
           {/* Modal de Seleção e Envio de Template HSM */}
           {modalTemplateAberto && (
