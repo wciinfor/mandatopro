@@ -20,7 +20,9 @@ export class MetaWebhookNormalizer {
       contato_nome: (rawContact && rawContact.profile && rawContact.profile.name) || rawMessage.from,
       timestamp: new Date(Number(rawMessage.timestamp) * 1000).toISOString(),
       mensagem_tipo: rawMessage.type, // text, image, document, audio, video, location, contacts
-      conteudo: ''
+      conteudo: '',
+      context: rawMessage.context || null,
+      quoted_message_id: rawMessage.context?.id || null
     };
 
     // Extrai o conteúdo com base no tipo de mensagem oficial da Meta

@@ -14,7 +14,7 @@ const SELECT = `
   *,
   usuarios:responsavel_id (id, nome, nivel),
   eleitores:eleitor_id (id, nome, telefone, celular, whatsapp),
-  disparo_campanhas:campanha_id (id, titulo, status)
+  communication_campaigns:campanha_id (id, titulo:nome, status)
 `;
 
 function emptyCounts() {
@@ -33,45 +33,65 @@ export default async function handler(req, res) {
     exigirAcessoAtendimentoConnect(usuario);
 
     if (req.method === 'GET') {
-      const status = String(req.query.status || '').trim();
+      const statusFiltro = String(req.query.status || '').trim();
       const search = String(req.query.search || '').trim();
+      const telefone = search ? normalizarTelefone(search) : '';
 
-      let query = supabase
-        .from('atendimento_connect_conversas')
-        .select(SELECT)
-        .order('ultima_mensagem_em', { ascending: false, nullsFirst: false })
-        .order('updated_at', { ascending: false })
-        .limit(150);
-
-      if (status && ATENDIMENTO_CONNECT_STATUS.includes(status)) {
-        query = query.eq('status', status);
-      }
-      if (search) {
-        const telefone = normalizarTelefone(search);
-        query = query.or(`contato_nome.ilike.%${search}%,contato_telefone.ilike.%${telefone || search}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) {
-        if (isMissingAtendimentoConnectTable(error)) {
-          return res.status(200).json({ success: true, configurado: false, data: [], counts: emptyCounts() });
-        }
-        throw error;
-      }
-
-      const { data: countRows } = await supabase
-        .from('atendimento_connect_conversas')
-        .select('status');
+      const LIMITE_POR_COLUNA = 300;
+      const statusAlvo = (statusFiltro && ATENDIMENTO_CONNECT_STATUS.includes(statusFiltro))
+        ? [statusFiltro]
+        : ATENDIMENTO_CONNECT_STATUS;
 
       const counts = emptyCounts();
-      (countRows || []).forEach((row) => {
-        if (counts[row.status] !== undefined) counts[row.status] += 1;
+      let todasConversas = [];
+
+      const perStatusPromises = statusAlvo.map(async (st) => {
+        let query = supabase
+          .from('atendimento_connect_conversas')
+          .select(SELECT, { count: 'exact' })
+          .eq('status', st)
+          .order('ultima_mensagem_em', { ascending: false, nullsFirst: false })
+          .order('updated_at', { ascending: false })
+          .limit(LIMITE_POR_COLUNA);
+
+        if (search) {
+          query = query.or(`contato_nome.ilike.%${search}%,contato_telefone.ilike.%${telefone || search}%`);
+        }
+
+        const { data, count, error } = await query;
+        if (error) {
+          if (isMissingAtendimentoConnectTable(error)) {
+            return { status: st, data: [], count: 0, missingTable: true };
+          }
+          throw error;
+        }
+
+        return { status: st, data: data || [], count: count || 0, missingTable: false };
+      });
+
+      const perStatusResults = await Promise.all(perStatusPromises);
+
+      const isMissing = perStatusResults.some(r => r.missingTable);
+      if (isMissing) {
+        return res.status(200).json({ success: true, configurado: false, data: [], counts: emptyCounts() });
+      }
+
+      perStatusResults.forEach((resItem) => {
+        counts[resItem.status] = resItem.count;
+        todasConversas.push(...resItem.data);
+      });
+
+      // Ordena a lista unificada pela última mensagem mais recente
+      todasConversas.sort((a, b) => {
+        const timeA = new Date(a.ultima_mensagem_em || a.updated_at || 0).getTime();
+        const timeB = new Date(b.ultima_mensagem_em || b.updated_at || 0).getTime();
+        return timeB - timeA;
       });
 
       return res.status(200).json({
         success: true,
         configurado: true,
-        data: (data || []).map(toPublicConversa),
+        data: todasConversas.map(toPublicConversa),
         counts
       });
     }

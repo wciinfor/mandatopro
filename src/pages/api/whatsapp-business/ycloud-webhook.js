@@ -7,6 +7,7 @@ import {
 } from '@/lib/whatsapp-business-accounts';
 import { createWhatsAppWebhookEventLogger } from '@/services/whatsapp-webhook-event-logger';
 import { normalizarTelefone } from '@/lib/atendimento-connect';
+import { resolverCampanhaInbound } from '@/lib/atendimento-connect-campanhas';
 
 export const config = {
   api: {
@@ -190,13 +191,41 @@ export default async function handler(req, res) {
         const now = new Date().toISOString();
         let conversaId = conversaExistente?.id || null;
 
+        // Extrair ID de mensagem citada (quote / context) se fornecido pela YCloud
+        const quotedMsgId = inbound.context?.id 
+          || inbound.quotedMessageId 
+          || inbound.quoted_message_id 
+          || inbound.context?.message_id 
+          || payload.context?.id 
+          || null;
+
+        // Resolução segura de campanha (Nível 1 Quote ou Nível 2 Temporal 48h)
+        let resolucaoCampanha = { campanhaId: null, campaignItemId: null, metodoAtribuicao: null };
+        try {
+          resolucaoCampanha = await resolverCampanhaInbound({
+            supabase,
+            tenantId: conta?.tenant_id || 1,
+            quotedMessageId: quotedMsgId,
+            contatoTelefone,
+            timestamp: now,
+            provider: 'YCLOUD',
+            campanhaIdExistente: conversaExistente?.campanha_id || null
+          });
+        } catch (errResCamp) {
+          console.warn('[YCLOUD WEBHOOK] Falha ao resolver campanha do inbound:', errResCamp?.message);
+        }
+
         const metadataPayload = {
           origem: 'ycloud',
           wabaId: inbound.wabaId || conta.waba_id,
           bsuid: fromUserId || null,
           fromUserId: fromUserId || null,
-          eleitorEncontrado: Boolean(eleitor?.id)
+          eleitorEncontrado: Boolean(eleitor?.id),
+          ...(resolucaoCampanha.campaignItemId ? { campaign_item_id: resolucaoCampanha.campaignItemId } : {}),
+          ...(resolucaoCampanha.metodoAtribuicao ? { metodo_atribuicao: resolucaoCampanha.metodoAtribuicao } : {})
         };
+
+        const campanhaIdParaSalvar = resolucaoCampanha.campanhaId || conversaExistente?.campanha_id || null;
 
         if (!conversaExistente) {
           const { data: novaConversa, error: errConv } = await supabase
@@ -207,6 +236,7 @@ export default async function handler(req, res) {
               contato_telefone: contatoTelefone,
               canal: 'whatsapp',
               status: 'nova',
+              campanha_id: campanhaIdParaSalvar,
               unread_count: 1,
               ultima_mensagem: mensagemTexto,
               ultima_mensagem_em: now,
@@ -226,6 +256,7 @@ export default async function handler(req, res) {
               eleitor_id: conversaExistente.eleitor_id || eleitor?.id || null,
               contato_nome: conversaExistente.contato_nome || eleitor?.nome || contatoNome,
               status: novoStatus,
+              campanha_id: campanhaIdParaSalvar,
               unread_count: (conversaExistente.unread_count || 0) + 1,
               ultima_mensagem: mensagemTexto,
               ultima_mensagem_em: now,

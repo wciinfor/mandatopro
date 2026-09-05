@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowsRotate,
@@ -16,7 +17,12 @@ import {
   faExclamationTriangle,
   faCircleExclamation,
   faFileSignature,
-  faXmark
+  faXmark,
+  faChevronDown,
+  faChevronUp,
+  faQuoteRight,
+  faBullhorn,
+  faChartPie
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import Layout from '@/components/Layout';
@@ -102,6 +108,9 @@ export default function AtendimentoConnect() {
   const [canalResolvido, setCanalResolvido] = useState(null);
   const [avisoJanela, setAvisoJanela] = useState('');
   const [modalAtendimentoAberto, setModalAtendimentoAberto] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState('nova');
+  const [disparoOrigem, setDisparoOrigem] = useState(null);
+  const [painelDisparoExpandido, setPainelDisparoExpandido] = useState(false);
 
   const carregarTemplatesOficiais = useCallback(async () => {
     setCarregandoTemplates(true);
@@ -284,6 +293,43 @@ export default function AtendimentoConnect() {
   useEffect(() => {
     if (ativa) carregarMensagens(ativa, false);
   }, [ativa, carregarMensagens]);
+
+  // Carrega enriquecimento do disparoOrigem quando uma conversa for aberta
+  useEffect(() => {
+    let cancelado = false;
+    setPainelDisparoExpandido(false);
+
+    if (!ativa?.id) {
+      setDisparoOrigem(null);
+      return;
+    }
+
+    // Se a conversa nem possui campanhaId ou campanha_id, garante disparoOrigem nulo sem request desnecessário
+    if (!ativa.campanhaId && !ativa.campanha_id) {
+      setDisparoOrigem(null);
+      return;
+    }
+
+    const carregarDetalhesConversa = async () => {
+      try {
+        const res = await fetch(`/api/atendimento-connect/conversas/${ativa.id}`);
+        const payload = await res.json();
+        if (!cancelado && res.ok && payload.success) {
+          setDisparoOrigem(payload.disparoOrigem || null);
+        } else if (!cancelado) {
+          setDisparoOrigem(null);
+        }
+      } catch (e) {
+        if (!cancelado) setDisparoOrigem(null);
+      }
+    };
+
+    carregarDetalhesConversa();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [ativa?.id, ativa?.campanhaId, ativa?.campanha_id]);
 
   // ─── SUPABASE REALTIME SUBSCRIPTIONS ───────────────────────────────────────
   useEffect(() => {
@@ -616,10 +662,18 @@ export default function AtendimentoConnect() {
                     className="w-64 max-w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
+                <Link
+                  href="/atendimento-connect/relatorios"
+                  className="h-10 px-3.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 hover:bg-teal-100 flex items-center gap-2 text-xs font-bold transition shadow-sm"
+                  title="Central de Relatórios e Métricas"
+                >
+                  <FontAwesomeIcon icon={faChartPie} />
+                  <span className="hidden sm:inline">Relatórios</span>
+                </Link>
                 <button
                   type="button"
                   onClick={() => carregarConversas()}
-                  className="h-10 w-10 rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+                  className="h-10 w-10 rounded-lg bg-teal-600 text-white hover:bg-teal-700 transition"
                   title="Atualizar"
                 >
                   <FontAwesomeIcon icon={faArrowsRotate} />
@@ -634,101 +688,198 @@ export default function AtendimentoConnect() {
             </div>
           )}
 
-          <div className="flex-1 min-h-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 h-full overflow-y-auto pr-1">
-              {COLUNAS.map((coluna) => (
-                <section key={coluna.id} className={`bg-white rounded-lg shadow-sm border-t-4 ${coluna.color} flex flex-col h-full`}>
-                  <header className="px-3 py-3 border-b flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FontAwesomeIcon icon={coluna.icon} className="text-teal-700" />
-                      <h2 className="font-bold text-sm text-gray-800 truncate">{coluna.titulo}</h2>
-                    </div>
-                    <span className="text-xs font-bold rounded-full bg-gray-100 text-gray-700 px-2 py-1">
-                      {counts[coluna.id] ?? porStatus[coluna.id]?.length ?? 0}
-                    </span>
-                  </header>
+          {/* Barra de Abas por Status */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-1.5 shrink-0">
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {COLUNAS.map((coluna) => {
+                const isActive = abaAtiva === coluna.id;
+                const countVal = counts[coluna.id] ?? porStatus[coluna.id]?.length ?? 0;
 
-                  <div className="p-2 space-y-2 flex-1 overflow-y-auto">
-                    {loading ? (
-                      <div className="text-sm text-gray-500 px-2 py-6 text-center">Carregando...</div>
-                    ) : porStatus[coluna.id]?.length ? (
-                      porStatus[coluna.id].map((conversa) => (
-                        <article
+                return (
+                  <button
+                    key={coluna.id}
+                    type="button"
+                    onClick={() => setAbaAtiva(coluna.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all shrink-0 ${
+                      isActive
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={coluna.icon} className={isActive ? 'text-white' : 'text-gray-400'} />
+                    <span>{coluna.titulo}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
+                      isActive
+                        ? 'bg-teal-700/80 text-white'
+                        : countVal > 0
+                          ? 'bg-teal-50 text-teal-700 border border-teal-200'
+                          : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {countVal}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Lista/Tabela Operacional da Aba Selecionada */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="text-sm text-gray-500 py-16 text-center flex flex-col items-center justify-center gap-2">
+                  <FontAwesomeIcon icon={faArrowsRotate} className="animate-spin text-teal-600 text-xl" />
+                  <span>Carregando conversas...</span>
+                </div>
+              ) : (porStatus[abaAtiva] || []).length === 0 ? (
+                <div className="text-sm text-gray-400 py-16 text-center flex flex-col items-center justify-center gap-2">
+                  <FontAwesomeIcon icon={faMessage} className="text-gray-300 text-3xl" />
+                  <p className="font-semibold text-gray-600">Nenhuma conversa nesta aba.</p>
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead className="bg-gray-50/80 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-xs">
+                    <tr>
+                      <th className="py-3 px-4">Contato</th>
+                      <th className="py-3 px-3 hidden sm:table-cell">Canal</th>
+                      <th className="py-3 px-3 hidden lg:table-cell">Campanha</th>
+                      <th className="py-3 px-4">Última Mensagem</th>
+                      <th className="py-3 px-3 hidden md:table-cell">Última Interação</th>
+                      <th className="py-3 px-3 hidden xl:table-cell">Responsável</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(porStatus[abaAtiva] || []).map((conversa) => {
+                      const isUrgente = conversa.prioridade === 'alta' || conversa.prioridade === 'urgente';
+                      const hasUnread = (conversa.unreadCount || 0) > 0;
+
+                      return (
+                        <tr
                           key={conversa.id}
-                          className={`border rounded-lg p-3 cursor-pointer transition bg-white hover:border-teal-400 hover:shadow-md ${
-                            ativa?.id === conversa.id ? 'border-teal-500 ring-2 ring-teal-100' : 'border-gray-200'
-                          }`}
                           onClick={() => {
                             setAtiva(conversa);
                             setModalAtendimentoAberto(true);
                           }}
+                          className={`cursor-pointer transition-colors group ${
+                            hasUnread
+                              ? 'bg-teal-50/30 hover:bg-teal-50/60'
+                              : 'hover:bg-gray-50'
+                          }`}
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <h3 className="font-bold text-sm text-gray-900 truncate">{conversa.contatoNome}</h3>
-                                {conversa.canal && (
-                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold border ${
-                                    (CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).bg
-                                  }`}>
-                                    <FontAwesomeIcon icon={(CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).icon} className="text-[8px]" />
-                                    {(CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).label.replace(' WhatsApp', '').replace(' Direct', '')}
+                          {/* Coluna 1: CONTATO (Nome + Telefone) */}
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              {hasUnread && (
+                                <span className="h-2 w-2 rounded-full bg-teal-500 shrink-0" title="Novas mensagens" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`font-bold text-gray-900 truncate ${hasUnread ? 'text-teal-950 font-extrabold' : ''}`}>
+                                    {conversa.contatoNome}
                                   </span>
-                                )}
+                                  {isUrgente && (
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                                      Urgente
+                                    </span>
+                                  )}
+                                  {hasUnread && (
+                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-teal-600 text-white">
+                                      {conversa.unreadCount} nova{conversa.unreadCount > 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                  <FontAwesomeIcon icon={faPhone} className="text-[10px] text-gray-400" />
+                                  <span>{formatTelefone(conversa.contatoTelefone)}</span>
+                                </div>
                               </div>
-                              <p className="text-xs text-gray-500 flex items-center gap-1">
-                                <FontAwesomeIcon icon={faPhone} />
-                                {formatTelefone(conversa.contatoTelefone)}
-                              </p>
                             </div>
-                            {conversa.unreadCount > 0 && (
-                              <span className="bg-teal-600 text-white text-xs font-bold rounded-full px-2 py-0.5">
-                                {conversa.unreadCount}
+                          </td>
+
+                          {/* Coluna 2: CANAL */}
+                          <td className="py-3 px-3 hidden sm:table-cell">
+                            {conversa.canal ? (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                (CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).bg
+                              }`}>
+                                <FontAwesomeIcon icon={(CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).icon} className="text-[10px]" />
+                                {(CANAL_CONFIGS[conversa.canal] || CANAL_CONFIGS['whatsapp_legacy']).label.replace(' WhatsApp', '').replace(' Direct', '')}
                               </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
                             )}
-                          </div>
-                          <p className="text-sm text-gray-700 line-clamp-2 mt-2">{conversa.ultimaMensagem || 'Sem mensagem'}</p>
-                          <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-                            <span>{formatTempo(conversa.ultimaMensagemEm)}</span>
-                            <span className="truncate max-w-[110px]">{conversa.responsavel?.nome || 'Sem responsavel'}</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-3">
-                            {conversa.status !== 'em_atendimento' && (
-                              <button
-                                type="button"
-                                onClick={(event) => { event.stopPropagation(); assumir(conversa); }}
-                                className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
-                              >
-                                Assumir
-                              </button>
+                          </td>
+
+                          {/* Coluna 3: CAMPANHA */}
+                          <td className="py-3 px-3 hidden lg:table-cell">
+                            {conversa.campanha?.titulo ? (
+                              <span className="inline-block max-w-[180px] truncate text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 font-medium" title={conversa.campanha.titulo}>
+                                {conversa.campanha.titulo}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">Sem campanha</span>
                             )}
-                            {conversa.status !== 'concluida' && (
-                              <button
-                                type="button"
-                                onClick={(event) => { event.stopPropagation(); mover(conversa, 'concluida'); }}
-                                className="px-2 py-1 text-xs rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              >
-                                Concluir
-                              </button>
-                            )}
-                            {conversa.status !== 'resolver_depois' && (
-                              <button
-                                type="button"
-                                onClick={(event) => { event.stopPropagation(); mover(conversa, 'resolver_depois'); }}
-                                className="px-2 py-1 text-xs rounded bg-gray-50 text-gray-700 hover:bg-gray-100"
-                              >
-                                Depois
-                              </button>
-                            )}
-                          </div>
-                        </article>
-                      ))
-                    ) : (
-                      <div className="text-sm text-gray-400 px-2 py-6 text-center">Sem conversas</div>
-                    )}
-                  </div>
-                </section>
-              ))}
+                          </td>
+
+                          {/* Coluna 4: ÚLTIMA MENSAGEM */}
+                          <td className="py-3 px-4 max-w-xs md:max-w-md">
+                            <p className="text-xs text-gray-700 line-clamp-1 group-hover:text-gray-950">
+                              {conversa.ultimaMensagem || <span className="italic text-gray-400">Sem mensagem</span>}
+                            </p>
+                          </td>
+
+                          {/* Coluna 5: ÚLTIMA INTERAÇÃO */}
+                          <td className="py-3 px-3 hidden md:table-cell whitespace-nowrap text-xs text-gray-500">
+                            {formatTempo(conversa.ultimaMensagemEm)}
+                          </td>
+
+                          {/* Coluna 6: RESPONSÁVEL */}
+                          <td className="py-3 px-3 hidden xl:table-cell whitespace-nowrap text-xs text-gray-600">
+                            {conversa.responsavel?.nome || <span className="text-gray-400 italic">Não atribuído</span>}
+                          </td>
+
+                          {/* Coluna 7: AÇÕES */}
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              {conversa.status !== 'em_atendimento' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); assumir(conversa); }}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition"
+                                  title="Assumir conversa"
+                                >
+                                  Assumir
+                                </button>
+                              )}
+                              {conversa.status !== 'concluida' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); mover(conversa, 'concluida'); }}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition"
+                                  title="Concluir atendimento"
+                                >
+                                  Concluir
+                                </button>
+                              )}
+                              {conversa.status !== 'resolver_depois' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); mover(conversa, 'resolver_depois'); }}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 transition"
+                                  title="Mover para resolver depois"
+                                >
+                                  Depois
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
@@ -751,12 +902,55 @@ export default function AtendimentoConnect() {
                         )}
                       </div>
                       <p className="text-sm text-gray-600">{formatTelefone(ativa.contatoTelefone)}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <p className="text-xs text-gray-500">{STATUS_LABEL[ativa.status]} · {ativa.campanha?.titulo || 'Sem campanha vinculada'}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                        <span className="text-xs font-medium text-gray-500">
+                          {STATUS_LABEL[ativa.status]}
+                        </span>
+                        <span className="text-xs text-gray-300">·</span>
+
+                        {/* Contextualização Segura da Campanha de Origem */}
+                        {ativa.campanha?.titulo ? (
+                          (ativa.metodoAtribuicao === 'direto_quote' || ativa.metadata?.metodo_atribuicao === 'direto_quote') ? (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                              title="Citação direta: o eleitor respondeu citando diretamente a mensagem desta campanha"
+                            >
+                              <FontAwesomeIcon icon={faQuoteRight} className="text-[10px] text-emerald-600" />
+                              <span>Em resposta a: <strong className="font-bold">{ativa.campanha.titulo}</strong></span>
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200"
+                              title="Correlação temporal: o sistema identificou um único disparo recente compatível com este contato nas últimas 48 horas"
+                            >
+                              <FontAwesomeIcon icon={faBullhorn} className="text-[10px] text-indigo-600" />
+                              <span>Provável origem: <strong className="font-bold">{ativa.campanha.titulo}</strong></span>
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-400">Sem campanha vinculada</span>
+                        )}
+
                         <span className="text-xs text-gray-300">|</span>
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
                           {formatCanalResposta(canalResolvido, ativa)}
                         </span>
+
+                        {/* Botão para Expandir/Recolher Detalhes do Disparo de Origem */}
+                        {disparoOrigem && (
+                          <button
+                            type="button"
+                            onClick={() => setPainelDisparoExpandido(!painelDisparoExpandido)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 transition-colors ml-1"
+                            title={painelDisparoExpandido ? 'Ocultar detalhes do disparo' : 'Ver mensagem disparada'}
+                          >
+                            <span>Ver mensagem disparada</span>
+                            <FontAwesomeIcon
+                              icon={painelDisparoExpandido ? faChevronUp : faChevronDown}
+                              className="text-[10px] text-gray-500"
+                            />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -802,6 +996,86 @@ export default function AtendimentoConnect() {
                     </div>
                   </div>
                 </header>
+
+                {/* Painel Recolhível: Detalhes do Disparo de Origem */}
+                {disparoOrigem && painelDisparoExpandido && (
+                  <div className="bg-slate-50 border-b border-slate-200 p-3 sm:p-4 text-xs text-slate-700 shrink-0 transition-all">
+                    <div className="flex items-start justify-between gap-3 mb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 text-sm">
+                            {ativa.campanha?.titulo || 'Campanha'}
+                          </span>
+                          {(ativa.metodoAtribuicao === 'direto_quote' || ativa.metadata?.metodo_atribuicao === 'direto_quote') ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <FontAwesomeIcon icon={faQuoteRight} className="text-[10px]" />
+                              Mensagem citada pelo eleitor
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              <FontAwesomeIcon icon={faBullhorn} className="text-[10px]" />
+                              Disparo recente identificado
+                            </span>
+                          )}
+                        </div>
+                        {!(ativa.metodoAtribuicao === 'direto_quote' || ativa.metadata?.metodo_atribuicao === 'direto_quote') && (
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            O sistema identificou um único disparo recente compatível com este contato.
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setPainelDisparoExpandido(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 transition"
+                        title="Recolher painel"
+                      >
+                        <FontAwesomeIcon icon={faXmark} className="text-sm" />
+                      </button>
+                    </div>
+
+                    {/* Metadados do Disparo (Sem IDs técnicos ou brutos) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-2 px-2.5 bg-white rounded-lg border border-slate-200/80 mb-2.5">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Data/Hora do envio</span>
+                        <span className="font-medium text-slate-800">
+                          {formatTempo(disparoOrigem.startedAt || disparoOrigem.finishedAt)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Status do envio</span>
+                        <span className="inline-block capitalize font-medium text-slate-800">
+                          {disparoOrigem.status || 'Enviado'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Provedor</span>
+                        <span className="font-medium text-slate-800 uppercase">
+                          {disparoOrigem.provider || 'WhatsApp'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Número remetente</span>
+                        <span className="font-medium text-slate-800">
+                          {disparoOrigem.numeroRemetente ? formatTelefone(disparoOrigem.numeroRemetente) : 'Conta do Gabinete'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Conteúdo textual da Mensagem Enviada */}
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                        Texto da mensagem disparada:
+                      </span>
+                      <div className="bg-white rounded-lg border border-slate-200 p-3 max-h-40 overflow-y-auto text-slate-800 font-normal leading-relaxed whitespace-pre-wrap break-words select-text">
+                        {disparoOrigem.mensagemEnviada || (
+                          <span className="italic text-slate-400">Texto não disponível nos registros de mensagens.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div ref={containerMensagensRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0">
                   {carregandoMensagens ? (

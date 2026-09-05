@@ -1,5 +1,6 @@
 import { buscarContaWhatsappPorWabaOuNumero } from '@/lib/whatsapp-business-accounts';
 import { normalizarTelefone } from '@/lib/atendimento-connect';
+import { resolverCampanhaInbound } from '@/lib/atendimento-connect-campanhas';
 
 /**
  * Processa um evento inbound normalizado da Meta Cloud API diretamente no servidor,
@@ -158,14 +159,34 @@ export async function processarEventoMensagem(supabase, evento) {
 
     let conversaConnectId = conversaConnectExistente?.id;
 
+    // Resolução segura de campanha (Nível 1 Quote ou Nível 2 Temporal 48h)
+    let resolucaoCampanha = { campanhaId: null, campaignItemId: null, metodoAtribuicao: null };
+    try {
+      resolucaoCampanha = await resolverCampanhaInbound({
+        supabase,
+        tenantId,
+        quotedMessageId: evento.quoted_message_id || evento.context?.id || null,
+        contatoTelefone: telefoneLimpo,
+        timestamp: now,
+        provider: 'META',
+        campanhaIdExistente: conversaConnectExistente?.campanha_id || null
+      });
+    } catch (errResCamp) {
+      console.warn('[ATENDIMENTO CONNECT] Falha ao resolver campanha do inbound:', errResCamp?.message);
+    }
+
     const connectMetadata = {
       ...(conversaConnectExistente?.metadata || {}),
       origem: 'whatsapp_meta',
       provider: 'META',
       wabaId: evento.waba_id || null,
       phoneNumberId: evento.phone_number_id || null,
-      lastProviderMessageId: evento.provider_message_id
+      lastProviderMessageId: evento.provider_message_id,
+      ...(resolucaoCampanha.campaignItemId ? { campaign_item_id: resolucaoCampanha.campaignItemId } : {}),
+      ...(resolucaoCampanha.metodoAtribuicao ? { metodo_atribuicao: resolucaoCampanha.metodoAtribuicao } : {})
     };
+
+    const campanhaIdParaSalvar = resolucaoCampanha.campanhaId || conversaConnectExistente?.campanha_id || null;
 
     if (!conversaConnectExistente) {
       const { data: novaConvConnect, error: errNovaConnect } = await supabase
@@ -176,6 +197,7 @@ export async function processarEventoMensagem(supabase, evento) {
           canal: 'whatsapp',
           status: 'nova',
           eleitor_id: eleitorId,
+          campanha_id: campanhaIdParaSalvar,
           unread_count: 1,
           ultima_mensagem: evento.conteudo,
           ultima_mensagem_em: now,
@@ -188,7 +210,7 @@ export async function processarEventoMensagem(supabase, evento) {
         console.error('[ATENDIMENTO CONNECT] erro ao criar conversa:', errNovaConnect.message);
       } else {
         conversaConnectId = novaConvConnect?.id;
-        console.log(`[ATENDIMENTO CONNECT] conversa criada: id=${conversaConnectId} telefone=${telefoneLimpo}`);
+        console.log(`[ATENDIMENTO CONNECT] conversa criada: id=${conversaConnectId} telefone=${telefoneLimpo} campanha_id=${campanhaIdParaSalvar}`);
       }
     } else {
       const statusAtual = conversaConnectExistente.status;
@@ -201,6 +223,7 @@ export async function processarEventoMensagem(supabase, evento) {
           contato_nome: contatoNome,
           status: novoStatus,
           eleitor_id: eleitorId || conversaConnectExistente.eleitor_id || null,
+          campanha_id: campanhaIdParaSalvar,
           unread_count: novoUnread,
           ultima_mensagem: evento.conteudo,
           ultima_mensagem_em: now,
@@ -212,7 +235,7 @@ export async function processarEventoMensagem(supabase, evento) {
       if (errUpdateConnect) {
         console.error('[ATENDIMENTO CONNECT] erro ao atualizar conversa:', errUpdateConnect.message);
       } else {
-        console.log(`[ATENDIMENTO CONNECT] conversa atualizada: id=${conversaConnectExistente.id} status=${novoStatus} unread=${novoUnread}`);
+        console.log(`[ATENDIMENTO CONNECT] conversa atualizada: id=${conversaConnectExistente.id} status=${novoStatus} unread=${novoUnread} campanha_id=${campanhaIdParaSalvar}`);
       }
     }
 

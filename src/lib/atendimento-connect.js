@@ -54,7 +54,7 @@ export function toPublicConversa(row = {}) {
     updatedAt: row.updated_at || null,
     responsavel: row.usuarios || null,
     eleitor: row.eleitores || null,
-    campanha: row.disparo_campanhas || null
+    campanha: row.communication_campaigns || row.disparo_campanhas || null
   };
 }
 

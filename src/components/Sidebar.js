@@ -67,7 +67,8 @@ const modulosBase = [
       'Disparos Oficiais',
       'Templates Oficiais',
       'WhatsApp Business Oficial',
-      'Central de Atendimento'
+      'Central de Atendimento',
+      'Relatórios de Atendimento'
     ],
     rota: '/comunicacao-oficial/dashboard'
   },
@@ -148,12 +149,14 @@ const routeMap = {
   'Comunicação - Templates Oficiais': '/comunicacao-oficial/templates',
   'Comunicação - WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
   'Comunicação - Central de Atendimento': '/atendimento-connect',
+  'Comunicação - Relatórios de Atendimento': '/atendimento-connect/relatorios',
 
   // Alias para retrocompatibilidade
   'Dashboard': '/comunicacao-oficial/dashboard',
   'Públicos': '/comunicacao-oficial/publicos',
   'Disparos Oficiais': '/comunicacao-oficial/campanhas',
   'Central de Atendimento': '/atendimento-connect',
+  'Relatórios de Atendimento': '/atendimento-connect/relatorios',
   'Dashboard Oficial': '/comunicacao-oficial/dashboard',
   'Comunicação - Dashboard Oficial': '/comunicacao-oficial/dashboard',
   'Comunicação - Contatos Oficiais': '/comunicacao-oficial/publicos',

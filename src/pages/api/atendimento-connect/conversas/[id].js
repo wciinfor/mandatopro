@@ -5,6 +5,7 @@ import {
   exigirAcessoAtendimentoConnect,
   toPublicConversa
 } from '@/lib/atendimento-connect';
+import { buscarDisparoOrigem } from '@/lib/atendimento-connect-campanhas';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +13,7 @@ const SELECT = `
   *,
   usuarios:responsavel_id (id, nome, nivel),
   eleitores:eleitor_id (id, nome, telefone, celular, whatsapp),
-  disparo_campanhas:campanha_id (id, titulo, status)
+  communication_campaigns:campanha_id (id, titulo:nome, status)
 `;
 
 export default async function handler(req, res) {
@@ -36,7 +37,24 @@ export default async function handler(req, res) {
         .single();
 
       if (error || !data) return res.status(404).json({ success: false, message: 'Conversa nao encontrada' });
-      return res.status(200).json({ success: true, data: toPublicConversa(data) });
+
+      // Enriquecimento seguro com dados do disparo de origem (somente neste endpoint individual)
+      let disparoOrigem = null;
+      try {
+        disparoOrigem = await buscarDisparoOrigem({
+          supabase,
+          tenantId: usuario.tenant_id || 1,
+          conversa: data
+        });
+      } catch (errDisparo) {
+        console.warn('[ATENDIMENTO CONNECT] Falha ao enriquecer disparoOrigem:', errDisparo?.message);
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: toPublicConversa(data),
+        disparoOrigem
+      });
     }
 
     if (req.method === 'PATCH') {
