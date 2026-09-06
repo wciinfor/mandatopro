@@ -556,8 +556,12 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
     return {
       ...templateSelecionado,
+      header_image_url: headerImageUrl || null,
       componentes: (templateSelecionado.componentes || []).map(comp => {
         const typeUpper = String(comp.type || '').toUpperCase();
+        if (typeUpper === 'HEADER' && String(comp.format || '').toUpperCase() === 'IMAGE') {
+          return { ...comp, image_url: headerImageUrl || null };
+        }
         if (typeUpper === 'BODY' || typeUpper === 'HEADER') {
           let text = comp.text || '';
           Object.entries(variaveis).forEach(([key, val]) => {
@@ -1767,36 +1771,46 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                             if (erroAlerta) setErroAlerta(null);
 
                             try {
-                              const reader = new FileReader();
-                              reader.onload = async (event) => {
-                                const base64Data = String(event.target.result || '').split(',')[1];
-                                const res = await fetch('/api/documentos/upload', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    nome: `header_${templateSelecionado.nome}_${Date.now()}`,
-                                    categoria: 'artes',
-                                    arquivo_nome: file.name,
-                                    mime_type: file.type,
-                                    arquivo_base64: base64Data
-                                  })
-                                });
+                              const base64Data = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  const result = String(reader.result || '');
+                                  const base64 = result.includes(',') ? result.split(',')[1] : result;
+                                  resolve(base64);
+                                };
+                                reader.onerror = (err) => reject(err);
+                                reader.readAsDataURL(file);
+                              });
 
-                                const data = await res.json();
-                                if (!res.ok || !data.success) {
-                                  throw new Error(data.message || 'Falha ao fazer upload da imagem.');
-                                }
+                              const res = await fetch('/api/documentos/upload', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  nome: `header_${templateSelecionado.nome}_${Date.now()}`,
+                                  categoria: 'artes',
+                                  arquivo_nome: file.name,
+                                  mime_type: file.type,
+                                  arquivo_base64: base64Data
+                                })
+                              });
 
-                                const publicUrl = data.documento?.url_arquivo;
-                                if (!publicUrl) throw new Error('URL pública da imagem não foi gerada.');
-                                setHeaderImageUrl(publicUrl);
-                              };
-                              reader.readAsDataURL(file);
+                              const data = await res.json();
+                              if (!res.ok || !data.success) {
+                                throw new Error(data.message || data.error || 'Falha ao fazer upload da imagem.');
+                              }
+
+                              const publicUrl = data.data?.url || data.documento?.url_arquivo || data.url || data.publicUrl;
+                              if (!publicUrl) {
+                                throw new Error('URL pública da imagem não foi retornada pelo servidor.');
+                              }
+
+                              setHeaderImageUrl(publicUrl);
                             } catch (err) {
                               console.error('Erro no upload da imagem:', err);
                               setErroUploadImagem(err.message || 'Erro ao processar imagem.');
                             } finally {
                               setFazendoUploadImagem(false);
+                              e.target.value = '';
                             }
                           }}
                         />
@@ -1942,26 +1956,42 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   </div>
                 </div>
 
-                {/* 4. Mensagem e Template */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase block">4. Mensagem & Template Homologado</span>
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div>Template: <strong className="text-gray-800">{templateSelecionado?.nome || 'hello_world'}</strong></div>
-                    <div>Idioma: <strong className="text-gray-800">{templateSelecionado?.idioma || 'pt_BR'}</strong></div>
-                  </div>
-                  {Object.keys(variaveis).length > 0 && (
-                    <div className="pt-1.5">
-                      <span className="text-[10px] text-gray-400 block mb-1">Variáveis Configuradas:</span>
-                      <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
-                        {Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => (
-                          <div key={k} className="bg-white px-2 py-0.5 rounded border border-gray-200 truncate">
-                            <span className="text-teal-700">{`{{${k}}}`}</span>: {variaveis[k]}
-                          </div>
-                        ))}
-                      </div>
+                  {/* 4. Mensagem e Template */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase block">4. Mensagem & Template Homologado</span>
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>Template: <strong className="text-gray-800">{templateSelecionado?.nome || 'hello_world'}</strong></div>
+                      <div>Idioma: <strong className="text-gray-800">{templateSelecionado?.idioma || 'pt_BR'}</strong></div>
                     </div>
-                  )}
-                </div>
+                    {headerImageUrl && (
+                      <div className="pt-1.5 flex items-center gap-3">
+                        <span className="text-[10px] text-gray-400 block">Imagem de Cabeçalho:</span>
+                        <div className="flex items-center gap-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={headerImageUrl}
+                            alt="Cabeçalho Selecionado"
+                            className="w-8 h-8 rounded object-cover border border-gray-200"
+                          />
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
+                            ✓ Anexada
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {Object.keys(variaveis).length > 0 && (
+                      <div className="pt-1.5">
+                        <span className="text-[10px] text-gray-400 block mb-1">Variáveis Configuradas:</span>
+                        <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
+                          {Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => (
+                            <div key={k} className="bg-white px-2 py-0.5 rounded border border-gray-200 truncate">
+                              <span className="text-teal-700">{`{{${k}}}`}</span>: {variaveis[k]}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
               </div>
             </div>
           )}

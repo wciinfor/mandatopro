@@ -50,6 +50,25 @@ export function TemplateVisualizerCard({ template }) {
             <p className="font-bold text-gray-900 border-b border-gray-100 pb-1.5">{headerComp.text}</p>
           )}
 
+          {headerComp && headerComp.format === 'IMAGE' && (
+            <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-100 mb-2">
+              {(headerComp.image_url || template.header_image_url) ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={headerComp.image_url || template.header_image_url}
+                  alt="Cabeçalho do Template"
+                  className="w-full h-32 object-cover"
+                />
+              ) : (
+                <div className="h-28 flex flex-col items-center justify-center text-gray-400 p-2 text-center">
+                  <span className="text-xl mb-1">🖼️</span>
+                  <span className="text-[10px] font-semibold">Imagem de Cabeçalho</span>
+                  <span className="text-[9px] text-gray-400">(Aguardando seleção)</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Corpo */}
           {bodyComp && (
             <p className="text-gray-700 leading-relaxed whitespace-pre-line">{bodyComp.text}</p>
