@@ -602,7 +602,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       if (step === 2 && !nome.trim()) return 'Insira o nome do disparo.';
       if (step === 3) {
         if (carregandoContatos) return 'Aguarde o cálculo e validação dos contatos da base.';
-        if (destinatariosFiltrados.length === 0) return 'A audiência selecionada não retornou destinatários aptos para envio.';
+        if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+          return 'A audiência selecionada não retornou destinatários aptos para envio.';
+        }
       }
       if (step === 4) {
         if (!templateSelecionado) return 'Selecione um template oficial homologado.';
@@ -625,7 +627,10 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step >= 6) {
-        if (destinatariosFiltrados.length === 0) return 'A lista não possui destinatários aptos para disparo.';
+        if (carregandoContatos) return 'Aguarde a conclusão do cálculo dos contatos da base antes de avançar.';
+        if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+          return 'A lista não possui destinatários aptos para disparo.';
+        }
         if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
           return 'Selecione um template oficial homologado e aprovado.';
         }
@@ -651,7 +656,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       if (step === 3) {
         if (!arquivoCSV) return 'Selecione um arquivo de planilha (.csv, .xlsx ou .xls) para continuar.';
         if (carregandoCSV) return 'Aguarde o processamento do arquivo.';
-        if (destinatariosFiltrados.length === 0) return 'A planilha não possui contatos com telefone válido para envio.';
+        if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+          return 'A planilha não possui contatos com telefone válido para envio.';
+        }
       }
       if (step === 4) {
         if (!templateSelecionado) return 'Selecione um template oficial homologado.';
@@ -673,7 +680,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step >= 6) {
-        if (destinatariosFiltrados.length === 0) return 'A lista não possui destinatários aptos para disparo.';
+        if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+          return 'A lista não possui destinatários aptos para disparo.';
+        }
         if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
           return 'Selecione um template oficial homologado e aprovado.';
         }
@@ -701,6 +710,11 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const erroAtual = getErrosEtapa();
 
   const handleProximo = () => {
+    if (carregandoContatos && (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral' || origemDestinatarios === 'publico_salvo')) {
+      setErroAlerta('Aguarde o cálculo e validação da lista de destinatários da base antes de avançar.');
+      return;
+    }
+
     const erro = getErrosEtapa();
     if (erro) {
       setErroAlerta(erro);
@@ -711,26 +725,46 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   };
 
   const handleSalvar = () => {
+    if (carregandoContatos) {
+      setErroAlerta('Aguarde a conclusão do cálculo e validação dos contatos da base antes de salvar o disparo.');
+      return;
+    }
+
     const erro = getErrosEtapa();
     if (erro) {
       setErroAlerta(erro);
       return;
     }
 
-    const listaFinal = destinatariosFiltrados.map(c => ({
-      id: c.origemId || c.id,
-      nome: c.nome || 'Contato',
-      telefone_limpo: c.telefoneNormalizado || c.phone,
-      telefone_original: c.telefoneOriginal || c.phone
-    }));
+    if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+      setErroAlerta('A lista de destinatários está vazia ou não contém contatos válidos para disparo.');
+      return;
+    }
+
+    // Mapeamento rigoroso de contatos com fallback seguro para extração de telefone
+    const listaFinal = destinatariosFiltrados.map(c => {
+      const telLimpo = c.telefoneNormalizado || c.telefoneOriginal || c.phone || c.whatsapp || c.celular || c.telefone || '';
+      const telOrig = c.telefoneOriginal || c.telefoneNormalizado || c.phone || c.whatsapp || c.celular || c.telefone || '';
+      return {
+        id: c.origemId || c.id || null,
+        nome: c.nome || 'Contato',
+        telefone_limpo: telLimpo,
+        telefone_original: telOrig
+      };
+    }).filter(d => Boolean(d.telefone_limpo && String(d.telefone_limpo).replace(/\D/g, '').length >= 8));
+
+    if (listaFinal.length === 0) {
+      setErroAlerta('Nenhum destinatário com telefone válido foi identificado para realizar o disparo.');
+      return;
+    }
 
     let publicoLabel = 'Upload de Planilha CSV';
     if (origemDestinatarios === 'csv' && arquivoCSV) {
-      publicoLabel = `Planilha: ${arquivoCSV.nome} (${destinatariosFiltrados.length} contatos)`;
+      publicoLabel = `Planilha: ${arquivoCSV.nome} (${listaFinal.length} contatos)`;
     } else if (origemDestinatarios === 'publico_salvo' && publicoSelecionado) {
-      publicoLabel = `${publicoSelecionado.nome} (${destinatariosFiltrados.length} contatos)`;
+      publicoLabel = `${publicoSelecionado.nome} (${listaFinal.length} contatos)`;
     } else if (origemDestinatarios === 'campanha_politica' || origemDestinatarios === 'base_geral') {
-      publicoLabel = `Base ${mandatoOrigem.toUpperCase()} - ${destinatariosFiltrados.length} contatos`;
+      publicoLabel = `Base ${mandatoOrigem.toUpperCase()} - ${listaFinal.length} contatos`;
     }
 
     onSave({
@@ -746,7 +780,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       variaveis: variaveis,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
-      total_destinatarios: destinatariosFiltrados.length,
+      total_destinatarios: listaFinal.length,
       campaign_id: mandatoCampanhaId || null,
       destinatarios: listaFinal,
       enviadas: 0,
@@ -2062,16 +2096,36 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           {step < totalSteps ? (
             <button
               onClick={handleProximo}
-              className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
+              disabled={carregandoContatos}
+              className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
             >
-              Próximo <FontAwesomeIcon icon={faArrowRight} />
+              {carregandoContatos ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} spin />
+                  Carregando Contatos...
+                </>
+              ) : (
+                <>
+                  Próximo <FontAwesomeIcon icon={faArrowRight} />
+                </>
+              )}
             </button>
           ) : (
             <button
               onClick={handleSalvar}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
+              disabled={carregandoContatos || !Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0}
+              className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
             >
-              Finalizar Criação <FontAwesomeIcon icon={faPaperPlane} />
+              {carregandoContatos ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} spin />
+                  Aguardando Contatos...
+                </>
+              ) : (
+                <>
+                  Finalizar Criação <FontAwesomeIcon icon={faPaperPlane} />
+                </>
+              )}
             </button>
           )}
         </div>

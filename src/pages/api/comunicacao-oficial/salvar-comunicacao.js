@@ -84,6 +84,23 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Tenant não associado ao usuário autenticado.' });
     }
 
+    // 0. PRE-VALIDAÇÃO RIGOROSA: Garante que existam destinatários válidos ANTES de persistir qualquer registro no banco
+    const destinatariosBrutos = Array.isArray(body.destinatarios) ? body.destinatarios : [];
+    const destinatariosValidos = destinatariosBrutos.filter(d => {
+      if (!d) return false;
+      const tel = String(d.telefone_limpo || d.telefone_original || '').replace(/\D/g, '');
+      return tel.length >= 8;
+    });
+
+    if (destinatariosValidos.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'É necessário incluir ao menos um destinatário válido para criar o disparo.'
+      });
+    }
+
+    const totalDestinatariosReal = destinatariosValidos.length;
+
     // 1. Busca ou cria um template_id correspondente ao template_nome da Meta
     let templateId = null;
     if (body.template) {
@@ -144,7 +161,8 @@ export default async function handler(req, res) {
           regras: {
             origem: body.origemDestinatarios,
             crm_campaign_id: body.campaign_id || null,
-            filtros: body.filtros || {}
+            filtros: body.filtros || {},
+            quantidade_destinatarios: totalDestinatariosReal
           }
         })
         .select('id')
@@ -165,7 +183,7 @@ export default async function handler(req, res) {
         status: body.agendamento ? 'agendado' : 'Na Fila',
         template_id: templateId,
         audience_id: audienceId,
-        total_destinatarios: body.total_destinatarios || 0,
+        total_destinatarios: totalDestinatariosReal,
         agendado_para: body.agendamento || null
       })
       .select('*')
@@ -173,31 +191,31 @@ export default async function handler(req, res) {
 
     if (errCamp) throw errCamp;
 
-    // 4. Se houver lista de destinatários associada, insere em lote na fila de disparos (communication_campaign_items)
-    if (Array.isArray(body.destinatarios) && body.destinatarios.length > 0) {
-      const variaveisConfig = (body.variaveis && typeof body.variaveis === 'object') ? body.variaveis : {};
-      const itemsPayload = body.destinatarios.map(d => ({
-        tenant_id: tenantId,
-        campaign_id: campanhaCriada.id,
-        contact_id: d.telefone_limpo || d.telefone_original,
-        template_id: body.template || 'default',
-        status: 'pendente',
-        variaveis_mapeadas: {
-          nome: d.nome || 'Contato',
-          eleitor_id: body.origemDestinatarios === 'campanha_politica' ? (d.id || null) : null,
-          header_image_url: body.header_image_url || null,
-          ...variaveisConfig
-        }
-      }));
-
-      const { error: errItems } = await supabase
-        .from('communication_campaign_items')
-        .insert(itemsPayload);
-
-      if (errItems) {
-        console.error('[SalvarComunicacaoAPI] Erro ao popular communication_campaign_items:', errItems);
-        throw errItems;
+    // 4. Insere em lote na fila de disparos (communication_campaign_items)
+    const variaveisConfig = (body.variaveis && typeof body.variaveis === 'object') ? body.variaveis : {};
+    const itemsPayload = destinatariosValidos.map(d => ({
+      tenant_id: tenantId,
+      campaign_id: campanhaCriada.id,
+      contact_id: String(d.telefone_limpo || d.telefone_original).replace(/\D/g, ''),
+      template_id: body.template || 'default',
+      status: 'pendente',
+      variaveis_mapeadas: {
+        nome: d.nome || 'Contato',
+        eleitor_id: body.origemDestinatarios === 'campanha_politica' ? (d.id || null) : null,
+        header_image_url: body.header_image_url || null,
+        ...variaveisConfig
       }
+    }));
+
+    const { error: errItems } = await supabase
+      .from('communication_campaign_items')
+      .insert(itemsPayload);
+
+    if (errItems) {
+      console.error('[SalvarComunicacaoAPI] Erro ao popular communication_campaign_items:', errItems);
+      // Remove a campanha parcial caso falhe a inserção dos itens
+      await supabase.from('communication_campaigns').delete().eq('id', campanhaCriada.id);
+      throw errItems;
     }
 
     // 5. Registra o evento de criação da comunicação na Timeline
