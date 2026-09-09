@@ -421,6 +421,26 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     mandatoLimite
   ]);
 
+  // Estado exclusivo para congelar/imutabilizar a audiência validada antes do enfileiramento final
+  const [destinatariosCongelados, setDestinatariosCongelados] = useState([]);
+
+  // Invalida a lista congelada sempre que qualquer filtro/origem for alterado
+  useEffect(() => {
+    setDestinatariosCongelados([]);
+  }, [
+    origemDestinatarios,
+    mandatoOrigem,
+    mandatoCampanhaId,
+    mandatoPresencaCampanha,
+    mandatoEleitorIds,
+    filtroCidade,
+    filtroBairro,
+    filtroSituacao,
+    mandatoLimite,
+    arquivoCSV,
+    contatosCSV
+  ]);
+
   // Alinhamento direto dos contatos (apenas com c.valido === true)
   const destinatariosFiltrados = origemDestinatarios === 'csv'
     ? contatosCSV.filter(c => c.valido === true)
@@ -540,9 +560,10 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const getTemplateComVariaveis = () => {
     if (!templateSelecionado) return null;
 
-    const exemploNome = destinatariosFiltrados[0]?.nome || 'João da Silva';
-    const exemploCidade = destinatariosFiltrados[0]?.cidade || destinatariosFiltrados[0]?.municipio || 'Belém';
-    const exemploBairro = destinatariosFiltrados[0]?.bairro || 'Centro';
+    const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+    const exemploNome = listaBase[0]?.nome || 'João da Silva';
+    const exemploCidade = listaBase[0]?.cidade || listaBase[0]?.municipio || 'Belém';
+    const exemploBairro = listaBase[0]?.bairro || 'Centro';
     const nomesServicosExemplo = Array.isArray(campanhaSelecionada?.campanhas_servicos)
       ? campanhaSelecionada.campanhas_servicos
           .map(cs => cs?.categorias_servicos?.nome || cs?.nome_servico)
@@ -628,7 +649,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       }
       if (step >= 6) {
         if (carregandoContatos) return 'Aguarde a conclusão do cálculo dos contatos da base antes de avançar.';
-        if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+        const listaAlvo = step === 7 && destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+        if (!Array.isArray(listaAlvo) || listaAlvo.length === 0) {
           return 'A lista não possui destinatários aptos para disparo.';
         }
         if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
@@ -680,7 +702,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step >= 6) {
-        if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+        const listaAlvo = step === 7 && destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+        if (!Array.isArray(listaAlvo) || listaAlvo.length === 0) {
           return 'A lista não possui destinatários aptos para disparo.';
         }
         if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
@@ -721,6 +744,18 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       return;
     }
     setErroAlerta(null);
+
+    // Ao avançar do Passo 6 para o Passo 7 (Confirmação Final), congela a lista imutável
+    if (step === 6) {
+      if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
+        setErroAlerta('A lista de destinatários aptos está vazia. Não é possível avançar para o enfileiramento.');
+        return;
+      }
+      // Cria uma cópia profunda/real dos objetos sem manter referência ao array original dinâmico
+      const copiaCongelada = destinatariosFiltrados.map(item => ({ ...item }));
+      setDestinatariosCongelados(copiaCongelada);
+    }
+
     setStep(prev => prev + 1);
   };
 
@@ -736,13 +771,16 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       return;
     }
 
-    if (!Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0) {
-      setErroAlerta('A lista de destinatários está vazia ou não contém contatos válidos para disparo.');
+    // Utiliza estritamente destinatariosCongelados se preenchido (ou fallback para destinatariosFiltrados)
+    const fonteDestinatarios = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+
+    if (!Array.isArray(fonteDestinatarios) || fonteDestinatarios.length === 0) {
+      setErroAlerta('A lista congelada de destinatários está vazia. Volte ao passo anterior para revisar o público.');
       return;
     }
 
     // Mapeamento rigoroso de contatos com fallback seguro para extração de telefone
-    const listaFinal = destinatariosFiltrados.map(c => {
+    const listaFinal = fonteDestinatarios.map(c => {
       const telLimpo = c.telefoneNormalizado || c.telefoneOriginal || c.phone || c.whatsapp || c.celular || c.telefone || '';
       const telOrig = c.telefoneOriginal || c.telefoneNormalizado || c.phone || c.whatsapp || c.celular || c.telefone || '';
       return {
@@ -2072,10 +2110,10 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
               <div className="p-4 bg-teal-50/70 border border-teal-200 rounded-xl text-teal-900 text-xs space-y-2">
                 <div className="flex items-center gap-1.5 font-bold text-teal-800">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600" />
-                  <span>Enfileiramento de {destinatariosFiltrados.length} Destinatários Aptos</span>
+                  <span>Enfileiramento de {(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} Destinatários Aptos (Lista Confirmada)</span>
                 </div>
                 <p className="text-[11px] text-teal-800 leading-relaxed">
-                  Ao clicar em <strong>"Finalizar Criação"</strong>, exatamente <strong>{destinatariosFiltrados.length} destinatários aptos</strong> serão persistidos na tabela oficial de fila. 
+                  Ao clicar em <strong>"Finalizar Criação"</strong>, exatamente <strong>{(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} destinatários aptos</strong> serão persistidos na tabela oficial de fila. 
                   O sistema <strong>não dispara as mensagens imediatamente</strong>; o envio real segue o controle manual da esteira através do botão de início de disparo.
                 </p>
               </div>
@@ -2113,7 +2151,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           ) : (
             <button
               onClick={handleSalvar}
-              disabled={carregandoContatos || !Array.isArray(destinatariosFiltrados) || destinatariosFiltrados.length === 0}
+              disabled={carregandoContatos || (destinatariosCongelados.length > 0 ? destinatariosCongelados.length === 0 : destinatariosFiltrados.length === 0)}
               className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
             >
               {carregandoContatos ? (
