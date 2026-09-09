@@ -192,7 +192,16 @@ export default function DetalhesComunicacaoPage() {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const [itemErroSelecionado, setItemErroSelecionado] = useState(null);
+
+  const getStatusBadge = (destinatarioOuStatus) => {
+    let status = destinatarioOuStatus;
+    let itemObj = null;
+    if (typeof destinatarioOuStatus === 'object' && destinatarioOuStatus !== null) {
+      status = destinatarioOuStatus.status;
+      itemObj = destinatarioOuStatus;
+    }
+
     switch (status) {
       case 'pendente':
         return <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full">Pendente</span>;
@@ -217,7 +226,17 @@ export default function DetalhesComunicacaoPage() {
         return <span className="bg-gray-100 text-gray-700 border border-gray-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Cancelado</span>;
       case 'falha':
       case 'falhou':
-        return <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold">Falha</span>;
+        return (
+          <button
+            type="button"
+            onClick={() => itemObj && setItemErroSelecionado(itemObj)}
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 transition shadow-2xs group cursor-pointer"
+            title="Clique para ver o motivo da falha retornado pela Meta"
+          >
+            <span>Falha</span>
+            <FontAwesomeIcon icon={faInfoCircle} className="text-[9px] text-rose-500 group-hover:scale-110 transition" />
+          </button>
+        );
       default:
         return <span className="bg-gray-50 text-gray-600 border border-gray-200 text-[10px] font-bold px-2 py-0.5 rounded-full">{status}</span>;
     }
@@ -446,6 +465,86 @@ export default function DetalhesComunicacaoPage() {
             </div>
           )}
 
+          {/* Modal de Detalhes da Falha Retornada pela Meta */}
+          {itemErroSelecionado && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-rose-100 space-y-4 animate-in fade-in zoom-in duration-150">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg shrink-0">
+                      <FontAwesomeIcon icon={faExclamationTriangle} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800 text-sm">Detalhes da Falha no Envio</h3>
+                      <p className="text-[11px] text-gray-400">Resposta oficial de erro retornada pela Meta Cloud API</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setItemErroSelecionado(null)}
+                    className="text-gray-400 hover:text-gray-600 font-bold p-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Destinatário */}
+                <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-3.5 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-[10px] text-gray-400 block uppercase font-bold">Destinatário</span>
+                    <strong className="text-gray-900 font-bold">{itemErroSelecionado.nome}</strong>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-400 block uppercase font-bold">Telefone</span>
+                    <span className="font-mono text-gray-700 font-bold">{itemErroSelecionado.telefone}</span>
+                  </div>
+                </div>
+
+                {/* Bloco de Destaque da Meta API */}
+                <div className="bg-rose-50/70 border-2 border-rose-200 rounded-xl p-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-rose-800">Código do Erro Meta</span>
+                    <span className="font-mono font-extrabold text-rose-900 bg-white px-2.5 py-0.5 rounded border border-rose-200">
+                      {itemErroSelecionado.error_code || itemErroSelecionado.erro_detalhes?.errorCode || '—'}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-rose-200/60">
+                    <span className="text-[10px] uppercase font-bold text-rose-800 block">Mensagem Retornada pela Meta</span>
+                    <p className="font-mono text-[11px] text-rose-950 font-semibold mt-1 bg-white p-2.5 rounded border border-rose-200 leading-relaxed">
+                      {itemErroSelecionado.error_message || itemErroSelecionado.erro_detalhes?.errorMessage || 'Falha de transmissão na API.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Classificação Amigável em Português */}
+                {itemErroSelecionado.erro_detalhes?.classificacaoAmigavel && (
+                  <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-blue-700 block">Classificação Operacional</span>
+                    <strong className="block font-bold text-blue-950">
+                      {itemErroSelecionado.erro_detalhes.classificacaoAmigavel}
+                    </strong>
+                    {itemErroSelecionado.erro_detalhes.descricaoAmigavel && (
+                      <p className="text-[11px] text-blue-800 mt-1 leading-relaxed">
+                        {itemErroSelecionado.erro_detalhes.descricaoAmigavel}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Rodapé do Modal */}
+                <div className="flex items-center justify-end pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setItemErroSelecionado(null)}
+                    className="bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold px-5 py-2 rounded-xl transition shadow-xs"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Grid de Metadados e Dashboard Executivo */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -642,7 +741,7 @@ export default function DetalhesComunicacaoPage() {
                           <tr key={dest.id} className="hover:bg-gray-50/50">
                             <td className="p-4 font-bold text-gray-800">{dest.nome}</td>
                             <td className="p-4 text-gray-600">{dest.telefone}</td>
-                            <td className="p-4">{getStatusBadge(dest.status)}</td>
+                            <td className="p-4">{getStatusBadge(dest)}</td>
                             <td className="p-4 text-gray-400">
                               {dest.processado_em ? new Date(dest.processado_em).toLocaleString('pt-BR') : '—'}
                             </td>

@@ -1,7 +1,4 @@
-import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
-import { obterTenantId } from '@/lib/tenant';
-import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
+import { resolverDetalhesFalhaMeta } from '@/lib/meta-errors';
 
 /**
  * API Handler para obter os detalhes operacionais e estatísticas de execução de uma Comunicação Oficial.
@@ -165,13 +162,23 @@ export default async function handler(req, res) {
         taxaSucesso,
         taxaConclusao
       },
-      destinatarios: (itens || []).map(item => ({
-        id: item.id,
-        nome: item.variaveis_mapeadas?.nome || 'Contato',
-        telefone: item.contact_id,
-        status: item.status,
-        processado_em: item.finished_at || item.updated_at
-      })),
+      destinatarios: (itens || []).map(item => {
+        const st = String(item.status || '').toLowerCase();
+        const ehFalha = st === 'falha' || st === 'falhou';
+        const erroNormalizado = ehFalha ? resolverDetalhesFalhaMeta(item) : null;
+
+        return {
+          id: item.id,
+          nome: item.variaveis_mapeadas?.nome || 'Contato',
+          telefone: item.contact_id,
+          status: item.status,
+          processado_em: item.finished_at || item.updated_at,
+          error_code: item.error_code || erroNormalizado?.errorCode || null,
+          error_message: item.error_message || erroNormalizado?.errorMessage || null,
+          last_error: item.last_error || null,
+          erro_detalhes: erroNormalizado
+        };
+      }),
       timeline: campanha.communication_audiences?.regras?.timeline || []
     });
   } catch (error) {
