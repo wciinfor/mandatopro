@@ -19,40 +19,41 @@ import {
 export default function CentralReenvioFalhasPage() {
   const router = useRouter();
 
-  const [todosDestinatarios, setTodosDestinatarios] = useState([]);
+  const [grupos, setGrupos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erroCarregamento, setErroCarregamento] = useState(null);
 
-  // Aba / Filtro Ativo: 'elegiveis' | 'espera' | 'andamento' | 'bloqueados'
+  // Navegação: null = Lista de Grupos | grupo = Visão detalhada de uma Campanha Original
+  const [grupoSelecionado, setGrupoSelecionado] = useState(null);
+
+  // Na visão detalhada: Aba / Filtro Ativo ('elegiveis' | 'espera' | 'andamento' | 'bloqueados')
   const [abaAtiva, setAbaAtiva] = useState('elegiveis');
 
-  // Seleção de Destinatários Elegíveis
+  // Seleção de Destinatários na campanha atual
   const [selecionados, setSelecionados] = useState(new Set());
+  // Exclusões manuais temporárias da lista (IDs dos itens descartados do lote)
+  const [removidosManualmente, setRemovidosManualmente] = useState(new Set());
 
-  // Parâmetros da Nova Campanha
-  const [nomeCampanha, setNomeCampanha] = useState('Reenvio Ação Social - Engajamento Meta');
-  const [templateNome, setTemplateNome] = useState('modelo_institucional01');
+  // Form para Nova Campanha Derivada
+  const [nomeCampanha, setNomeCampanha] = useState('');
+  const [templateNome, setTemplateNome] = useState('');
   const [criandoCampanha, setCriandoCampanha] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
-  const carregarDestinatariosElegiveis = async () => {
+  const carregarGruposCampanhas = async () => {
     setLoading(true);
     setErroCarregamento(null);
     try {
       const res = await fetch('/api/comunicacao-oficial/falhas/reenvio-131049');
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.message || 'Falha ao buscar destinatários com erro 131049.');
+        throw new Error(errData?.message || 'Falha ao buscar grupos de reenvio Meta 131049.');
       }
       const data = await res.json();
-      const lista = data.destinatarios || [];
-      setTodosDestinatarios(lista);
-
-      // Filtra apenas os que realmente podem ser selecionados para o novo lote
-      const elegiveisAgora = lista.filter(item => item.pode_selecionar);
-      setSelecionados(new Set(elegiveisAgora.map(item => item.item_id)));
+      const listaGrupos = data.grupos || [];
+      setGrupos(listaGrupos);
     } catch (err) {
-      console.error('Erro ao carregar elegíveis 131049:', err);
+      console.error('Erro ao carregar grupos 131049:', err);
       setErroCarregamento(err.message);
     } finally {
       setLoading(false);
@@ -60,21 +61,56 @@ export default function CentralReenvioFalhasPage() {
   };
 
   useEffect(() => {
-    carregarDestinatariosElegiveis();
+    carregarGruposCampanhas();
   }, []);
 
-  // Categorização das listas
-  const elegiveisAgora = todosDestinatarios.filter(item => item.pode_selecionar);
-  const emEspera = todosDestinatarios.filter(item => !item.pode_selecionar && !item.ja_reenviado && !item.atende_janela);
-  const emAndamento = todosDestinatarios.filter(item => item.status_elegibilidade === 'Reenvio em andamento');
-  const bloqueadosConcluidos = todosDestinatarios.filter(item => 
+  // Seleção de uma Campanha Original para visualizar a lista
+  const handleAbrirGrupo = (grupo) => {
+    setGrupoSelecionado(grupo);
+    setAbaAtiva('elegiveis');
+    setRemovidosManualmente(new Set());
+    setNomeCampanha(`Reenvio - ${grupo.nome_campanha}`);
+    setTemplateNome(grupo.template_id || 'modelo_institucional01');
+
+    // Filtra elegíveis que não foram removidos manualmente
+    const elegiveis = (grupo.destinatarios || []).filter(item => item.pode_selecionar);
+    setSelecionados(new Set(elegiveis.map(item => item.item_id)));
+  };
+
+  const handleVoltarGrupos = () => {
+    setGrupoSelecionado(null);
+    setSelecionados(new Set());
+    setRemovidosManualmente(new Set());
+    setFeedback(null);
+  };
+
+  // Exclusão manual de um destinatário da lista de reenvio (não altera histórico)
+  const handleRemoverDestinatario = (itemId) => {
+    const novoRemovidos = new Set(removidosManualmente);
+    novoRemovidos.add(itemId);
+    setRemovidosManualmente(novoRemovidos);
+
+    const novoSelecionados = new Set(selecionados);
+    novoSelecionados.delete(itemId);
+    setSelecionados(novoSelecionados);
+  };
+
+  // Filtragem dos destinatários do grupo ativo descontando remoções manuais
+  const destinatariosAtivos = grupoSelecionado
+    ? (grupoSelecionado.destinatarios || []).filter(item => !removidosManualmente.has(item.item_id))
+    : [];
+
+  const elegiveisAgora = destinatariosAtivos.filter(item => item.pode_selecionar);
+  const emEspera = destinatariosAtivos.filter(item => !item.pode_selecionar && !item.ja_reenviado && !item.atende_janela);
+  const emAndamento = destinatariosAtivos.filter(item => item.status_elegibilidade === 'Reenvio em andamento');
+  const bloqueadosConcluidos = destinatariosAtivos.filter(item =>
     item.status_elegibilidade === 'Concluído com sucesso' ||
     item.status_elegibilidade === 'Bloqueado definitivamente' ||
     item.status_elegibilidade === 'Máximo de tentativas atingido' ||
     item.status_elegibilidade === 'Requer análise'
   );
 
-  const listaExibida = 
+  const listaExibida =
     abaAtiva === 'elegiveis' ? elegiveisAgora :
     abaAtiva === 'espera' ? emEspera :
     abaAtiva === 'andamento' ? emAndamento : bloqueadosConcluidos;
@@ -88,7 +124,7 @@ export default function CentralReenvioFalhasPage() {
   };
 
   const toggleItem = (item) => {
-    if (!item.pode_selecionar) return; // Apenas contatos liberados na política podem ser marcados
+    if (!item.pode_selecionar) return;
     const novoSet = new Set(selecionados);
     if (novoSet.has(item.item_id)) {
       novoSet.delete(item.item_id);
@@ -99,7 +135,7 @@ export default function CentralReenvioFalhasPage() {
   };
 
   const handleCriarReenvio = async () => {
-    if (selecionados.size === 0 || criandoCampanha) return;
+    if (selecionados.size === 0 || criandoCampanha || !grupoSelecionado) return;
 
     if (!nomeCampanha.trim()) {
       setFeedback({ tipo: 'erro', texto: 'Informe o nome para a nova campanha de reenvio.' });
@@ -111,9 +147,11 @@ export default function CentralReenvioFalhasPage() {
 
     try {
       const payload = {
+        campaign_origem_id: grupoSelecionado.campaign_id,
         nome_campanha: nomeCampanha.trim(),
         template_nome: templateNome,
-        item_ids: Array.from(selecionados)
+        item_ids: Array.from(selecionados),
+        contatos_removidos: Array.from(removidosManualmente)
       };
 
       const res = await fetch('/api/comunicacao-oficial/falhas/reenvio-131049', {
@@ -145,33 +183,35 @@ export default function CentralReenvioFalhasPage() {
 
   return (
     <ProtectedRoute>
-      <Layout titulo="Central de Reenvio — Falhas Meta 131049">
+      <Layout titulo="Central de Grupos de Reenvio — Meta 131049">
         <div className="space-y-6">
 
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-5 border border-gray-100 shadow-sm gap-4">
             <button
-              onClick={() => router.push('/comunicacao-oficial/campanhas')}
-              className="text-gray-500 hover:text-teal-600 font-bold flex items-center gap-1.5 text-xs self-start sm:self-auto"
+              onClick={() => grupoSelecionado ? handleVoltarGrupos() : router.push('/comunicacao-oficial/campanhas')}
+              className="text-gray-500 hover:text-teal-600 font-bold flex items-center gap-1.5 text-xs self-start sm:self-auto cursor-pointer"
             >
-              <FontAwesomeIcon icon={faArrowLeft} /> Voltar para Comunicações
+              <FontAwesomeIcon icon={faArrowLeft} />
+              {grupoSelecionado ? 'Voltar para Lista de Campanhas' : 'Voltar para Comunicações'}
             </button>
+
             <div className="flex items-center gap-2">
               <span className="bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
                 <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-600" />
-                Erro Meta 131049 — Proteção de Engajamento
+                Agrupamento por Campanha Original (Anti-Mistura)
               </span>
             </div>
           </div>
 
-          {/* Banner Explicativo da Causa do Erro e Política de 2 Tentativas */}
+          {/* Banner Explicativo da Causa do Erro e Política de Agrupamento */}
           <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl text-blue-950 text-xs space-y-2 shadow-2xs">
             <div className="flex items-center gap-2 font-bold text-blue-900">
               <FontAwesomeIcon icon={faInfoCircle} className="text-blue-600 text-sm" />
-              <span>Política Inteligente de Reenvios (Máximo 2 Tentativas)</span>
+              <span>Gestão de Reenvios Agrupados por Campanha</span>
             </div>
             <p className="leading-relaxed text-blue-800">
-              O reenvio é limitado a <strong>no máximo 2 tentativas por contato</strong> com janelas escalonadas (48h para a 1ª tentativa e 72h para a 2ª tentativa). Disparos que resultaram em entregas confirmadas ou que falharam com erros irrecuperáveis são bloqueados definitivamente para garantir a segurança da linha oficial.
+              Os destinatários são mantidos rigorosamente isolados pela <strong>campanha original de origem</strong>. Selecione um grupo para revisar a lista, remover manualmente destinatários indesejados e disparar o lote de reenvio de forma independente e segura.
             </p>
           </div>
 
@@ -186,23 +226,105 @@ export default function CentralReenvioFalhasPage() {
             </div>
           )}
 
-          {/* Conteúdo Principal */}
+          {/* Estado de Carregamento Global */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
               <FontAwesomeIcon icon={faSpinner} className="animate-spin text-3xl text-teal-600 mb-3" />
-              <p className="text-sm">Analisando histórico de reenvios e calculando elegibilidade escalonada...</p>
+              <p className="text-sm">Agrupando falhas Meta 131049 por campanha original...</p>
             </div>
           ) : erroCarregamento ? (
             <div className="bg-white rounded-2xl p-6 text-center text-rose-600 border border-rose-100 max-w-md mx-auto">
               <p className="text-sm font-bold">{erroCarregamento}</p>
             </div>
+          ) : !grupoSelecionado ? (
+
+            /* ─── NÍVEL 1: VISÃO GERAL DE GRUPOS POR CAMPANHA ORIGINAL ─── */
+            <div className="space-y-4">
+              <h4 className="font-bold text-xs text-gray-700 uppercase tracking-wider">
+                Campanhas com Falhas Meta 131049 ({grupos.length} Grupos Encontrados)
+              </h4>
+
+              {grupos.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {grupos.map((grp) => (
+                    <div
+                      key={grp.campaign_id}
+                      className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-2xs hover:shadow-md transition flex flex-col justify-between space-y-4"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-mono font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded border border-teal-200">
+                            ID #{grp.campaign_id}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-medium">
+                            {new Date(grp.data_campanha).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+
+                        <h3 className="font-bold text-sm text-gray-800 line-clamp-2">
+                          {grp.nome_campanha}
+                        </h3>
+
+                        <div className="text-[11px] text-gray-500 font-mono">
+                          Template: <strong className="text-teal-700">{grp.template_id}</strong>
+                        </div>
+                      </div>
+
+                      {/* Métricas do Grupo */}
+                      <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-100 text-center">
+                        <div className="bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
+                          <span className="block text-sm font-extrabold text-emerald-700">{grp.total_elegiveis_agora}</span>
+                          <span className="text-[9px] font-bold text-emerald-800 uppercase">Elegíveis</span>
+                        </div>
+                        <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+                          <span className="block text-sm font-extrabold text-amber-700">{grp.total_aguardando_janela}</span>
+                          <span className="text-[9px] font-bold text-amber-800 uppercase">Em Espera</span>
+                        </div>
+                        <div className="bg-gray-50 p-2 rounded-xl border border-gray-200/60">
+                          <span className="block text-sm font-extrabold text-gray-700">{grp.total_bloqueados_concluidos}</span>
+                          <span className="text-[9px] font-bold text-gray-500 uppercase">Bloqueados</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleAbrirGrupo(grp)}
+                        className="w-full bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                      >
+                        <FontAwesomeIcon icon={faBullhorn} />
+                        Gerenciar Reenvio deste Grupo
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-12 text-center text-gray-400 border border-gray-100">
+                  Nenhuma campanha original com falha Meta 131049 foi encontrada no seu gabinete.
+                </div>
+              )}
+            </div>
+
           ) : (
+
+            /* ─── NÍVEL 2: DETALHES E SELEÇÃO DE UMA CAMPANHA ESPECÍFICA ─── */
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-              {/* Painel da Tabela e Abas */}
+              {/* Tabela de Destinatários da Campanha Selecionada */}
               <div className="bg-white rounded-2xl border border-gray-100 lg:col-span-2 overflow-hidden shadow-sm flex flex-col">
-                
-                {/* Abas de Navegação */}
+
+                {/* Dados da Campanha Origem */}
+                <div className="p-4 bg-teal-900 text-white flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-teal-200 tracking-wider block">Campanha Original Selecionada</span>
+                    <h3 className="font-bold text-sm text-white">{grupoSelecionado.nome_campanha} (ID #{grupoSelecionado.campaign_id})</h3>
+                  </div>
+                  {removidosManualmente.size > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-rose-400">
+                      {removidosManualmente.size} Removidos da Lista
+                    </span>
+                  )}
+                </div>
+
+                {/* Abas de Navegação Interna */}
                 <div className="flex border-b border-gray-100 bg-gray-50/50 p-2 gap-1.5 text-[11px] font-bold overflow-x-auto">
                   <button
                     onClick={() => setAbaAtiva('elegiveis')}
@@ -269,20 +391,17 @@ export default function CentralReenvioFalhasPage() {
                   </button>
                 </div>
 
-                {/* Sub-cabeçalho de Ações */}
+                {/* Sub-cabeçalho de Seleção */}
                 <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white text-xs">
                   <div>
                     <h5 className="font-bold text-gray-800">
-                      {abaAtiva === 'elegiveis' && 'Destinatários Prontos para Novo Lote'}
-                      {abaAtiva === 'espera' && 'Destinatários em Período de Janela Escalonada'}
-                      {abaAtiva === 'andamento' && 'Disparos em Processamento no Motor'}
+                      {abaAtiva === 'elegiveis' && 'Destinatários Prontos para Reenvio deste Grupo'}
+                      {abaAtiva === 'espera' && 'Destinatários Aguardando Janela de Tempo'}
+                      {abaAtiva === 'andamento' && 'Reenvio em Processamento no Motor'}
                       {abaAtiva === 'bloqueados' && 'Destinatários Finalizados ou Bloqueados'}
                     </h5>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      {abaAtiva === 'elegiveis' && 'Selecione os contatos abaixo para gerar a campanha de reenvio.'}
-                      {abaAtiva === 'espera' && 'Reenvio será liberado automaticamente após transcorrer a janela de 48h (1ª tentativa) ou 72h (2ª tentativa).'}
-                      {abaAtiva === 'andamento' && 'Contatos possuem disparos ativos em execução na fila.'}
-                      {abaAtiva === 'bloqueados' && 'Contatos com entregas confirmadas, 2 tentativas esgotadas ou falha permanente.'}
+                      Você pode desmarcar a seleção ou excluir um contato da lista deste lote sem alterar o banco original.
                     </p>
                   </div>
 
@@ -297,17 +416,17 @@ export default function CentralReenvioFalhasPage() {
                   )}
                 </div>
 
-                {/* Tabela de Destinatários */}
+                {/* Tabela de Destinatários do Grupo */}
                 <div className="overflow-x-auto flex-1">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wider text-[10px] border-b border-gray-100">
                         <th className="p-4 w-10 text-center">Sel.</th>
                         <th className="p-4">Contato / Telefone</th>
-                        <th className="p-4">Campanha Origem</th>
                         <th className="p-4">Data da Falha</th>
                         <th className="p-4">Elegível Em</th>
                         <th className="p-4 text-center">Status / Tentativa</th>
+                        <th className="p-4 text-center w-16">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -317,14 +436,13 @@ export default function CentralReenvioFalhasPage() {
                           return (
                             <tr
                               key={item.item_id}
-                              onClick={() => toggleItem(item)}
                               className={`transition ${
                                 item.pode_selecionar
-                                  ? 'cursor-pointer ' + (isSel ? 'bg-teal-50/50' : 'hover:bg-gray-50/50')
-                                  : 'opacity-75 bg-gray-50/30 cursor-not-allowed'
+                                  ? 'hover:bg-gray-50/50 ' + (isSel ? 'bg-teal-50/40' : '')
+                                  : 'opacity-75 bg-gray-50/30'
                               }`}
                             >
-                              <td className="p-4 text-center">
+                              <td className="p-4 text-center cursor-pointer" onClick={() => toggleItem(item)}>
                                 {item.pode_selecionar ? (
                                   <FontAwesomeIcon
                                     icon={isSel ? faCheckSquare : faSquare}
@@ -334,14 +452,9 @@ export default function CentralReenvioFalhasPage() {
                                   <span className="text-gray-300">—</span>
                                 )}
                               </td>
-                              <td className="p-4">
+                              <td className="p-4 cursor-pointer" onClick={() => toggleItem(item)}>
                                 <strong className="block font-bold text-gray-800">{item.nome}</strong>
                                 <span className="font-mono text-[11px] text-gray-500">{item.telefone}</span>
-                              </td>
-                              <td className="p-4">
-                                <span className="bg-gray-100 text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200">
-                                  {item.nome_campanha_original}
-                                </span>
                               </td>
                               <td className="p-4 text-gray-500 text-[11px]">
                                 {new Date(item.data_falha).toLocaleString('pt-BR')}
@@ -361,6 +474,16 @@ export default function CentralReenvioFalhasPage() {
                                   {item.status_elegibilidade} ({item.num_tentativas_validas}/2)
                                 </span>
                               </td>
+                              <td className="p-4 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoverDestinatario(item.item_id)}
+                                  title="Remover deste lote (não afeta o histórico original)"
+                                  className="text-gray-400 hover:text-rose-600 p-1 rounded-lg transition"
+                                >
+                                  ❌
+                                </button>
+                              </td>
                             </tr>
                           );
                         })
@@ -376,11 +499,11 @@ export default function CentralReenvioFalhasPage() {
                 </div>
               </div>
 
-              {/* Form de Criação da Nova Campanha de Reenvio */}
+              {/* Form de Criação Manual da Nova Campanha Derivada */}
               <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 shadow-sm flex flex-col justify-between">
                 <div className="space-y-4">
                   <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
-                    <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Parâmetros do Reenvio</h4>
+                    <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Parâmetros do Novo Lote</h4>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       {selecionados.size} Selecionados
                     </span>
@@ -389,7 +512,7 @@ export default function CentralReenvioFalhasPage() {
                   <div className="space-y-3 text-xs">
                     <div>
                       <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">
-                        Nome da Nova Campanha
+                        Nome da Campanha Derivada
                       </label>
                       <input
                         type="text"
@@ -415,12 +538,12 @@ export default function CentralReenvioFalhasPage() {
 
                     <div className="p-3 bg-gray-50 border border-gray-200/80 rounded-xl space-y-2 text-[11px] text-gray-600">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold text-gray-400">Limite Máximo</span>
-                        <strong className="text-amber-700 font-bold">2 Tentativas por Contato</strong>
+                        <span className="text-[10px] uppercase font-bold text-gray-400">Campanha Origem</span>
+                        <strong className="text-teal-700 font-bold">ID #{grupoSelecionado.campaign_id}</strong>
                       </div>
                       <div className="flex items-center justify-between border-t border-gray-200/60 pt-1.5">
-                        <span className="text-[10px] uppercase font-bold text-gray-400">Janelas Escalonadas</span>
-                        <strong className="text-teal-700 font-bold">48h (1ª) / 72h (2ª)</strong>
+                        <span className="text-[10px] uppercase font-bold text-gray-400">Modo de Criação</span>
+                        <strong className="text-amber-700 font-bold">Manual sob Demanda</strong>
                       </div>
                       <div className="flex items-center justify-between border-t border-gray-200/60 pt-1.5">
                         <span className="text-[10px] uppercase font-bold text-gray-400">Motor de Disparos</span>
@@ -445,7 +568,7 @@ export default function CentralReenvioFalhasPage() {
                     ) : (
                       <>
                         <FontAwesomeIcon icon={faPaperPlane} />
-                        Criar Reenvio ({selecionados.size} Elegíveis)
+                        Criar Lote de Reenvio ({selecionados.size} Elegíveis)
                       </>
                     )}
                   </button>
@@ -460,5 +583,6 @@ export default function CentralReenvioFalhasPage() {
     </ProtectedRoute>
   );
 }
+
 
 

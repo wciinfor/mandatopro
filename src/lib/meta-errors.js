@@ -63,19 +63,30 @@ export function resolverDetalhesFalhaMeta(item) {
     }
   }
 
-  // Prioridade de extração do Código do Erro
-  const errorCode = String(
+  // Extração inteligente do Código de Erro Meta em múltiplos formatos de payload
+  let extractedCode =
     rawErrorCode ||
     parsedLastError?.code ||
     parsedLastError?.error_code ||
-    '—'
-  );
+    parsedLastError?.error?.code ||
+    (Array.isArray(parsedLastError?.errors) ? parsedLastError.errors[0]?.code : null);
 
-  // Prioridade de extração da Mensagem do Erro
+  // Fallback por Regex caso esteja em texto puro
+  if (!extractedCode && typeof item.last_error === 'string') {
+    const matchCode = item.last_error.match(/"code"\s*:\s*(\d+)/) || item.last_error.match(/\b(131049|131026|132001|132000|131047|131056|130429)\b/);
+    if (matchCode) {
+      extractedCode = matchCode[1];
+    }
+  }
+
+  const errorCode = extractedCode ? String(extractedCode) : '—';
+
+  // Extração inteligente da Mensagem de Erro
   const errorMessage = String(
     rawErrorMessage ||
     parsedLastError?.title ||
     parsedLastError?.message ||
+    parsedLastError?.error?.message ||
     (typeof item.last_error === 'string' ? item.last_error : 'Falha na transmissão da mensagem.')
   );
 
@@ -90,3 +101,4 @@ export function resolverDetalhesFalhaMeta(item) {
     lastErrorBruto: item.last_error || null
   };
 }
+

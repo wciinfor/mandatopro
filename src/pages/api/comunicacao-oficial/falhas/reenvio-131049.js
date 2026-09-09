@@ -22,9 +22,9 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: 'Tenant não associado ao usuário autenticado.' });
     }
 
-    // ─── GET: Selecionar destinatários com erro 131049 e aplicar política inteligente de elegibilidade ───
+    // ─── GET: Listar Grupos por Campanha Original com estatísticas e itens classificados ───
     if (req.method === 'GET') {
-      // 1. Busca todas as falhas do tenant
+      // 1. Busca todas as falhas do tenant com dados da campanha original
       const { data: itensFalha, error: errItens } = await supabase
         .from('communication_campaign_items')
         .select(`
@@ -34,13 +34,11 @@ export default async function handler(req, res) {
           contact_id,
           status,
           provider_message_id,
-          error_code,
-          error_message,
           last_error,
           created_at,
           finished_at,
           variaveis_mapeadas,
-          communication_campaigns ( id, nome, status )
+          communication_campaigns ( id, nome, status, template_id, created_at )
         `)
         .eq('tenant_id', tenantId)
         .in('status', ['falha', 'falhou'])
@@ -56,8 +54,6 @@ export default async function handler(req, res) {
           campaign_id,
           contact_id,
           status,
-          error_code,
-          error_message,
           last_error,
           created_at,
           finished_at,
@@ -67,11 +63,11 @@ export default async function handler(req, res) {
         `)
         .eq('tenant_id', tenantId)
         .not('variaveis_mapeadas->origem_reenvio', 'is', null)
-        .order('created_at', { ascending: true }); // do mais antigo para o mais recente
+        .order('created_at', { ascending: true });
 
       if (errReenviados) console.warn('[ReenvioFalhasAPI] Aviso ao buscar histórico de reenvios:', errReenviados);
 
-      // Agrupa todo o histórico de reenvios 131049 por contact_id
+      // Agrupa o histórico de reenvios 131049 por contact_id
       const historicoPorContato = new Map();
       (itensReenvioHistorico || []).forEach(itemReenvio => {
         const vm = itemReenvio.variaveis_mapeadas || {};
@@ -84,18 +80,47 @@ export default async function handler(req, res) {
         }
       });
 
-      // 3. Filtra e classifica os destinatários com falha original 131049
-      const agora = new Date();
-      const MS_HORA = 60 * 60 * 1000;
-
-      const elegiveisBrutos = [];
+      // 3. Mapeia em lote os dados cadastrais de todas as Campanhas Raiz necessárias
+      const idsCampanhasRaiz = new Set();
       (itensFalha || []).forEach(item => {
         const erroNorm = resolverDetalhesFalhaMeta(item);
         if (erroNorm && String(erroNorm.errorCode) === '131049') {
+          const campaignRaizId = item.variaveis_mapeadas?.campaign_origem_id
+            ? Number(item.variaveis_mapeadas.campaign_origem_id)
+            : Number(item.campaign_id);
+          idsCampanhasRaiz.add(campaignRaizId);
+        }
+      });
+
+      const mapaCampanhasRaiz = new Map();
+      if (idsCampanhasRaiz.size > 0) {
+        const { data: dadosCampanhasRaiz, error: errCampRaiz } = await supabase
+          .from('communication_campaigns')
+          .select('id, nome, status, template_id, created_at')
+          .in('id', Array.from(idsCampanhasRaiz))
+          .eq('tenant_id', tenantId);
+
+        if (!errCampRaiz && dadosCampanhasRaiz) {
+          dadosCampanhasRaiz.forEach(c => mapaCampanhasRaiz.set(Number(c.id), c));
+        }
+      }
+
+      // 4. Processa e agrupa os destinatários exclusivamente por campaignRaizId
+      const agora = new Date();
+      const MS_HORA = 60 * 60 * 1000;
+      const gruposCampanhasMap = new Map();
+
+      (itensFalha || []).forEach(item => {
+        const erroNorm = resolverDetalhesFalhaMeta(item);
+        if (erroNorm && String(erroNorm.errorCode) === '131049') {
+          const campaignRaizId = item.variaveis_mapeadas?.campaign_origem_id
+            ? Number(item.variaveis_mapeadas.campaign_origem_id)
+            : Number(item.campaign_id);
+
           const cid = item.contact_id;
           const reenviosAnteriores = historicoPorContato.get(cid) || [];
 
-          // Avalia o histórico de reenvios para este contato
+          // Avalia histórico do contato
           let numTentativasValidas = 0;
           let possuiSucesso = false;
           let possuiAtivo = false;
@@ -103,48 +128,32 @@ export default async function handler(req, res) {
           let possuiFalhaDesconhecida = false;
           let ultimaFalhaReenvio131049Date = null;
           let motivoBloqueioDetalhado = null;
-          let erroDefinitivoCodigo = null;
 
           for (const reenvio of reenviosAnteriores) {
             const stItem = (reenvio.status || '').toLowerCase();
             const stCamp = (reenvio.communication_campaigns?.status || '').toLowerCase();
 
-            // Se a campanha ou item foi cancelado sem envio, ignora esta tentativa no cômputo de bloqueio
             if (stItem === 'cancelado' || stItem === 'cancelada' || stCamp === 'cancelada' || stCamp === 'cancelado') {
               continue;
             }
 
             numTentativasValidas++;
 
-            // Reenvio com Sucesso
             if (['enviado', 'enviada', 'entregue', 'lido', 'lida'].includes(stItem)) {
               possuiSucesso = true;
-            }
-            // Reenvio Ativo / Em Andamento
-            else if (['pendente', 'processando', 'executando'].includes(stItem) || stCamp === 'na fila' || stCamp === 'executando') {
+            } else if (['pendente', 'processando', 'executando'].includes(stItem) || stCamp === 'na fila' || stCamp === 'executando') {
               possuiAtivo = true;
-            }
-            // Reenvio que Falhou
-            else if (['falha', 'falhou'].includes(stItem)) {
-              const errReenvio = resolverDetalhesFalhaMeta(reenvio);
-              const codReenvioStr = errReenvio ? String(errReenvio.errorCode) : '';
+            } else if (['falha', 'falhou'].includes(stItem)) {
+              const errR = resolverDetalhesFalhaMeta(reenvio);
+              const codRStr = errR ? String(errR.errorCode) : '';
 
-              if (codReenvioStr === '131049') {
+              if (codRStr === '131049') {
                 const dtF = reenvio.finished_at || reenvio.updated_at || reenvio.created_at;
                 ultimaFalhaReenvio131049Date = new Date(dtF);
-              } else if (codReenvioStr === '131026') {
+              } else if (codRStr === '131026' || codRStr) {
                 possuiFalhaDefinitiva = true;
-                erroDefinitivoCodigo = '131026';
-                motivoBloqueioDetalhado = 'Falha permanente de entrega Meta (Erro 131026 - Número inviável/sem WhatsApp)';
-              } else if (codReenvioStr) {
-                // Outro erro Meta classificado como definitivo
-                possuiFalhaDefinitiva = true;
-                erroDefinitivoCodigo = codReenvioStr;
-                motivoBloqueioDetalhado = `Falha definitiva Meta (Erro ${codReenvioStr})`;
               } else {
-                // Erro não classificado / desconhecido
                 possuiFalhaDesconhecida = true;
-                motivoBloqueioDetalhado = 'Requer análise (Falha não classificada no reenvio anterior)';
               }
             }
           }
@@ -179,7 +188,6 @@ export default async function handler(req, res) {
             jaReenviado = true;
             motivoBloqueioDetalhado = 'Limite máximo de 2 tentativas de reenvio atingido.';
           } else if (numTentativasValidas === 1 && ultimaFalhaReenvio131049Date) {
-            // Reenvio 1 falhou com 131049 -> Exige janela escalonada de 72h contadas da falha do reenvio
             const msPassados = agora.getTime() - ultimaFalhaReenvio131049Date.getTime();
             const horasPassadas = msPassados / MS_HORA;
             proximaElegibilidadeDate = new Date(ultimaFalhaReenvio131049Date.getTime() + (72 * MS_HORA));
@@ -194,7 +202,6 @@ export default async function handler(req, res) {
               podeSelecionar = false;
             }
           } else {
-            // Primeira tentativa de reenvio (falha original) -> Exige janela padrão de 48h
             const msPassados = agora.getTime() - dataFalhaOrig.getTime();
             const horasPassadas = msPassados / MS_HORA;
             proximaElegibilidadeDate = new Date(dataFalhaOrig.getTime() + (48 * MS_HORA));
@@ -210,10 +217,19 @@ export default async function handler(req, res) {
             }
           }
 
-          elegiveisBrutos.push({
+          // Dados cadastrais da campanha raiz original
+          const dadosRaiz = mapaCampanhasRaiz.get(campaignRaizId) || (
+            campaignRaizId === Number(item.campaign_id) ? item.communication_campaigns : null
+          );
+          const nomeCampanhaOriginal = dadosRaiz?.nome || `Campanha #${campaignRaizId}`;
+          const dataCampanhaOriginal = dadosRaiz?.created_at || dataFalhaOrigStr;
+          const templateCampanhaOriginal = dadosRaiz?.template_id || item.variaveis_mapeadas?.template_id || 'modelo_institucional01';
+
+          const itemClassificado = {
             item_id: item.id,
             campaign_id: item.campaign_id,
-            nome_campanha_original: item.communication_campaigns?.nome || `Campanha #${item.campaign_id}`,
+            campaign_origem_id: campaignRaizId,
+            nome_campanha_original: nomeCampanhaOriginal,
             tenant_id: item.tenant_id,
             contact_id: item.contact_id,
             nome: item.variaveis_mapeadas?.nome || 'Contato',
@@ -232,30 +248,62 @@ export default async function handler(req, res) {
             error_message: erroNorm.errorMessage,
             classificacao: erroNorm.classificacaoAmigavel,
             variaveis_mapeadas: item.variaveis_mapeadas || {}
-          });
+          };
+
+          // Inicializa grupo da Campanha Raiz se não existir
+          if (!gruposCampanhasMap.has(campaignRaizId)) {
+            gruposCampanhasMap.set(campaignRaizId, {
+              campaign_id: campaignRaizId,
+              nome_campanha: nomeCampanhaOriginal,
+              data_campanha: dataCampanhaOriginal,
+              template_id: templateCampanhaOriginal,
+              total_falhas_131049: 0,
+              total_elegiveis_agora: 0,
+              total_aguardando_janela: 0,
+              total_bloqueados_concluidos: 0,
+              destinatarios_map: new Map() // para desduplicar dentro da própria campanha raiz
+            });
+          }
+
+          const grupo = gruposCampanhasMap.get(campaignRaizId);
+          if (!grupo.destinatarios_map.has(cid)) {
+            grupo.destinatarios_map.set(cid, itemClassificado);
+            grupo.total_falhas_131049++;
+
+            if (podeSelecionar) grupo.total_elegiveis_agora++;
+            else if (!jaReenviado && !atendeJanela) grupo.total_aguardando_janela++;
+            else grupo.total_bloqueados_concluidos++;
+          }
         }
       });
 
-      // 4. Desduplica por contact_id mantendo a falha mais recente
-      const mapaDesduplicado = new Map();
-      elegiveisBrutos.forEach(item => {
-        if (!mapaDesduplicado.has(item.contact_id)) {
-          mapaDesduplicado.set(item.contact_id, item);
-        }
-      });
-
-      const destinatariosTodos = Array.from(mapaDesduplicado.values());
+      // Formata lista final de grupos
+      const grupos = Array.from(gruposCampanhasMap.values()).map(g => ({
+        campaign_id: g.campaign_id,
+        nome_campanha: g.nome_campanha,
+        data_campanha: g.data_campanha,
+        template_id: g.template_id,
+        total_falhas_131049: g.total_falhas_131049,
+        total_elegiveis_agora: g.total_elegiveis_agora,
+        total_aguardando_janela: g.total_aguardando_janela,
+        total_bloqueados_concluidos: g.total_bloqueados_concluidos,
+        destinatarios: Array.from(g.destinatarios_map.values())
+      }));
 
       return res.status(200).json({
         success: true,
-        total_destinatarios: destinatariosTodos.length,
-        destinatarios: destinatariosTodos
+        total_grupos: grupos.length,
+        grupos
       });
     }
 
-    // ─── POST: Criar Audiência, Campanha e Itens para Reenvio 131049 ───────────────
+    // ─── POST: Criar Audiência, Campanha Derivada e Novos Itens por Campanha Original ───
     if (req.method === 'POST') {
-      const { nome_campanha, template_nome, idioma, item_ids, header_image_url } = req.body || {};
+      const { campaign_origem_id, nome_campanha, template_nome, idioma, item_ids, contatos_removidos, header_image_url } = req.body || {};
+
+      if (!campaign_origem_id) {
+        return res.status(400).json({ success: false, message: 'O ID da campanha original é obrigatório para o reenvio.' });
+      }
 
       if (!Array.isArray(item_ids) || item_ids.length === 0) {
         return res.status(400).json({ success: false, message: 'Selecione ao menos um destinatário para o reenvio.' });
@@ -265,7 +313,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Nome da campanha e template são obrigatórios.' });
       }
 
-      // 1. RE-VALIDAÇÃO RIGOROSA NO BACKEND COM ISOLAMENTO DE TENANT
+      const setRemovidosManualmente = new Set((contatos_removidos || []).map(id => Number(id)));
+
+      // 1. RE-VALIDAÇÃO RIGOROSA NO BACKEND COM ISOLAMENTO DE TENANT E CAMPANHA ORIGEM (RAIZ)
       const { data: itensValidados, error: errValida } = await supabase
         .from('communication_campaign_items')
         .select('*')
@@ -275,10 +325,10 @@ export default async function handler(req, res) {
       if (errValida) throw errValida;
 
       if (!itensValidados || itensValidados.length === 0) {
-        return res.status(403).json({ success: false, message: 'Nenhum item válido foi encontrado para este tenant.' });
+        return res.status(403).json({ success: false, message: 'Nenhum item válido foi encontrado para esta campanha e tenant.' });
       }
 
-      // 2. Busca histórico completo de reenvios para aplicar a mesma política estrita no POST
+      // 2. Busca histórico completo de reenvios do tenant
       const { data: historicoReenviosPost } = await supabase
         .from('communication_campaign_items')
         .select(`
@@ -286,8 +336,6 @@ export default async function handler(req, res) {
           campaign_id,
           contact_id,
           status,
-          error_code,
-          error_message,
           last_error,
           created_at,
           finished_at,
@@ -309,13 +357,27 @@ export default async function handler(req, res) {
         }
       });
 
-      // 3. Re-calcula a elegibilidade estrita no backend
+      // 3. Re-calcula elegibilidade no backend e exclui contatos removidos manualmente
       const agora = new Date();
       const MS_HORA = 60 * 60 * 1000;
       const itensConfirmados = [];
       const mapaConfirmadosUnicos = new Map();
 
       for (const item of itensValidados) {
+        // Valida se o item pertence à campanha raiz informada
+        const itemCampRaizId = item.variaveis_mapeadas?.campaign_origem_id
+          ? Number(item.variaveis_mapeadas.campaign_origem_id)
+          : Number(item.campaign_id);
+
+        if (itemCampRaizId !== Number(campaign_origem_id)) {
+          continue;
+        }
+
+        // Se o item foi marcado para remoção manual, desconsidera totalmente
+        if (setRemovidosManualmente.has(item.id)) {
+          continue;
+        }
+
         const erroNorm = resolverDetalhesFalhaMeta(item);
         if (erroNorm && String(erroNorm.errorCode) === '131049') {
           const cid = item.contact_id;
@@ -357,7 +419,6 @@ export default async function handler(req, res) {
             }
           }
 
-          // Verificação de Elegibilidade
           let elegivelAgora = false;
           let proximaTentativa = numTentativasValidas + 1;
 
@@ -384,7 +445,7 @@ export default async function handler(req, res) {
       if (itensConfirmados.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Nenhum dos destinatários selecionados é elegível para reenvio (verifique a janela de tempo 48h/72h, status ativo ou limite de 2 tentativas).'
+          message: 'Nenhum dos destinatários selecionados é elegível para reenvio ou todos foram removidos manualmente.'
         });
       }
 
@@ -415,14 +476,15 @@ export default async function handler(req, res) {
         if (novoTmpl) templateId = novoTmpl.id;
       }
 
-      // 5. PASSO A: Criar a Audiência Especial em communication_audiences
+      // 5. PASSO A: Criar Audiência Especial vinculada à Campanha Original
       const { data: novaAudiencia, error: errAud } = await supabase
         .from('communication_audiences')
         .insert({
           tenant_id: tenantId,
-          nome: `Reenvio 131049 - ${nome_campanha}`,
+          nome: `Reenvio 131049 - Campanha #${campaign_origem_id} (${nome_campanha})`,
           regras: {
             origem: 'reenvio_falhas_meta_131049',
+            campaign_origem_id: campaign_origem_id,
             filtros: {
               codigo_erro: '131049',
               descricao: 'Restrição de entrega por proteção de engajamento Meta',
@@ -436,7 +498,7 @@ export default async function handler(req, res) {
 
       if (errAud) throw errAud;
 
-      // 6. PASSO B: Criar a Nova Campanha Derivada em communication_campaigns
+      // 6. PASSO B: Criar Nova Campanha Derivada
       const { data: novaCampanha, error: errCamp } = await supabase
         .from('communication_campaigns')
         .insert({
@@ -450,6 +512,7 @@ export default async function handler(req, res) {
           metadata: {
             tipo_lote: 'reenvio_falhas',
             origem: 'meta_131049',
+            campaign_origem_id: campaign_origem_id,
             motivo_reenvio: 'Restrição de entrega por proteção de engajamento Meta (Frequency Cap)',
             politica_tentativas_max: 2
           }
@@ -459,7 +522,7 @@ export default async function handler(req, res) {
 
       if (errCamp) throw errCamp;
 
-      // 7. PASSO C: Criar os Novos Itens da Fila em communication_campaign_items com RASTREABILIDADE COMPLETA
+      // 7. PASSO C: Criar Novos Itens da Fila com RASTREABILIDADE TOTAL DO GRUPO ORIGEM
       const novosItensPayload = itensConfirmados.map(({ item: itemOrigem, proximaTentativa }) => {
         const varOriginais = itemOrigem.variaveis_mapeadas || {};
         const dataFalhaStr = itemOrigem.finished_at || itemOrigem.created_at;
@@ -478,7 +541,7 @@ export default async function handler(req, res) {
             ...(header_image_url ? { header_image_url } : {}),
             origem_reenvio: 'meta_131049',
             item_origem_falha_id: itemOrigem.id,
-            campaign_origem_id: itemOrigem.campaign_id,
+            campaign_origem_id: campaign_origem_id,
             data_falha_original: dataFalhaStr,
             data_elegibilidade: dataElegivel.toISOString(),
             tentativa_reenvio_acumuladas: proximaTentativa,
@@ -497,8 +560,8 @@ export default async function handler(req, res) {
       const { registrarEventoTimeline } = require('@/lib/timeline-helper');
       await registrarEventoTimeline(supabase, novaCampanha.id, {
         tipo: 'Reenvio de falhas 131049 inicializado',
-        descricao: `Campanha de reenvio criada com ${itensConfirmados.length} destinatários elegíveis recuperados de falhas Meta 131049.`,
-        metadata: { total_destinatarios: itensConfirmados.length }
+        descricao: `Campanha derivada da Campanha #${campaign_origem_id} criada com ${itensConfirmados.length} destinatários elegíveis.`,
+        metadata: { campaign_origem_id, total_destinatarios: itensConfirmados.length }
       });
 
       return res.status(200).json({
@@ -517,5 +580,6 @@ export default async function handler(req, res) {
     });
   }
 }
+
 
 
