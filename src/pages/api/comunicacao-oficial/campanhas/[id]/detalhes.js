@@ -1,3 +1,7 @@
+import { createServerClient } from '@/lib/supabase-server';
+import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
+import { obterTenantId } from '@/lib/tenant';
+import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 import { resolverDetalhesFalhaMeta } from '@/lib/meta-errors';
 
 /**
@@ -5,13 +9,13 @@ import { resolverDetalhesFalhaMeta } from '@/lib/meta-errors';
  */
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
   const { id } = req.query; // campaign_id de disparos oficiais
 
   if (!id) {
-    return res.status(400).json({ error: 'ID da comunicação é obrigatório' });
+    return res.status(400).json({ success: false, error: 'ID da comunicação é obrigatório' });
   }
 
   try {
@@ -21,7 +25,7 @@ export default async function handler(req, res) {
 
     const tenantId = obterTenantId(usuario);
     if (!tenantId) {
-      return res.status(403).json({ error: 'Tenant não associado ao usuário autenticado.' });
+      return res.status(403).json({ success: false, error: 'Tenant não associado ao usuário autenticado.' });
     }
 
     // 1. Busca os metadados da comunicação garantindo isolamento de tenant
@@ -33,10 +37,10 @@ export default async function handler(req, res) {
       .single();
 
     if (errCamp || !campanha) {
-      return res.status(404).json({ error: 'Comunicação oficial não localizada ou não pertence a este tenant.' });
+      return res.status(404).json({ success: false, error: 'Comunicação oficial não localizada ou não pertence a este tenant.' });
     }
 
-    // 2. Resolve a conta oficial de WhatsApp ativa e configurada
+    // 2. Resolve a conta oficial de WhatsApp ativa e configurada (Defensivo)
     let contaOficial = null;
     try {
       const rowConta = await buscarContaWhatsappPrincipal(supabase, { tenant_id: tenantId });
@@ -47,17 +51,21 @@ export default async function handler(req, res) {
       console.warn('[DetalhesComunicacaoAPI] Aviso ao resolver conta WhatsApp oficial:', errAccount);
     }
 
-    // 3. Resolve o nome da campanha do CRM se houver vínculo
+    // 3. Resolve o nome da campanha do CRM se houver vínculo (Defensivo)
     const regrasAudience = campanha.communication_audiences?.regras || {};
     let nomeCampanhaCRM = null;
     if (regrasAudience.crm_campaign_id) {
-      const { data: crmCamp } = await supabase
-        .from('campanhas')
-        .select('nome')
-        .eq('id', regrasAudience.crm_campaign_id)
-        .maybeSingle();
-      if (crmCamp?.nome) {
-        nomeCampanhaCRM = crmCamp.nome;
+      try {
+        const { data: crmCamp } = await supabase
+          .from('campanhas')
+          .select('nome')
+          .eq('id', regrasAudience.crm_campaign_id)
+          .maybeSingle();
+        if (crmCamp?.nome) {
+          nomeCampanhaCRM = crmCamp.nome;
+        }
+      } catch (errCrm) {
+        console.warn('[DetalhesComunicacaoAPI] Aviso ao resolver nome da campanha CRM:', errCrm);
       }
     }
 
@@ -89,7 +97,10 @@ export default async function handler(req, res) {
       .eq('campaign_id', id)
       .order('created_at', { ascending: true });
 
-    if (errItens) throw errItens;
+    if (errItens) {
+      console.error('[DetalhesComunicacaoAPI] Erro ao consultar itens da campanha:', errItens);
+      throw errItens;
+    }
 
     // 5. Consolida as estatísticas operacionais em tempo real utilizando exclusivamente os status atuais de communication_campaign_items
     let pendentes = 0;
@@ -100,7 +111,7 @@ export default async function handler(req, res) {
     let falhas = 0;
 
     (itens || []).forEach(item => {
-      const st = String(item.status || '').toLowerCase();
+      const st = String(item?.status || '').toLowerCase();
       if (st === 'pendente') {
         pendentes++;
       } else if (st === 'processando') {
@@ -124,11 +135,36 @@ export default async function handler(req, res) {
 
     const taxaProgresso = total > 0 ? Number(((processados / total) * 100).toFixed(1)) : 0;
     const taxaSucesso = total > 0 ? Number(((sucessos / total) * 100).toFixed(1)) : 0;
-
-    // Compatibilidade com taxaConclusao legada mantendo taxaProgresso/taxaSucesso explícitos
     const taxaConclusao = taxaProgresso.toFixed(1);
 
+    // Mapeamento defensivo dos destinatários sem deixar falha em helper individual derrubar o resultado
+    const destinatariosMapeados = (itens || []).map(item => {
+      let erroNormalizado = null;
+      try {
+        const st = String(item?.status || '').toLowerCase();
+        const ehFalha = st === 'falha' || st === 'falhou';
+        if (ehFalha) {
+          erroNormalizado = resolverDetalhesFalhaMeta(item);
+        }
+      } catch (errHelper) {
+        console.warn(`[DetalhesComunicacaoAPI] Aviso ao resolver erro do item ${item?.id}:`, errHelper);
+      }
+
+      return {
+        id: item?.id,
+        nome: item?.variaveis_mapeadas?.nome || 'Contato',
+        telefone: item?.contact_id || '',
+        status: item?.status || 'pendente',
+        processado_em: item?.finished_at || item?.updated_at || null,
+        error_code: item?.error_code || erroNormalizado?.errorCode || null,
+        error_message: item?.error_message || erroNormalizado?.errorMessage || null,
+        last_error: item?.last_error || null,
+        erro_detalhes: erroNormalizado
+      };
+    });
+
     return res.status(200).json({
+      success: true,
       campanha: {
         id: campanha.id,
         nome: campanha.nome,
@@ -149,7 +185,7 @@ export default async function handler(req, res) {
       },
       metricas: {
         total,
-        pendentes: pendentes + processando, // pendentes + processando
+        pendentes: pendentes + processando,
         pendentesPuros: pendentes,
         processando,
         enviadas,
@@ -162,41 +198,15 @@ export default async function handler(req, res) {
         taxaSucesso,
         taxaConclusao
       },
-      destinatarios: (itens || []).map(item => {
-        const st = String(item.status || '').toLowerCase();
-        const ehFalha = st === 'falha' || st === 'falhou';
-        const erroNormalizado = ehFalha ? resolverDetalhesFalhaMeta(item) : null;
-
-        return {
-          id: item.id,
-          nome: item.variaveis_mapeadas?.nome || 'Contato',
-          telefone: item.contact_id,
-          status: item.status,
-          processado_em: item.finished_at || item.updated_at,
-          error_code: item.error_code || erroNormalizado?.errorCode || null,
-          error_message: item.error_message || erroNormalizado?.errorMessage || null,
-          last_error: item.last_error || null,
-          erro_detalhes: erroNormalizado
-        };
-      }),
+      destinatarios: destinatariosMapeados,
       timeline: campanha.communication_audiences?.regras?.timeline || []
     });
   } catch (error) {
-    console.error('[DetalhesComunicacaoAPI] Erro ao carregar informações:', error);
-    // Retorno seguro mockado se tabelas do Supabase não possuírem registros
-    return res.status(200).json({
-      campanha: {
-        id,
-        nome: 'Comunicação Oficial Importada',
-        canal: 'whatsapp',
-        origem: 'Base de Dados',
-        template: 'Informativo Obras',
-        status: 'concluido',
-        agendamento: null,
-        created_at: new Date().toISOString()
-      },
-      metricas: { total: 0, pendentes: 0, processando: 0, enviadas: 0, falhas: 0, taxaConclusao: '0.0' },
-      destinatarios: []
+    console.error('[DetalhesComunicacaoAPI] Erro ao carregar informações da comunicação:', error);
+    const statusCode = error?.statusCode || error?.status || 500;
+    return res.status(statusCode).json({
+      success: false,
+      error: error?.message || 'Não foi possível carregar os detalhes da comunicação oficial.'
     });
   }
 }

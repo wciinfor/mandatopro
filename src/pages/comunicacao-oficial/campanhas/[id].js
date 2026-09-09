@@ -255,11 +255,39 @@ export default function DetalhesComunicacaoPage() {
     );
   }
 
+  if (erroCarregamento) {
+    return (
+      <ProtectedRoute>
+        <Layout titulo="Erro no Carregamento">
+          <div className="bg-white rounded-2xl p-6 text-center text-rose-600 border border-rose-100 max-w-md mx-auto mt-10 space-y-3 shadow-sm">
+            <FontAwesomeIcon icon={faExclamationTriangle} className="text-3xl text-rose-500" />
+            <p className="text-sm font-bold text-gray-800">Falha ao Carregar a Comunicação Oficial</p>
+            <p className="text-xs text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200">{erroCarregamento}</p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => id && carregarDetalhes(id)}
+                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition"
+              >
+                Tentar Novamente
+              </button>
+              <button
+                onClick={() => router.push('/comunicacao-oficial/campanhas')}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-2 px-4 rounded-xl transition"
+              >
+                Voltar para Comunicações
+              </button>
+            </div>
+          </div>
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
   if (!campanha) {
     return (
       <ProtectedRoute>
         <Layout titulo="Erro">
-          <div className="bg-white rounded-2xl p-6 text-center text-gray-400 border border-gray-100 max-w-md mx-auto mt-10">
+          <div className="bg-white rounded-2xl p-6 text-center text-gray-400 border border-gray-100 max-w-md mx-auto mt-10 space-y-3">
             <p className="text-sm font-semibold">Comunicação Oficial não localizada ou erro de permissão.</p>
             <button
               onClick={() => router.push('/comunicacao-oficial/campanhas')}
