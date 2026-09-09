@@ -177,7 +177,15 @@ export default function CampanhasOficiaisPage() {
                   Gerencie transmissões pendentes na fila e consulte o histórico de campanhas executadas e entregues.
                 </p>
               </div>
-              <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => router.push('/comunicacao-oficial/campanhas/reenvio-131049')}
+                  className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 text-xs shadow-2xs cursor-pointer"
+                  title="Central de Reenvio para falhas do ecossistema Meta (Erro 131049)"
+                >
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-600" />
+                  Reenvio Meta 131049
+                </button>
                 <button
                   onClick={() => setCriando(true)}
                   className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center gap-2 shadow-sm"
