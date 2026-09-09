@@ -94,7 +94,7 @@ export default async function handler(req, res) {
 
     if (errItens) throw errItens;
 
-    // 5. Consolida as estatísticas operacionais em tempo real com 6 métricas independentes
+    // 5. Consolida as estatísticas operacionais em tempo real utilizando exclusivamente os status atuais de communication_campaign_items
     let pendentes = 0;
     let processando = 0;
     let enviadas = 0;
@@ -110,18 +110,26 @@ export default async function handler(req, res) {
         processando++;
       } else if (st === 'falha' || st === 'falhou') {
         falhas++;
-      } else if (st === 'lido' || st === 'lida' || item.read_at) {
+      } else if (st === 'lido' || st === 'lida') {
         lidas++;
-      } else if (st === 'entregue' || item.delivered_at) {
+      } else if (st === 'entregue') {
         entregues++;
-      } else if (st === 'enviado' || st === 'enviada' || item.sent_at) {
+      } else if (st === 'enviado' || st === 'enviada') {
         enviadas++;
+      } else {
+        pendentes++;
       }
     });
 
     const total = (itens || []).length;
-    const processadosTotal = enviadas + entregues + lidas + falhas;
-    const taxaConclusao = total > 0 ? ((processadosTotal / total) * 100).toFixed(1) : '0.0';
+    const processados = enviadas + entregues + lidas + falhas;
+    const sucessos = enviadas + entregues + lidas;
+
+    const taxaProgresso = total > 0 ? Number(((processados / total) * 100).toFixed(1)) : 0;
+    const taxaSucesso = total > 0 ? Number(((sucessos / total) * 100).toFixed(1)) : 0;
+
+    // Compatibilidade com taxaConclusao legada mantendo taxaProgresso/taxaSucesso explícitos
+    const taxaConclusao = taxaProgresso.toFixed(1);
 
     return res.status(200).json({
       campanha: {
@@ -144,12 +152,17 @@ export default async function handler(req, res) {
       },
       metricas: {
         total,
-        pendentes,
+        pendentes: pendentes + processando, // pendentes + processando
+        pendentesPuros: pendentes,
         processando,
         enviadas,
         entregues,
         lidas,
         falhas,
+        processados,
+        sucessos,
+        taxaProgresso,
+        taxaSucesso,
         taxaConclusao
       },
       destinatarios: (itens || []).map(item => ({

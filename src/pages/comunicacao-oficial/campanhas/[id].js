@@ -78,6 +78,44 @@ export default function DetalhesComunicacaoPage() {
     }
   };
 
+  const iniciarPollingConsolidação = async (campanhaId) => {
+    let tentativas = 0;
+    const MAX_TENTATIVAS = 6; // Até 18 segundos de acompanhamento (3s intervalo)
+
+    const interval = setInterval(async () => {
+      tentativas++;
+      try {
+        const res = await fetch(`/api/comunicacao-oficial/campanhas/${campanhaId}/detalhes`);
+        if (res.ok) {
+          const data = await res.json();
+          setCampanha(data.campanha || null);
+          setMetricas(data.metricas || null);
+          setDestinatarios(data.destinatarios || []);
+          setTimeline(data.timeline || []);
+
+          const m = data.metricas || {};
+          const processados = m.processados ?? (m.enviadas + m.entregues + m.lidas + m.falhas);
+          const total = m.total || 0;
+
+          // Atualiza banner dinamicamente com os dados consolidados do banco pós-webhook
+          if (total > 0 && processados >= total) {
+            setMensagemFeedback({
+              tipo: 'sucesso',
+              texto: `Lote processado: ${total} destinatários. Sucesso: ${m.sucessos || 0} (${m.taxaSucesso ?? 0}%) | Falhas: ${m.falhas || 0}`
+            });
+            clearInterval(interval);
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao atualizar consolidação do lote:', e);
+      }
+
+      if (tentativas >= MAX_TENTATIVAS) {
+        clearInterval(interval);
+      }
+    }, 3000);
+  };
+
   const handleIniciarDisparo = async () => {
     if (disparando) return;
     setDisparando(true);
@@ -130,8 +168,8 @@ export default function DetalhesComunicacaoPage() {
 
       if (totalProcessadosGeral > 0) {
         setMensagemFeedback({
-          tipo: 'sucesso',
-          texto: `Disparo concluído com sucesso! Total processado: ${totalProcessadosGeral} (${totalSucessosGeral} enviados, ${totalFalhasGeral} falhas).`
+          tipo: 'info',
+          texto: `Processamento inicial concluído. Atualizando status do lote...`
         });
       } else {
         setMensagemFeedback({
@@ -148,6 +186,9 @@ export default function DetalhesComunicacaoPage() {
     } finally {
       setDisparando(false);
       await carregarDetalhes(id);
+      if (totalProcessadosGeral > 0) {
+        iniciarPollingConsolidação(id);
+      }
     }
   };
 
@@ -470,13 +511,18 @@ export default function DetalhesComunicacaoPage() {
               </div>
             </div>
 
-            {/* Dashboard Executivo de Disparos - 6 KPIs Independentes */}
+            {/* Dashboard Executivo de Disparos - 6 KPIs Independentes + Progresso e Taxa de Sucesso */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 lg:col-span-2 space-y-4 shadow-sm">
-              <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
+              <div className="border-b border-gray-100 pb-3 flex flex-wrap items-center justify-between gap-2">
                 <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Métricas de Envio em Lote</h4>
-                <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-100">
-                  Taxa de conclusão: {metricas?.taxaConclusao}%
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100">
+                    Progresso do Lote: {metricas?.taxaProgresso ?? metricas?.taxaConclusao ?? 0}%
+                  </span>
+                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100">
+                    Taxa de Sucesso: {metricas?.taxaSucesso ?? 0}%
+                  </span>
+                </div>
               </div>
               
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

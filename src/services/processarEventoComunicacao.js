@@ -280,7 +280,12 @@ export async function processarEventoStatus(supabase, evento) {
     failed: 'falhou'
   };
 
+  // ─── MATRIZ DE PRECEDÊNCIA E HIERARQUIA DE ESTADOS ────────────────────────
+  // pendente (0) < processando (0) < enviado (1) < entregue (2) < lido (3)
+  // falha (4) é estado final de erro.
   const STATUS_PRIORITY = {
+    pendente: 0,
+    processando: 0,
     sent: 1, enviada: 1, enviado: 1,
     delivered: 2, entregue: 2,
     read: 3, lida: 3, lido: 3,
@@ -288,7 +293,7 @@ export async function processarEventoStatus(supabase, evento) {
   };
 
   const statusInterno = statusMap[evento.status] || evento.status;
-  const novoStatusPrioridade = STATUS_PRIORITY[evento.status] || 0;
+  const novoStatusPrioridade = STATUS_PRIORITY[evento.status] || STATUS_PRIORITY[statusInterno] || 0;
 
   // Atualiza communication_messages
   const { data: msgFila } = await supabase
@@ -301,6 +306,7 @@ export async function processarEventoStatus(supabase, evento) {
     const statusAtualMsg = msgFila.meta_dados?.status;
     const statusAtualPrioridade = STATUS_PRIORITY[statusAtualMsg] || 0;
 
+    // Regra: aceita se for falha ou se o novo status tiver prioridade estritamente superior ou igual
     if (evento.status === 'failed' || novoStatusPrioridade >= statusAtualPrioridade) {
       const { error: errUpdateMsg } = await supabase
         .from('communication_messages')
@@ -320,7 +326,7 @@ export async function processarEventoStatus(supabase, evento) {
   // Atualiza communication_campaign_items com progressão estrita de status
   const { data: itemFilaObj } = await supabase
     .from('communication_campaign_items')
-    .select('id, campaign_id, status, delivered_at, read_at, last_error')
+    .select('id, campaign_id, status, delivered_at, read_at, error_code, error_message, last_error')
     .eq('provider_message_id', evento.provider_message_id)
     .maybeSingle();
 
@@ -328,18 +334,28 @@ export async function processarEventoStatus(supabase, evento) {
     const prioridadeAtualItem = STATUS_PRIORITY[itemFilaObj.status] || 0;
     const updatePayload = {};
 
+    // 1. Trata falha assíncrona recebida via Webhook (Ex: status = failed)
     if (evento.status === 'failed') {
       updatePayload.status = 'falha';
-      updatePayload.last_error = JSON.stringify(evento.erro);
-    } else if (novoStatusPrioridade >= prioridadeAtualItem) {
+      
+      const codigoErro = evento.erro?.code || evento.erro?.error_code || null;
+      const mensagemErro = evento.erro?.message || evento.erro?.title || (typeof evento.erro === 'string' ? evento.erro : JSON.stringify(evento.erro || {}));
+      
+      if (codigoErro) updatePayload.error_code = String(codigoErro);
+      if (mensagemErro) updatePayload.error_message = String(mensagemErro);
+      updatePayload.last_error = JSON.stringify(evento.erro || {});
+    } 
+    // 2. Transição progressiva de status normal (evita que evento fora de ordem rebaixe estado)
+    else if (novoStatusPrioridade > prioridadeAtualItem && itemFilaObj.status !== 'falha') {
       updatePayload.status = novoStatusPrioridade === 3 ? 'lido' : novoStatusPrioridade === 2 ? 'entregue' : 'enviado';
     }
 
+    // 3. Atualiza timestamps cumulativos sem regredir dados
     if (evento.status === 'delivered' || evento.status === 'read') {
-      if (!itemFilaObj.delivered_at) updatePayload.delivered_at = evento.timestamp;
+      if (!itemFilaObj.delivered_at) updatePayload.delivered_at = evento.timestamp || new Date().toISOString();
     }
     if (evento.status === 'read') {
-      if (!itemFilaObj.read_at) updatePayload.read_at = evento.timestamp;
+      if (!itemFilaObj.read_at) updatePayload.read_at = evento.timestamp || new Date().toISOString();
     }
 
     if (Object.keys(updatePayload).length > 0) {
@@ -349,7 +365,7 @@ export async function processarEventoStatus(supabase, evento) {
         .eq('id', itemFilaObj.id);
     }
 
-    // Recalcula totais da campanha
+    // Recalcula os contadores em communication_campaigns para manter sincronia
     const { data: todosItens } = await supabase
       .from('communication_campaign_items')
       .select('status')
@@ -358,10 +374,11 @@ export async function processarEventoStatus(supabase, evento) {
     if (todosItens) {
       let enviadas = 0, entregues = 0, lidas = 0, falhas = 0;
       todosItens.forEach(it => {
-        if (it.status === 'enviado') enviadas++;
-        else if (it.status === 'entregue') entregues++;
-        else if (it.status === 'lido') lidas++;
-        else if (it.status === 'falha') falhas++;
+        const st = String(it.status || '').toLowerCase();
+        if (st === 'enviado' || st === 'enviada') enviadas++;
+        else if (st === 'entregue') entregues++;
+        else if (st === 'lido' || st === 'lida') lidas++;
+        else if (st === 'falha' || st === 'falhou') falhas++;
       });
 
       await supabase
