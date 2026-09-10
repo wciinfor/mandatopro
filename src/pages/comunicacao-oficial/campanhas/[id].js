@@ -57,8 +57,13 @@ export default function DetalhesComunicacaoPage() {
     }
   }, [id]);
 
-  const destinatariosFiltrados = destinatarios.filter(d => {
-    const matchBusca = d.nome.toLowerCase().includes(buscaDestinatario.toLowerCase()) || d.telefone.includes(buscaDestinatario);
+  const destinatariosFiltrados = (destinatarios || []).filter(d => {
+    if (!d) return false;
+    const nomeStr = String(d.nome || '').toLowerCase();
+    const telStr = String(d.telefone || '');
+    const buscaStr = String(buscaDestinatario || '').toLowerCase();
+
+    const matchBusca = nomeStr.includes(buscaStr) || telStr.includes(buscaStr);
     const matchStatus = filtroStatus === 'all' || d.status === filtroStatus;
     return matchBusca && matchStatus;
   });
