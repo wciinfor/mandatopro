@@ -11,40 +11,77 @@ export class DashboardAttendanceRepository {
    * Consulta os dados em tempo real da central de atendimento a partir de communication_conversations
    */
   async obterMétricasAtendimento(tenantId = null) {
-    let query = this.supabase
+    let qTotal = this.supabase
       .from('communication_conversations')
-      .select('id, status, channel, provider, unread_count, last_message_at');
+      .select('*', { count: 'exact', head: true });
+
+    let qNovas = this.supabase
+      .from('communication_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'nova');
+
+    let qEmAtendimento = this.supabase
+      .from('communication_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'em_atendimento');
+
+    let qAguardandoEleitor = this.supabase
+      .from('communication_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'aguardando_eleitor');
+
+    let qConcluidas = this.supabase
+      .from('communication_conversations')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['concluida', 'finalizada']);
+
+    let qCanalWhatsapp = this.supabase
+      .from('communication_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('channel', 'whatsapp');
+
+    let qCanalInstagram = this.supabase
+      .from('communication_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('channel', 'instagram');
 
     if (tenantId) {
-      query = query.eq('tenant_id', tenantId);
+      qTotal = qTotal.eq('tenant_id', tenantId);
+      qNovas = qNovas.eq('tenant_id', tenantId);
+      qEmAtendimento = qEmAtendimento.eq('tenant_id', tenantId);
+      qAguardandoEleitor = qAguardandoEleitor.eq('tenant_id', tenantId);
+      qConcluidas = qConcluidas.eq('tenant_id', tenantId);
+      qCanalWhatsapp = qCanalWhatsapp.eq('tenant_id', tenantId);
+      qCanalInstagram = qCanalInstagram.eq('tenant_id', tenantId);
     }
 
-    const { data: conversas, error } = await query;
+    const [
+      resTotal,
+      resNovas,
+      resEmAtendimento,
+      resAguardandoEleitor,
+      resConcluidas,
+      resWhatsapp,
+      resInstagram
+    ] = await Promise.all([
+      qTotal,
+      qNovas,
+      qEmAtendimento,
+      qAguardandoEleitor,
+      qConcluidas,
+      qCanalWhatsapp,
+      qCanalInstagram
+    ]);
 
-    if (error) {
-      console.warn('[DashboardAttendanceRepository] Erro ao consultar communication_conversations:', error.message);
-    }
+    const totalConversas = resTotal.count || 0;
+    const novas = resNovas.count || 0;
+    const emAtendimento = resEmAtendimento.count || 0;
+    const aguardandoEleitor = resAguardandoEleitor.count || 0;
+    const concluidas = resConcluidas.count || 0;
 
-    const lista = conversas || [];
-    let novas = 0;
-    let emAtendimento = 0;
-    let aguardandoEleitor = 0;
-    let concluidas = 0;
-    let totalNaoLidas = 0;
     const porCanal = {};
-
-    lista.forEach(c => {
-      const st = String(c.status || '').toLowerCase();
-      if (st === 'nova') novas++;
-      else if (st === 'em_atendimento') emAtendimento++;
-      else if (st === 'aguardando_eleitor') aguardandoEleitor++;
-      else if (st === 'concluida' || st === 'finalizada') concluidas++;
-
-      if (c.unread_count) totalNaoLidas += Number(c.unread_count) || 0;
-
-      const canal = (c.channel || 'whatsapp').toLowerCase();
-      porCanal[canal] = (porCanal[canal] || 0) + 1;
-    });
+    if (resWhatsapp.count > 0) porCanal['whatsapp'] = resWhatsapp.count;
+    if (resInstagram.count > 0) porCanal['instagram'] = resInstagram.count;
 
     const conversasAbertas = novas + emAtendimento + aguardandoEleitor;
 
@@ -58,9 +95,9 @@ export class DashboardAttendanceRepository {
       emAtendimento,
       aguardandoEleitor,
       concluidas,
-      totalConversas: lista.length,
+      totalConversas,
       semResponsavel: 0, // Campo assigned_to não existe na tabela communication_conversations
-      totalNaoLidas,
+      totalNaoLidas: 0,
       porCanal
     };
   }

@@ -348,11 +348,31 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   // Atualiza contatos e resumo com debouncing via GET /api/disparos/contatos/preview
   useEffect(() => {
+    // Regra de Proteção: No Passo 1 (ou fluxos fora de base/campanha/público), nenhuma busca ou cálculo prematuro deve ocorrer
+    if (step === 1) {
+      setContatosReais([]);
+      setResumoBackend({ total: 0, validos: 0, invalidos: 0, duplicados: 0 });
+      setCarregandoContatos(false);
+      setErroContatos(null);
+      return;
+    }
+
     if (
       origemDestinatarios !== 'campanha_politica' &&
       origemDestinatarios !== 'base_geral' &&
       origemDestinatarios !== 'publico_salvo'
-    ) return;
+    ) {
+      setCarregandoContatos(false);
+      return;
+    }
+
+    // Para público salvo, só busca se houver público selecionado
+    if (origemDestinatarios === 'publico_salvo' && !publicoSelecionado) {
+      setContatosReais([]);
+      setResumoBackend({ total: 0, validos: 0, invalidos: 0, duplicados: 0 });
+      setCarregandoContatos(false);
+      return;
+    }
 
     let active = true;
     setCarregandoContatos(true);
@@ -410,7 +430,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       clearTimeout(timer);
     };
   }, [
+    step,
     origemDestinatarios,
+    publicoSelecionado,
     mandatoOrigem,
     mandatoCampanhaId,
     mandatoPresencaCampanha,
