@@ -284,15 +284,7 @@ export async function buscarContaWhatsappPorVerifyToken(supabase, verifyToken) {
 
   const { data, error } = await supabase
     .from('whatsapp_business_accounts')
-    .select(`
-      id,
-      tenant_id,
-      nome,
-      business_manager_id,
-      waba_id,
-      verify_token,
-      webhook_verified
-    `)
+    .select('id, tenant_id, waba_id, verify_token, app_secret, webhook_receiving_events')
     .eq('verify_token', token)
     .eq('status', 'ATIVO')
     .limit(1)
@@ -335,7 +327,7 @@ export async function buscarContaWhatsappPorWabaOuNumero(supabase, { wabaId, pho
   if (waba) {
     const { data, error } = await supabase
       .from('whatsapp_business_accounts')
-      .select('id, tenant_id, waba_id, verify_token, webhook_receiving_events')
+      .select('id, tenant_id, waba_id, verify_token, app_secret, webhook_receiving_events')
       .eq('waba_id', waba)
       .eq('status', 'ATIVO')
       .limit(1)
@@ -348,7 +340,7 @@ export async function buscarContaWhatsappPorWabaOuNumero(supabase, { wabaId, pho
   if (phone) {
     const { data, error } = await supabase
       .from('whatsapp_business_numbers')
-      .select('account_id, tenant_id, phone_number_id, whatsapp_business_accounts(id, tenant_id, waba_id, verify_token, webhook_receiving_events)')
+      .select('account_id, tenant_id, phone_number_id, whatsapp_business_accounts(id, tenant_id, waba_id, verify_token, app_secret, webhook_receiving_events)')
       .eq('phone_number_id', phone)
       .limit(1)
       .maybeSingle();

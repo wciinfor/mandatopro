@@ -25,16 +25,19 @@ export const config = {
  */
 function validarAssinatura(rawBody, signatureHeader, appSecret) {
   if (!signatureHeader) return 'MISSING';
-  if (!appSecret) return 'INVALID';
+  const secret = String(appSecret || '').trim();
+  if (!secret) return 'SECRET_UNAVAILABLE';
+
+  const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody || '', 'utf8');
 
   const expected = `sha256=${crypto
-    .createHmac('sha256', appSecret)
-    .update(rawBody)
+    .createHmac('sha256', secret)
+    .update(bodyBuffer)
     .digest('hex')}`;
 
-  const received = String(signatureHeader || '');
-  const expectedBuffer = Buffer.from(expected);
-  const receivedBuffer = Buffer.from(received);
+  const received = String(signatureHeader || '').trim();
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  const receivedBuffer = Buffer.from(received, 'utf8');
 
   if (expectedBuffer.length !== receivedBuffer.length) return 'INVALID';
   return crypto.timingSafeEqual(expectedBuffer, receivedBuffer) ? 'VALID' : 'INVALID';
@@ -138,15 +141,24 @@ export default async function handler(req, res) {
     const rawBody = await readRawBody(req);
     const payload = parseJson(rawBody);
 
+    const routing = extractWebhookRouting(payload);
+    const conta = await buscarContaWhatsappPorWabaOuNumero(supabase, routing);
+
+    // Resolve o secret de forma robusta e segura (conta no banco ou env var global)
+    const appSecret = (
+      conta?.app_secret ||
+      process.env.META_APP_SECRET ||
+      process.env.WHATSAPP_APP_SECRET ||
+      ''
+    ).trim();
+
     // Valida a assinatura HMAC SHA-256 usando o RAW BODY original da requisição HTTP
     const signatureStatus = validarAssinatura(
       rawBody,
       req.headers['x-hub-signature-256'],
-      process.env.META_APP_SECRET
+      appSecret
     );
 
-    const routing = extractWebhookRouting(payload);
-    const conta = await buscarContaWhatsappPorWabaOuNumero(supabase, routing);
     const logger = createWhatsAppWebhookEventLogger(supabase);
 
     // Grava o log de auditoria do evento recebido com status da assinatura
