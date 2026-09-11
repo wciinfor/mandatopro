@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase-server';
 import { readRawBody } from '@/lib/raw-body';
 import { WaBlastWebhookNormalizer } from '@/services/wablastWebhookNormalizer';
 import { ConversasService } from '@/services/conversasService';
+import { createWhatsAppWebhookEventLogger } from '@/services/whatsapp-webhook-event-logger';
+import { buscarContaWhatsappPorWabaOuNumero } from '@/lib/whatsapp-business-accounts';
 
 export const config = {
   api: {
@@ -39,23 +41,23 @@ function deveAtualizarStatus(statusAtual, novoStatus) {
  */
 function validarAssinaturaWaBlast({ rawBody, webhookId, webhookTimestamp, signatureHeader, secret }) {
   if (!webhookId) {
-    return { status: 'MISSING', reason: 'Header webhook-id ausente' };
+    return { status: 'MISSING', reason: 'Header webhook-id ausente', category: 'WEBHOOK_ID_MISSING' };
   }
   if (!webhookTimestamp) {
-    return { status: 'MISSING', reason: 'Header webhook-timestamp ausente' };
+    return { status: 'MISSING', reason: 'Header webhook-timestamp ausente', category: 'TIMESTAMP_MISSING' };
   }
   if (!signatureHeader) {
-    return { status: 'MISSING', reason: 'Header webhook-signature ausente' };
+    return { status: 'MISSING', reason: 'Header webhook-signature ausente', category: 'SIGNATURE_MISSING' };
   }
   if (!secret) {
-    return { status: 'INVALID', reason: 'WABLAST_WEBHOOK_SECRET não configurado no servidor' };
+    return { status: 'INVALID', reason: 'WABLAST_WEBHOOK_SECRET não configurado no servidor', category: 'SECRET_UNAVAILABLE' };
   }
 
   try {
     // 1. Validar tolerância do timestamp (anti-replay: 5 minutos)
     const tsSeconds = Number(webhookTimestamp);
     if (!Number.isFinite(tsSeconds)) {
-      return { status: 'INVALID', reason: 'Header webhook-timestamp inválido' };
+      return { status: 'INVALID', reason: 'Header webhook-timestamp inválido', category: 'TIMESTAMP_INVALID' };
     }
 
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -63,7 +65,7 @@ function validarAssinaturaWaBlast({ rawBody, webhookId, webhookTimestamp, signat
     const TOLERANCIA_SEGUNDOS = 300; // 5 minutos
 
     if (diffSeconds > TOLERANCIA_SEGUNDOS) {
-      return { status: 'INVALID', reason: `Timestamp fora da janela de tolerância de 5 minutos (drift: ${diffSeconds}s)` };
+      return { status: 'INVALID', reason: `Timestamp fora da janela de tolerância de 5 minutos (drift: ${diffSeconds}s)`, category: 'TIMESTAMP_EXPIRED' };
     }
 
     // 2. Extrair a chave binária a partir do secret (whsec_<base64> ou raw)
@@ -89,7 +91,6 @@ function validarAssinaturaWaBlast({ rawBody, webhookId, webhookTimestamp, signat
     const expectedSignatureWithPrefix = `v1,${computedSignatureBase64}`;
 
     // 5. Comparar com as assinaturas fornecidas no header (pode haver múltiplas assinaturas separadas por espaço)
-    // Exemplo de header: "v1,g0hM9SsE+OTPJTGtAhWS..." ou "v1,..."
     const receivedSignatures = String(signatureHeader).trim().split(/\s+/);
     let matched = false;
 
@@ -107,10 +108,11 @@ function validarAssinaturaWaBlast({ rawBody, webhookId, webhookTimestamp, signat
 
     return {
       status: matched ? 'VALID' : 'INVALID',
-      reason: matched ? 'Assinatura válida' : 'Assinatura divergente'
+      reason: matched ? 'Assinatura válida' : 'Assinatura divergente',
+      category: matched ? 'SUCCESS' : 'SIGNATURE_INVALID'
     };
   } catch (err) {
-    return { status: 'INVALID', reason: `Erro ao verificar assinatura: ${err.message}` };
+    return { status: 'INVALID', reason: `Erro ao verificar assinatura: ${err.message}`, category: 'SIGNATURE_INVALID' };
   }
 }
 
@@ -118,12 +120,32 @@ function parseJson(rawBody) {
   try {
     return JSON.parse(rawBody.toString('utf8') || '{}');
   } catch {
-    return {};
+    return null;
   }
 }
 
 export default async function handler(req, res) {
+  const supabase = createServerClient();
+  const logger = createWhatsAppWebhookEventLogger(supabase);
+
+  // 1. Validação de Método HTTP
   if (req.method !== 'POST') {
+    try {
+      await logger.log({
+        conta: null,
+        payload: {
+          provider: 'wablast',
+          http_method: req.method,
+          endpoint: '/api/whatsapp-business/wablast-webhook',
+          category: 'METHOD_NOT_ALLOWED'
+        },
+        validationStatus: 'INVALID',
+        signatureStatus: 'MISSING',
+        eventId: null
+      });
+    } catch (logErr) {
+      console.warn('[WABLAST LOGGER] Falha ao registrar log de método inválido:', logErr.message);
+    }
     return res.status(405).json({ success: false, error: 'Método não permitido' });
   }
 
@@ -131,43 +153,135 @@ export default async function handler(req, res) {
   
   const webhookId = req.headers['webhook-id'] 
     || req.headers['x-webhook-id'] 
-    || req.headers['msg-id'];
+    || req.headers['msg-id']
+    || null;
 
   const webhookTimestamp = req.headers['webhook-timestamp'] 
-    || req.headers['x-webhook-timestamp'];
+    || req.headers['x-webhook-timestamp']
+    || null;
 
   const signatureHeader = req.headers['webhook-signature'] 
     || req.headers['x-wablast-signature'] 
     || req.headers['wablast-signature']
     || req.headers['x-signature']
-    || req.headers['signature'];
+    || req.headers['signature']
+    || null;
 
   const webhookSecret = process.env.WABLAST_WEBHOOK_SECRET;
 
-  // 1. Validação de Assinatura Oficial Standard Webhooks
+  // 2. Validação Oficial de Assinatura HMAC Standard Webhooks
+  let validacao = { status: 'VALID', reason: 'Ambiente de teste sem headers', category: 'SUCCESS' };
+
   if (process.env.NODE_ENV === 'production' || signatureHeader || webhookId) {
-    const validacao = validarAssinaturaWaBlast({
+    validacao = validarAssinaturaWaBlast({
       rawBody,
       webhookId,
       webhookTimestamp,
       signatureHeader,
       secret: webhookSecret
     });
-
-    if (validacao.status !== 'VALID') {
-      console.warn('[WABLAST WEBHOOK] Assinatura inválida:', validacao.reason);
-      return res.status(401).json({ success: false, error: 'Assinatura inválida', reason: validacao.reason });
-    }
   }
 
+  // 3. Parsing do Raw Body
   const rawPayload = parseJson(rawBody);
-  const evento = WaBlastWebhookNormalizer.normalizarEvento(rawPayload);
 
-  if (!evento) {
-    return res.status(400).json({ success: false, error: 'Payload de webhook inválido' });
+  // 4. Resolução Defensiva da Conta WaBlast para Associação no Logger
+  let contaWaBlast = null;
+  try {
+    const payloadData = rawPayload?.data || rawPayload || {};
+    const externalRef = payloadData.external_ref || rawPayload?.external_ref || null;
+    let targetTenantId = null;
+
+    if (externalRef && typeof externalRef === 'string' && externalRef.startsWith('tenant_')) {
+      targetTenantId = Number(externalRef.replace('tenant_', ''));
+    }
+
+    if (targetTenantId && Number.isFinite(targetTenantId)) {
+      const { data: cTenant } = await supabase
+        .from('whatsapp_business_accounts')
+        .select('id, tenant_id, provider, wablast_account_id, waba_id, wablast_waba_id')
+        .eq('tenant_id', targetTenantId)
+        .eq('provider', 'WABLAST')
+        .maybeSingle();
+      contaWaBlast = cTenant;
+    }
+
+    if (!contaWaBlast && (payloadData.waba_id || payloadData.phone_number_id || payloadData.phone_number)) {
+      contaWaBlast = await buscarContaWhatsappPorWabaOuNumero(supabase, {
+        wabaId: payloadData.waba_id,
+        phoneNumberId: payloadData.phone_number_id || payloadData.phone_number
+      });
+    }
+
+    if (!contaWaBlast) {
+      const { data: cDefault } = await supabase
+        .from('whatsapp_business_accounts')
+        .select('id, tenant_id, provider, wablast_account_id, waba_id, wablast_waba_id')
+        .eq('provider', 'WABLAST')
+        .eq('status', 'ATIVO')
+        .limit(1)
+        .maybeSingle();
+      contaWaBlast = cDefault;
+    }
+  } catch (errBuscaConta) {
+    console.warn('[WABLAST LOGGER] Aviso ao resolver conta WaBlast:', errBuscaConta.message);
   }
 
-  const supabase = createServerClient();
+  // 5. Normalização do Evento
+  const evento = rawPayload ? WaBlastWebhookNormalizer.normalizarEvento(rawPayload) : null;
+
+  // 6. Preparação dos Metadados Sanitizados de Auditoria (SEM segredos ou dados sensíveis)
+  const auditPayload = {
+    provider: 'wablast',
+    endpoint: '/api/whatsapp-business/wablast-webhook',
+    http_method: 'POST',
+    webhook_id: webhookId,
+    webhook_timestamp: webhookTimestamp,
+    signature_present: Boolean(signatureHeader),
+    secret_configured: Boolean(webhookSecret),
+    category: validacao.category || (validacao.status === 'VALID' ? 'SUCCESS' : 'SIGNATURE_INVALID'),
+    validation_reason: validacao.reason,
+    event_type: evento?.tipo || rawPayload?.event || rawPayload?.type || (rawPayload ? 'unknown' : 'invalid_json'),
+    event_raw_type: evento?.rawType || null,
+    provider_message_id: evento?.provider_message_id || null,
+    contact_id_present: Boolean(evento?.contact_id)
+  };
+
+  // 7. Registro de Log de Auditoria em whatsapp_business_webhook_events
+  try {
+    await logger.log({
+      conta: contaWaBlast,
+      payload: auditPayload,
+      validationStatus: validacao.status === 'VALID' ? 'VALID' : 'INVALID',
+      signatureStatus: validacao.status === 'VALID' ? 'VALID' : (validacao.category || 'INVALID'),
+      eventId: webhookId || evento?.provider_message_id || null
+    });
+  } catch (logErr) {
+    console.error('[WABLAST LOGGER] Falha ao persistir evento no banco:', logErr.message);
+  }
+
+  // 8. Se a assinatura falhou, rejeita com HTTP 401
+  if (validacao.status !== 'VALID') {
+    console.warn(`[WABLAST WEBHOOK SECURITY] Rejeição HTTP 401: ${validacao.reason} (categoria: ${validacao.category})`);
+    return res.status(401).json({
+      success: false,
+      error: 'Assinatura inválida',
+      category: validacao.category,
+      reason: validacao.reason
+    });
+  }
+
+  // 9. Se o parsing JSON falhou, rejeita com HTTP 400
+  if (!rawPayload) {
+    console.warn('[WABLAST WEBHOOK] Rejeição HTTP 400: JSON inválido');
+    return res.status(400).json({ success: false, error: 'Payload JSON inválido', category: 'PAYLOAD_INVALID' });
+  }
+
+  // 10. Se a normalização falhou, rejeita com HTTP 400
+  if (!evento) {
+    console.warn('[WABLAST WEBHOOK] Rejeição HTTP 400: Evento não reconhecido');
+    return res.status(400).json({ success: false, error: 'Payload de webhook não reconhecido', category: 'NORMALIZATION_FAILED' });
+  }
 
   try {
     // ─── CASO 1: CONEXÃO DE CONTA (account.connected) ───────────────────────────
@@ -175,12 +289,11 @@ export default async function handler(req, res) {
       console.log(`[WABLAST WEBHOOK] Recebido account.connected para external_ref=${evento.external_ref}`);
 
       let tenantId = null;
-      if (evento.external_ref && evento.external_ref.startsWith('tenant_')) {
+      if (evento.external_ref && typeof evento.external_ref === 'string' && evento.external_ref.startsWith('tenant_')) {
         tenantId = Number(evento.external_ref.replace('tenant_', ''));
       }
 
       if (!tenantId || !Number.isFinite(tenantId)) {
-        // Tenta localizar por conta existente com o mesmo external_ref
         const { data: contaExistente } = await supabase
           .from('whatsapp_business_accounts')
           .select('tenant_id, id')
@@ -192,10 +305,9 @@ export default async function handler(req, res) {
 
       if (!tenantId) {
         console.warn('[WABLAST WEBHOOK] Tenant não identificado para external_ref:', evento.external_ref);
-        return res.status(200).json({ success: true, warning: 'Tenant não localizado' });
+        return res.status(200).json({ success: true, warning: 'Tenant não localizado', category: 'SUCCESS' });
       }
 
-      // Localiza a conta WABLAST do tenant (ou conta principal se for migração)
       const { data: contasTenant } = await supabase
         .from('whatsapp_business_accounts')
         .select('id, provider, principal')
@@ -222,7 +334,6 @@ export default async function handler(req, res) {
           .update(updateData)
           .eq('id', targetAccountId);
       } else {
-        // Insere nova conta de suporte ao WaBlast sem marcar como principal para não quebrar Meta/YCloud
         const { data: novaConta } = await supabase
           .from('whatsapp_business_accounts')
           .insert({
@@ -239,7 +350,6 @@ export default async function handler(req, res) {
         targetAccountId = novaConta?.id;
       }
 
-      // Se forneceu dados do número, atualiza ou insere em whatsapp_business_numbers
       if (targetAccountId && (evento.phone_number || evento.phone_number_id)) {
         const phoneId = evento.phone_number_id || evento.phone_number;
         const { data: numExistente } = await supabase
@@ -272,7 +382,7 @@ export default async function handler(req, res) {
       }
 
       console.log(`[WABLAST WEBHOOK] Conta WaBlast atualizada com sucesso para tenant=${tenantId}`);
-      return res.status(200).json({ success: true, message: 'Conta conectada registrada' });
+      return res.status(200).json({ success: true, message: 'Conta conectada registrada', category: 'SUCCESS' });
     }
 
     // ─── CASO 2: STATUS DE MENSAGEM (sent, delivered, read, failed) ─────────────
@@ -304,22 +414,23 @@ export default async function handler(req, res) {
         }
       }
 
-      // 2. Atualiza communication_messages / Central de Atendimento
+      // 2. Atualiza communication_campaign_items e communication_messages via ConversasService
       await ConversasService.processarEventoMeta(evento);
 
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, category: 'SUCCESS' });
     }
 
     // ─── CASO 3: MENSAGEM RECEBIDA (INBOUND) ───────────────────────────────────
     if (evento.tipo === 'mensagem' && evento.provider_message_id) {
       console.log(`[WABLAST WEBHOOK] Mensagem inbound wamid=${evento.provider_message_id} de=${evento.contact_id}`);
       await ConversasService.processarEventoMeta(evento);
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, category: 'SUCCESS' });
     }
 
-    return res.status(200).json({ success: true, ignored: true });
+    return res.status(200).json({ success: true, ignored: true, category: 'SUCCESS' });
   } catch (error) {
-    console.error('[WABLAST WEBHOOK] Erro ao processar evento:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error('[WABLAST WEBHOOK] Erro no processamento de negócio:', error);
+    return res.status(500).json({ success: false, error: error.message, category: 'PROCESSING_FAILED' });
   }
 }
+

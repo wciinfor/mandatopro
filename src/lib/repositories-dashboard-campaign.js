@@ -37,14 +37,14 @@ export class DashboardCampaignRepository {
     }
 
     // 2. Itens das Campanhas - Métricas oficiais de disparos (communication_campaign_items)
-    // Enviadas: enviado, sent, entregue, delivered, lida, read
-    const statusEnviadas = ['enviado', 'sent', 'entregue', 'delivered', 'lida', 'read'];
-    // Entregues: entregue, delivered, lida, read
-    const statusEntregues = ['entregue', 'delivered', 'lida', 'read'];
-    // Lidas: lida, read
-    const statusLidas = ['lida', 'read'];
-    // Falhas: falha, failed, erro
-    const statusFalhas = ['falha', 'failed', 'erro'];
+    // Enviadas: enviado, enviada, sent, entregue, delivered, lido, lida, read
+    const statusEnviadas = ['enviado', 'enviada', 'sent', 'entregue', 'delivered', 'lido', 'lida', 'read'];
+    // Entregues: entregue, delivered, lido, lida, read
+    const statusEntregues = ['entregue', 'delivered', 'lido', 'lida', 'read'];
+    // Lidas: lido, lida, read
+    const statusLidas = ['lido', 'lida', 'read'];
+    // Falhas: falha, falhou, failed, erro
+    const statusFalhas = ['falha', 'falhou', 'failed', 'erro'];
 
     let qEnviadas = this.supabase
       .from('communication_campaign_items')
