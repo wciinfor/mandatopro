@@ -26,6 +26,7 @@ export default function DetalhesComunicacaoPage() {
   const [destinatarios, setDestinatarios] = useState([]);
   const [timeline, setTimeline] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState(null);
   const [buscaDestinatario, setBuscaDestinatario] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('all');
   const [abaAtiva, setAbaAtiva] = useState('destinatarios');
@@ -36,16 +37,21 @@ export default function DetalhesComunicacaoPage() {
 
   const carregarDetalhes = async (campanhaId) => {
     try {
+      setCarregando(true);
+      setErroCarregamento(null);
       const res = await fetch(`/api/comunicacao-oficial/campanhas/${campanhaId}/detalhes`);
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setCampanha(data.campanha || null);
         setMetricas(data.metricas || null);
         setDestinatarios(data.destinatarios || []);
         setTimeline(data.timeline || []);
+      } else {
+        setErroCarregamento(data.error || 'Não foi possível carregar as informações desta comunicação oficial.');
       }
     } catch (err) {
       console.error('Erro ao carregar detalhes da comunicação:', err);
+      setErroCarregamento(err.message || 'Erro de conexão ao carregar a comunicação oficial.');
     } finally {
       setCarregando(false);
     }
