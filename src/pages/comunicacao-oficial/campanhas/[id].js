@@ -138,34 +138,57 @@ export default function DetalhesComunicacaoPage() {
     let totalFalhasGeral = 0;
     let loteNumero = 1;
     let continuar = true;
-    const MAX_LOTES_SEGURANCA = 200; // Proteção contra loop infinito (até 10.000 contatos)
+    const MAX_LOTES_SEGURANCA = 200; // Proteção contra loop infinito
+    const LIMITE_POR_LOTE = 25;
 
     try {
       while (continuar && loteNumero <= MAX_LOTES_SEGURANCA) {
         setMensagemFeedback({
           tipo: 'info',
-          texto: `Processando lote ${loteNumero}... (${totalProcessadosGeral} processados até o momento)`
+          texto: `Processando lote ${loteNumero}... (${totalProcessadosGeral} enviados até o momento)`
         });
 
-        const res = await fetch('/api/comunicacao-oficial/fila/processar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limite: 50, campaign_id: id })
-        });
+        // Função de envio com retry resiliente (até 3 tentativas por lote)
+        let data = null;
+        let tentativa = 1;
+        const MAX_TENTATIVAS_LOTE = 3;
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData?.error || `Erro HTTP ${res.status} ao processar lote ${loteNumero}`);
+        while (tentativa <= MAX_TENTATIVAS_LOTE) {
+          try {
+            const res = await fetch('/api/comunicacao-oficial/fila/processar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ limite: LIMITE_POR_LOTE, campaign_id: id })
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData?.error || `Erro HTTP ${res.status}`);
+            }
+
+            data = await res.json();
+            break; // Sucesso na requisição
+          } catch (fetchErr) {
+            console.warn(`[Lote ${loteNumero}] Tentativa ${tentativa}/${MAX_TENTATIVAS_LOTE} falhou:`, fetchErr.message);
+            if (tentativa >= MAX_TENTATIVAS_LOTE) {
+              throw fetchErr;
+            }
+            // Aguarda 1.5s antes de retentar o lote
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            tentativa++;
+          }
         }
 
-        const data = await res.json();
-        const processadosLote = Number(data.processados || 0);
-        const sucessosLote = Number(data.sucessos || 0);
-        const falhasLote = Number(data.falhas || 0);
+        const processadosLote = Number(data?.processados || 0);
+        const sucessosLote = Number(data?.sucessos || 0);
+        const falhasLote = Number(data?.falhas || 0);
 
         totalProcessadosGeral += processadosLote;
         totalSucessosGeral += sucessosLote;
         totalFalhasGeral += falhasLote;
+
+        // Atualização incremental de dados na tela entre lotes
+        await carregarDetalhes(id).catch(() => {});
 
         // Se o lote retornou 0 itens processados, a fila da campanha terminou
         if (processadosLote === 0) {
@@ -180,7 +203,7 @@ export default function DetalhesComunicacaoPage() {
       if (totalProcessadosGeral > 0) {
         setMensagemFeedback({
           tipo: 'info',
-          texto: `Processamento inicial concluído. Atualizando status do lote...`
+          texto: `Processamento concluído (${totalProcessadosGeral} contatos processados). Consolidando status...`
         });
       } else {
         setMensagemFeedback({
@@ -192,7 +215,7 @@ export default function DetalhesComunicacaoPage() {
       console.error('Erro ao acionar processamento contínuo da fila:', err);
       setMensagemFeedback({
         tipo: 'erro',
-        texto: `${err.message || 'Falha na comunicação com o servidor de disparos.'} (${totalProcessadosGeral} processados antes da interrupção)`
+        texto: `${err.message || 'Falha na comunicação com o servidor de disparos.'} (${totalProcessadosGeral} processados nesta sessão)`
       });
     } finally {
       setDisparando(false);
