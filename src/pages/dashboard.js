@@ -834,33 +834,53 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Taxa de Entrega */}
+                {/* Taxa de Entrega Confirmada */}
                 <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-gray-700">Taxa de Entrega</span>
-                    <span className="font-extrabold text-emerald-600">{metricasDisparos.taxaEntrega}%</span>
+                    <span className="font-semibold text-gray-700">Taxa de Entrega Confirmada</span>
+                    <span className="font-extrabold text-emerald-600">
+                      {metricasDisparos.taxaEntregaConfirmada !== null && metricasDisparos.taxaEntregaConfirmada !== undefined
+                        ? `${metricasDisparos.taxaEntregaConfirmada}%`
+                        : (metricasDisparos.taxaEntrega ? `${metricasDisparos.taxaEntrega}%` : '—')}
+                    </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                     <div
                       className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(metricasDisparos.taxaEntrega || 0, 100)}%` }}
+                      style={{
+                        width: `${Math.min(
+                          (metricasDisparos.taxaEntregaConfirmada !== null && metricasDisparos.taxaEntregaConfirmada !== undefined
+                            ? metricasDisparos.taxaEntregaConfirmada
+                            : metricasDisparos.taxaEntrega) || 0,
+                          100
+                        )}%`
+                      }}
                     />
                   </div>
+                  <p className="text-[9px] text-gray-400">
+                    {metricasDisparos.aguardandoConfirmacao > 0
+                      ? `${metricasDisparos.aguardandoConfirmacao} envios aguardando recibo do canal`
+                      : 'Calculada sobre desfechos confirmados'}
+                  </p>
                 </div>
 
                 {/* Mini Grid: Entregues / Lidas / Falhas */}
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="grid grid-cols-4 gap-1.5 text-center text-xs">
+                  <div className="p-2 bg-amber-50 rounded-lg border border-amber-100" title="Enviadas, aguardando recibo de entrega">
+                    <span className="text-[9px] text-amber-700 font-semibold block truncate">Aguardando</span>
+                    <span className="font-bold text-amber-900">{metricasDisparos.aguardandoConfirmacao || 0}</span>
+                  </div>
                   <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-100">
-                    <span className="text-[10px] text-emerald-700 font-semibold block">Entregues</span>
-                    <span className="font-bold text-emerald-900">{metricasDisparos.entregues}</span>
+                    <span className="text-[9px] text-emerald-700 font-semibold block truncate">Entregues</span>
+                    <span className="font-bold text-emerald-900">{metricasDisparos.entregues || 0}</span>
                   </div>
                   <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
-                    <span className="text-[10px] text-blue-700 font-semibold block">Lidas</span>
-                    <span className="font-bold text-blue-900">{metricasDisparos.lidas}</span>
+                    <span className="text-[9px] text-blue-700 font-semibold block truncate">Lidas</span>
+                    <span className="font-bold text-blue-900">{metricasDisparos.lidas || 0}</span>
                   </div>
                   <div className="p-2 bg-rose-50 rounded-lg border border-rose-100">
-                    <span className="text-[10px] text-rose-700 font-semibold block">Falhas</span>
-                    <span className="font-bold text-rose-900">{metricasDisparos.falhas}</span>
+                    <span className="text-[9px] text-rose-700 font-semibold block truncate">Falhas</span>
+                    <span className="font-bold text-rose-900">{metricasDisparos.falhas || 0}</span>
                   </div>
                 </div>
 

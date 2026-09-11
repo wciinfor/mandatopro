@@ -12,7 +12,11 @@ import {
   faUserClock,
   faLightbulb,
   faComments,
-  faServer
+  faServer,
+  faHourglassHalf,
+  faUsers,
+  faBan,
+  faFilter
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { DashboardCampaignService } from '@/services/dashboardCampaignService';
@@ -22,18 +26,25 @@ import { InsightsComunicacaoService } from '@/services/insightsComunicacaoServic
 
 export default function DashboardExecutivo() {
   const [loading, setLoading] = useState(true);
+  const [providerFiltro, setProviderFiltro] = useState('TODOS');
   const [metrics, setMetrics] = useState({
     totalCampanhas: 0,
     campanhasAtivas: 0,
     mensagensEnviadasHoje: 0,
+    totalDestinatarios: 0,
     totalEnviadas: 0,
-    mensagensEntrada: 0,
-    mensagensSaida: 0,
+    pendentes: 0,
+    aguardandoConfirmacao: 0,
+    entreguesExclusivas: 0,
     entregues: 0,
     lidas: 0,
     falhas: 0,
+    canceladas: 0,
+    mensagensEntrada: 0,
+    mensagensSaida: 0,
+    taxaEntregaConfirmada: null,
     taxaEntrega: 0,
-    taxaLeitura: 0,
+    taxaLeitura: null,
     historicoUltimos7Dias: [],
     porProvedor: {},
     campanhasRecentes: []
@@ -54,9 +65,10 @@ export default function DashboardExecutivo() {
 
   const [insights, setInsights] = useState([]);
 
-  const carregarMétricasCampanhas = async () => {
+  const carregarMétricasCampanhas = async (provider = providerFiltro) => {
     try {
-      const data = await DashboardCampaignService.obterIndicadoresCampanha();
+      const filtros = provider !== 'TODOS' ? { provider } : {};
+      const data = await DashboardCampaignService.obterIndicadoresCampanha(filtros);
       if (data) {
         setMetrics(prev => ({ ...prev, ...data }));
       }
@@ -83,11 +95,11 @@ export default function DashboardExecutivo() {
   useEffect(() => {
     const carregarTudo = async () => {
       setLoading(true);
-      await Promise.all([carregarMétricasCampanhas(), carregarMétricasAtendimento()]);
+      await Promise.all([carregarMétricasCampanhas(providerFiltro), carregarMétricasAtendimento()]);
       setLoading(false);
     };
     carregarTudo();
-  }, []);
+  }, [providerFiltro]);
 
   // Recalcular insights quando as métricas reais forem carregadas
   useEffect(() => {
@@ -153,55 +165,101 @@ export default function DashboardExecutivo() {
   return (
     <div className="space-y-6">
       
-      {/* Grid de KPIs - Indicadores Operacionais */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* Barra de Filtro de Provedor & Contexto Operacional */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-xs">
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <FontAwesomeIcon icon={faFilter} className="text-teal-600" />
+          <span className="font-bold uppercase tracking-wider text-[11px] text-gray-500">Filtrar Canal de Disparo:</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[
+            { key: 'TODOS', label: 'Todos os Canais' },
+            { key: 'META', label: 'Meta Cloud API' },
+            { key: 'WABLAST', label: 'WaBlast Oficial' },
+            { key: 'YCLOUD', label: 'YCloud' }
+          ].map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setProviderFiltro(opt.key)}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all border ${
+                providerFiltro === opt.key
+                  ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-gray-200/80'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Grid de KPIs - Indicadores Operacionais Oficiais */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         
+        {/* 1. Total Destinatários */}
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
           <span className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-            <FontAwesomeIcon icon={faBullhorn} className="text-sm" />
+            <FontAwesomeIcon icon={faUsers} className="text-sm" />
           </span>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Campanhas</p>
-            <p className="text-base font-bold text-gray-800">{metrics.totalCampanhas}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider truncate">Destinatários</p>
+            <p className="text-base font-bold text-gray-800">{metrics.totalDestinatarios}</p>
           </div>
         </div>
 
+        {/* 2. Enviadas Acumuladas */}
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
           <span className="p-3 bg-teal-50 text-teal-600 rounded-xl">
             <FontAwesomeIcon icon={faPaperPlane} className="text-sm" />
           </span>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Enviadas (Total)</p>
-            <p className="text-base font-bold text-gray-800">{metrics.totalEnviadas}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider truncate">Enviadas</p>
+            <p className="text-base font-bold text-teal-800">{metrics.totalEnviadas}</p>
           </div>
         </div>
 
+        {/* 3. Aguardando Confirmação */}
+        <div className="bg-white p-4 rounded-2xl border border-amber-100/80 bg-gradient-to-br from-white to-amber-50/20 shadow-sm flex items-center gap-3">
+          <span className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+            <FontAwesomeIcon icon={faHourglassHalf} className="text-sm" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] text-amber-800 font-bold uppercase tracking-wider truncate" title="Enviadas ao provedor, aguardando recibo de entrega">
+              Aguardando Recibo
+            </p>
+            <p className="text-base font-bold text-amber-700">{metrics.aguardandoConfirmacao}</p>
+          </div>
+        </div>
+
+        {/* 4. Entregues Confirmadas */}
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
           <span className="p-3 bg-green-50 text-green-600 rounded-xl">
             <FontAwesomeIcon icon={faCheckCircle} className="text-sm" />
           </span>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Entregues</p>
+          <div className="min-w-0">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider truncate">Entregues</p>
             <p className="text-base font-bold text-green-700">{metrics.entregues}</p>
           </div>
         </div>
 
+        {/* 5. Lidas Confirmadas */}
         <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
           <span className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
             <FontAwesomeIcon icon={faEye} className="text-sm" />
           </span>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Lidas</p>
+          <div className="min-w-0">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider truncate">Lidas</p>
             <p className="text-base font-bold text-emerald-700">{metrics.lidas}</p>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 text-xs">
+        {/* 6. Falhas Confirmadas */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
           <span className="p-3 bg-red-50 text-red-600 rounded-xl">
             <FontAwesomeIcon icon={faTimesCircle} className="text-sm" />
           </span>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Falhas</p>
+          <div className="min-w-0">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider truncate">Falhas</p>
             <p className="text-base font-bold text-red-600">{metrics.falhas}</p>
           </div>
         </div>
@@ -210,17 +268,29 @@ export default function DashboardExecutivo() {
 
       {/* Grid de Taxas e Conversas da Central */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Taxa de Entrega Confirmada (Entregues / Entregues + Falhas) */}
         <div className="bg-gradient-to-br from-teal-50/60 to-emerald-50/20 border border-teal-100 rounded-2xl p-4 text-center shadow-xs">
-          <p className="text-[10px] font-bold text-teal-800 uppercase">Taxa de Entrega</p>
+          <div className="flex items-center justify-center gap-1.5">
+            <p className="text-[10px] font-bold text-teal-800 uppercase">Taxa de Entrega Confirmada</p>
+          </div>
           <p className="text-2xl font-bold text-teal-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faPercentage} className="text-sm" /> {metrics.taxaEntrega}%
+            <FontAwesomeIcon icon={faPercentage} className="text-sm" />{' '}
+            {metrics.taxaEntregaConfirmada !== null ? `${metrics.taxaEntregaConfirmada}%` : '—'}
+          </p>
+          <p className="text-[9px] text-teal-700/80 mt-1">
+            {metrics.taxaEntregaConfirmada !== null ? 'Sobre mensagens com resultado processado' : 'Aguardando callbacks de confirmação'}
           </p>
         </div>
 
+        {/* Taxa de Leitura (Lidas / Entregues) */}
         <div className="bg-gradient-to-br from-blue-50/60 to-indigo-50/20 border border-blue-100 rounded-2xl p-4 text-center shadow-xs">
           <p className="text-[10px] font-bold text-blue-800 uppercase">Taxa de Leitura</p>
           <p className="text-2xl font-bold text-blue-900 mt-1 flex items-center justify-center gap-1">
-            <FontAwesomeIcon icon={faPercentage} className="text-sm" /> {metrics.taxaLeitura}%
+            <FontAwesomeIcon icon={faPercentage} className="text-sm" />{' '}
+            {metrics.taxaLeitura !== null ? `${metrics.taxaLeitura}%` : '—'}
+          </p>
+          <p className="text-[9px] text-blue-700/80 mt-1">
+            {metrics.taxaLeitura !== null ? 'Sobre as mensagens confirmadas como entregues' : 'Sem confirmações suficientes'}
           </p>
         </div>
 
@@ -229,6 +299,7 @@ export default function DashboardExecutivo() {
           <p className="text-2xl font-bold text-amber-900 mt-1 flex items-center justify-center gap-1">
             <FontAwesomeIcon icon={faComments} className="text-sm" /> {attendance.novas}
           </p>
+          <p className="text-[9px] text-amber-700/80 mt-1">Respostas recebidas na Central</p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-50/60 to-purple-100/20 border border-purple-100 rounded-2xl p-4 text-center shadow-xs">
@@ -236,6 +307,7 @@ export default function DashboardExecutivo() {
           <p className="text-2xl font-bold text-purple-900 mt-1 flex items-center justify-center gap-1">
             <FontAwesomeIcon icon={faInbox} className="text-sm" /> {attendance.totalConversas}
           </p>
+          <p className="text-[9px] text-purple-700/80 mt-1">Atendimentos no MandatoPRO</p>
         </div>
       </div>
 

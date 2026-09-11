@@ -1,3 +1,5 @@
+import { COMMUNICATION_STATUS_GROUPS } from './communication-status-groups.js';
+
 /**
  * Repository encarregado por efetuar consultas reais e sumarizações estatísticas
  * da volumetria de campanhas e envios oficiais a partir das tabelas reais do MandatoPRO.
@@ -9,8 +11,10 @@ export class DashboardCampaignRepository {
 
   /**
    * Obtém estatísticas de execução consolidadas a partir das tabelas reais
+   * @param {number|null} [tenantId=null] - ID do tenant para isolamento multi-tenant
+   * @param {Object} [filtros={}] - Filtros opcionais (ex: { provider: 'WABLAST' })
    */
-  async obterMétricasGerais(tenantId = null) {
+  async obterMétricasGerais(tenantId = null, filtros = {}) {
     const hojeStart = new Date();
     hojeStart.setHours(0, 0, 0, 0);
 
@@ -20,6 +24,30 @@ export class DashboardCampaignRepository {
     const seteDiasAtras = new Date();
     seteDiasAtras.setDate(seteDiasAtras.getDate() - 6);
     seteDiasAtras.setHours(0, 0, 0, 0);
+
+    const providerFiltro = filtros?.provider ? String(filtros.provider).toUpperCase().trim() : null;
+
+    // Helper para aplicar filtros de tenant e provider em communication_campaign_items
+    const buildItemQuery = (statusList = null) => {
+      let q = this.supabase
+        .from('communication_campaign_items')
+        .select('*', { count: 'exact', head: true });
+
+      if (tenantId) q = q.eq('tenant_id', tenantId);
+      if (statusList && statusList.length > 0) q = q.in('status', statusList);
+
+      if (providerFiltro) {
+        if (providerFiltro === 'WABLAST') {
+          q = q.like('provider_message_id', 'cmt%');
+        } else if (providerFiltro === 'META') {
+          q = q.like('provider_message_id', 'wamid.%');
+        } else if (providerFiltro === 'YCLOUD') {
+          q = q.or('provider_message_id.ilike.msg_%,provider_message_id.ilike.ycloud_%');
+        }
+      }
+
+      return q;
+    };
 
     // 1. Total de Campanhas e Campanhas Ativas (communication_campaigns)
     let qTotalCampanhas = this.supabase
@@ -36,35 +64,19 @@ export class DashboardCampaignRepository {
       qCampanhasAtivas = qCampanhasAtivas.eq('tenant_id', tenantId);
     }
 
-    // 2. Itens das Campanhas - Métricas oficiais de disparos (communication_campaign_items)
-    // Enviadas: enviado, enviada, sent, entregue, delivered, lido, lida, read
-    const statusEnviadas = ['enviado', 'enviada', 'sent', 'entregue', 'delivered', 'lido', 'lida', 'read'];
-    // Entregues: entregue, delivered, lido, lida, read
-    const statusEntregues = ['entregue', 'delivered', 'lido', 'lida', 'read'];
-    // Lidas: lido, lida, read
-    const statusLidas = ['lido', 'lida', 'read'];
-    // Falhas: falha, falhou, failed, erro
-    const statusFalhas = ['falha', 'falhou', 'failed', 'erro'];
+    // 2. Itens das Campanhas - Contagens exatas por grupo semântico (communication_campaign_items)
+    // Fechamento matemático: Total = Pendentes + Aguardando + Entregues Exclusivas + Lidas + Falhas + Canceladas
+    const qTotalDestinatarios = buildItemQuery();
+    const qPendentes = buildItemQuery(COMMUNICATION_STATUS_GROUPS.pending);
+    const qAguardandoConfirmacao = buildItemQuery(COMMUNICATION_STATUS_GROUPS.awaiting_confirmation);
+    const qEntreguesExclusivas = buildItemQuery(COMMUNICATION_STATUS_GROUPS.delivered_exclusive);
+    const qLidas = buildItemQuery(COMMUNICATION_STATUS_GROUPS.read);
+    const qFalhas = buildItemQuery(COMMUNICATION_STATUS_GROUPS.failed);
+    const qCanceladas = buildItemQuery(COMMUNICATION_STATUS_GROUPS.cancelled);
 
-    let qEnviadas = this.supabase
-      .from('communication_campaign_items')
-      .select('*', { count: 'exact', head: true })
-      .in('status', statusEnviadas);
-
-    let qEntregues = this.supabase
-      .from('communication_campaign_items')
-      .select('*', { count: 'exact', head: true })
-      .in('status', statusEntregues);
-
-    let qLidas = this.supabase
-      .from('communication_campaign_items')
-      .select('*', { count: 'exact', head: true })
-      .in('status', statusLidas);
-
-    let qFalhas = this.supabase
-      .from('communication_campaign_items')
-      .select('*', { count: 'exact', head: true })
-      .in('status', statusFalhas);
+    // Métricas acumuladas oficiais
+    const qEnviadasAcumuladas = buildItemQuery(COMMUNICATION_STATUS_GROUPS.sent_accumulated);
+    const qEntreguesAcumuladas = buildItemQuery(COMMUNICATION_STATUS_GROUPS.delivered_accumulated);
 
     // 3. Mensagens enviadas hoje (communication_messages de saída)
     let qMsgsHoje = this.supabase
@@ -157,10 +169,15 @@ export class DashboardCampaignRepository {
     const [
       resTotalCampanhas,
       resCampanhasAtivas,
-      resEnviadas,
-      resEntregues,
+      resTotalDestinatarios,
+      resPendentes,
+      resAguardandoConfirmacao,
+      resEntreguesExclusivas,
       resLidas,
       resFalhas,
+      resCanceladas,
+      resEnviadasAcumuladas,
+      resEntreguesAcumuladas,
       resMsgsHoje,
       resMsgsEntradaTotal,
       resMsgsSaidaTotal,
@@ -171,10 +188,15 @@ export class DashboardCampaignRepository {
     ] = await Promise.all([
       qTotalCampanhas,
       qCampanhasAtivas,
-      qEnviadas,
-      qEntregues,
+      qTotalDestinatarios,
+      qPendentes,
+      qAguardandoConfirmacao,
+      qEntreguesExclusivas,
       qLidas,
       qFalhas,
+      qCanceladas,
+      qEnviadasAcumuladas,
+      qEntreguesAcumuladas,
       qMsgsHoje,
       qMsgsEntradaTotal,
       qMsgsSaidaTotal,
@@ -186,10 +208,20 @@ export class DashboardCampaignRepository {
 
     const totalCampanhas = resTotalCampanhas.count || 0;
     const campanhasAtivas = resCampanhasAtivas.count || 0;
-    const totalEnviadas = resEnviadas.count || 0;
-    const entregues = resEntregues.count || 0;
+
+    // Métricas por grupo de status
+    const totalDestinatarios = resTotalDestinatarios.count || 0;
+    const pendentes = resPendentes.count || 0;
+    const aguardandoConfirmacao = resAguardandoConfirmacao.count || 0;
+    const entreguesExclusivas = resEntreguesExclusivas.count || 0;
     const lidas = resLidas.count || 0;
     const falhas = resFalhas.count || 0;
+    const canceladas = resCanceladas.count || 0;
+
+    // Métricas acumuladas oficiais
+    const totalEnviadas = resEnviadasAcumuladas.count || 0;
+    const entregues = resEntreguesAcumuladas.count || 0;
+
     const mensagensEnviadasHoje = resMsgsHoje.count || 0;
     const mensagensEntrada = resMsgsEntradaTotal.count || 0;
     const mensagensSaida = resMsgsSaidaTotal.count || 0;
@@ -216,9 +248,23 @@ export class DashboardCampaignRepository {
       };
     });
 
-    // Taxas calculadas sobre os valores reais de disparos de campanhas
-    const taxaEntrega = totalEnviadas > 0 ? Number(((entregues / totalEnviadas) * 100).toFixed(1)) : 0;
-    const taxaLeitura = totalEnviadas > 0 ? Number(((lidas / totalEnviadas) * 100).toFixed(1)) : 0;
+    // Taxas calculadas com fórmulas matematicamente corretas:
+    // Taxa de Entrega Confirmada: Entregues / (Entregues + Falhas)
+    // Evita penalizar mensagens que estão em 'Aguardando Confirmação'
+    const totalDesfechosConhecidos = entregues + falhas;
+    const taxaEntregaConfirmada = totalDesfechosConhecidos > 0
+      ? Number(((entregues / totalDesfechosConhecidos) * 100).toFixed(1))
+      : null;
+
+    // Taxa de Leitura: Lidas / Entregues (onde Entregues inclui lidas)
+    const taxaLeitura = entregues > 0
+      ? Number(((lidas / entregues) * 100).toFixed(1))
+      : null;
+
+    // Taxa de Entrega Bruta (legada, caso algum componente ainda consuma)
+    const taxaEntrega = totalEnviadas > 0
+      ? Number(((entregues / totalEnviadas) * 100).toFixed(1))
+      : 0;
 
     // Detalhar itens enviados nas top 5 campanhas recentes
     const listaRecentes = resCampanhasRecentes.data || [];
@@ -227,7 +273,7 @@ export class DashboardCampaignRepository {
         .from('communication_campaign_items')
         .select('*', { count: 'exact', head: true })
         .eq('campaign_id', c.id)
-        .in('status', statusEnviadas)
+        .in('status', COMMUNICATION_STATUS_GROUPS.sent_accumulated)
     );
 
     const resItensRecentes = await Promise.all(queriesItensRecentes);
@@ -250,14 +296,20 @@ export class DashboardCampaignRepository {
       totalCampanhas,
       campanhasAtivas,
       mensagensEnviadasHoje,
+      totalDestinatarios,
       totalEnviadas,
-      mensagensEntrada,
-      mensagensSaida,
+      pendentes,
+      aguardandoConfirmacao,
+      entreguesExclusivas,
       entregues,
       lidas,
       falhas,
+      canceladas,
+      mensagensEntrada,
+      mensagensSaida,
+      taxaEntregaConfirmada: taxaEntregaConfirmada !== null ? Math.min(taxaEntregaConfirmada, 100) : null,
       taxaEntrega: Math.min(taxaEntrega, 100),
-      taxaLeitura: Math.min(taxaLeitura, 100),
+      taxaLeitura: taxaLeitura !== null ? Math.min(taxaLeitura, 100) : null,
       historicoUltimos7Dias,
       porProvedor,
       campanhasRecentes

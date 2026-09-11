@@ -12,16 +12,21 @@ export class InsightsComunicacaoService {
     const insights = [];
     const now = new Date().toISOString();
 
-    // 1. ANÁLISE: Baixa taxa de entrega
+    // 1. ANÁLISE: Baixa taxa de entrega confirmada
     if (dadosLocais.campanhas) {
-      const baixaEntrega = dadosLocais.campanhas.filter(c => c.entregues / c.total_destinatarios < 0.90);
+      const baixaEntrega = dadosLocais.campanhas.filter(c => {
+        const desfechos = (c.entregues || 0) + (c.falhas || 0);
+        return desfechos >= 10 && (c.entregues / desfechos) < 0.80;
+      });
       baixaEntrega.forEach(c => {
+        const desfechos = (c.entregues || 0) + (c.falhas || 0);
+        const taxa = Math.round(((c.entregues || 0) / desfechos) * 100);
         insights.push({
           id: `ins-entrega-${c.id}`,
           tipo: 'danger',
-          titulo: `Baixa Entrega: ${c.nome}`,
-          descricao: `A campanha obteve apenas ${Math.round((c.entregues / c.total_destinatarios) * 100)}% de entrega definitiva no WhatsApp.`,
-          recomendacao: 'Verifique se há números inativos ou inexistentes na lista e execute a limpeza dos contatos.',
+          titulo: `Alta Taxa de Falhas: ${c.nome}`,
+          descricao: `A campanha obteve ${taxa}% de entrega confirmada sobre os envios processados (${c.falhas || 0} falhas registradas).`,
+          recomendacao: 'Verifique se há números inativos ou inválidos na base e efetue a higienização dos contatos.',
           categoria: 'Campanhas',
           calculado_em: now
         });
