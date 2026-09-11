@@ -1,13 +1,13 @@
 function extrairEvento(payload = {}) {
-  // WaBlast Event Structure
-  if (payload.event || (payload.data && payload.data.account_id)) {
+  // WaBlast Audit / Native Event Structure
+  if (payload.provider === 'wablast' || payload.event || (payload.data && payload.data.account_id)) {
     const data = payload.data || {};
     return {
-      eventId: payload.id || data.id || data.message_id || null,
-      eventType: payload.event || payload.type || payload.event_type || 'wablast.unknown',
+      eventId: payload.webhook_id || payload.id || data.id || data.message_id || null,
+      eventType: payload.event_type || payload.event || payload.type || payload.event_raw_type || payload.category || 'wablast.event',
       wabaId: data.waba_id || payload.waba_id || null,
       phoneNumberId: data.phone_number_id || data.phone_number || data.to || null,
-      timestamp: payload.timestamp || data.timestamp || null
+      timestamp: payload.webhook_timestamp || payload.timestamp || data.timestamp || null
     };
   }
 
