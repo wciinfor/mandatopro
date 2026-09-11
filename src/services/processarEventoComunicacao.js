@@ -326,7 +326,7 @@ export async function processarEventoStatus(supabase, evento) {
   // Atualiza communication_campaign_items com progressão estrita de status
   const { data: itemFilaObj } = await supabase
     .from('communication_campaign_items')
-    .select('id, campaign_id, status, delivered_at, read_at, error_code, error_message, last_error')
+    .select('id, campaign_id, status, delivered_at, read_at, last_error')
     .eq('provider_message_id', evento.provider_message_id)
     .maybeSingle();
 
@@ -337,13 +337,9 @@ export async function processarEventoStatus(supabase, evento) {
     // 1. Trata falha assíncrona recebida via Webhook (Ex: status = failed)
     if (evento.status === 'failed') {
       updatePayload.status = 'falha';
-      
-      const codigoErro = evento.erro?.code || evento.erro?.error_code || null;
-      const mensagemErro = evento.erro?.message || evento.erro?.title || (typeof evento.erro === 'string' ? evento.erro : JSON.stringify(evento.erro || {}));
-      
-      if (codigoErro) updatePayload.error_code = String(codigoErro);
-      if (mensagemErro) updatePayload.error_message = String(mensagemErro);
-      updatePayload.last_error = JSON.stringify(evento.erro || {});
+      updatePayload.last_error = typeof evento.erro === 'object'
+        ? JSON.stringify(evento.erro)
+        : String(evento.erro || 'Falha de transmissão reportada pela Meta');
     } 
     // 2. Transição progressiva de status normal (evita que evento fora de ordem rebaixe estado)
     else if (novoStatusPrioridade > prioridadeAtualItem && itemFilaObj.status !== 'falha') {
