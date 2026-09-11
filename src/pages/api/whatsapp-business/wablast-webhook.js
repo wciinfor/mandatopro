@@ -249,11 +249,15 @@ export default async function handler(req, res) {
 
   // 7. Registro de Log de Auditoria em whatsapp_business_webhook_events
   try {
+    const dbSignatureStatus = validacao.status === 'VALID' 
+      ? 'VALID' 
+      : (validacao.status === 'MISSING' ? 'MISSING' : 'INVALID');
+
     await logger.log({
       conta: contaWaBlast,
       payload: auditPayload,
       validationStatus: validacao.status === 'VALID' ? 'VALID' : 'INVALID',
-      signatureStatus: validacao.status === 'VALID' ? 'VALID' : (validacao.category || 'INVALID'),
+      signatureStatus: dbSignatureStatus,
       eventId: webhookId || evento?.provider_message_id || null
     });
   } catch (logErr) {
