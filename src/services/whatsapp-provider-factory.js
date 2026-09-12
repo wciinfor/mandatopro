@@ -1,6 +1,7 @@
 import YCloudApiService, { createYCloudApiService } from './ycloud-api.js';
 import WhatsAppBusinessService from './whatsapp-business.js';
 import WaBlastApiService, { createWaBlastApiService } from './wablast-api.js';
+import WaflyApiService, { createWaflyApiService } from './wafly-api.js';
 
 /**
  * Interface/Contrato comum de Provider para WhatsApp
@@ -236,7 +237,249 @@ export class WaBlastWhatsAppAdapter extends WhatsAppProviderContract {
 }
 
 /**
- * Factory para instanciar o Provider correto (META, WABLAST ou YCLOUD) baseado na conta/mandato
+ * Adaptador para o provedor WAFLY implementando o contrato unificado
+ * Converte chamadas de template em texto livre interpolado via busca isolada.
+ */
+export class WaflyWhatsAppAdapter extends WhatsAppProviderContract {
+  constructor(account = {}) {
+    super();
+    this.account = account;
+
+    const metadata = typeof account.access_token_metadata === 'object' && account.access_token_metadata
+      ? account.access_token_metadata
+      : {};
+
+    const clientToken = account.waflyClientToken
+      || account.wafly_client_token
+      || account.clientToken
+      || account.client_token
+      || metadata.wafly_client_token
+      || metadata.clientToken
+      || metadata.client_token
+      || '';
+
+    const instance = account.waflyInstance
+      || account.wafly_instance
+      || account.instance
+      || account.instance_id
+      || metadata.wafly_instance
+      || metadata.instance
+      || metadata.instance_id
+      || '';
+
+    const token = account.waflyToken
+      || account.wafly_token
+      || account.token
+      || account.instance_token
+      || metadata.wafly_token
+      || metadata.token
+      || metadata.instance_token
+      || (account.access_token && String(account.provider || '').toUpperCase() === 'WAFLY' ? account.access_token : '')
+      || '';
+
+    const baseUrl = account.waflyBaseUrl
+      || account.wafly_base_url
+      || metadata.wafly_base_url
+      || undefined;
+
+    this.service = createWaflyApiService({
+      clientToken,
+      instance,
+      token,
+      baseUrl
+    });
+  }
+
+  async sendMessage(payload = {}) {
+    const to = payload.to || payload.recipient;
+    const message = typeof payload.text === 'object' && payload.text?.body !== undefined
+      ? payload.text.body
+      : (payload.text || payload.message || payload.body || '');
+
+    const response = await this.service.sendText({
+      phone: to,
+      message,
+      delayMessage: payload.delayMessage,
+      messageId: payload.messageId,
+      editMessageId: payload.editMessageId,
+      fromMe: payload.fromMe,
+      isGroup: payload.isGroup,
+      mentioned: payload.mentioned
+    });
+
+    const messageId = response?.messageId || response?.id || null;
+
+    return {
+      success: true,
+      messageId,
+      id: messageId
+    };
+  }
+
+  /**
+   * Obtém a redação base do template de forma isolada
+   * @private
+   */
+  async _obterTextoTemplate(templateName) {
+    if (!templateName) return null;
+    const cleanName = String(templateName).trim();
+
+    // 1. Fonte primária: tabela communication_templates do banco de dados (reutilizando createServerClient)
+    try {
+      let createServerClient;
+      try {
+        const mod = await import('../lib/supabase-server.js');
+        createServerClient = mod.createServerClient;
+      } catch {
+        const mod = await import('@/lib/supabase-server');
+        createServerClient = mod.createServerClient;
+      }
+      const supabase = createServerClient();
+
+      let query = supabase
+        .from('communication_templates')
+        .select('componentes, nome')
+        .eq('nome', cleanName);
+
+      if (this.account?.tenant_id) {
+        query = query.eq('tenant_id', this.account.tenant_id);
+      }
+
+      const { data: rows } = await query;
+      if (Array.isArray(rows) && rows.length > 0) {
+        const tmpl = rows[0];
+        const componentes = Array.isArray(tmpl.componentes) ? tmpl.componentes : [];
+        const bodyComp = componentes.find(c => String(c.type || '').toUpperCase() === 'BODY');
+        if (bodyComp?.text) {
+          return bodyComp.text;
+        }
+      }
+    } catch (err) {
+      console.warn('[WAFLY ADAPTER] Falha ao consultar communication_templates:', err?.message || err);
+    }
+
+    // 2. Fonte secundária: catálogo de templates oficiais pré-configurados do sistema
+    const CATALOGO_PADRAO = {
+      'acao_social_beneficio_01': 'Olá, {{1}}.\n\nO benefício {{2}} está disponível.\n\n- Entrega: {{3}}\n\n- Local: {{4}}\n\nApresentar documento com foto.',
+      'consulta_grau_oculos': 'Olá, {{1}}.\n\nSua consulta gratuita de grau, escolha da armação e lentes está disponível.\n\nData e horário: {{2}}\nLocal: {{3}}\n\nApresente documento com foto.\nAtendimento por ordem de chegada.',
+      'comunicado_institucional': 'Olá, {{1}}.\n\nGostaríamos de compartilhar uma mensagem de agradecimento.\n\nAgradecemos pela confiança, pela parceria e pela presença ao longo desta caminhada.\n\nSeguimos trabalhando com compromisso, respeito e gratidão por todos que fazem parte dessa trajetória.\n\nDesejamos a você e à sua família muita paz, saúde e esperança.\n\nMuito obrigado!'
+    };
+
+    if (CATALOGO_PADRAO[cleanName]) {
+      return CATALOGO_PADRAO[cleanName];
+    }
+
+    return null;
+  }
+
+  /**
+   * Extrai valores dos parâmetros do body preservando a ordem
+   * @private
+   */
+  _extrairValoresParametros(components) {
+    if (!Array.isArray(components)) return [];
+
+    const bodyComp = components.find(c => String(c.type || '').toLowerCase() === 'body');
+    const parameters = bodyComp?.parameters || [];
+
+    if (!Array.isArray(parameters)) return [];
+
+    return parameters.map(p => {
+      if (typeof p === 'string') return p;
+      if (p && typeof p === 'object') {
+        if (p.text !== undefined && p.text !== null) return String(p.text);
+        if (p.value !== undefined && p.value !== null) return String(p.value);
+      }
+      return '';
+    });
+  }
+
+  /**
+   * Interpola variáveis {{1}}, {{2}}, etc. no corpo do template
+   * @private
+   */
+  _interpolarTexto(templateText, valores) {
+    let resultado = templateText;
+    valores.forEach((val, idx) => {
+      const marcador = `{{${idx + 1}}}`;
+      resultado = resultado.split(marcador).join(val);
+    });
+    return resultado;
+  }
+
+  async sendTemplate(payload = {}) {
+    const to = payload.to || payload.recipient;
+    const templateName = payload.templateName || payload.name || payload.template?.name || '';
+    const components = payload.components || payload.template?.components || [];
+
+    if (!to) {
+      return {
+        success: false,
+        provider: 'WAFLY',
+        error: 'Destinatário (to/recipient) não informado para sendTemplate',
+        templateName
+      };
+    }
+
+    // 1. Obter redação base do template
+    const templateTexto = await this._obterTextoTemplate(templateName);
+
+    // 2. Fallback explícito: se não encontrar o template, rejeita antes do envio
+    if (!templateTexto) {
+      return {
+        success: false,
+        provider: 'WAFLY',
+        error: 'Template não encontrado para conversão em mensagem de texto',
+        templateName
+      };
+    }
+
+    // 3. Extrai valores dos parâmetros e interpola
+    const valores = this._extrairValoresParametros(components);
+    const mensagemFinal = this._interpolarTexto(templateTexto, valores);
+
+    // 4. Envia como mensagem de texto simples via Wafly
+    const response = await this.sendMessage({
+      to,
+      message: mensagemFinal
+    });
+
+    return {
+      success: true,
+      id: response.id || response.messageId,
+      messageId: response.messageId || response.id,
+      recipient: to,
+      template: templateName,
+      data: response
+    };
+  }
+
+  async getStatus() {
+    try {
+      if (typeof this.service?._request === 'function') {
+        const res = await this.service._request('/status', { method: 'GET' });
+        const rawStatus = res?.value || res?.status || 'CONNECTED';
+        return {
+          success: true,
+          status: rawStatus,
+          provider: 'WAFLY',
+          data: res
+        };
+      }
+      return { success: true, status: 'CONNECTED', provider: 'WAFLY' };
+    } catch (err) {
+      return {
+        success: false,
+        status: 'ERROR',
+        error: err?.error || err?.message || 'Falha ao consultar status WAFLY',
+        provider: 'WAFLY'
+      };
+    }
+  }
+}
+
+/**
+ * Factory para instanciar o Provider correto (META, WABLAST, YCLOUD ou WAFLY) baseado na conta/mandato
  */
 export function createWhatsAppProvider(account = {}) {
   const provider = String(account.provider || account.provider_type || 'META').toUpperCase();
@@ -247,6 +490,10 @@ export function createWhatsAppProvider(account = {}) {
 
   if (provider === 'YCLOUD') {
     return new YCloudWhatsAppAdapter(account);
+  }
+
+  if (provider === 'WAFLY') {
+    return new WaflyWhatsAppAdapter(account);
   }
 
   // Padrão: META

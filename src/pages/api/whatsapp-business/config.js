@@ -1,22 +1,25 @@
-import { createServerClient } from '@/lib/supabase-server';
-import { obterUsuarioAutenticado, exigirAdministrador } from '@/lib/api-auth';
-import { obterTenantId } from '@/lib/tenant';
+import { createServerClient } from '../../../lib/supabase-server.js';
+import { obterUsuarioAutenticado, exigirAdministrador } from '../../../lib/api-auth.js';
+import { obterTenantId } from '../../../lib/tenant.js';
 import {
   buscarContaWhatsappPrincipal,
   normalizarWhatsappAccount,
   salvarContaWhatsappPrincipal,
+  salvarContaWhatsappWafly,
+  salvarContaWhatsappWaBlast,
+  salvarContaWhatsappYCloud,
   alterarProvedorWhatsappAtivo
-} from '@/lib/whatsapp-business-accounts';
+} from '../../../lib/whatsapp-business-accounts.js';
 
 /**
- * API para consultar e alternar a configuracao do provedor WhatsApp (META ou YCLOUD) por tenant.
+ * API para consultar e alternar a configuração dos provedores WhatsApp (META, YCLOUD, WABLAST, WAFLY) por tenant.
  */
 export default async function handler(req, res) {
   let supabase;
   let usuario;
 
   try {
-    supabase = createServerClient();
+    supabase = req.supabaseClient || createServerClient();
     const auth = await obterUsuarioAutenticado(req, supabase);
     usuario = auth.usuario;
     exigirAdministrador(usuario);
@@ -44,6 +47,10 @@ export default async function handler(req, res) {
           wablast_waba_id,
           token_debug_metadata,
           access_token,
+          access_token_metadata,
+          phone_number_id,
+          principal,
+          status,
           ycloud_api_key,
           whatsapp_business_numbers (phone_number_id, display_phone_number, verified_name, status)
         `)
@@ -56,6 +63,22 @@ export default async function handler(req, res) {
 
       const isMetaConnected = (todasContas || []).some(c => c.provider === 'META' && Boolean(c.access_token));
       const isYCloudConnected = (todasContas || []).some(c => c.provider === 'YCLOUD' && Boolean(c.ycloud_api_key));
+
+      // 1. Identificar se existe conta ativa/configurada com provider = 'WAFLY' para o tenant atual
+      const contaWaflyRaw = (todasContas || []).find(c => c.provider === 'WAFLY');
+      const waflyMeta = typeof contaWaflyRaw?.access_token_metadata === 'object' && contaWaflyRaw.access_token_metadata
+        ? contaWaflyRaw.access_token_metadata
+        : {};
+
+      const waflyInstance = contaWaflyRaw?.phone_number_id || waflyMeta.wafly_instance || waflyMeta.instance || null;
+      const waflyToken = contaWaflyRaw?.access_token || waflyMeta.wafly_token || waflyMeta.token || null;
+
+      const numWafly = contaWaflyRaw?.whatsapp_business_numbers?.find(n => n.status !== 'INATIVO' && (n.display_phone_number || n.phone_number_id))
+        || contaWaflyRaw?.whatsapp_business_numbers?.[0];
+      const waflyPhone = numWafly?.display_phone_number || numWafly?.phone_number_id || waflyMeta.connected_phone || null;
+
+      // 2. Calcular isWaflyConnected: instance válida + token válido + número WhatsApp vinculado/ativo
+      const isWaflyConnected = Boolean(waflyInstance && waflyToken && waflyPhone);
 
       // Resposta estritamente segura sem expor tokens ou API Keys
       return res.status(200).json({
@@ -71,7 +94,8 @@ export default async function handler(req, res) {
         availableProviders: {
           META: isMetaConnected,
           YCLOUD: isYCloudConnected,
-          WABLAST: isWablastConnected
+          WABLAST: isWablastConnected,
+          WAFLY: isWaflyConnected
         },
         wablastDetails: {
           connected: isWablastConnected,
@@ -79,6 +103,14 @@ export default async function handler(req, res) {
           wabaId: contaWablastRaw?.wablast_waba_id || contaWablastRaw?.waba_id || null,
           phoneNumber: numWablast?.display_phone_number || numWablast?.phone_number_id || null,
           verifiedName: numWablast?.verified_name || null
+        },
+        waflyDetails: {
+          configured: Boolean(waflyInstance && waflyToken),
+          connected: isWaflyConnected,
+          instance: waflyInstance,
+          phoneNumber: waflyPhone,
+          status: contaWaflyRaw?.status || (isWaflyConnected ? 'ATIVO' : 'INATIVO'),
+          principal: Boolean(contaWaflyRaw?.principal)
         }
       });
     } catch (error) {
@@ -89,15 +121,66 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { provider } = req.body;
+      // 1. Se for salvar credenciais manuais WAFLY
+      const hasWaflyPayload = Boolean(
+        req.body.waflyClientToken ||
+        req.body.clientToken ||
+        req.body.client_token ||
+        req.body.waflyInstance ||
+        (String(req.body.provider || req.body.targetProvider || '').toUpperCase() === 'WAFLY' &&
+          (req.body.token || req.body.instanceToken || req.body.instance_token || req.body.instance || req.body.instanceId || req.body.connectedPhone || req.body.displayPhoneNumber))
+      );
 
-      // Se for apenas alternar o provedor ativo (META / YCLOUD / WABLAST)
-      if (provider) {
-        const targetProvider = String(provider).toUpperCase();
-        if (!['META', 'YCLOUD', 'WABLAST'].includes(targetProvider)) {
+      if (hasWaflyPayload) {
+        const resWafly = await salvarContaWhatsappWafly(supabase, usuario, req.body);
+        return res.status(200).json({
+          success: true,
+          message: 'Configuração WAFLY salva com sucesso',
+          account: resWafly.account,
+          number: resWafly.number
+        });
+      }
+
+      // 2. Se for salvar credenciais manuais WaBlast
+      if (req.body.wablastAccountId || req.body.wablast_account_id) {
+        const conta = await salvarContaWhatsappWaBlast(supabase, usuario, req.body);
+        const contaNormalizada = normalizarWhatsappAccount(conta);
+        return res.status(200).json({
+          success: true,
+          message: 'Configuração WaBlast salva com sucesso',
+          account: {
+            provider: contaNormalizada.provider,
+            displayPhoneNumber: contaNormalizada.displayPhoneNumber,
+            phoneNumberId: contaNormalizada.phoneNumberId,
+            wablastAccountId: contaNormalizada.wablastAccountId,
+            wabaId: contaNormalizada.wabaId
+          }
+        });
+      }
+
+      // 3. Se for salvar credenciais manuais YCloud
+      if (req.body.ycloudApiKey || req.body.ycloud_api_key) {
+        const conta = await salvarContaWhatsappYCloud(supabase, usuario, req.body);
+        const contaNormalizada = normalizarWhatsappAccount(conta);
+        return res.status(200).json({
+          success: true,
+          message: 'Configuração YCloud salva com sucesso',
+          account: {
+            provider: contaNormalizada.provider,
+            displayPhoneNumber: contaNormalizada.displayPhoneNumber,
+            phoneNumberId: contaNormalizada.phoneNumberId
+          }
+        });
+      }
+
+      // 4. Se for apenas alternar o provedor ativo (META / YCLOUD / WABLAST / WAFLY)
+      const providerParam = req.body.provider || req.body.targetProvider;
+      if (providerParam) {
+        const targetProvider = String(providerParam).toUpperCase();
+        if (!['META', 'YCLOUD', 'WABLAST', 'WAFLY'].includes(targetProvider)) {
           return res.status(400).json({
             success: false,
-            error: 'Provedor invalido. Escolha META, YCLOUD ou WABLAST'
+            error: 'Provedor invalido. Escolha META, YCLOUD, WABLAST ou WAFLY'
           });
         }
 
@@ -114,41 +197,7 @@ export default async function handler(req, res) {
         });
       }
 
-      // Se for salvar credenciais manuais WaBlast
-      if (req.body.wablastAccountId || req.body.wablast_account_id) {
-        const { salvarContaWhatsappWaBlast } = await import('@/lib/whatsapp-business-accounts');
-        const conta = await salvarContaWhatsappWaBlast(supabase, usuario, req.body);
-        const contaNormalizada = normalizarWhatsappAccount(conta);
-        return res.status(200).json({
-          success: true,
-          message: 'Configuração WaBlast salva com sucesso',
-          account: {
-            provider: contaNormalizada.provider,
-            displayPhoneNumber: contaNormalizada.displayPhoneNumber,
-            phoneNumberId: contaNormalizada.phoneNumberId,
-            wablastAccountId: contaNormalizada.wablastAccountId,
-            wabaId: contaNormalizada.wabaId
-          }
-        });
-      }
-
-      // Se for salvar credenciais manuais YCloud
-      if (req.body.ycloudApiKey || req.body.ycloud_api_key) {
-        const { salvarContaWhatsappYCloud } = await import('@/lib/whatsapp-business-accounts');
-        const conta = await salvarContaWhatsappYCloud(supabase, usuario, req.body);
-        const contaNormalizada = normalizarWhatsappAccount(conta);
-        return res.status(200).json({
-          success: true,
-          message: 'Configuração YCloud salva com sucesso',
-          account: {
-            provider: contaNormalizada.provider,
-            displayPhoneNumber: contaNormalizada.displayPhoneNumber,
-            phoneNumberId: contaNormalizada.phoneNumberId
-          }
-        });
-      }
-
-      // Fluxo legadostandard para salvar credenciais da Meta Cloud API
+      // 5. Fluxo legado standard para salvar credenciais da Meta Cloud API
       const { phoneNumberId, accessToken } = req.body;
       const contaAtual = await buscarContaWhatsappPrincipal(supabase, usuario);
       const tokenDisponivel = String(accessToken || '').trim() || contaAtual?.access_token || '';
@@ -162,7 +211,7 @@ export default async function handler(req, res) {
       const conta = await salvarContaWhatsappPrincipal(supabase, usuario, req.body);
       const contaNormalizada = normalizarWhatsappAccount(conta);
 
-      const { default: WhatsAppBusinessService } = await import('@/services/whatsapp-business');
+      const { default: WhatsAppBusinessService } = await import('../../../services/whatsapp-business.js');
       const whatsapp = new WhatsAppBusinessService();
       const configured = whatsapp.updateConfig(contaNormalizada.phoneNumberId, tokenDisponivel);
 

@@ -11,7 +11,11 @@ import {
   faServer,
   faSpinner,
   faMobileAlt,
-  faSyncAlt
+  faSyncAlt,
+  faKey,
+  faCopy,
+  faTimes,
+  faCog
 } from '@fortawesome/free-solid-svg-icons';
 import { MODULES } from '@/utils/permissions';
 
@@ -22,6 +26,19 @@ export default function WhatsAppBusinessOficial() {
   const [changing, setChanging] = useState(false);
   const [iniciandoWablast, setIniciandoWablast] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState(null);
+
+  // Estados específicos para modal e configuração WAFLY
+  const [modalWaflyAberto, setModalWaflyAberto] = useState(false);
+  const [salvandoWafly, setSalvandoWafly] = useState(false);
+  const [waflyForm, setWaflyForm] = useState({
+    clientToken: '',
+    instance: '',
+    token: '',
+    connectedPhone: '',
+    webhookSecret: ''
+  });
+  const [erroWaflyModal, setErroWaflyModal] = useState(null);
+  const [webhookCopiado, setWebhookCopiado] = useState(false);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -158,6 +175,125 @@ export default function WhatsAppBusinessOficial() {
       });
     } finally {
       setChanging(false);
+    }
+  };
+
+  const handleAbrirModalWafly = () => {
+    setWaflyForm({
+      clientToken: '',
+      instance: config?.waflyDetails?.instance || '',
+      token: '',
+      connectedPhone: config?.waflyDetails?.phoneNumber || '',
+      webhookSecret: ''
+    });
+    setErroWaflyModal(null);
+    setWebhookCopiado(false);
+    setModalWaflyAberto(true);
+  };
+
+  const handleFecharModalWafly = () => {
+    if (salvandoWafly) return;
+    setModalWaflyAberto(false);
+    setErroWaflyModal(null);
+    setWebhookCopiado(false);
+  };
+
+  const handleSalvarWafly = async (e) => {
+    e.preventDefault();
+    setErroWaflyModal(null);
+
+    const clientToken = String(waflyForm.clientToken || '').trim();
+    const instance = String(waflyForm.instance || '').trim();
+    const token = String(waflyForm.token || '').trim();
+    const cleanPhone = String(waflyForm.connectedPhone || '').replace(/\D+/g, '');
+    const webhookSecret = String(waflyForm.webhookSecret || '').trim();
+
+    if (!clientToken) {
+      setErroWaflyModal('Client Token da WAFLY é obrigatório.');
+      return;
+    }
+    if (!instance) {
+      setErroWaflyModal('ID da Instância da WAFLY é obrigatório.');
+      return;
+    }
+    if (!token) {
+      setErroWaflyModal('Token da Instância da WAFLY é obrigatório.');
+      return;
+    }
+    if (!cleanPhone) {
+      setErroWaflyModal('Número do WhatsApp do Gabinete é obrigatório.');
+      return;
+    }
+
+    try {
+      setSalvandoWafly(true);
+
+      const payload = {
+        provider: 'WAFLY',
+        clientToken,
+        instance,
+        token,
+        connectedPhone: cleanPhone
+      };
+
+      if (webhookSecret) {
+        payload.webhookSecret = webhookSecret;
+      }
+
+      const res = await fetch('/api/whatsapp-business/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao salvar credenciais da WAFLY.');
+      }
+
+      setModalWaflyAberto(false);
+      setMensagemStatus({
+        tipo: 'sucesso',
+        texto: 'Configuração da WAFLY salva com sucesso! Selecione a WAFLY como provedor ativo quando desejar.'
+      });
+
+      // Recarrega o estado atual da configuração
+      await carregarConfiguracao();
+    } catch (err) {
+      setErroWaflyModal(err.message || 'Erro ao salvar configuração WAFLY.');
+    } finally {
+      setSalvandoWafly(false);
+    }
+  };
+
+  const getWaflyWebhookUrl = () => {
+    if (typeof window === 'undefined') return '/api/whatsapp-business/wafly-webhook';
+    const origin = window.location.origin;
+    const cleanSecret = String(waflyForm.webhookSecret || '').trim();
+    if (cleanSecret) {
+      return `${origin}/api/whatsapp-business/wafly-webhook?token=${encodeURIComponent(cleanSecret)}`;
+    }
+    return `${origin}/api/whatsapp-business/wafly-webhook`;
+  };
+
+  const handleCopiarWebhook = async () => {
+    try {
+      const url = getWaflyWebhookUrl();
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setWebhookCopiado(true);
+      setTimeout(() => setWebhookCopiado(false), 2500);
+    } catch {
+      // Ignora erro silencioso de permissão de clipboard
     }
   };
 
@@ -407,6 +543,112 @@ export default function WhatsAppBusinessOficial() {
                     </div>
                   );
                 })()}
+
+                {/* Opção WAFLY (Conta Direta via Bridge API) */}
+                {(() => {
+                  const isWaflyConnected = Boolean(
+                    config?.waflyDetails?.connected ||
+                    config?.availableProviders?.WAFLY ||
+                    config?.provider === 'WAFLY'
+                  );
+                  const isWaflyConfigured = Boolean(
+                    config?.waflyDetails?.configured ||
+                    isWaflyConnected
+                  );
+                  const isWaflyAtivo = providerAtivo === 'WAFLY';
+                  const waflyPhone = config?.waflyDetails?.phoneNumber || (isWaflyAtivo ? config?.displayPhoneNumber : null);
+                  const waflyInstance = config?.waflyDetails?.instance;
+                  const waflyStatus = config?.waflyDetails?.status || (isWaflyConnected ? 'ATIVO' : 'INATIVO');
+
+                  return (
+                    <div
+                      onClick={() => {
+                        if (isWaflyConnected) {
+                          handleTrocarProvedor('WAFLY');
+                        }
+                      }}
+                      className={`p-5 rounded-xl border-2 transition relative md:col-span-2 ${
+                        isWaflyConnected ? 'cursor-pointer hover:border-gray-300' : ''
+                      } ${
+                        isWaflyAtivo
+                          ? 'border-teal-600 bg-teal-50/30 shadow-sm'
+                          : 'border-gray-200 bg-gray-50/40'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="provider_choice"
+                            checked={isWaflyAtivo}
+                            onChange={() => handleTrocarProvedor('WAFLY')}
+                            disabled={changing || !isWaflyConnected}
+                            className="w-4 h-4 text-teal-600 focus:ring-teal-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed mt-1"
+                          />
+                          <div className="p-2.5 bg-teal-100/60 text-teal-700 rounded-lg shrink-0">
+                            <FontAwesomeIcon icon={faMobileAlt} className="text-lg" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h5 className="font-bold text-gray-800 text-sm">WAFLY</h5>
+                              {isWaflyAtivo ? (
+                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-teal-600 text-white rounded">
+                                  Ativo
+                                </span>
+                              ) : isWaflyConnected ? (
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+                                  Conectado / Pronto
+                                </span>
+                              ) : isWaflyConfigured ? (
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                  Configuração Incompleta
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
+                                  Não Configurado
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">Conexão direta oficial via WAFLY Bridge API</p>
+
+                            {(isWaflyConfigured || isWaflyConnected) && (
+                              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600 bg-white/70 px-3 py-1.5 rounded-lg border border-teal-100">
+                                {waflyInstance && (
+                                  <span className="flex items-center gap-1">
+                                    <strong>Instância:</strong> {waflyInstance}
+                                  </span>
+                                )}
+                                {waflyPhone && (
+                                  <span className="flex items-center gap-1">
+                                    <strong>Número:</strong> {waflyPhone}
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1">
+                                  <strong>Status:</strong> {waflyStatus}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAbrirModalWafly();
+                            }}
+                            disabled={changing}
+                            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                          >
+                            <FontAwesomeIcon icon={isWaflyConfigured ? faCog : faPlug} className="text-xs" />
+                            {isWaflyConfigured ? 'Configurar WAFLY' : 'Conectar WAFLY'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -427,11 +669,13 @@ export default function WhatsAppBusinessOficial() {
                       type="text"
                       disabled
                       value={
-                        providerAtivo === 'WABLAST'
-                          ? 'WaBlast Partner API (Onboarding Integrado)'
-                          : providerAtivo === 'YCLOUD'
-                            ? 'YCloud WhatsApp API (v2)'
-                            : 'Meta Cloud API (v21.0)'
+                        providerAtivo === 'WAFLY'
+                          ? 'WAFLY Bridge API (Conexão Direta)'
+                          : providerAtivo === 'WABLAST'
+                            ? 'WaBlast Partner API (Onboarding Integrado)'
+                            : providerAtivo === 'YCLOUD'
+                              ? 'YCloud WhatsApp API (v2)'
+                              : 'Meta Cloud API (v21.0)'
                       }
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700"
                     />
@@ -479,6 +723,165 @@ export default function WhatsAppBusinessOficial() {
               </div>
             </div>
           </div>
+
+          {/* Modal de Configuração WAFLY */}
+          {modalWaflyAberto && (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-6 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150">
+                {/* Cabeçalho do Modal */}
+                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
+                      <FontAwesomeIcon icon={faPlug} className="text-lg" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-base">Configurar Provedor WAFLY</h3>
+                      <p className="text-xs text-gray-500">Credenciais de conexão com a API WAFLY</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFecharModalWafly}
+                    disabled={salvandoWafly}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+
+                {/* Banner de Erro */}
+                {erroWaflyModal && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+                    <FontAwesomeIcon icon={faTriangleExclamation} className="shrink-0" />
+                    <span>{erroWaflyModal}</span>
+                  </div>
+                )}
+
+                {/* Formulário */}
+                <form onSubmit={handleSalvarWafly} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Client Token <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={waflyForm.clientToken}
+                      onChange={(e) => setWaflyForm({ ...waflyForm, clientToken: e.target.value })}
+                      placeholder="Token de cliente / autenticação da conta"
+                      disabled={salvandoWafly}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">Por segurança, o token atual nunca é exibido.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        ID da Instância <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={waflyForm.instance}
+                        onChange={(e) => setWaflyForm({ ...waflyForm, instance: e.target.value })}
+                        placeholder="Ex: EE1922..."
+                        disabled={salvandoWafly}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Token da Instância <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={waflyForm.token}
+                        onChange={(e) => setWaflyForm({ ...waflyForm, token: e.target.value })}
+                        placeholder="Token de acesso da instância"
+                        disabled={salvandoWafly}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Número do WhatsApp do Gabinete <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={waflyForm.phoneNumber}
+                      onChange={(e) => setWaflyForm({ ...waflyForm, phoneNumber: e.target.value })}
+                      placeholder="Ex: 5511999998888 (com DDI e DDD)"
+                      disabled={salvandoWafly}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">Apenas números, incluindo código do país e DDD.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Secret do Webhook <span className="text-gray-400 font-normal">(Opcional)</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={waflyForm.webhookSecret}
+                      onChange={(e) => setWaflyForm({ ...waflyForm, webhookSecret: e.target.value })}
+                      placeholder="Deixe em branco para gerar automaticamente"
+                      disabled={salvandoWafly}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">Usado para validar callbacks inbound e status.</p>
+                  </div>
+
+                  {/* Informações do Webhook */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                    <label className="block text-xs font-bold text-slate-700">URL do Webhook para cadastro na WAFLY</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={getWaflyWebhookUrl()}
+                        className="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-600 select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCopiarWebhook}
+                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shrink-0"
+                        title="Copiar URL do Webhook"
+                      >
+                        <FontAwesomeIcon icon={webhookCopiado ? faCheck : faCopy} className={webhookCopiado ? 'text-green-600' : ''} />
+                        <span>{webhookCopiado ? 'Copiado!' : 'Copiar'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Cadastre esta URL no painel da WAFLY para receber mensagens recebidas e confirmações de entrega.
+                    </p>
+                  </div>
+
+                  {/* Ações do Modal */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={handleFecharModalWafly}
+                      disabled={salvandoWafly}
+                      className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-xl transition disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={salvandoWafly}
+                      className="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition flex items-center gap-2 shadow-sm disabled:opacity-50"
+                    >
+                      {salvandoWafly && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
+                      <span>{salvandoWafly ? 'Salvando...' : 'Salvar Credenciais'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       </Layout>
     </ProtectedRoute>

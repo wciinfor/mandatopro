@@ -18,7 +18,8 @@ import { resolverCampanhaInbound } from '@/lib/atendimento-connect-campanhas';
  * @returns {Promise<{success: boolean, duplicated?: boolean, mensagem?: Object}>}
  */
 export async function processarEventoMensagem(supabase, evento) {
-  console.log(`[META WEBHOOK] processando evento mensagem wamid=${evento.provider_message_id} telefone=${evento.contact_id}`);
+  const logPrefix = `[INBOUND WEBHOOK: ${evento?.provider || 'UNKNOWN'}]`;
+  console.log(`${logPrefix} processando evento mensagem wamid=${evento.provider_message_id} telefone=${evento.contact_id}`);
 
   // ─── 1. IDEMPOTÊNCIA ─────────────────────────────────────────────────────────
   const { data: msgExistenteComm } = await supabase
@@ -34,12 +35,12 @@ export async function processarEventoMensagem(supabase, evento) {
     .maybeSingle();
 
   if (msgExistenteComm || msgExistenteConnect) {
-    console.log(`[META WEBHOOK] idempotência: wamid=${evento.provider_message_id} já processado, ignorando.`);
+    console.log(`${logPrefix} idempotência: wamid=${evento.provider_message_id} já processado, ignorando.`);
     return { success: true, duplicated: true };
   }
 
   // ─── 2. RESOLUÇÃO DO TENANT ───────────────────────────────────────────────────
-  console.log('[META WEBHOOK] processando tenant');
+  console.log(`${logPrefix} processando tenant`);
   let tenantId = null;
   try {
     const contaMeta = await buscarContaWhatsappPorWabaOuNumero(supabase, {
@@ -48,7 +49,7 @@ export async function processarEventoMensagem(supabase, evento) {
     });
     tenantId = contaMeta?.tenant_id || null;
   } catch (errConta) {
-    console.warn('[META WEBHOOK] falha ao resolver conta Meta por WABA/Número:', errConta?.message);
+    console.warn(`${logPrefix} falha ao resolver conta por WABA/Número:`, errConta?.message);
   }
 
   if (!tenantId) {
@@ -62,7 +63,7 @@ export async function processarEventoMensagem(supabase, evento) {
     tenantId = contaFallback?.tenant_id || 1;
   }
 
-  console.log(`[META WEBHOOK] tenant resolvido: ${tenantId}`);
+  console.log(`${logPrefix} tenant resolvido: ${tenantId}`);
 
   // ─── 3. LOCALIZAÇÃO DO ELEITOR ─────────────────────────────────────────────────
   const telefoneLimpo = normalizarTelefone(evento.contact_id || '');
@@ -86,7 +87,7 @@ export async function processarEventoMensagem(supabase, evento) {
     if (eleitor?.id) {
       eleitorId = eleitor.id;
       contatoNome = eleitor.nome || contatoNome;
-      console.log(`[META WEBHOOK] eleitor vinculado: id=${eleitorId} nome=${contatoNome}`);
+      console.log(`${logPrefix} eleitor vinculado: id=${eleitorId} nome=${contatoNome}`);
     }
   }
 
@@ -177,8 +178,8 @@ export async function processarEventoMensagem(supabase, evento) {
 
     const connectMetadata = {
       ...(conversaConnectExistente?.metadata || {}),
-      origem: 'whatsapp_meta',
-      provider: 'META',
+      origem: evento.origem || 'whatsapp_meta',
+      provider: evento.provider || 'META',
       wabaId: evento.waba_id || null,
       phoneNumberId: evento.phone_number_id || null,
       lastProviderMessageId: evento.provider_message_id,
@@ -261,7 +262,7 @@ export async function processarEventoMensagem(supabase, evento) {
     console.error('[ATENDIMENTO CONNECT] falha na sincronização:', errConnect?.message);
   }
 
-  console.log(`[META WEBHOOK] processamento concluído: wamid=${evento.provider_message_id}`);
+  console.log(`${logPrefix} processamento concluído: wamid=${evento.provider_message_id}`);
   return { success: true, mensagem: msgInserida };
 }
 

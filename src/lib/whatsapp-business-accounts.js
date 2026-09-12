@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { obterTenantId } from './tenant';
 import { createTokenStorageService } from '../services/token-storage';
 
@@ -195,8 +196,8 @@ export async function alterarProvedorWhatsappAtivo(supabase, usuario, providerDe
   }
 
   const targetProvider = String(providerDesejado || '').toUpperCase();
-  if (!['META', 'YCLOUD', 'WABLAST'].includes(targetProvider)) {
-    const err = new Error('Provedor inválido. Escolha META, YCLOUD ou WABLAST');
+  if (!['META', 'YCLOUD', 'WABLAST', 'WAFLY'].includes(targetProvider)) {
+    const err = new Error('Provedor inválido. Escolha META, YCLOUD, WABLAST ou WAFLY');
     err.statusCode = 400;
     throw err;
   }
@@ -254,6 +255,22 @@ export async function alterarProvedorWhatsappAtivo(supabase, usuario, providerDe
     }
     if (!temNumero) {
       const err = new Error('Conta WaBlast selecionada não possui número WhatsApp vinculado');
+      err.statusCode = 400;
+      throw err;
+    }
+  } else if (targetProvider === 'WAFLY') {
+    const metadata = typeof contaAlvo.access_token_metadata === 'object' && contaAlvo.access_token_metadata
+      ? contaAlvo.access_token_metadata
+      : {};
+    const hasToken = Boolean(contaAlvo.access_token || metadata.wafly_token || metadata.token);
+    if (!hasToken) {
+      const err = new Error('Conta Wafly selecionada não possui token de instância configurado');
+      err.statusCode = 400;
+      throw err;
+    }
+    const temNumeroWafly = temNumero || (Array.isArray(contaAlvo.whatsapp_business_numbers) && contaAlvo.whatsapp_business_numbers.some(n => n.display_phone_number && n.status !== 'INATIVO'));
+    if (!temNumeroWafly) {
+      const err = new Error('Conta Wafly selecionada não possui número WhatsApp vinculado');
       err.statusCode = 400;
       throw err;
     }
@@ -821,6 +838,213 @@ export async function salvarContaWhatsappWaBlast(supabase, usuario, dados = {}) 
 }
 
 /**
+ * Salva ou atualiza a conta do provedor WAFLY e vincula o número conectado em whatsapp_business_numbers.
+ * 
+ * Regras:
+ * - Isola estritamente pelo tenant_id e provider='WAFLY'.
+ * - Não sobrescreve ou reutiliza contas META, YCLOUD ou WABLAST.
+ * - Preserva metadata existente mesclando chaves WAFLY.
+ * - NÃO ativa automaticamente a conta como principal (responsabilidade de alterarProvedorWhatsappAtivo).
+ * - Não expõe ou registra credenciais secretas em logs.
+ * 
+ * @param {Object} supabase - Cliente Supabase
+ * @param {Object} usuario - Usuário autenticado
+ * @param {Object} dados - Credenciais e configurações WAFLY
+ * @returns {Promise<{ success: boolean, provider: string, account: Object, number: Object }>}
+ */
+export async function salvarContaWhatsappWafly(supabase, usuario, dados = {}) {
+  const tenantId = obterTenantId(usuario);
+  if (!tenantId) {
+    const err = new Error('Tenant atual não identificado');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // 1. Extração e validação rigorosa dos parâmetros obrigatórios
+  const clientToken = String(dados.clientToken || dados.client_token || dados.waflyClientToken || '').trim();
+  const instance = String(dados.instance || dados.instanceId || dados.instance_id || dados.waflyInstance || '').trim();
+  const token = String(dados.token || dados.instanceToken || dados.instance_token || dados.waflyToken || '').trim();
+  const rawPhone = dados.connectedPhone || dados.phone || dados.displayPhoneNumber || dados.phoneNumber || '';
+  const cleanPhone = String(rawPhone || '').replace(/\D+/g, '');
+
+  if (!clientToken) {
+    const err = new Error('Client Token da Wafly é obrigatório');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!instance) {
+    const err = new Error('ID da Instância da Wafly é obrigatório');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!token) {
+    const err = new Error('Token da Instância da Wafly é obrigatório');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!cleanPhone) {
+    const err = new Error('Número de WhatsApp conectado é obrigatório');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // 2. Webhook Secret: usa o informado ou gera automaticamente de forma criptograficamente segura
+  let webhookSecret = String(dados.webhookSecret || dados.webhook_secret || '').trim();
+  if (!webhookSecret) {
+    webhookSecret = crypto.randomBytes(24).toString('hex');
+  }
+
+  // 3. Localiza estritamente a conta WAFLY existente DO MESMO TENANT
+  const { data: contaExistenteWafly, error: errBusca } = await supabase
+    .from('whatsapp_business_accounts')
+    .select(`
+      id,
+      tenant_id,
+      provider,
+      nome,
+      verify_token,
+      access_token,
+      access_token_metadata,
+      phone_number_id,
+      status,
+      principal,
+      whatsapp_business_numbers (
+        id,
+        phone_number_id,
+        display_phone_number,
+        status,
+        principal
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .eq('provider', 'WAFLY')
+    .limit(1)
+    .maybeSingle();
+
+  if (errBusca) throw errBusca;
+
+  // 4. Preserva metadata existente mesclando chaves WAFLY
+  const metadataExistente = typeof contaExistenteWafly?.access_token_metadata === 'object' && contaExistenteWafly.access_token_metadata
+    ? contaExistenteWafly.access_token_metadata
+    : {};
+
+  // Se o usuário não enviou novo webhookSecret e a conta já possui verify_token, mantém o segredo anterior
+  if (!dados.webhookSecret && !dados.webhook_secret && contaExistenteWafly?.verify_token) {
+    webhookSecret = contaExistenteWafly.verify_token;
+  }
+
+  const metadataAtualizada = {
+    ...metadataExistente,
+    wafly_client_token: clientToken,
+    wafly_instance: instance,
+    wafly_token: token,
+    webhook_secret: webhookSecret,
+    connected_phone: cleanPhone,
+    updated_at: new Date().toISOString()
+  };
+
+  // NÃO ativa automaticamente como principal: preserva o valor atual (se já era principal) ou mantém false
+  const isPrincipal = contaExistenteWafly ? Boolean(contaExistenteWafly.principal) : false;
+
+  const contaPayload = {
+    tenant_id: tenantId,
+    provider: 'WAFLY',
+    nome: String(dados.nome || contaExistenteWafly?.nome || 'WhatsApp Business Wafly').trim(),
+    access_token: token,
+    phone_number_id: instance,
+    verify_token: webhookSecret,
+    access_token_metadata: metadataAtualizada,
+    token_validated: true,
+    phone_validated: true,
+    production_ready: true,
+    status: 'ATIVO',
+    principal: isPrincipal,
+    atualizado_por_id: usuario?.id || null,
+    updated_at: new Date().toISOString()
+  };
+
+  if (!contaExistenteWafly?.id) {
+    contaPayload.criado_por_id = usuario?.id || null;
+  }
+
+  const { data: contaSalva, error: contaError } = contaExistenteWafly?.id
+    ? await supabase
+      .from('whatsapp_business_accounts')
+      .update(contaPayload)
+      .eq('id', contaExistenteWafly.id)
+      .eq('tenant_id', tenantId)
+      .select('*')
+      .single()
+    : await supabase
+      .from('whatsapp_business_accounts')
+      .insert(contaPayload)
+      .select('*')
+      .single();
+
+  if (contaError) throw contaError;
+
+  // 5. Persistir/vincular número em whatsapp_business_numbers
+  const numerosAtuais = Array.isArray(contaExistenteWafly?.whatsapp_business_numbers)
+    ? contaExistenteWafly.whatsapp_business_numbers
+    : [];
+
+  const numeroAtual = numerosAtuais.find(item => item?.status !== 'INATIVO')
+    || numerosAtuais[0]
+    || null;
+
+  const numeroPayload = {
+    tenant_id: tenantId,
+    account_id: contaSalva.id,
+    phone_number_id: instance,
+    display_phone_number: cleanPhone,
+    display_name: dados.displayName || dados.nome || 'Wafly WhatsApp',
+    status: 'ATIVO',
+    principal: true,
+    updated_at: new Date().toISOString()
+  };
+
+  const { data: numeroSalvo, error: numError } = numeroAtual?.id
+    ? await supabase
+      .from('whatsapp_business_numbers')
+      .update(numeroPayload)
+      .eq('id', numeroAtual.id)
+      .eq('tenant_id', tenantId)
+      .select('*')
+      .single()
+    : await supabase
+      .from('whatsapp_business_numbers')
+      .insert(numeroPayload)
+      .select('*')
+      .single();
+
+  if (numError) throw numError;
+
+  // 6. Retorno seguro (sem vazar clientToken ou token)
+  return {
+    success: true,
+    provider: 'WAFLY',
+    account: {
+      id: contaSalva.id,
+      tenantId: contaSalva.tenant_id,
+      provider: contaSalva.provider,
+      nome: contaSalva.nome,
+      instance: instance,
+      status: contaSalva.status,
+      principal: contaSalva.principal,
+      webhookUrl: `/api/whatsapp-business/wafly-webhook?token=${webhookSecret}`
+    },
+    number: {
+      id: numeroSalvo?.id || null,
+      displayPhoneNumber: cleanPhone,
+      status: numeroSalvo?.status || 'ATIVO'
+    }
+  };
+}
+
+/**
  * Resolve a conta de WhatsApp correta para responder a uma conversa de atendimento,
  * garantindo que a resposta saia pelo mesmo provedor e número do gabinete que recebeu
  * a última mensagem de entrada do eleitor (preservando a janela de 24 horas aberta).
@@ -990,6 +1214,7 @@ export async function resolverContaWhatsappDaConversa(supabase, conversa, usuari
       if (!provSugerido && meta.origem === 'ycloud') provSugerido = 'YCLOUD';
       if (!provSugerido && meta.origem === 'wablast') provSugerido = 'WABLAST';
       if (!provSugerido && meta.origem === 'whatsapp_meta') provSugerido = 'META';
+      if (!provSugerido && meta.origem === 'wafly') provSugerido = 'WAFLY';
 
       if (provSugerido) {
         const contaPorMetaProv = encontrarContaPorProvider(provSugerido);

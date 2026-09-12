@@ -1,5 +1,6 @@
 import { createMetaGraphApiService } from './meta-graph-api';
 import { createWhatsAppWebhookEventLogger } from './whatsapp-webhook-event-logger';
+import { createWhatsAppProvider } from './whatsapp-provider-factory';
 
 const REQUIRED_SCOPES = ['whatsapp_business_management'];
 
@@ -185,7 +186,174 @@ export async function gerarDiagnosticoWhatsappBusiness(conta, options = {}) {
     };
   }
 
-  // ─── 3. DIAGNÓSTICO PARA PROVIDER META (FLUXO EXISTENTE INTACTO) ───────────
+  // ─── 3. DIAGNÓSTICO PARA PROVIDER WAFLY ─────────────────────────────────────
+  if (provider === 'WAFLY') {
+    const number = Array.isArray(conta?.whatsapp_business_numbers)
+      ? conta.whatsapp_business_numbers.find(
+          item => item?.principal && item?.status !== 'INATIVO'
+        ) || conta.whatsapp_business_numbers.find(
+          item => item?.status !== 'INATIVO'
+        ) || conta.whatsapp_business_numbers[0]
+      : null;
+
+    const phoneNumber = number?.display_phone_number || number?.phone_number_id || '';
+    const metadata = typeof conta?.access_token_metadata === 'object' && conta?.access_token_metadata
+      ? conta.access_token_metadata
+      : {};
+
+    const instance = conta?.phone_number_id
+      || metadata.wafly_instance
+      || metadata.instance
+      || conta?.instance
+      || '';
+
+    const latestWebhookEvent = options.supabase
+      ? await createWhatsAppWebhookEventLogger(options.supabase).latestForTenant(conta?.tenant_id)
+      : null;
+
+    // Executa diagnóstico real via adapter existente
+    const providerAdapter = createWhatsAppProvider(conta);
+    const statusResult = await providerAdapter.getStatus();
+
+    const isConnected = statusResult?.success === true && (
+      String(statusResult?.status || '').toUpperCase() === 'CONNECTED'
+      || String(statusResult?.data?.value || '').toUpperCase() === 'CONNECTED'
+      || String(statusResult?.data?.status || '').toUpperCase() === 'CONNECTED'
+    );
+
+    const isDisconnected = !isConnected && (
+      String(statusResult?.status || '').toUpperCase() === 'DISCONNECTED'
+      || String(statusResult?.data?.value || '').toUpperCase() === 'DISCONNECTED'
+      || String(statusResult?.data?.status || '').toUpperCase() === 'DISCONNECTED'
+    );
+
+    const rawError = String(statusResult?.error || '').toLowerCase();
+    const isAuthError = statusResult?.statusCode === 401
+      || statusResult?.statusCode === 400
+      || rawError.includes('401')
+      || rawError.includes('credenciais')
+      || rawError.includes('autenticação')
+      || rawError.includes('clienttoken')
+      || rawError.includes('token');
+
+    const isTimeout = statusResult?.statusCode === 504
+      || rawError.includes('timeout')
+      || rawError.includes('tempo limite')
+      || rawError.includes('aborted');
+
+    // Determina status do indicador de conexão
+    let connectionStatus = 'OK';
+    let connectionDescription = `Instância conectada ao WhatsApp (${statusResult?.status || 'CONNECTED'}).`;
+
+    if (isConnected) {
+      connectionStatus = 'OK';
+      connectionDescription = `Instância conectada ao WhatsApp (${statusResult?.status || 'CONNECTED'}).`;
+    } else if (isDisconnected) {
+      connectionStatus = 'Atenção';
+      connectionDescription = 'Instância desconectada do WhatsApp (DISCONNECTED).';
+    } else if (isAuthError) {
+      connectionStatus = 'Erro';
+      connectionDescription = 'Credenciais inválidas ou ausentes na API WAFLY.';
+    } else {
+      connectionStatus = 'Erro';
+      connectionDescription = statusResult?.error || 'Falha de comunicação com o servidor WAFLY.';
+    }
+
+    const indicators = [
+      indicator(
+        'connection',
+        'Status da conexão',
+        connectionStatus,
+        connectionDescription,
+        checkedAt
+      ),
+      indicator(
+        'provider',
+        'Provedor',
+        'OK',
+        'WAFLY Bridge API (Conexão Direta).',
+        checkedAt
+      ),
+      indicator(
+        'instance',
+        'Instância WAFLY',
+        instance ? 'OK' : 'Atenção',
+        instance ? `Instância ${instance} vinculada.` : 'ID da instância não informado.',
+        checkedAt,
+        instance ? { instance } : null
+      ),
+      indicator(
+        'phone_number',
+        'Número do WhatsApp',
+        phoneNumber ? 'OK' : 'Atenção',
+        phoneNumber ? `Número ${phoneNumber} vinculado ao gabinete.` : 'Número de telefone pendente de vinculação.',
+        checkedAt,
+        phoneNumber ? { display_phone_number: phoneNumber } : null
+      ),
+      indicator(
+        'webhook_status',
+        'Status do Webhook',
+        latestWebhookEvent ? 'OK' : 'Atenção',
+        latestWebhookEvent
+          ? `Último evento recebido: ${latestWebhookEvent.event_type || 'evento WAFLY'}.`
+          : 'Aguardando primeiros eventos de webhook em tempo real.',
+        latestWebhookEvent?.created_at || checkedAt
+      ),
+      indicator(
+        'last_sync',
+        'Última sincronização',
+        'OK',
+        `Diagnóstico executado em ${new Date(checkedAt).toLocaleString('pt-BR')}.`,
+        checkedAt
+      )
+    ];
+
+    const pendencias = [];
+    if (!instance) {
+      pendencias.push('ID da instância WAFLY não configurado.');
+    }
+    if (!phoneNumber) {
+      pendencias.push('Número do WhatsApp não vinculado à conta WAFLY.');
+    }
+
+    if (isConnected) {
+      // Nenhum erro de conexão
+    } else if (isDisconnected) {
+      pendencias.push('A instância WAFLY está desconectada (DISCONNECTED). Leia o QR Code no painel da WAFLY.');
+    } else if (isAuthError) {
+      pendencias.push('Credenciais inválidas ou ausentes na API WAFLY (verifique clientToken, instance e token).');
+    } else if (isTimeout) {
+      pendencias.push('Tempo limite de conexão com a WAFLY excedido.');
+    } else {
+      pendencias.push(statusResult?.error || 'Falha de comunicação com o servidor WAFLY.');
+    }
+
+    const ready = isConnected && pendencias.length === 0;
+
+    let summary = 'Integração WAFLY ativa e pronta para envio';
+    if (!isConnected) {
+      if (isDisconnected) {
+        summary = 'Instância WAFLY desconectada do WhatsApp';
+      } else if (isAuthError) {
+        summary = 'Credenciais inválidas na API WAFLY';
+      } else {
+        summary = 'Falha de comunicação com o servidor WAFLY';
+      }
+    } else if (pendencias.length > 0) {
+      summary = 'Existem pendências na conexão WAFLY';
+    }
+
+    return {
+      ready,
+      provider: 'WAFLY',
+      summary,
+      pending: pendencias,
+      checkedAt,
+      indicators
+    };
+  }
+
+  // ─── 4. DIAGNÓSTICO PARA PROVIDER META (FLUXO EXISTENTE INTACTO) ───────────
   const graph = createMetaGraphApiService();
   const accessToken = conta?.access_token || '';
   const businessId = conta?.business_manager_id || '';
