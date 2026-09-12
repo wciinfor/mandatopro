@@ -35,6 +35,7 @@ export default function WhatsAppBusinessOficial() {
     instance: '',
     token: '',
     connectedPhone: '',
+    phoneNumber: '',
     webhookSecret: ''
   });
   const [erroWaflyModal, setErroWaflyModal] = useState(null);
@@ -184,6 +185,7 @@ export default function WhatsAppBusinessOficial() {
       instance: config?.waflyDetails?.instance || '',
       token: '',
       connectedPhone: config?.waflyDetails?.phoneNumber || '',
+      phoneNumber: config?.waflyDetails?.phoneNumber || '',
       webhookSecret: ''
     });
     setErroWaflyModal(null);
@@ -205,7 +207,9 @@ export default function WhatsAppBusinessOficial() {
     const clientToken = String(waflyForm.clientToken || '').trim();
     const instance = String(waflyForm.instance || '').trim();
     const token = String(waflyForm.token || '').trim();
-    const cleanPhone = String(waflyForm.connectedPhone || '').replace(/\D+/g, '');
+    const cleanPhone = String(
+      waflyForm.connectedPhone || waflyForm.phoneNumber || ''
+    ).replace(/\D+/g, '');
     const webhookSecret = String(waflyForm.webhookSecret || '').trim();
 
     if (!clientToken) {
@@ -810,8 +814,12 @@ export default function WhatsAppBusinessOficial() {
                     </label>
                     <input
                       type="text"
-                      value={waflyForm.phoneNumber}
-                      onChange={(e) => setWaflyForm({ ...waflyForm, phoneNumber: e.target.value })}
+                      value={waflyForm.connectedPhone || waflyForm.phoneNumber || ''}
+                      onChange={(e) => setWaflyForm({
+                        ...waflyForm,
+                        connectedPhone: e.target.value,
+                        phoneNumber: e.target.value
+                      })}
                       placeholder="Ex: 5511999998888 (com DDI e DDD)"
                       disabled={salvandoWafly}
                       className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition"
