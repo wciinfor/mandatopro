@@ -184,8 +184,10 @@ async function runTests() {
 
   // Verifica registro no banco
   const contaDb1 = mockDb.accounts.find(a => a.id === resCriacao.account.id);
+  const numDb1 = mockDb.numbers.find(n => n.account_id === resCriacao.account.id);
   assert.strictEqual(contaDb1.provider, 'WAFLY');
-  assert.strictEqual(contaDb1.phone_number_id, 'INST_WAFLY_01');
+  assert.strictEqual(contaDb1.phone_number_id, undefined, 'phone_number_id não deve existir na tabela accounts');
+  assert.strictEqual(numDb1.phone_number_id, 'INST_WAFLY_01');
   assert.strictEqual(contaDb1.access_token, 'INSTANCE_TOKEN_SECRET');
   assert.strictEqual(contaDb1.access_token_metadata.wafly_client_token, 'CLIENT_TOKEN_SECRET');
   assert.strictEqual(contaDb1.access_token_metadata.wafly_instance, 'INST_WAFLY_01');

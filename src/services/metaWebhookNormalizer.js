@@ -33,18 +33,22 @@ export class MetaWebhookNormalizer {
       case 'image':
         normal.conteudo = `[Imagem ID: ${rawMessage.image?.id}]${rawMessage.image?.caption ? ' - ' + rawMessage.image.caption : ''}`;
         normal.media_id = rawMessage.image?.id;
+        normal.mime_type = rawMessage.image?.mime_type || null;
         break;
       case 'document':
         normal.conteudo = `[Documento ID: ${rawMessage.document?.id}] ${rawMessage.document?.filename || ''}`;
         normal.media_id = rawMessage.document?.id;
+        normal.mime_type = rawMessage.document?.mime_type || null;
         break;
       case 'audio':
         normal.conteudo = `[Áudio ID: ${rawMessage.audio?.id}]`;
         normal.media_id = rawMessage.audio?.id;
+        normal.mime_type = rawMessage.audio?.mime_type || null;
         break;
       case 'video':
         normal.conteudo = `[Vídeo ID: ${rawMessage.video?.id}]`;
         normal.media_id = rawMessage.video?.id;
+        normal.mime_type = rawMessage.video?.mime_type || null;
         break;
       case 'location':
         normal.conteudo = `[Localização] Latitude: ${rawMessage.location?.latitude}, Longitude: ${rawMessage.location?.longitude}`;

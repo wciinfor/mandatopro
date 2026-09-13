@@ -241,12 +241,20 @@ export async function processarEventoMensagem(supabase, evento) {
     }
 
     if (conversaConnectId) {
+      const mediaTipo = evento.mensagem_tipo && !['text', 'texto'].includes(evento.mensagem_tipo)
+        ? evento.mensagem_tipo
+        : null;
+
+      const mediaUrl = evento.media_url || evento.audio_url || null;
+
       const { error: errMsgConnect } = await supabase
         .from('atendimento_connect_mensagens')
         .insert({
           conversa_id: conversaConnectId,
           direcao: 'entrada',
           mensagem: evento.conteudo,
+          media_tipo: mediaTipo,
+          media_url: mediaUrl,
           provider_message_id: evento.provider_message_id,
           raw_payload: evento
         });

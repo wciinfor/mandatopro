@@ -22,7 +22,11 @@ import {
   faChevronUp,
   faQuoteRight,
   faBullhorn,
-  faChartPie
+  faChartPie,
+  faFileAlt,
+  faDownload,
+  faImage,
+  faVideo
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import Layout from '@/components/Layout';
@@ -86,6 +90,238 @@ function formatCanalResposta(canalResolvido, conversaAtiva) {
   return 'Canal: WhatsApp — conta principal';
 }
 
+import {
+  obterTipoMidia,
+  obterTranscricao,
+  extrairLegenda,
+  extrairNomeArquivo
+} from '@/lib/atendimento-connect';
+
+export {
+  obterTipoMidia,
+  obterTranscricao,
+  extrairLegenda,
+  extrairNomeArquivo
+};
+
+function AudioPlayerMessage({ mensagem, isEntrada }) {
+  const [carregando, setCarregando] = useState(false);
+  const [erroStatus, setErroStatus] = useState(null);
+
+  const mediaSrc = mensagem?.id
+    ? `/api/atendimento-connect/mensagens/${mensagem.id}/media`
+    : null;
+  const transcricao = obterTranscricao(mensagem);
+
+  const handleError = async () => {
+    setCarregando(false);
+    if (!mediaSrc) {
+      setErroStatus('erro');
+      return;
+    }
+    try {
+      const resp = await fetch(mediaSrc, { method: 'HEAD' });
+      if (resp.status === 410) {
+        setErroStatus(410);
+        return;
+      }
+    } catch (_) {}
+    setErroStatus('erro');
+  };
+
+  if (!mediaSrc) {
+    return (
+      <p className="whitespace-pre-wrap italic opacity-80">Áudio indisponível</p>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 w-full max-w-[280px] sm:max-w-xs select-none">
+      {erroStatus === 410 ? (
+        <div className={`flex items-start gap-2 p-2.5 rounded-lg text-xs leading-snug ${
+          isEntrada
+            ? 'bg-amber-50 text-amber-900 border border-amber-200'
+            : 'bg-teal-800/80 text-teal-100 border border-teal-500/50'
+        }`}>
+          <FontAwesomeIcon icon={faCircleExclamation} className="mt-0.5 text-amber-500 shrink-0" />
+          <span>Mídia não está mais disponível no provedor (expirada).</span>
+        </div>
+      ) : erroStatus ? (
+        <div className={`flex items-start gap-2 p-2.5 rounded-lg text-xs leading-snug ${
+          isEntrada
+            ? 'bg-rose-50 text-rose-900 border border-rose-200'
+            : 'bg-rose-950/70 text-rose-100 border border-rose-500/50'
+        }`}>
+          <FontAwesomeIcon icon={faCircleExclamation} className="mt-0.5 text-rose-500 shrink-0" />
+          <span>Não foi possível reproduzir este áudio.</span>
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          <audio
+            controls
+            preload="none"
+            src={mediaSrc}
+            className="w-full h-10 rounded-md focus:outline-none"
+            onError={handleError}
+            onLoadStart={() => setCarregando(true)}
+            onCanPlay={() => setCarregando(false)}
+            onPlay={() => setCarregando(false)}
+            onWaiting={() => setCarregando(true)}
+          >
+            Seu navegador não suporta reprodução de áudio.
+          </audio>
+          {carregando && (
+            <span className={`text-[10px] mt-0.5 pl-1 italic ${isEntrada ? 'text-gray-400' : 'text-teal-200'}`}>
+              Carregando áudio...
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Exibição da Transcrição */}
+      {transcricao && (
+        <div className={`mt-1.5 pt-1.5 border-t text-xs leading-relaxed select-text ${
+          isEntrada
+            ? 'border-gray-200 text-gray-700 bg-gray-50/80 p-2 rounded-md'
+            : 'border-teal-500/40 text-teal-50 bg-teal-700/50 p-2 rounded-md'
+        }`}>
+          <div className="flex items-center gap-1 font-semibold text-[10px] uppercase tracking-wider mb-0.5 opacity-75">
+            <FontAwesomeIcon icon={faQuoteRight} className="text-[9px]" />
+            <span>Transcrição</span>
+          </div>
+          <p className="italic font-normal">{transcricao}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImageMessage({ mensagem, isEntrada }) {
+  const [erro, setErro] = useState(false);
+  const mediaSrc = mensagem?.id ? `/api/atendimento-connect/mensagens/${mensagem.id}/media` : null;
+  const legenda = extrairLegenda(mensagem?.mensagem);
+
+  if (!mediaSrc || erro) {
+    return (
+      <div className="flex items-center gap-2 text-xs opacity-80">
+        <FontAwesomeIcon icon={faImage} />
+        <span>{legenda || 'Imagem anexa'}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 max-w-[280px] sm:max-w-xs">
+      <a
+        href={mediaSrc}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block overflow-hidden rounded-lg border border-black/10"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={mediaSrc}
+          alt={legenda || 'Imagem do WhatsApp'}
+          loading="lazy"
+          onError={() => setErro(true)}
+          className="rounded-lg max-h-60 max-w-full object-cover transition-transform hover:scale-[1.02]"
+        />
+      </a>
+      {legenda && (
+        <p className={`text-xs whitespace-pre-wrap ${isEntrada ? 'text-gray-700' : 'text-teal-100'}`}>
+          {legenda}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function VideoMessage({ mensagem, isEntrada }) {
+  const [erro, setErro] = useState(false);
+  const mediaSrc = mensagem?.id ? `/api/atendimento-connect/mensagens/${mensagem.id}/media` : null;
+  const legenda = extrairLegenda(mensagem?.mensagem);
+
+  if (!mediaSrc || erro) {
+    return (
+      <div className="flex items-center gap-2 text-xs opacity-80">
+        <FontAwesomeIcon icon={faVideo} />
+        <span>{legenda || 'Vídeo anexo'}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 max-w-[280px] sm:max-w-xs">
+      <video
+        controls
+        preload="none"
+        src={mediaSrc}
+        onError={() => setErro(true)}
+        className="rounded-lg max-h-60 max-w-full"
+      >
+        Seu navegador não suporta reprodução de vídeo.
+      </video>
+      {legenda && (
+        <p className={`text-xs whitespace-pre-wrap ${isEntrada ? 'text-gray-700' : 'text-teal-100'}`}>
+          {legenda}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DocumentMessage({ mensagem, isEntrada }) {
+  const mediaSrc = mensagem?.id ? `/api/atendimento-connect/mensagens/${mensagem.id}/media` : null;
+  const nomeArquivo = extrairNomeArquivo(mensagem);
+
+  return (
+    <div className="max-w-[280px] sm:max-w-xs">
+      {mediaSrc ? (
+        <a
+          href={mediaSrc}
+          target="_blank"
+          rel="noopener noreferrer"
+          download
+          className={`flex items-center gap-2.5 p-2.5 rounded-lg border transition-colors ${
+            isEntrada
+              ? 'bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100'
+              : 'bg-teal-700/60 border-teal-500/50 text-white hover:bg-teal-700/80'
+          }`}
+        >
+          <FontAwesomeIcon icon={faFileAlt} className="text-lg shrink-0 opacity-80" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium truncate">{nomeArquivo}</p>
+            <span className="text-[10px] opacity-75">Clique para baixar</span>
+          </div>
+          <FontAwesomeIcon icon={faDownload} className="text-xs shrink-0 opacity-75" />
+        </a>
+      ) : (
+        <div className="flex items-center gap-2 text-xs opacity-80">
+          <FontAwesomeIcon icon={faFileAlt} />
+          <span>{nomeArquivo}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MensagemConteudo({ mensagem, isEntrada }) {
+  const tipo = obterTipoMidia(mensagem);
+
+  switch (tipo) {
+    case 'audio':
+      return <AudioPlayerMessage mensagem={mensagem} isEntrada={isEntrada} />;
+    case 'image':
+      return <ImageMessage mensagem={mensagem} isEntrada={isEntrada} />;
+    case 'video':
+      return <VideoMessage mensagem={mensagem} isEntrada={isEntrada} />;
+    case 'document':
+      return <DocumentMessage mensagem={mensagem} isEntrada={isEntrada} />;
+    case 'text':
+    default:
+      return <p className="whitespace-pre-wrap">{mensagem.mensagem}</p>;
+  }
+}
 
 export default function AtendimentoConnect() {
   const { user } = useAuth();
@@ -376,6 +612,8 @@ export default function AtendimentoConnect() {
               mediaTipo: novaMsg.media_tipo || null,
               providerMessageId: novaMsg.provider_message_id || null,
               status: novaMsg.status || 'registrada',
+              rawPayload: novaMsg.raw_payload || novaMsg.rawPayload || null,
+              raw_payload: novaMsg.raw_payload || novaMsg.rawPayload || null,
               usuarioId: novaMsg.usuario_id || null,
               createdAt: novaMsg.created_at || new Date().toISOString(),
               created_at: novaMsg.created_at || new Date().toISOString(),
@@ -1109,7 +1347,7 @@ export default function AtendimentoConnect() {
                                     : 'bg-teal-600 text-white ml-auto'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{mensagem.mensagem}</p>
+                          <MensagemConteudo mensagem={mensagem} isEntrada={isEntrada} />
 
                           {/* Informação de Erro em caso de Falha */}
                           {isFailed && (

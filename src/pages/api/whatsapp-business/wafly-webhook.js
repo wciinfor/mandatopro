@@ -111,7 +111,7 @@ export default async function handler(req, res) {
   if (accountIdParam) {
     const { data: cById } = await supabase
       .from('whatsapp_business_accounts')
-      .select('id, tenant_id, provider, nome, verify_token, access_token, access_token_metadata, phone_number_id, status')
+      .select('id, tenant_id, provider, nome, verify_token, access_token, access_token_metadata, status')
       .eq('id', accountIdParam)
       .eq('provider', 'WAFLY')
       .eq('status', 'ATIVO')
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
     // Tenta primeiro em whatsapp_business_numbers vinculado à conta WAFLY
     const { data: numRow } = await supabase
       .from('whatsapp_business_numbers')
-      .select('account_id, tenant_id, display_phone_number, whatsapp_business_accounts!inner(id, tenant_id, provider, nome, verify_token, access_token, access_token_metadata, phone_number_id, status)')
+      .select('account_id, tenant_id, display_phone_number, whatsapp_business_accounts!inner(id, tenant_id, provider, nome, verify_token, access_token, access_token_metadata, status)')
       .eq('whatsapp_business_accounts.provider', 'WAFLY')
       .eq('whatsapp_business_accounts.status', 'ATIVO')
       .eq('display_phone_number', cleanConnectedPhone)
@@ -138,18 +138,6 @@ export default async function handler(req, res) {
 
     if (numRow?.whatsapp_business_accounts) {
       contaWafly = numRow.whatsapp_business_accounts;
-    } else {
-      // Tenta por phone_number_id na conta
-      const { data: cByPhone } = await supabase
-        .from('whatsapp_business_accounts')
-        .select('id, tenant_id, provider, nome, verify_token, access_token, access_token_metadata, phone_number_id, status')
-        .eq('provider', 'WAFLY')
-        .eq('status', 'ATIVO')
-        .eq('phone_number_id', cleanConnectedPhone)
-        .limit(1)
-        .maybeSingle();
-
-      if (cByPhone) contaWafly = cByPhone;
     }
   }
 
@@ -158,13 +146,12 @@ export default async function handler(req, res) {
   if (!contaWafly && rawInstanceId) {
     const { data: contasWaflyAtivas } = await supabase
       .from('whatsapp_business_accounts')
-      .select('id, tenant_id, provider, nome, verify_token, access_token, access_token_metadata, phone_number_id, status')
+      .select('id, tenant_id, provider, nome, verify_token, access_token, access_token_metadata, status')
       .eq('provider', 'WAFLY')
       .eq('status', 'ATIVO');
 
     if (Array.isArray(contasWaflyAtivas)) {
       contaWafly = contasWaflyAtivas.find(c => {
-        if (c.phone_number_id === rawInstanceId) return true;
         const meta = typeof c.access_token_metadata === 'object' && c.access_token_metadata ? c.access_token_metadata : {};
         return meta.wafly_instance === rawInstanceId || meta.instance === rawInstanceId || meta.instance_id === rawInstanceId;
       }) || null;
@@ -239,10 +226,6 @@ export default async function handler(req, res) {
         production_ready: true,
         updated_at: new Date().toISOString()
       };
-
-      if (evento.connectedPhone && !contaWafly.phone_number_id) {
-        updateData.phone_number_id = evento.connectedPhone;
-      }
 
       await supabase
         .from('whatsapp_business_accounts')

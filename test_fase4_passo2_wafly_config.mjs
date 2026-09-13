@@ -442,7 +442,7 @@ let test3Res = null;
   const numInDb = db.numbers.find(n => n.account_id === accInDb?.id);
 
   report(7, 'POST salva configuração WAFLY no banco de dados',
-    res.statusCode === 200 && res.body?.success === true && accInDb && accInDb.phone_number_id === 'inst-nova-01' && numInDb && (numInDb.display_phone_number === '5511977776666' || numInDb.phone_number_id === '5511977776666'),
+    res.statusCode === 200 && res.body?.success === true && accInDb && accInDb.access_token_metadata?.wafly_instance === 'inst-nova-01' && numInDb && (numInDb.display_phone_number === '5511977776666' || numInDb.phone_number_id === 'inst-nova-01'),
     { status: res.statusCode, body: res.body, accInDb, numInDb }
   );
 }

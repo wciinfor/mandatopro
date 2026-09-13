@@ -48,7 +48,6 @@ export default async function handler(req, res) {
           token_debug_metadata,
           access_token,
           access_token_metadata,
-          phone_number_id,
           principal,
           status,
           ycloud_api_key,
@@ -70,11 +69,10 @@ export default async function handler(req, res) {
         ? contaWaflyRaw.access_token_metadata
         : {};
 
-      const waflyInstance = contaWaflyRaw?.phone_number_id || waflyMeta.wafly_instance || waflyMeta.instance || null;
-      const waflyToken = contaWaflyRaw?.access_token || waflyMeta.wafly_token || waflyMeta.token || null;
-
       const numWafly = contaWaflyRaw?.whatsapp_business_numbers?.find(n => n.status !== 'INATIVO' && (n.display_phone_number || n.phone_number_id))
         || contaWaflyRaw?.whatsapp_business_numbers?.[0];
+      const waflyInstance = waflyMeta.wafly_instance || waflyMeta.instance || numWafly?.phone_number_id || null;
+      const waflyToken = contaWaflyRaw?.access_token || waflyMeta.wafly_token || waflyMeta.token || null;
       const waflyPhone = numWafly?.display_phone_number || numWafly?.phone_number_id || waflyMeta.connected_phone || null;
 
       // 2. Calcular isWaflyConnected: instance válida + token válido + número WhatsApp vinculado/ativo

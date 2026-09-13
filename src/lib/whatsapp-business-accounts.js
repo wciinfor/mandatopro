@@ -908,7 +908,6 @@ export async function salvarContaWhatsappWafly(supabase, usuario, dados = {}) {
       verify_token,
       access_token,
       access_token_metadata,
-      phone_number_id,
       status,
       principal,
       whatsapp_business_numbers (
@@ -954,7 +953,6 @@ export async function salvarContaWhatsappWafly(supabase, usuario, dados = {}) {
     provider: 'WAFLY',
     nome: String(dados.nome || contaExistenteWafly?.nome || 'WhatsApp Business Wafly').trim(),
     access_token: token,
-    phone_number_id: instance,
     verify_token: webhookSecret,
     access_token_metadata: metadataAtualizada,
     token_validated: true,
@@ -1073,6 +1071,7 @@ export async function resolverContaWhatsappDaConversa(supabase, conversa, usuari
       principal,
       status,
       access_token,
+      access_token_metadata,
       ycloud_api_key,
       wablast_account_id,
       wablast_waba_id,
