@@ -421,6 +421,22 @@ export class WaflyWhatsAppAdapter extends WhatsAppProviderContract {
       };
     }
 
+    // 0. Se mensagem direta já foi fornecida (ex: variações / texto livre)
+    if (payload.message || payload.text) {
+      const directMessage = typeof payload.text === 'object' && payload.text?.body !== undefined
+        ? payload.text.body
+        : (payload.message || payload.text);
+      const res = await this.sendMessage({ to, message: directMessage });
+      return {
+        success: true,
+        id: res.id || res.messageId,
+        messageId: res.messageId || res.id,
+        recipient: to,
+        template: templateName,
+        data: res
+      };
+    }
+
     // 1. Obter redação base do template
     const templateTexto = await this._obterTextoTemplate(templateName);
 

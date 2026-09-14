@@ -3,6 +3,97 @@ import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 import { obterTenantId } from '@/lib/tenant';
 
 /**
+ * Normaliza e valida a lista de variações de mensagem para campanhas WAFLY.
+ * Suporta array de strings ou array de objetos { texto | mensagem | text }.
+ * Remove mensagens vazias, aplica trim e valida limites (mínimo 1, máximo 5).
+ */
+function sanitizarVariacoesMensagem(rawVariacoes) {
+  if (rawVariacoes === undefined || rawVariacoes === null) {
+    return [];
+  }
+
+  if (!Array.isArray(rawVariacoes)) {
+    const err = new Error('O campo variacoes_mensagem deve ser uma lista (array).');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (rawVariacoes.length > 5) {
+    const err = new Error('O limite máximo é de 5 variações de mensagem por campanha.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const validadas = [];
+  for (let i = 0; i < rawVariacoes.length; i++) {
+    const item = rawVariacoes[i];
+    let texto = '';
+
+    if (typeof item === 'string') {
+      texto = item.trim();
+    } else if (item && typeof item === 'object' && !Array.isArray(item)) {
+      if (typeof item.texto === 'string') texto = item.texto.trim();
+      else if (typeof item.mensagem === 'string') texto = item.mensagem.trim();
+      else if (typeof item.text === 'string') texto = item.text.trim();
+      else {
+        const err = new Error(`A variação de mensagem na posição ${i + 1} possui formato inválido. Deve ser um texto.`);
+        err.statusCode = 400;
+        throw err;
+      }
+    } else {
+      const err = new Error(`A variação de mensagem na posição ${i + 1} possui formato inválido. Deve ser um texto.`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if (texto.length > 0) {
+      validadas.push({
+        id: validadas.length + 1,
+        texto
+      });
+    }
+  }
+
+  if (rawVariacoes.length > 0 && validadas.length === 0) {
+    const err = new Error('Nenhuma variação de mensagem válida foi informada (todas as mensagens enviadas estavam vazias).');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (validadas.length > 5) {
+    const err = new Error('O limite máximo é de 5 variações de mensagem por campanha.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return validadas;
+}
+
+/**
+ * Personaliza o texto da mensagem com as tags {nome} e {cidade}, sem inventar dados inexistentes.
+ */
+function personalizarMensagem(textoBase, contato, variaveisConfig = {}) {
+  let msg = String(textoBase || '');
+  const nomeContato = String(contato?.nome || variaveisConfig?.nome || '').trim();
+  const cidadeContato = String(contato?.cidade || contato?.municipio || variaveisConfig?.cidade || '').trim();
+
+  if (nomeContato) {
+    msg = msg.replace(/\{nome\}/gi, nomeContato);
+  } else {
+    msg = msg.replace(/\{nome\}/gi, 'Contato');
+  }
+
+  if (cidadeContato) {
+    msg = msg.replace(/\{cidade\}/gi, cidadeContato);
+  } else {
+    // Se não há cidade informada, remove a tag e normaliza espaços
+    msg = msg.replace(/\{cidade\}/gi, '').replace(/\s{2,}/g, ' ');
+  }
+
+  return msg.trim();
+}
+
+/**
  * API Handler para criar e persistir a Comunicação Oficial na tabela communication_campaigns.
  */
 export default async function handler(req, res) {
@@ -48,7 +139,7 @@ export default async function handler(req, res) {
           id: c.id,
           nome: c.nome,
           canal: c.canal || 'whatsapp',
-          template: c.communication_templates?.nome || 'Informativo',
+          template: c.communication_templates?.nome || (c.metadata?.provider === 'WAFLY' ? 'Variações WAFLY' : 'Informativo'),
           publico: c.communication_audiences?.nome || 'Destinatários',
           status: c.status,
           agendamento: c.agendado_para,
@@ -57,7 +148,8 @@ export default async function handler(req, res) {
           entregues,
           lidas,
           falhas,
-          created_at: c.created_at
+          created_at: c.created_at,
+          metadata: c.metadata || {}
         };
       }));
 
@@ -100,6 +192,43 @@ export default async function handler(req, res) {
     }
 
     const totalDestinatariosReal = destinatariosValidos.length;
+
+    // 0.1 RESOLUÇÃO E VALIDAÇÃO SEGURA DO PROVIDER
+    const { data: contasTenant } = await supabase
+      .from('whatsapp_business_accounts')
+      .select('id, provider, principal, status')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'ATIVO');
+
+    const providerDesejado = body.provider ? String(body.provider).toUpperCase().trim() : null;
+
+    // Valida se o provider requisitado realmente existe e está ativo para o tenant (segurança contra input cego)
+    let contaResolvida = null;
+    if (providerDesejado) {
+      contaResolvida = (contasTenant || []).find(c => String(c.provider || '').toUpperCase() === providerDesejado);
+    }
+
+    // Se não informou provider explicitamente ou o informado não é válido para o tenant, adota a conta principal ativa
+    if (!contaResolvida) {
+      contaResolvida = (contasTenant || []).find(c => c.principal) || (contasTenant || [])[0] || null;
+    }
+
+    const providerResolvido = String(contaResolvida?.provider || 'META').toUpperCase();
+    const isWafly = providerResolvido === 'WAFLY';
+
+    // 0.2 PROCESSAMENTO E VALIDAÇÃO DAS VARIAÇÕES DE MENSAGEM
+    const rawVariacoes = body.variacoes_mensagem ?? body.variacoesMensagem ?? body.variacoes;
+    const variacoesValidadas = sanitizarVariacoesMensagem(rawVariacoes);
+
+    if (isWafly) {
+      // Se for WAFLY com mensagem livre (sem template informado), exige de 1 a 5 variações
+      if (!body.template && variacoesValidadas.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Para campanhas WAFLY com mensagem livre, é obrigatório informar de 1 a 5 variações de mensagem.'
+        });
+      }
+    }
 
     // 1. Busca ou cria um template_id correspondente ao template_nome da Meta
     let templateId = null;
@@ -173,7 +302,25 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Persiste a comunicação na tabela principal de campanhas de disparos (communication_campaigns)
+    // 3. Monta metadata estruturado (fixando provider e regras WAFLY somente quando aplicável)
+    let metadataFinal = {};
+    if (body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)) {
+      metadataFinal = { ...body.metadata };
+    }
+
+    if (isWafly) {
+      metadataFinal = {
+        ...metadataFinal,
+        provider: 'WAFLY',
+        regras_envio: {
+          intervalo_min: 20,
+          intervalo_max: 40
+        },
+        variacoes_mensagem: variacoesValidadas
+      };
+    }
+
+    // 3.1 Persiste a comunicação na tabela principal de campanhas de disparos (communication_campaigns)
     const { data: campanhaCriada, error: errCamp } = await supabase
       .from('communication_campaigns')
       .insert({
@@ -184,28 +331,51 @@ export default async function handler(req, res) {
         template_id: templateId,
         audience_id: audienceId,
         total_destinatarios: totalDestinatariosReal,
-        agendado_para: body.agendamento || null
+        agendado_para: body.agendamento || null,
+        metadata: metadataFinal
       })
       .select('*')
       .single();
 
     if (errCamp) throw errCamp;
 
-    // 4. Insere em lote na fila de disparos (communication_campaign_items)
-    const variaveisConfig = (body.variaveis && typeof body.variaveis === 'object') ? body.variaveis : {};
-    const itemsPayload = destinatariosValidos.map(d => ({
-      tenant_id: tenantId,
-      campaign_id: campanhaCriada.id,
-      contact_id: String(d.telefone_limpo || d.telefone_original).replace(/\D/g, ''),
-      template_id: body.template || 'default',
-      status: 'pendente',
-      variaveis_mapeadas: {
+    // 4. Insere em lote na fila de disparos (communication_campaign_items) com distribuição determinística
+    const variaveisConfig = (body.variaveis && typeof body.variaveis === 'object' && !Array.isArray(body.variaveis))
+      ? body.variaveis
+      : {};
+    const temVariacoesWafly = isWafly && variacoesValidadas.length > 0;
+    const K = variacoesValidadas.length;
+
+    const itemsPayload = destinatariosValidos.map((d, index) => {
+      // 4.1 Preserva integralmente todas as variáveis existentes
+      const variaveisMapeadas = {
         nome: d.nome || 'Contato',
         eleitor_id: body.origemDestinatarios === 'campanha_politica' ? (d.id || null) : null,
         header_image_url: body.header_image_url || null,
+        ...(d.cidade ? { cidade: d.cidade } : {}),
+        ...(d.bairro ? { bairro: d.bairro } : {}),
         ...variaveisConfig
+      };
+
+      // 4.2 Para WAFLY com variações: aplica distribuição determinística (index % K) e personalização segura
+      if (temVariacoesWafly) {
+        const variacaoIndex = index % K;
+        const variacao = variacoesValidadas[variacaoIndex];
+        const mensagemPersonalizada = personalizarMensagem(variacao.texto, d, variaveisConfig);
+
+        variaveisMapeadas.variacao_id = variacao.id;
+        variaveisMapeadas.mensagem_personalizada = mensagemPersonalizada;
       }
-    }));
+
+      return {
+        tenant_id: tenantId,
+        campaign_id: campanhaCriada.id,
+        contact_id: String(d.telefone_limpo || d.telefone_original).replace(/\D/g, ''),
+        template_id: body.template || (temVariacoesWafly ? 'wafly_variacoes' : 'default'),
+        status: 'pendente',
+        variaveis_mapeadas: variaveisMapeadas
+      };
+    });
 
     const { error: errItems } = await supabase
       .from('communication_campaign_items')
@@ -223,7 +393,11 @@ export default async function handler(req, res) {
     await registrarEventoTimeline(supabase, campanhaCriada.id, {
       tipo: 'Comunicação criada',
       descricao: `A comunicação oficial de disparos "${campanhaCriada.nome}" foi inicializada na base de dados com ${body.total_destinatarios || 0} destinatários.`,
-      metadata: { total_destinatarios: body.total_destinatarios }
+      metadata: {
+        total_destinatarios: body.total_destinatarios,
+        provider: providerResolvido,
+        variacoes_count: temVariacoesWafly ? K : 0
+      }
     });
 
     if (body.agendamento) {
@@ -237,8 +411,11 @@ export default async function handler(req, res) {
     return res.status(200).json(campanhaCriada);
   } catch (error) {
     console.error('[SalvarComunicacaoAPI] Erro ao persistir comunicação oficial:', error);
-    return res.status(500).json({
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
       error: error.message || 'Erro ao persistir comunicação oficial na base de dados'
     });
   }
 }
+

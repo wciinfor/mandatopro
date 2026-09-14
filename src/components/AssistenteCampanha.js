@@ -15,7 +15,8 @@ import {
   faExclamationTriangle,
   faInfoCircle,
   faUpload,
-  faTrash
+  faTrash,
+  faPlus
 } from '@fortawesome/free-solid-svg-icons';
 import * as XLSX from 'xlsx';
 import { normalizarTelefone, deduplicarContatos } from '@/lib/disparos/contatos';
@@ -76,6 +77,43 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
   const [contaOficial, setContaOficial] = useState(null);
   const [carregandoContaOficial, setCarregandoContaOficial] = useState(false);
+
+  // Estados e controle de fluxo específico para provedor WAFLY (Mensagens Livres com Variações)
+  const isWafly = String(contaOficial?.provider || '').toUpperCase() === 'WAFLY';
+  const [variacoesWafly, setVariacoesWafly] = useState([{ id: 1, texto: '' }]);
+  const [variacaoAtivaPreview, setVariacaoAtivaPreview] = useState(1);
+
+  const handleAdicionarVariacao = () => {
+    if (variacoesWafly.length >= 5) return;
+    const nextId = (variacoesWafly[variacoesWafly.length - 1]?.id || 0) + 1;
+    setVariacoesWafly([...variacoesWafly, { id: nextId, texto: '' }]);
+    setVariacaoAtivaPreview(nextId);
+  };
+
+  const handleRemoverVariacao = (id) => {
+    if (variacoesWafly.length <= 1) return;
+    const filtradas = variacoesWafly.filter(v => v.id !== id);
+    setVariacoesWafly(filtradas);
+    if (variacaoAtivaPreview === id) {
+      setVariacaoAtivaPreview(filtradas[0]?.id || 1);
+    }
+  };
+
+  const handleAtualizarVariacao = (id, texto) => {
+    setVariacoesWafly(prev => prev.map(v => v.id === id ? { ...v, texto } : v));
+    if (erroAlerta) setErroAlerta(null);
+  };
+
+  const handleInserirTag = (id, tag) => {
+    setVariacoesWafly(prev => prev.map(v => {
+      if (v.id === id) {
+        const atual = v.texto || '';
+        return { ...v, texto: atual ? `${atual} ${tag}` : tag };
+      }
+      return v;
+    }));
+    if (erroAlerta) setErroAlerta(null);
+  };
 
   // Estados de Upload de Planilha / CSV
   const fileInputCsvRef = useRef(null);
@@ -630,6 +668,21 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     };
   };
 
+  // Gera o texto interpolado da variação ativa para prévia em tempo real no balão de WhatsApp (WAFLY)
+  const getMensagemWaflyPreview = () => {
+    const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+    const exemploNome = listaBase[0]?.nome || 'João da Silva';
+    const exemploCidade = listaBase[0]?.cidade || listaBase[0]?.municipio || 'Belém';
+
+    const variacao = variacoesWafly.find(v => v.id === variacaoAtivaPreview) || variacoesWafly[0];
+    const texto = variacao?.texto || '';
+    if (!texto.trim()) return '';
+
+    return texto
+      .replace(/\{nome\}/gi, exemploNome)
+      .replace(/\{cidade\}/gi, exemploCidade);
+  };
+
   // Total de 7 etapas estruturadas no fluxo oficial
   const totalSteps = 7;
 
@@ -650,22 +703,33 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step === 4) {
-        if (!templateSelecionado) return 'Selecione um template oficial homologado.';
-        if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
+        if (isWafly) {
+          const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
+          if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
+          if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
+        } else {
+          if (!templateSelecionado) return 'Selecione um template oficial homologado.';
+          if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
+        }
       }
       if (step === 5) {
-        // Valida se o template exige imagem de cabeçalho
-        const temHeaderImage = (templateSelecionado?.componentes || []).some(
-          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
-        );
-        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
-          return 'Faça o upload ou informe a URL da imagem de cabeçalho obrigatória para este template.';
-        }
+        if (isWafly) {
+          const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
+          if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem válida.';
+        } else {
+          // Valida se o template exige imagem de cabeçalho
+          const temHeaderImage = (templateSelecionado?.componentes || []).some(
+            c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+          );
+          if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+            return 'Faça o upload ou informe a URL da imagem de cabeçalho obrigatória para este template.';
+          }
 
-        const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
-        for (const k of chaves) {
-          if (!String(variaveis[k] || '').trim()) {
-            return `Preencha a variável obrigatória {{${k}}} do template.`;
+          const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
+          for (const k of chaves) {
+            if (!String(variaveis[k] || '').trim()) {
+              return `Preencha a variável obrigatória {{${k}}} do template.`;
+            }
           }
         }
       }
@@ -675,21 +739,27 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         if (!Array.isArray(listaAlvo) || listaAlvo.length === 0) {
           return 'A lista não possui destinatários aptos para disparo.';
         }
-        if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
-          return 'Selecione um template oficial homologado e aprovado.';
-        }
+        if (isWafly) {
+          const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
+          if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
+          if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
+        } else {
+          if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
+            return 'Selecione um template oficial homologado e aprovado.';
+          }
 
-        const temHeaderImage = (templateSelecionado?.componentes || []).some(
-          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
-        );
-        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
-          return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
-        }
+          const temHeaderImage = (templateSelecionado?.componentes || []).some(
+            c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+          );
+          if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+            return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
+          }
 
-        const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
-        for (const k of chaves) {
-          if (!String(variaveis[k] || '').trim()) {
-            return `Preencha a variável obrigatória {{${k}}} do template.`;
+          const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
+          for (const k of chaves) {
+            if (!String(variaveis[k] || '').trim()) {
+              return `Preencha a variável obrigatória {{${k}}} do template.`;
+            }
           }
         }
       }
@@ -705,21 +775,32 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step === 4) {
-        if (!templateSelecionado) return 'Selecione um template oficial homologado.';
-        if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
+        if (isWafly) {
+          const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
+          if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
+          if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
+        } else {
+          if (!templateSelecionado) return 'Selecione um template oficial homologado.';
+          if (String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') return 'O template selecionado precisa estar no status APROVADO.';
+        }
       }
       if (step === 5) {
-        const temHeaderImage = (templateSelecionado?.componentes || []).some(
-          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
-        );
-        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
-          return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
-        }
+        if (isWafly) {
+          const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
+          if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem válida.';
+        } else {
+          const temHeaderImage = (templateSelecionado?.componentes || []).some(
+            c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+          );
+          if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+            return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
+          }
 
-        const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
-        for (const k of chaves) {
-          if (!String(variaveis[k] || '').trim()) {
-            return `Preencha a variável obrigatória {{${k}}} do template.`;
+          const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
+          for (const k of chaves) {
+            if (!String(variaveis[k] || '').trim()) {
+              return `Preencha a variável obrigatória {{${k}}} do template.`;
+            }
           }
         }
       }
@@ -728,21 +809,27 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         if (!Array.isArray(listaAlvo) || listaAlvo.length === 0) {
           return 'A lista não possui destinatários aptos para disparo.';
         }
-        if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
-          return 'Selecione um template oficial homologado e aprovado.';
-        }
+        if (isWafly) {
+          const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
+          if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
+          if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
+        } else {
+          if (!templateSelecionado || String(templateSelecionado.status || '').toUpperCase() !== 'APPROVED') {
+            return 'Selecione um template oficial homologado e aprovado.';
+          }
 
-        const temHeaderImage = (templateSelecionado?.componentes || []).some(
-          c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
-        );
-        if (temHeaderImage && !String(headerImageUrl || '').trim()) {
-          return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
-        }
+          const temHeaderImage = (templateSelecionado?.componentes || []).some(
+            c => String(c.type || '').toUpperCase() === 'HEADER' && String(c.format || '').toUpperCase() === 'IMAGE'
+          );
+          if (temHeaderImage && !String(headerImageUrl || '').trim()) {
+            return 'Faça o upload da imagem de cabeçalho obrigatória para este template.';
+          }
 
-        const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
-        for (const k of chaves) {
-          if (!String(variaveis[k] || '').trim()) {
-            return `Preencha a variável obrigatória {{${k}}} do template.`;
+          const chaves = Object.keys(variaveis).sort((a, b) => Number(a) - Number(b));
+          for (const k of chaves) {
+            if (!String(variaveis[k] || '').trim()) {
+              return `Preencha a variável obrigatória {{${k}}} do template.`;
+            }
           }
         }
       }
@@ -827,17 +914,12 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       publicoLabel = `Base ${mandatoOrigem.toUpperCase()} - ${listaFinal.length} contatos`;
     }
 
-    onSave({
+    const payloadSalvar = {
       nome,
       canal,
       origemDestinatarios,
       publico: publicoLabel,
       audience_id: publicoSelecionado?.id || null,
-      template: templateSelecionado.nome,
-      template_id: templateSelecionado.id || templateSelecionado.nome,
-      idioma: templateSelecionado.idioma || 'pt_BR',
-      header_image_url: headerImageUrl || null,
-      variaveis: variaveis,
       status: agendado ? 'agendado' : 'rascunho',
       agendamento: agendado ? dataAgendamento : null,
       total_destinatarios: listaFinal.length,
@@ -847,7 +929,29 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       entregues: 0,
       lidas: 0,
       falhas: 0
-    });
+    };
+
+    if (isWafly) {
+      const variacoesValidas = variacoesWafly
+        .filter(v => String(v.texto || '').trim())
+        .map(v => ({ id: v.id, texto: v.texto.trim() }));
+
+      payloadSalvar.provider = 'WAFLY';
+      payloadSalvar.template = 'wafly_variacoes';
+      payloadSalvar.template_id = 'wafly_variacoes';
+      payloadSalvar.idioma = 'pt_BR';
+      payloadSalvar.header_image_url = null;
+      payloadSalvar.variaveis = {};
+      payloadSalvar.variacoes_mensagem = variacoesValidas;
+    } else {
+      payloadSalvar.template = templateSelecionado?.nome || '';
+      payloadSalvar.template_id = templateSelecionado?.id || templateSelecionado?.nome || '';
+      payloadSalvar.idioma = templateSelecionado?.idioma || 'pt_BR';
+      payloadSalvar.header_image_url = headerImageUrl || null;
+      payloadSalvar.variaveis = variaveis;
+    }
+
+    onSave(payloadSalvar);
   };
 
   // Filtra campanhas com base no termo digitado
@@ -872,8 +976,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   <>
                     {step === 2 && 'Informações do Disparo'}
                     {step === 3 && (origemDestinatarios === 'publico_salvo' ? 'Confirmar Público e Destinatários' : 'Selecionar Público da Base MandatoPRO')}
-                    {step === 4 && 'Selecionar Template'}
-                    {step === 5 && 'Configurar Variáveis'}
+                    {step === 4 && (isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
+                    {step === 5 && (isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
                     {step === 6 && 'Revisão da Comunicação'}
                     {step === 7 && 'Configurar Agendamento'}
                   </>
@@ -884,8 +988,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   <>
                     {step === 2 && 'Informações do Disparo'}
                     {step === 3 && 'Importar arquivo CSV'}
-                    {step === 4 && 'Selecionar Template'}
-                    {step === 5 && 'Configurar Variáveis'}
+                    {step === 4 && (isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
+                    {step === 5 && (isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
                     {step === 6 && 'Revisão da Comunicação'}
                     {step === 7 && 'Configurar Agendamento'}
                   </>
@@ -1633,8 +1737,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
-          {/* Selecionar Template Oficial */}
-          {step === 4 && (
+          {/* Selecionar Template Oficial (META / YCLOUD) */}
+          {step === 4 && !isWafly && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold text-gray-700">Selecione o Template Oficial Homologado</label>
@@ -1704,7 +1808,147 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
-          {step === 5 && (
+          {/* Variações de Mensagens Livres (WAFLY) */}
+          {step === 4 && isWafly && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Mensagens da Campanha (Variações Livres)
+                  </label>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Configure de 1 a 5 variações de mensagem. O sistema distribuirá alternadamente entre os contatos.
+                  </p>
+                </div>
+                <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-200">
+                  {variacoesWafly.length}/5 Variações
+                </span>
+              </div>
+
+              {/* Lista de Variações */}
+              <div className="space-y-3.5 max-h-[420px] overflow-y-auto pr-1">
+                {variacoesWafly.map((variacao, index) => {
+                  const isAtivaPreview = variacaoAtivaPreview === variacao.id;
+                  const charCount = (variacao.texto || '').length;
+
+                  return (
+                    <div
+                      key={variacao.id}
+                      className={`p-3.5 rounded-xl border transition space-y-2.5 ${
+                        isAtivaPreview
+                          ? 'border-teal-400 bg-teal-50/10 shadow-xs'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                      onClick={() => setVariacaoAtivaPreview(variacao.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">
+                            {index + 1}
+                          </span>
+                          <span className="text-xs font-bold text-gray-700">
+                            Variação #{index + 1}
+                          </span>
+                          {isAtivaPreview && (
+                            <span className="text-[9px] font-semibold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                              Em Prévia
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            {charCount} caracteres
+                          </span>
+                          {variacoesWafly.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoverVariacao(variacao.id);
+                              }}
+                              className="text-gray-400 hover:text-rose-600 transition p-1 text-xs"
+                              title="Remover esta variação"
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Textarea */}
+                      <textarea
+                        rows={3}
+                        value={variacao.texto}
+                        onChange={(e) => handleAtualizarVariacao(variacao.id, e.target.value)}
+                        onFocus={() => setVariacaoAtivaPreview(variacao.id)}
+                        placeholder={`Digite a mensagem para a variação ${index + 1}... Ex: Olá {nome}, temos novidades em {cidade}!`}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white resize-y"
+                      />
+
+                      {/* Atalhos para Tags Dinâmicas */}
+                      <div className="flex items-center justify-between flex-wrap gap-1.5 pt-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-gray-400 font-semibold">Inserir tag:</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleInserirTag(variacao.id, '{nome}');
+                            }}
+                            className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded border border-teal-200 transition"
+                          >
+                            + Nome ({'{nome}'})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleInserirTag(variacao.id, '{cidade}');
+                            }}
+                            className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded border border-teal-200 transition"
+                          >
+                            + Cidade ({'{cidade}'})
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setVariacaoAtivaPreview(variacao.id);
+                          }}
+                          className={`text-[10px] font-semibold transition ${
+                            isAtivaPreview ? 'text-teal-600 font-bold' : 'text-gray-400 hover:text-gray-600'
+                          }`}
+                        >
+                          👁️ Prévia WhatsApp
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Botão Adicionar Variação (até 5) */}
+              {variacoesWafly.length < 5 ? (
+                <button
+                  type="button"
+                  onClick={handleAdicionarVariacao}
+                  className="w-full py-2.5 px-4 border-2 border-dashed border-teal-300 hover:border-teal-500 hover:bg-teal-50/30 text-teal-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
+                >
+                  <FontAwesomeIcon icon={faPlus} />
+                  Adicionar Nova Variação ({variacoesWafly.length}/5)
+                </button>
+              ) : (
+                <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-center text-xs text-gray-500 font-medium">
+                  Limite máximo de 5 variações atingido.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Configurar Variáveis (META / YCLOUD) */}
+          {step === 5 && !isWafly && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700">Preencha as Variáveis do Template Oficial</label>
@@ -1953,6 +2197,96 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
+          {/* Distribuição das Mensagens (WAFLY) */}
+          {step === 5 && isWafly && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700">
+                  Distribuição Equilibrada das Mensagens
+                </label>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  O MandatoPRO alternará automaticamente as variações ativas entre os destinatários de forma determinística e balanceada.
+                </p>
+              </div>
+
+              {/* Métricas de Distribuição */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-teal-700 block">Variações Ativas</span>
+                  <p className="text-xl font-extrabold text-teal-900 mt-0.5">
+                    {variacoesWafly.filter(v => v.texto.trim()).length}
+                  </p>
+                  <p className="text-[10px] text-teal-600">de {variacoesWafly.length} configuradas</p>
+                </div>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-gray-500 block">Destinatários Aptos</span>
+                  <p className="text-xl font-extrabold text-gray-800 mt-0.5">
+                    {destinatariosFiltrados.length}
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    {variacoesWafly.filter(v => v.texto.trim()).length > 0
+                      ? `~${Math.round(destinatariosFiltrados.length / variacoesWafly.filter(v => v.texto.trim()).length)} envios por variação`
+                      : '0 por variação'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Cards das Variações com Percentual */}
+              <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+                {variacoesWafly
+                  .filter(v => v.texto.trim())
+                  .map((v, idx, arr) => {
+                    const pct = Math.round(100 / arr.length);
+                    const estimativa = Math.round(destinatariosFiltrados.length / arr.length);
+
+                    return (
+                      <div key={v.id} className="p-3 bg-white border border-gray-200 rounded-xl space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-bold text-gray-800">Variação #{idx + 1}</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                            ~{pct}% ({estimativa} contatos)
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-600 line-clamp-2 bg-gray-50 p-2 rounded border border-gray-100 font-sans">
+                          {v.texto}
+                        </p>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Simulação dos Primeiros Destinatários */}
+              {destinatariosFiltrados.length > 0 && variacoesWafly.filter(v => v.texto.trim()).length > 1 && (
+                <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase block">
+                    Simulação de Enfileiramento (Primeiros Contatos)
+                  </span>
+                  <div className="space-y-1">
+                    {destinatariosFiltrados.slice(0, 3).map((contato, i) => {
+                      const ativas = variacoesWafly.filter(v => v.texto.trim());
+                      const varIndex = i % ativas.length;
+                      return (
+                        <div key={i} className="flex items-center justify-between text-[10px] text-gray-600 bg-white px-2.5 py-1 rounded border border-amber-100">
+                          <span className="font-semibold text-gray-800 truncate max-w-[140px]">
+                            {contato.nome || 'Contato'}
+                          </span>
+                          <span className="text-teal-700 font-mono font-bold">
+                            ➔ Variação #{varIndex + 1}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {step === 6 && (
             <div className="space-y-4 text-xs">
               <div className="flex items-center justify-between border-b border-gray-100 pb-2">
@@ -2034,6 +2368,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                       <strong className="text-teal-700">
                         {(() => {
                           const prov = String(contaOficial?.provider || '').toUpperCase();
+                          if (prov === 'WAFLY') return 'WAFLY Oficial';
                           if (prov === 'WABLAST') return 'WaBlast Oficial';
                           if (prov === 'YCLOUD') return 'YCloud Oficial';
                           if (prov === 'META') return 'Meta Cloud API Oficial';
@@ -2050,40 +2385,65 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   </div>
                 </div>
 
-                  {/* 4. Mensagem e Template */}
+                  {/* 4. Mensagem e Template / Variações */}
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase block">4. Mensagem & Template Homologado</span>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div>Template: <strong className="text-gray-800">{templateSelecionado?.nome || 'hello_world'}</strong></div>
-                      <div>Idioma: <strong className="text-gray-800">{templateSelecionado?.idioma || 'pt_BR'}</strong></div>
-                    </div>
-                    {headerImageUrl && (
-                      <div className="pt-1.5 flex items-center gap-3">
-                        <span className="text-[10px] text-gray-400 block">Imagem de Cabeçalho:</span>
-                        <div className="flex items-center gap-2">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={headerImageUrl}
-                            alt="Cabeçalho Selecionado"
-                            className="w-8 h-8 rounded object-cover border border-gray-200"
-                          />
-                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
-                            ✓ Anexada
+                    <span className="text-[10px] font-bold text-gray-400 uppercase block">
+                      {isWafly ? '4. Mensagens Livres (Variações)' : '4. Mensagem & Template Homologado'}
+                    </span>
+                    {isWafly ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div>Modo: <strong className="text-gray-800">Mensagens Livres WAFLY</strong></div>
+                          <span className="bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-200 text-[10px]">
+                            {variacoesWafly.filter(v => v.texto.trim()).length} variaç{variacoesWafly.filter(v => v.texto.trim()).length === 1 ? 'ão' : 'ões'} ativa{variacoesWafly.filter(v => v.texto.trim()).length === 1 ? '' : 's'}
                           </span>
                         </div>
-                      </div>
-                    )}
-                    {Object.keys(variaveis).length > 0 && (
-                      <div className="pt-1.5">
-                        <span className="text-[10px] text-gray-400 block mb-1">Variáveis Configuradas:</span>
-                        <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
-                          {Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => (
-                            <div key={k} className="bg-white px-2 py-0.5 rounded border border-gray-200 truncate">
-                              <span className="text-teal-700">{`{{${k}}}`}</span>: {variaveis[k]}
+                        <div className="space-y-1.5">
+                          {variacoesWafly.filter(v => v.texto.trim()).map((v, idx) => (
+                            <div key={v.id} className="bg-white p-2.5 rounded-lg border border-gray-200 text-[11px] space-y-1">
+                              <span className="text-teal-700 font-bold block">Variação #{idx + 1}:</span>
+                              <p className="text-gray-700 font-sans whitespace-pre-wrap line-clamp-2">
+                                {v.texto}
+                              </p>
                             </div>
                           ))}
                         </div>
                       </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div>Template: <strong className="text-gray-800">{templateSelecionado?.nome || 'hello_world'}</strong></div>
+                          <div>Idioma: <strong className="text-gray-800">{templateSelecionado?.idioma || 'pt_BR'}</strong></div>
+                        </div>
+                        {headerImageUrl && (
+                          <div className="pt-1.5 flex items-center gap-3">
+                            <span className="text-[10px] text-gray-400 block">Imagem de Cabeçalho:</span>
+                            <div className="flex items-center gap-2">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={headerImageUrl}
+                                alt="Cabeçalho Selecionado"
+                                className="w-8 h-8 rounded object-cover border border-gray-200"
+                              />
+                              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
+                                ✓ Anexada
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {Object.keys(variaveis).length > 0 && (
+                          <div className="pt-1.5">
+                            <span className="text-[10px] text-gray-400 block mb-1">Variáveis Configuradas:</span>
+                            <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
+                              {Object.keys(variaveis).sort((a, b) => Number(a) - Number(b)).map(k => (
+                                <div key={k} className="bg-white px-2 py-0.5 rounded border border-gray-200 truncate">
+                                  <span className="text-teal-700">{`{{${k}}}`}</span>: {variaveis[k]}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
               </div>
@@ -2135,7 +2495,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   <span>Enfileiramento de {(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} Destinatários Aptos (Lista Confirmada)</span>
                 </div>
                 <p className="text-[11px] text-teal-800 leading-relaxed">
-                  Ao clicar em <strong>"Finalizar Criação"</strong>, exatamente <strong>{(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} destinatários aptos</strong> serão persistidos na tabela oficial de fila. 
+                  Ao clicar em <strong>&quot;Finalizar Criação&quot;</strong>, exatamente <strong>{(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} destinatários aptos</strong> serão persistidos na tabela oficial de fila. 
                   O sistema <strong>não dispara as mensagens imediatamente</strong>; o envio real segue o controle manual da esteira através do botão de início de disparo.
                 </p>
               </div>
@@ -2325,8 +2685,36 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           ) : (
             <div>
-              <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-3">Prévia em Tempo Real (WhatsApp)</h4>
-              {templateSelecionado ? (
+              <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-3">
+                {isWafly
+                  ? `Prévia em Tempo Real (Variação #${(variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) >= 0 ? variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) : 0) + 1})`
+                  : 'Prévia em Tempo Real (WhatsApp)'}
+              </h4>
+              {isWafly ? (
+                (() => {
+                  const textoPreview = getMensagemWaflyPreview();
+                  if (!textoPreview) {
+                    return (
+                      <div className="text-center py-20 text-gray-400 text-xs">
+                        Digite o texto da variação para visualizar a prévia no balão do WhatsApp.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="bg-[#EFEAE2] p-5 rounded-2xl border border-gray-200 shadow-inner flex justify-end">
+                      <div className="bg-[#E7FFDB] rounded-xl p-3.5 max-w-[85%] shadow-sm text-xs text-gray-800 space-y-1.5 relative border border-emerald-100">
+                        <p className="whitespace-pre-wrap break-words leading-relaxed font-sans">
+                          {textoPreview}
+                        </p>
+                        <div className="flex items-center justify-end gap-1 text-[10px] text-gray-400 select-none">
+                          <span>12:00</span>
+                          <span className="text-teal-600 font-bold">✓✓</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : templateSelecionado ? (
                 <TemplateVisualizerCard template={getTemplateComVariaveis()} />
               ) : (
                 <div className="text-center py-20 text-gray-400 text-xs">

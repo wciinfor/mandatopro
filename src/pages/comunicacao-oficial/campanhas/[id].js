@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -14,7 +14,9 @@ import {
   faList,
   faPaperPlane,
   faExclamationTriangle,
-  faInfoCircle
+  faInfoCircle,
+  faPause,
+  faPlay
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DetalhesComunicacaoPage() {
@@ -35,9 +37,38 @@ export default function DetalhesComunicacaoPage() {
   const [disparando, setDisparando] = useState(false);
   const [mensagemFeedback, setMensagemFeedback] = useState(null);
 
-  const carregarDetalhes = async (campanhaId) => {
+  // Detecção da origem da verdade para o provider da campanha (WAFLY)
+  const providerCampanha = String(
+    campanha?.metadata?.provider || ''
+  ).toUpperCase();
+  const isWafly = providerCampanha === 'WAFLY';
+
+  // Estados de orquestração sequencial e cadência exclusiva WAFLY
+  const [waflyEmExecucao, setWaflyEmExecucao] = useState(false);
+  const [waflySegundosRestantes, setWaflySegundosRestantes] = useState(null);
+  const [waflyProcessandoItem, setWaflyProcessandoItem] = useState(false);
+  const [waflyPausado, setWaflyPausado] = useState(false);
+
+  const waflyPausadoRef = useRef(false);
+  const waflyEmExecucaoRef = useRef(false);
+  const timerRegressivoRef = useRef(null);
+  const desmontadoRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      desmontadoRef.current = true;
+      waflyEmExecucaoRef.current = false;
+      waflyPausadoRef.current = true;
+      if (timerRegressivoRef.current) {
+        clearInterval(timerRegressivoRef.current);
+        timerRegressivoRef.current = null;
+      }
+    };
+  }, []);
+
+  const carregarDetalhes = async (campanhaId, silencioso = false) => {
     try {
-      setCarregando(true);
+      if (!silencioso) setCarregando(true);
       setErroCarregamento(null);
       const res = await fetch(`/api/comunicacao-oficial/campanhas/${campanhaId}/detalhes`);
       const data = await res.json().catch(() => ({}));
@@ -46,14 +77,15 @@ export default function DetalhesComunicacaoPage() {
         setMetricas(data.metricas || null);
         setDestinatarios(data.destinatarios || []);
         setTimeline(data.timeline || []);
+        return data;
       } else {
-        setErroCarregamento(data.error || 'Não foi possível carregar as informações desta comunicação oficial.');
+        if (!silencioso) setErroCarregamento(data.error || 'Não foi possível carregar as informações desta comunicação oficial.');
       }
     } catch (err) {
       console.error('Erro ao carregar detalhes da comunicação:', err);
-      setErroCarregamento(err.message || 'Erro de conexão ao carregar a comunicação oficial.');
+      if (!silencioso) setErroCarregamento(err.message || 'Erro de conexão ao carregar a comunicação oficial.');
     } finally {
-      setCarregando(false);
+      if (!silencioso) setCarregando(false);
     }
   };
 
@@ -82,7 +114,7 @@ export default function DetalhesComunicacaoPage() {
         body: JSON.stringify({ acao: acaoNome })
       });
       if (res.ok) {
-        carregarDetalhes(id);
+        carregarDetalhes(id, true);
       }
     } catch (err) {
       console.error('Erro ao executar ação operacional:', err);
@@ -127,12 +159,204 @@ export default function DetalhesComunicacaoPage() {
     }, 3000);
   };
 
-  const handleIniciarDisparo = async () => {
-    if (disparando) return;
-    setDisparando(true);
-    setMensagemFeedback(null);
-    setModalConfirmacao(false);
+  // Funções de Cadência e Controle Sequencial WAFLY
+  function aguardar(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
+  function obterIntervaloWafly(camp) {
+    const regras = camp?.metadata?.regras_envio || {};
+    const min = typeof regras.intervalo_min === 'number' ? regras.intervalo_min : 20;
+    const max = typeof regras.intervalo_max === 'number' ? regras.intervalo_max : 40;
+    const minSeg = Math.max(1, Math.min(min, max));
+    const maxSeg = Math.max(minSeg, max);
+
+    // Retorna cadência configurada ou randômica segura entre minSeg e maxSeg
+    return Math.floor(Math.random() * (maxSeg - minSeg + 1)) + minSeg;
+  }
+
+  const aguardarContagemRegressiva = (segundosTotais) => {
+    return new Promise((resolve) => {
+      let restantes = segundosTotais;
+      setWaflySegundosRestantes(restantes);
+
+      if (timerRegressivoRef.current) {
+        clearInterval(timerRegressivoRef.current);
+      }
+
+      timerRegressivoRef.current = setInterval(() => {
+        if (waflyPausadoRef.current || desmontadoRef.current) {
+          clearInterval(timerRegressivoRef.current);
+          timerRegressivoRef.current = null;
+          setWaflySegundosRestantes(null);
+          resolve(false);
+          return;
+        }
+
+        restantes -= 1;
+        setWaflySegundosRestantes(restantes);
+
+        if (restantes <= 0) {
+          clearInterval(timerRegressivoRef.current);
+          timerRegressivoRef.current = null;
+          setWaflySegundosRestantes(null);
+          resolve(true);
+        }
+      }, 1000);
+    });
+  };
+
+  const handlePausarWafly = () => {
+    waflyPausadoRef.current = true;
+    waflyEmExecucaoRef.current = false;
+    setWaflyPausado(true);
+    setWaflyEmExecucao(false);
+    setDisparando(false);
+    setWaflyProcessandoItem(false);
+
+    if (timerRegressivoRef.current) {
+      clearInterval(timerRegressivoRef.current);
+      timerRegressivoRef.current = null;
+    }
+    setWaflySegundosRestantes(null);
+
+    setMensagemFeedback({
+      tipo: 'info',
+      texto: 'Campanha WAFLY pausada pelo usuário. O envio do próximo item foi interrompido.'
+    });
+  };
+
+  const handleRetomarWafly = () => {
+    if (waflyEmExecucaoRef.current) return;
+    waflyPausadoRef.current = false;
+    setWaflyPausado(false);
+    setMensagemFeedback({
+      tipo: 'info',
+      texto: 'Retomando execução sequencial da campanha WAFLY...'
+    });
+    executarLoopWafly();
+  };
+
+  const executarLoopWafly = async () => {
+    if (waflyEmExecucaoRef.current) return;
+    waflyEmExecucaoRef.current = true;
+    waflyPausadoRef.current = false;
+    setWaflyEmExecucao(true);
+    setWaflyPausado(false);
+    setDisparando(true);
+
+    let totalProcessadosSessao = 0;
+    let totalSucessosSessao = 0;
+    let totalFalhasSessao = 0;
+    let continuar = true;
+    const MAX_ITENS_SEGURANCA = 20000;
+    let iteracao = 0;
+
+    try {
+      while (continuar && iteracao < MAX_ITENS_SEGURANCA) {
+        if (waflyPausadoRef.current || desmontadoRef.current) {
+          break;
+        }
+
+        iteracao++;
+        setWaflyProcessandoItem(true);
+        setWaflySegundosRestantes(null);
+
+        // 1. Processa estritamente 1 item via POST /api/comunicacao-oficial/fila/processar
+        let data = null;
+        let tentativa = 1;
+        const MAX_TENTATIVAS_ITEM = 3;
+
+        while (tentativa <= MAX_TENTATIVAS_ITEM) {
+          if (waflyPausadoRef.current || desmontadoRef.current) break;
+
+          try {
+            const res = await fetch('/api/comunicacao-oficial/fila/processar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ limite: 1, campaign_id: id })
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData?.error || `Erro HTTP ${res.status}`);
+            }
+
+            data = await res.json();
+            break;
+          } catch (fetchErr) {
+            console.warn(`[WAFLY Item ${iteracao}] Tentativa ${tentativa}/${MAX_TENTATIVAS_ITEM} falhou:`, fetchErr.message);
+            if (tentativa >= MAX_TENTATIVAS_ITEM) {
+              setMensagemFeedback({
+                tipo: 'erro',
+                texto: `Falha na requisição de envio: ${fetchErr.message}`
+              });
+              break;
+            }
+            await aguardar(2000);
+            tentativa++;
+          }
+        }
+
+        setWaflyProcessandoItem(false);
+
+        if (waflyPausadoRef.current || desmontadoRef.current) break;
+
+        const processadosItem = Number(data?.processados || 0);
+        const sucessosItem = Number(data?.sucessos || 0);
+        const falhasItem = Number(data?.falhas || 0);
+
+        totalProcessadosSessao += processadosItem;
+        totalSucessosSessao += sucessosItem;
+        totalFalhasSessao += falhasItem;
+
+        // Atualização incremental de dados na tela (silencioso para não piscar a tela inteira)
+        const detalhesAtualizados = await carregarDetalhes(id, true).catch(() => null);
+        const campAtual = detalhesAtualizados?.campanha || campanha;
+
+        // Se o lote retornou 0 itens processados, a fila da campanha terminou
+        if (processadosItem === 0) {
+          continuar = false;
+          setMensagemFeedback({
+            tipo: 'sucesso',
+            texto: totalProcessadosSessao > 0 
+              ? `Campanha concluída com sucesso! Total processado nesta sessão: ${totalProcessadosSessao} (Sucessos: ${totalSucessosSessao} | Falhas: ${totalFalhasSessao}).`
+              : 'Nenhum item pendente para processamento nesta campanha.'
+          });
+          break;
+        }
+
+        // Antes do próximo item, aplica a cadência configurada (20 a 40 segundos) com contador regressivo
+        const segundosEspera = obterIntervaloWafly(campAtual);
+        const concluiuEspera = await aguardarContagemRegressiva(segundosEspera);
+
+        if (!concluiuEspera || waflyPausadoRef.current || desmontadoRef.current) {
+          break;
+        }
+      }
+    } catch (err) {
+      console.error('Erro na orquestração sequencial WAFLY:', err);
+      setMensagemFeedback({
+        tipo: 'erro',
+        texto: `Erro no loop de envio WAFLY: ${err.message}`
+      });
+    } finally {
+      setWaflyProcessandoItem(false);
+      setWaflySegundosRestantes(null);
+
+      if (!waflyPausadoRef.current) {
+        waflyEmExecucaoRef.current = false;
+        setWaflyEmExecucao(false);
+        setDisparando(false);
+      } else {
+        setDisparando(false);
+      }
+
+      await carregarDetalhes(id, true).catch(() => {});
+    }
+  };
+
+  const executarLoopMetaYcloud = async () => {
     let totalProcessadosGeral = 0;
     let totalSucessosGeral = 0;
     let totalFalhasGeral = 0;
@@ -188,7 +412,7 @@ export default function DetalhesComunicacaoPage() {
         totalFalhasGeral += falhasLote;
 
         // Atualização incremental de dados na tela entre lotes
-        await carregarDetalhes(id).catch(() => {});
+        await carregarDetalhes(id, true).catch(() => {});
 
         // Se o lote retornou 0 itens processados, a fila da campanha terminou
         if (processadosLote === 0) {
@@ -219,10 +443,23 @@ export default function DetalhesComunicacaoPage() {
       });
     } finally {
       setDisparando(false);
-      await carregarDetalhes(id);
+      await carregarDetalhes(id, true);
       if (totalProcessadosGeral > 0) {
         iniciarPollingConsolidação(id);
       }
+    }
+  };
+
+  const handleIniciarDisparo = async () => {
+    if (disparando || waflyEmExecucaoRef.current) return;
+    setDisparando(true);
+    setMensagemFeedback(null);
+    setModalConfirmacao(false);
+
+    if (isWafly) {
+      await executarLoopWafly();
+    } else {
+      await executarLoopMetaYcloud();
     }
   };
 
@@ -359,7 +596,7 @@ export default function DetalhesComunicacaoPage() {
                 {getStatusBadge(campanha.status)}
               </div>
 
-              {mostrarIniciar && (
+              {mostrarIniciar && !waflyEmExecucao && !waflyPausado && (
                 <button
                   onClick={() => setModalConfirmacao(true)}
                   disabled={disparando}
@@ -370,7 +607,27 @@ export default function DetalhesComunicacaoPage() {
                 </button>
               )}
 
-              {(mostrarPausar || mostrarRetomar || mostrarCancelar) && (
+              {isWafly && waflyEmExecucao && !waflyPausado && (
+                <button
+                  onClick={handlePausarWafly}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <FontAwesomeIcon icon={faPause} />
+                  Pausar Campanha
+                </button>
+              )}
+
+              {isWafly && waflyPausado && (
+                <button
+                  onClick={handleRetomarWafly}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <FontAwesomeIcon icon={faPlay} />
+                  Retomar Campanha
+                </button>
+              )}
+
+              {!isWafly && (mostrarPausar || mostrarRetomar || mostrarCancelar) && (
                 <div className="flex items-center gap-2 border-l border-gray-100 pl-3">
                   {mostrarPausar && (
                     <button
@@ -429,6 +686,89 @@ export default function DetalhesComunicacaoPage() {
             </div>
           )}
 
+          {/* Painel de Execução Sequencial e Cadência WAFLY */}
+          {isWafly && (waflyEmExecucao || waflyPausado) && (
+            <div className={`p-4 rounded-2xl border shadow-xs transition-all ${
+              waflyPausado 
+                ? 'bg-amber-50/90 border-amber-300 text-amber-900' 
+                : 'bg-teal-50/90 border-teal-300 text-teal-900'
+            }`}>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${
+                      waflyPausado ? 'bg-amber-500' : 'bg-teal-500 animate-pulse'
+                    }`} />
+                    <h4 className="font-extrabold text-sm">
+                      {waflyPausado ? 'Campanha WAFLY Pausada' : 'Campanha WAFLY em Execução'}
+                    </h4>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 border border-current">
+                      {waflyPausado ? 'Pausada' : 'Processando mensagens sequencialmente'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    {waflyPausado ? (
+                      'O envio automático foi pausado. Clique em "Retomar Campanha" para continuar de onde parou.'
+                    ) : waflyProcessandoItem ? (
+                      <span className="font-semibold text-teal-800 flex items-center gap-1.5">
+                        <FontAwesomeIcon icon={faSpinner} spin />
+                        Processando mensagem unitária com o provedor WAFLY...
+                      </span>
+                    ) : waflySegundosRestantes !== null ? (
+                      <span>
+                        Processando mensagens sequencialmente · <strong className="text-teal-900">Próximo processamento em {waflySegundosRestantes} segundos</strong> (cadência anti-bloqueio)
+                      </span>
+                    ) : (
+                      'Aguardando próximo ciclo...'
+                    )}
+                  </p>
+                </div>
+
+                {/* Métricas do Painel WAFLY */}
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/90 px-3 py-1.5 rounded-xl border border-gray-200 text-center">
+                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Enviados</span>
+                    <span className="text-xs font-extrabold text-emerald-700">
+                      {metricas?.enviadas || campanha?.total_enviadas || 0}
+                    </span>
+                  </div>
+                  <div className="bg-white/90 px-3 py-1.5 rounded-xl border border-gray-200 text-center">
+                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Falhas</span>
+                    <span className="text-xs font-extrabold text-rose-700">
+                      {metricas?.falhas || campanha?.total_falhas || 0}
+                    </span>
+                  </div>
+                  <div className="bg-white/90 px-3 py-1.5 rounded-xl border border-gray-200 text-center">
+                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Restantes</span>
+                    <span className="text-xs font-extrabold text-blue-700">
+                      {Math.max(0, (metricas?.pendentes ?? ((campanha?.total_destinatarios || 0) - ((campanha?.total_enviadas || 0) + (campanha?.total_falhas || 0)))))}
+                    </span>
+                  </div>
+
+                  {/* Ações Rápidas no Painel */}
+                  {waflyEmExecucao && !waflyPausado && (
+                    <button
+                      onClick={handlePausarWafly}
+                      className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-xs flex items-center gap-1.5"
+                    >
+                      <FontAwesomeIcon icon={faPause} />
+                      Pausar Campanha
+                    </button>
+                  )}
+                  {waflyPausado && (
+                    <button
+                      onClick={handleRetomarWafly}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-xs flex items-center gap-1.5"
+                    >
+                      <FontAwesomeIcon icon={faPlay} />
+                      Retomar Campanha
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Modal de Confirmação para Iniciar Disparo Oficial */}
           {modalConfirmacao && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
@@ -474,8 +814,12 @@ export default function DetalhesComunicacaoPage() {
 
                   <div className="grid grid-cols-2 gap-2 pt-0.5">
                     <div>
-                      <span className="text-[10px] text-gray-400 block uppercase font-bold">Template Homologado</span>
-                      <strong className="font-mono text-teal-700 block truncate">{campanha.template}</strong>
+                      <span className="text-[10px] text-gray-400 block uppercase font-bold">
+                        {isWafly ? 'Tipo de Mensagem' : 'Template Homologado'}
+                      </span>
+                      <strong className="font-mono text-teal-700 block truncate">
+                        {isWafly ? 'Variações Livres WAFLY' : (campanha.template || 'Template Oficial')}
+                      </strong>
                     </div>
                     <div>
                       <span className="text-[10px] text-gray-400 block uppercase font-bold">Destinatários Pendentes</span>
@@ -490,7 +834,15 @@ export default function DetalhesComunicacaoPage() {
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] flex items-start gap-2.5">
                   <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 text-amber-600 shrink-0" />
                   <p className="leading-relaxed">
-                    Esta ação consumirá a fila oficial e enviará mensagens reais para <strong>{metricas?.pendentes ?? metricas?.total ?? 0} destinatários</strong> utilizando o número e provedor destacados acima.
+                    {isWafly ? (
+                      <>
+                        Esta ação processará a fila <strong>sequencialmente (1 item por vez)</strong> com intervalo de segurança de <strong>20 a 40 segundos</strong> entre os envios, protegendo a linha contra bloqueios.
+                      </>
+                    ) : (
+                      <>
+                        Esta ação consumirá a fila oficial e enviará mensagens reais para <strong>{metricas?.pendentes ?? metricas?.total ?? 0} destinatários</strong> utilizando o número e provedor destacados acima.
+                      </>
+                    )}
                   </p>
                 </div>
 

@@ -69,6 +69,23 @@ export default async function handler(req, res) {
   try {
     const supabase = createServerClient();
 
+    let limiteEfetivo = Number(limite) || 25;
+    let isCampanhaAlvoWafly = false;
+
+    // Se campaign_id for informado, verifica se a campanha é WAFLY e força limite unitário defensivamente
+    if (campaign_id) {
+      const { data: campInfo } = await supabase
+        .from('communication_campaigns')
+        .select('metadata')
+        .eq('id', campaign_id)
+        .maybeSingle();
+
+      if (String(campInfo?.metadata?.provider || '').toUpperCase() === 'WAFLY') {
+        limiteEfetivo = 1;
+        isCampanhaAlvoWafly = true;
+      }
+    }
+
     // 1. Busca os próximos IDs pendentes da fila de disparos (communication_campaign_items)
     // Apenas campanhas que estão "Na Fila" ou "Executando" devem ter seus itens consumidos.
     // Inclui também itens que ficaram em 'processando' por mais de 3 minutos (órfãos de timeouts passados)
@@ -76,7 +93,7 @@ export default async function handler(req, res) {
 
     let queryPendentes = supabase
       .from('communication_campaign_items')
-      .select('id, status, started_at, communication_campaigns!inner(status)')
+      .select('id, status, started_at, campaign_id, communication_campaigns!inner(status, metadata)')
       .or(`status.eq.pendente,and(status.eq.processando,started_at.lt.${cutoffOrfaos})`)
       .in('communication_campaigns.status', ['Na Fila', 'Executando', 'processando']);
 
@@ -84,7 +101,7 @@ export default async function handler(req, res) {
       queryPendentes = queryPendentes.eq('campaign_id', campaign_id);
     }
 
-    const { data: pendentes, error: errSelect } = await queryPendentes.limit(limite);
+    const { data: pendentes, error: errSelect } = await queryPendentes.limit(limiteEfetivo);
 
     if (errSelect) throw errSelect;
 
@@ -92,7 +109,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ processados: 0, mensagem: 'Nenhum disparo pendente na fila.' });
     }
 
-    const ids = pendentes.map(p => p.id);
+    // Defesa unitária adicional: se o lote contiver itens de campanha WAFLY, garante reserva de no máximo 1 item
+    let pendentesFinal = pendentes;
+    const contemWafly = pendentes.some(p => String(p.communication_campaigns?.metadata?.provider || '').toUpperCase() === 'WAFLY');
+    if (isCampanhaAlvoWafly || contemWafly) {
+      pendentesFinal = pendentes.slice(0, 1);
+    }
+
+    const ids = pendentesFinal.map(p => p.id);
 
     // 2. Reserva os itens na base física alterando o status para 'processando'
     const { data: itensReservados, error: errReserva } = await supabase
@@ -133,7 +157,24 @@ export default async function handler(req, res) {
         throw new Error(`Campanha ${campId} não localizada.`);
       }
 
-      const contaSelecionada = await buscarContaWhatsappPrincipal(supabase, { tenant_id: campanha.tenant_id });
+      let contaSelecionada = null;
+      const providerCampanha = String(campanha.metadata?.provider || '').toUpperCase();
+
+      // Se a campanha possui provider explicitamente fixado no metadata (ex: WAFLY), busca a conta ativa correspondente
+      if (providerCampanha) {
+        const { data: contas } = await supabase
+          .from('whatsapp_business_accounts')
+          .select('*')
+          .eq('tenant_id', campanha.tenant_id)
+          .eq('status', 'ATIVO');
+        contaSelecionada = (contas || []).find(c => String(c.provider || '').toUpperCase() === providerCampanha);
+      }
+
+      // Se não encontrou ou não foi fixado, utiliza a conta principal ativa do tenant (padrão META/YCLOUD/WABLAST)
+      if (!contaSelecionada) {
+        contaSelecionada = await buscarContaWhatsappPrincipal(supabase, { tenant_id: campanha.tenant_id });
+      }
+
       if (!contaSelecionada) {
         throw new Error(`Credenciais de disparo de WhatsApp ausentes para este tenant (${campanha.tenant_id}).`);
       }
@@ -168,8 +209,9 @@ export default async function handler(req, res) {
     let falhas = 0;
     const campaignStats = new Map(); // campId => { sucessos: 0, falhas: 0 }
 
-    // Processamento concorrente controlado em chunks (ex: 5 por vez)
-    const CONCURRENCY_LIMIT = 5;
+    // Processamento concorrente: estritamente 1 para WAFLY, e 5 para provedores oficiais (META/YCLOUD)
+    const isLoteWafly = isCampanhaAlvoWafly || contemWafly;
+    const CONCURRENCY_LIMIT = isLoteWafly ? 1 : 5;
     const itemsParaProcessar = itensReservados || [];
 
     for (let i = 0; i < itemsParaProcessar.length; i += CONCURRENCY_LIMIT) {
@@ -180,40 +222,12 @@ export default async function handler(req, res) {
           try {
             const { campanha, provider, contaSelecionada } = await carregarContextoCampanha(item.campaign_id);
 
-            const templateNome = campanha.communication_templates?.nome || item.template_id || 'default';
-            const templateIdioma = String(campanha.communication_templates?.idioma || '').trim();
+            const isCampanhaWafly = String(campanha.metadata?.provider || contaSelecionada?.provider || '').toUpperCase() === 'WAFLY';
+            const temMensagemPersonalizada = Boolean(item.variaveis_mapeadas?.mensagem_personalizada && String(item.variaveis_mapeadas.mensagem_personalizada).trim().length > 0);
+            const isWaflyItem = isCampanhaWafly || temMensagemPersonalizada || item.template_id === 'wafly_variacoes';
 
-            if (!templateIdioma) {
-              throw new Error(`Template oficial "${templateNome}" não possui idioma válido cadastrado em communication_templates.`);
-            }
-
-            const destinatarioNome = item.variaveis_mapeadas?.nome || 'Eleitor';
-
-            // 5.1 Valida e monta dinamicamente os parâmetros do template (HEADER e BODY)
-            const components = [];
-            const headerImageUrl = item.variaveis_mapeadas?.header_image_url;
-
-            if (headerImageUrl && typeof headerImageUrl === 'string' && headerImageUrl.trim().length > 0) {
-              components.push({
-                type: 'header',
-                parameters: [
-                  {
-                    type: 'image',
-                    image: {
-                      link: headerImageUrl.trim()
-                    }
-                  }
-                ]
-              });
-            }
-
-            const parameters = extrairEValidarParametrosTemplate(item.variaveis_mapeadas);
-            if (parameters.length > 0) {
-              components.push({
-                type: 'body',
-                parameters: parameters
-              });
-            }
+            let wamid = null;
+            let textoMensagem = '';
 
             // 5.2 Localiza ou cria a conversa na Central de Atendimento
             let { data: conversa } = await supabase
@@ -242,27 +256,85 @@ export default async function handler(req, res) {
               conversa = novaConv;
             }
 
-            // 6. Executa disparo do template HSM via Provider Factory (Meta, WaBlast ou YCloud)
-            const resProvider = await provider.sendTemplate({
-              to: item.contact_id,
-              recipient: item.contact_id,
-              templateName: templateNome,
-              idiomaCode: templateIdioma,
-              components: components
-            });
+            // ─── RAMO WAFLY: CONSUMO DA MENSAGEM PERSONALIZADA (SEM TEMPLATE META) ───
+            if (isWaflyItem) {
+              textoMensagem = String(item.variaveis_mapeadas?.mensagem_personalizada || '').trim();
 
-            const wamid = resProvider?.messageId || resProvider?.id || resProvider?.messages?.[0]?.id;
-            if (!wamid) {
-              throw new Error('Provedor WhatsApp não retornou um Message ID (WAMID) válido após o envio.');
+              if (!textoMensagem) {
+                throw new Error('Item de campanha WAFLY sem mensagem_personalizada válida preenchida para envio.');
+              }
+
+              // Dispara texto livre diretamente via Wafly
+              const resProvider = await provider.sendMessage({
+                to: item.contact_id,
+                recipient: item.contact_id,
+                message: textoMensagem,
+                text: textoMensagem
+              });
+
+              wamid = resProvider?.messageId || resProvider?.id || resProvider?.messages?.[0]?.id;
+              if (!wamid) {
+                throw new Error('Provedor WAFLY não retornou um Message ID válido após o envio.');
+              }
+            } else {
+              // ─── RAMO OFICIAL (META / YCLOUD / WABLAST): TEMPLATES HSM ───
+              const templateNome = campanha.communication_templates?.nome || item.template_id || 'default';
+              const templateIdioma = String(campanha.communication_templates?.idioma || '').trim();
+
+              if (!templateIdioma) {
+                throw new Error(`Template oficial "${templateNome}" não possui idioma válido cadastrado em communication_templates.`);
+              }
+
+              const destinatarioNome = item.variaveis_mapeadas?.nome || 'Eleitor';
+
+              // 5.1 Valida e monta dinamicamente os parâmetros do template (HEADER e BODY)
+              const components = [];
+              const headerImageUrl = item.variaveis_mapeadas?.header_image_url;
+
+              if (headerImageUrl && typeof headerImageUrl === 'string' && headerImageUrl.trim().length > 0) {
+                components.push({
+                  type: 'header',
+                  parameters: [
+                    {
+                      type: 'image',
+                      image: {
+                        link: headerImageUrl.trim()
+                      }
+                    }
+                  ]
+                });
+              }
+
+              const parameters = extrairEValidarParametrosTemplate(item.variaveis_mapeadas);
+              if (parameters.length > 0) {
+                components.push({
+                  type: 'body',
+                  parameters: parameters
+                });
+              }
+
+              // 6. Executa disparo do template HSM via Provider Factory (Meta, WaBlast ou YCloud)
+              const resProvider = await provider.sendTemplate({
+                to: item.contact_id,
+                recipient: item.contact_id,
+                templateName: templateNome,
+                idiomaCode: templateIdioma,
+                components: components
+              });
+
+              wamid = resProvider?.messageId || resProvider?.id || resProvider?.messages?.[0]?.id;
+              if (!wamid) {
+                throw new Error('Provedor WhatsApp não retornou um Message ID (WAMID) válido após o envio.');
+              }
+
+              const textoParametros = parameters.map((p, idx) => `{{${idx + 1}}}=${p.text}`).join(', ');
+              textoMensagem = textoParametros
+                ? `[Disparo Oficial Template: ${templateNome}] ${textoParametros}`
+                : `[Disparo Oficial Template: ${templateNome}] Olá ${destinatarioNome}`;
             }
 
-            const textoParametros = parameters.map((p, idx) => `{{${idx + 1}}}=${p.text}`).join(', ');
-            const textoMensagem = textoParametros
-              ? `[Disparo Oficial Template: ${templateNome}] ${textoParametros}`
-              : `[Disparo Oficial Template: ${templateNome}] Olá ${destinatarioNome}`;
-
             // 6.1 Registra a mensagem de saída na Central de Atendimento
-            const realProvider = String(contaSelecionada.provider || 'META').toUpperCase();
+            const realProvider = isWaflyItem ? 'WAFLY' : String(contaSelecionada.provider || 'META').toUpperCase();
             await supabase
               .from('communication_messages')
               .insert({
@@ -314,7 +386,7 @@ export default async function handler(req, res) {
               .update({
                 status: 'falha',
                 attempts: (item.attempts || 0) + 1,
-                last_error: err.message || 'Falha de transmissão na Graph API',
+                last_error: err.message || 'Falha de transmissão na API',
                 finished_at: new Date().toISOString()
               })
               .eq('id', item.id);
