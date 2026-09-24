@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 import { obterContextoMandato } from '@/lib/mandato-auth';
+import { enviarNotificacaoSmsServico } from '@/services/sms/smsNotificationService';
 
 function normalizeStatus(input) {
   const allowed = new Set(['AGENDADO', 'REALIZADO', 'CANCELADO']);
@@ -226,7 +227,7 @@ export default async function handler(req, res) {
   // POST - Criar novo atendimento
   if (req.method === 'POST') {
     try {
-      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, ausenteAcaoCampanha, dataAtendimento, campanhaId, servicosSelecionados, liderancaId, lideranca_id } = req.body || {};
+      const { eleitorId, tipoAtendimento, assunto, descricao, resultado, status, ausenteAcaoCampanha, dataAtendimento, campanhaId, servicosSelecionados, liderancaId, lideranca_id, notificarEleitor, modoNotificacao } = req.body || {};
 
       // Resolução de Mandato e Snapshot de Liderança (Sprint P2.11)
       let userMandates = usuario.mandatos || [];
@@ -448,6 +449,36 @@ export default async function handler(req, res) {
         `)
         .eq('id', atendimentoId)
         .single();
+
+      // Notificação transacional por SMS somente após persistência garantida do atendimento e protocolo
+      if (notificarEleitor && String(modoNotificacao || '').toUpperCase() === 'SMS' && eleitorId) {
+        try {
+          const { data: eleitorDb } = await supabase
+            .from('eleitores')
+            .select('id, nome, celular, telefone')
+            .eq('id', parseInt(eleitorId, 10))
+            .maybeSingle();
+
+          const telDestino = eleitorDb?.celular || eleitorDb?.telefone;
+          if (telDestino) {
+            const primeiroNome = (eleitorDb.nome || '').trim().split(' ')[0] || 'Cidadão(ã)';
+            const msgTexto = `Olá, ${primeiroNome}! Seu atendimento #${protocolo} foi registrado com sucesso. Status: ${statusNormalizado}.`;
+
+            await enviarNotificacaoSmsServico({
+              supabase,
+              usuarioOuTenant: usuario,
+              atendimentoId,
+              eleitorId: eleitorDb.id,
+              telefone: telDestino,
+              destinatarioNome: eleitorDb.nome,
+              mensagem: msgTexto,
+              evento: 'protocolo'
+            });
+          }
+        } catch (errNotif) {
+          console.warn('[Atendimento POST] Falha na notificação SMS pós-persistência (atendimento preservado):', errNotif?.message);
+        }
+      }
 
       return res.status(201).json(atendimentoCompleto);
     } catch (error) {

@@ -510,15 +510,10 @@ export default function NovoAtendimento() {
       ausenteAcaoCampanha: Boolean(formData.ausenteAcaoCampanha),
       dataAtendimento: formData.dataAtendimento || null,
       campanhaId: campanhaValida ? campanhaSelecionada.id : null,
-      mandato_id: mandatoAtivoId || null
+      mandato_id: mandatoAtivoId || null,
+      notificarEleitor: Boolean(formData.notificarEleitor),
+      modoNotificacao: formData.modoNotificacao || 'WHATSAPP'
     };
-    
-    // Enviar notificação se habilitado
-    if (formData.notificarEleitor && formData.eleitorCelular) {
-      const mensagem = `Olá ${formData.eleitorNome}! Seu atendimento foi registrado. Status: ${formData.statusAtendimento}. Acompanhe o progresso pelo sistema.`;
-      
-      await enviarNotificacao(formData.modoNotificacao, mensagem);
-    }
     
     try {
       if (temServicosSelecionados) {
@@ -586,20 +581,8 @@ export default function NovoAtendimento() {
     }
   };
 
-  const atualizarStatus = async (novoStatus) => {
+  const atualizarStatus = (novoStatus) => {
     setFormData(prev => ({ ...prev, statusAtendimento: novoStatus }));
-    
-    // Notificar eleitor sobre mudança de status
-    if (formData.notificarEleitor) {
-      const statusTexto = {
-        'AGENDADO': 'Agendado',
-        'REALIZADO': 'Concluído',
-        'CANCELADO': 'Cancelado'
-      };
-      
-      const mensagem = `Atualização do seu atendimento: Status alterado para ${statusTexto[novoStatus]}`;
-      await enviarNotificacao(formData.modoNotificacao, mensagem);
-    }
   };
 
   return (

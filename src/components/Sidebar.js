@@ -66,7 +66,7 @@ const modulosBase = [
       'Públicos',
       'Disparos Oficiais',
       'Templates Oficiais',
-      'WhatsApp Business Oficial',
+      'Definir Provedor',
       'Central de Atendimento',
       'Relatórios de Atendimento'
     ],
@@ -147,7 +147,10 @@ const routeMap = {
   'Comunicação - Públicos': '/comunicacao-oficial/publicos',
   'Comunicação - Disparos Oficiais': '/comunicacao-oficial/campanhas',
   'Comunicação - Templates Oficiais': '/comunicacao-oficial/templates',
+  'Comunicação - Definir Provedor': '/comunicacao-oficial/whatsapp-business',
+  'Definir Provedor': '/comunicacao-oficial/whatsapp-business',
   'Comunicação - WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
+  'WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
   'Comunicação - Central de Atendimento': '/atendimento-connect',
   'Comunicação - Relatórios de Atendimento': '/atendimento-connect/relatorios',
 

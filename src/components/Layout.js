@@ -40,7 +40,7 @@ function obterModuloAtivo(path = '') {
   if (path.startsWith('/comunicacao-oficial/publicos') || path.startsWith('/comunicacao-oficial/contatos')) return 'Comunicação - Públicos';
   if (path.startsWith('/comunicacao-oficial/campanhas')) return 'Comunicação - Disparos Oficiais';
   if (path.startsWith('/comunicacao-oficial/templates')) return 'Comunicação - Templates Oficiais';
-  if (path.startsWith('/comunicacao-oficial/whatsapp-business')) return 'Comunicação - WhatsApp Business Oficial';
+  if (path.startsWith('/comunicacao-oficial/whatsapp-business')) return 'Comunicação - Definir Provedor';
   if (path.startsWith('/comunicacao-oficial/central-atendimento') || path.startsWith('/atendimento-connect')) return 'Comunicação - Central de Atendimento';
   if (path.startsWith('/comunicacao-oficial/insights')) return 'Comunicação - Dashboard';
   if (path.startsWith('/comunicacao')) return 'Notificações';

@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { obterUsuarioAutenticado, exigirUsuario } from '@/lib/api-auth';
 import { obterContextoMandato, validarAcessoRegistroPorId } from '@/lib/mandato-auth';
+import { enviarNotificacaoSmsServico } from '@/services/sms/smsNotificationService';
 
 function normalizeStatus(input) {
   const allowed = new Set(['AGENDADO', 'REALIZADO', 'CANCELADO']);
@@ -131,10 +132,21 @@ export default async function handler(req, res) {
         status,
         dataAtendimento,
         dataConclusao,
-        historicoNovos
+        historicoNovos,
+        notificarEleitor,
+        modoNotificacao
       } = req.body;
 
       const statusNormalizado = normalizeStatus(status);
+
+      // Busca estado atual do atendimento para validar mudança efetiva de status
+      const { data: atendimentoAtual } = await supabase
+        .from('atendimentos')
+        .select('id, status, protocolo, eleitor_id')
+        .eq('id', id)
+        .maybeSingle();
+
+      const statusMudou = Boolean(atendimentoAtual && statusNormalizado && atendimentoAtual.status !== statusNormalizado);
 
       const payload = {
         tipo_atendimento: tipoAtendimento,
@@ -175,6 +187,42 @@ export default async function handler(req, res) {
           .insert(historicoPayload);
 
         if (erroHistorico) throw erroHistorico;
+      }
+
+      // Notificação transacional por SMS somente para mudanças efetivas de status
+      if (statusMudou && notificarEleitor && String(modoNotificacao || '').toUpperCase() === 'SMS' && atendimentoAtual?.eleitor_id) {
+        try {
+          const { data: eleitorDb } = await supabase
+            .from('eleitores')
+            .select('id, nome, celular, telefone')
+            .eq('id', atendimentoAtual.eleitor_id)
+            .maybeSingle();
+
+          const telDestino = eleitorDb?.celular || eleitorDb?.telefone;
+          if (telDestino) {
+            const statusLabelMap = {
+              'AGENDADO': 'Agendado',
+              'REALIZADO': 'Concluído',
+              'CANCELADO': 'Cancelado'
+            };
+            const statusLabel = statusLabelMap[statusNormalizado] || statusNormalizado;
+            const primeiroNome = (eleitorDb.nome || '').trim().split(' ')[0] || 'Cidadão(ã)';
+            const msgTexto = `Olá, ${primeiroNome}! O status do seu atendimento #${atendimentoAtual.protocolo || id} foi atualizado para: ${statusLabel}.`;
+
+            await enviarNotificacaoSmsServico({
+              supabase,
+              usuarioOuTenant: usuarioObj,
+              atendimentoId: id,
+              eleitorId: eleitorDb.id,
+              telefone: telDestino,
+              destinatarioNome: eleitorDb.nome,
+              mensagem: msgTexto,
+              evento: `status_${statusNormalizado.toLowerCase()}`
+            });
+          }
+        } catch (errNotif) {
+          console.warn('[Atendimento PUT] Falha na notificação SMS pós-atualização:', errNotif?.message);
+        }
       }
 
       return res.status(200).json(data[0]);
