@@ -124,15 +124,50 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const [saldoSms, setSaldoSms] = useState(null);
   const [carregandoSaldoSms, setCarregandoSaldoSms] = useState(false);
   const [erroSaldoSms, setErroSaldoSms] = useState(null);
+  const textareaSmsRef = useRef(null);
 
   const handleInserirTagSms = (tag) => {
-    setMensagemSms(prev => {
-      const atual = prev || '';
-      const nova = atual ? `${atual} ${tag}` : tag;
-      if (nova.length > 160) return nova.substring(0, 160);
-      return nova;
-    });
+    const textarea = textareaSmsRef.current;
+    if (!textarea) {
+      setMensagemSms(prev => {
+        const atual = prev || '';
+        const nova = atual ? `${atual} ${tag}` : tag;
+        return nova.length > 160 ? nova.substring(0, 160) : nova;
+      });
+      if (erroAlerta) setErroAlerta(null);
+      return;
+    }
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const textoAtual = textarea.value || '';
+
+    const antes = textoAtual.substring(0, start);
+    const depois = textoAtual.substring(end);
+
+    // Ajusta espaçamento para ficar fluído
+    let tagFormatada = tag;
+    if (antes.length > 0 && !antes.endsWith(' ')) {
+      tagFormatada = ' ' + tagFormatada;
+    }
+    if (depois.length > 0 && !depois.startsWith(' ')) {
+      tagFormatada = tagFormatada + ' ';
+    }
+
+    const novoTexto = antes + tagFormatada + depois;
+    const textoFinal = novoTexto.length > 160 ? novoTexto.substring(0, 160) : novoTexto;
+
+    setMensagemSms(textoFinal);
     if (erroAlerta) setErroAlerta(null);
+
+    // Reposiciona o cursor logo após a tag inserida
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        const novoCursor = Math.min(textoFinal.length, start + tagFormatada.length);
+        textarea.setSelectionRange(novoCursor, novoCursor);
+      }
+    }, 0);
   };
 
   // Estados de Upload de Planilha / CSV
@@ -734,16 +769,19 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   // Gera o texto interpolado da mensagem SMS para prévia em tempo real usando o primeiro contato
   const getMensagemSmsPreview = () => {
     const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
-    const exemploNome = listaBase[0]?.nome || 'João da Silva';
-    const exemploCidade = listaBase[0]?.cidade || listaBase[0]?.municipio || 'Belém';
-    const exemploBairro = listaBase[0]?.bairro || 'Centro';
+    const primeiroContato = listaBase[0] || null;
+    const nomeVal = primeiroContato ? (primeiroContato.nome || '') : 'Carlos Silva';
+    const cidadeVal = primeiroContato ? (primeiroContato.cidade || primeiroContato.municipio || '') : 'Belém';
+    const bairroVal = primeiroContato ? (primeiroContato.bairro || '') : 'Centro';
 
-    if (!mensagemSms.trim()) return '';
+    if (!mensagemSms || !mensagemSms.trim()) return '';
 
-    return mensagemSms
-      .replace(/\{nome\}/gi, exemploNome)
-      .replace(/\{cidade\}/gi, exemploCidade)
-      .replace(/\{bairro\}/gi, exemploBairro);
+    let texto = mensagemSms;
+    texto = nomeVal ? texto.replace(/\{nome\}/gi, nomeVal) : texto.replace(/\{nome\}/gi, '');
+    texto = cidadeVal ? texto.replace(/\{cidade\}/gi, cidadeVal) : texto.replace(/\{cidade\}/gi, '');
+    texto = bairroVal ? texto.replace(/\{bairro\}/gi, bairroVal) : texto.replace(/\{bairro\}/gi, '');
+
+    return texto.replace(/\s{2,}/g, ' ').trim();
   };
 
   // Total de 7 etapas estruturadas no fluxo oficial
@@ -1878,6 +1916,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
               <div className="p-3.5 bg-white border border-gray-200 rounded-xl space-y-2.5 shadow-2xs">
                 <textarea
+                  ref={textareaSmsRef}
                   rows={4}
                   value={mensagemSms}
                   maxLength={160}
@@ -2680,9 +2719,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                         <strong className="text-teal-700">SMS (SMSDev)</strong>
                       </div>
                       <div>
-                        <span className="text-gray-400 block text-[10px]">Custo Estimado:</span>
+                        <span className="text-gray-400 block text-[10px]">Tarifação:</span>
                         <strong className="text-gray-800">
-                          {destinatariosFiltrados.length} crédito(s)
+                          1 crédito por envio
                         </strong>
                       </div>
                     </div>
@@ -2714,21 +2753,91 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   {/* 4. Mensagem e Template / Variações */}
                   <div className="space-y-1.5">
                     <span className="text-[10px] font-bold text-gray-400 uppercase block">
-                      {isSms ? '4. Mensagem SMS' : isWafly ? '4. Mensagens Livres (Variações)' : '4. Mensagem & Template Homologado'}
+                      {isSms ? '4. Mensagem e Resumo Financeiro SMS' : isWafly ? '4. Mensagens Livres (Variações)' : '4. Mensagem & Template Homologado'}
                     </span>
                     {isSms ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between text-[11px]">
                           <div>Modo: <strong className="text-gray-800">Texto Direto SMS</strong></div>
-                          <span className="bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-200 text-[10px]">
-                            {mensagemSms.length}/160 caracteres (1 crédito)
+                          <span className={`font-bold px-2 py-0.5 rounded border text-[10px] ${
+                            mensagemSms.length > 160
+                              ? 'bg-rose-50 text-rose-700 border-rose-300'
+                              : 'bg-teal-50 text-teal-700 border-teal-200'
+                          }`}>
+                            {mensagemSms.length}/160 caracteres (1 crédito/destinatário)
                           </span>
                         </div>
-                        <div className="bg-white p-3 rounded-lg border border-gray-200 text-[11px]">
-                          <p className="text-gray-700 font-sans whitespace-pre-wrap leading-relaxed">
+                        <div className="bg-white p-3 rounded-lg border border-gray-200 text-[11px] shadow-2xs">
+                          <p className="text-gray-800 font-sans whitespace-pre-wrap leading-relaxed">
                             {mensagemSms}
                           </p>
                         </div>
+
+                        {/* Balanço Financeiro na Revisão */}
+                        {(() => {
+                          const totalAptos = (destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length;
+                          const saldoTotal = saldoSms?.saldo_creditos ?? 0;
+                          const saldoReservado = saldoSms?.saldo_reservado ?? 0;
+                          const saldoDisponivel = saldoSms?.saldo_disponivel ?? Math.max(0, saldoTotal - saldoReservado);
+                          const saldoAposEnvio = saldoDisponivel - totalAptos;
+                          const saldoSuficiente = saldoDisponivel >= totalAptos;
+
+                          return (
+                            <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                              <div className="bg-white p-2 rounded-lg border border-gray-200">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase block">Saldo Atual</span>
+                                <p className="text-xs font-extrabold text-gray-800">{saldoDisponivel} cr.</p>
+                              </div>
+                              <div className="bg-blue-50/70 p-2 rounded-lg border border-blue-200">
+                                <span className="text-[9px] font-bold text-blue-700 uppercase block">Necessários</span>
+                                <p className="text-xs font-extrabold text-blue-800">{totalAptos} cr.</p>
+                              </div>
+                              <div className={`p-2 rounded-lg border ${saldoSuficiente ? 'bg-emerald-50/80 border-emerald-300' : 'bg-rose-50 border-rose-300'}`}>
+                                <span className={`text-[9px] font-bold uppercase block ${saldoSuficiente ? 'text-emerald-700' : 'text-rose-700'}`}>Saldo Após Envio</span>
+                                <p className={`text-xs font-extrabold ${saldoSuficiente ? 'text-emerald-800' : 'text-rose-800'}`}>
+                                  {saldoAposEnvio >= 0 ? `${saldoAposEnvio} cr.` : `-${Math.abs(saldoAposEnvio)} cr.`}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Amostra dos Primeiros Destinatários */}
+                        {(() => {
+                          const listaAmostra = (destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).slice(0, 3);
+                          if (listaAmostra.length === 0) return null;
+                          return (
+                            <div className="pt-1 space-y-1.5">
+                              <span className="text-[10px] font-bold text-gray-500 uppercase block">Amostra de Destinatários ({listaAmostra.length} primeiros):</span>
+                              <div className="space-y-1.5">
+                                {listaAmostra.map((c, idx) => {
+                                  const nomeC = c.nome || 'Eleitor';
+                                  const cidC = c.cidade || c.municipio || '';
+                                  const barC = c.bairro || '';
+                                  let msgInterpolada = mensagemSms
+                                    .replace(/\{nome\}/gi, nomeC)
+                                    .replace(/\{cidade\}/gi, cidC)
+                                    .replace(/\{bairro\}/gi, barC)
+                                    .replace(/\s{2,}/g, ' ')
+                                    .trim();
+                                  return (
+                                    <div key={idx} className="bg-gray-50 p-2 rounded-lg border border-gray-200 text-[10px] space-y-0.5">
+                                      <div className="flex items-center justify-between font-semibold text-gray-700">
+                                        <span>#{idx + 1} {nomeC}</span>
+                                        <span className="font-mono text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                                          {c.telefoneNormalizado || c.telefone || c.phone}
+                                        </span>
+                                      </div>
+                                      <p className="text-gray-500 truncate italic">
+                                        &quot;{msgInterpolada}&quot;
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : isWafly ? (
                       <div className="space-y-2">
@@ -2832,11 +2941,20 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
               <div className="p-4 bg-teal-50/70 border border-teal-200 rounded-xl text-teal-900 text-xs space-y-2">
                 <div className="flex items-center gap-1.5 font-bold text-teal-800">
                   <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600" />
-                  <span>Enfileiramento de {(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} Destinatários Aptos (Lista Confirmada)</span>
+                  <span>
+                    {isSms ? 'Enfileiramento SMS' : 'Enfileiramento Oficial'}: {(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} Destinatários Aptos
+                  </span>
                 </div>
                 <p className="text-[11px] text-teal-800 leading-relaxed">
-                  Ao clicar em <strong>&quot;Finalizar Criação&quot;</strong>, exatamente <strong>{(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} destinatários aptos</strong> serão persistidos na tabela oficial de fila. 
-                  O sistema <strong>não dispara as mensagens imediatamente</strong>; o envio real segue o controle manual da esteira através do botão de início de disparo.
+                  {isSms ? (
+                    <>
+                      Ao clicar em <strong>&quot;{agendado ? 'Agendar Enfileiramento SMS' : 'Finalizar e enfileirar SMS'}&quot;</strong>, exatamente <strong>{(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} destinatários aptos</strong> serão cadastrados na fila de processamento SMS. O sistema reserva os créditos de forma atômica e o worker executará os envios respeitando as taxas da operadora.
+                    </>
+                  ) : (
+                    <>
+                      Ao clicar em <strong>&quot;Finalizar Criação&quot;</strong>, exatamente <strong>{(destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).length} destinatários aptos</strong> serão persistidos na tabela oficial de fila. O sistema <strong>não dispara as mensagens imediatamente</strong>; o envio real segue o controle manual da esteira através do botão de início de disparo.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -2873,13 +2991,21 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           ) : (
             <button
               onClick={handleSalvar}
-              disabled={carregandoContatos || (destinatariosCongelados.length > 0 ? destinatariosCongelados.length === 0 : destinatariosFiltrados.length === 0)}
+              disabled={
+                carregandoContatos ||
+                (destinatariosCongelados.length > 0 ? destinatariosCongelados.length === 0 : destinatariosFiltrados.length === 0) ||
+                (isSms && ((saldoSms?.saldo_disponivel ?? saldoSms?.saldo_creditos ?? 0) < (destinatariosCongelados.length > 0 ? destinatariosCongelados.length : destinatariosFiltrados.length)))
+              }
               className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition"
             >
               {carregandoContatos ? (
                 <>
                   <FontAwesomeIcon icon={faSpinner} spin />
                   Aguardando Contatos...
+                </>
+              ) : isSms ? (
+                <>
+                  {agendado ? 'Agendar Enfileiramento SMS' : 'Finalizar e enfileirar SMS'} <FontAwesomeIcon icon={faPaperPlane} />
                 </>
               ) : (
                 <>
@@ -3029,7 +3155,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             <div>
               <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-3">
                 {isSms
-                  ? 'Prévia em Tempo Real (SMS)'
+                  ? 'Prévia no Smartphone (SMS)'
                   : isWafly
                   ? `Prévia em Tempo Real (Variação #${(variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) >= 0 ? variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) : 0) + 1})`
                   : 'Prévia em Tempo Real (WhatsApp)'}
@@ -3043,48 +3169,93 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   if (!textoPreview) {
                     return (
                       <div className="text-center py-20 text-gray-400 text-xs">
-                        Digite o texto do SMS para visualizar a prévia na tela do celular.
+                        Digite o texto do SMS para visualizar o mockup do smartphone.
                       </div>
                     );
                   }
 
                   return (
-                    <div className="bg-gray-100 p-5 rounded-2xl border border-gray-200 shadow-inner space-y-3">
-                      {/* Header do Telefone do Destinatário */}
-                      <div className="bg-white px-3 py-2 rounded-xl border border-gray-200 flex items-center justify-between text-[11px] shadow-2xs">
-                        <div className="flex items-center gap-2 truncate">
-                          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
-                            <FontAwesomeIcon icon={faCommentSms} />
-                          </div>
-                          <div className="truncate">
-                            <p className="font-bold text-gray-800 truncate">
-                              {primeiroContato?.nome || 'Exemplo de Contato'}
-                            </p>
-                            <p className="text-[10px] text-gray-400 font-mono">
-                              {primeiroContato?.telefoneNormalizado || primeiroContato?.telefoneOriginal || '+55 (91) 98095-3531'}
-                            </p>
+                    <div className="space-y-3">
+                      {/* Smartphone Mockup Container */}
+                      <div className="bg-slate-900 rounded-[2rem] p-3 shadow-xl border-4 border-slate-700 max-w-[320px] mx-auto">
+                        {/* Top Speaker / Camera Notch */}
+                        <div className="flex justify-center mb-2">
+                          <div className="w-20 h-3 bg-slate-800 rounded-full flex items-center justify-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
+                            <div className="w-2.5 h-1 rounded-full bg-slate-700" />
                           </div>
                         </div>
-                        <span className="text-[9px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-200 shrink-0">
-                          Mensagem SMS
-                        </span>
-                      </div>
 
-                      {/* Balão de SMS Padrão Celular */}
-                      <div className="flex justify-start pt-1">
-                        <div className="bg-blue-600 text-white rounded-2xl rounded-tl-xs px-4 py-3 max-w-[90%] shadow-sm text-xs space-y-1.5 leading-relaxed">
-                          <p className="whitespace-pre-wrap break-words font-sans">
-                            {textoPreview}
-                          </p>
-                          <div className="flex items-center justify-end text-[9px] text-blue-200 select-none pt-0.5">
-                            <span>SMS · Agora</span>
+                        {/* Phone Screen */}
+                        <div className="bg-white rounded-[1.4rem] overflow-hidden flex flex-col min-h-[380px] shadow-inner text-slate-800">
+                          {/* Top Status Bar */}
+                          <div className="bg-slate-100/90 px-3.5 py-1 flex items-center justify-between text-[9px] font-semibold text-slate-500 border-b border-slate-200/60">
+                            <span>09:41</span>
+                            <div className="flex items-center gap-1.5">
+                              <span>5G</span>
+                              <span className="font-bold">100%</span>
+                            </div>
+                          </div>
+
+                          {/* Contact Header */}
+                          <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between">
+                            <div className="flex items-center gap-2 truncate">
+                              <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                <FontAwesomeIcon icon={faCommentSms} />
+                              </div>
+                              <div className="truncate">
+                                <p className="font-bold text-[11px] text-slate-800 truncate leading-tight">
+                                  {primeiroContato?.nome || 'Carlos Silva'}
+                                </p>
+                                <p className="text-[9px] text-slate-400 font-mono">
+                                  {primeiroContato?.telefoneNormalizado || primeiroContato?.telefoneOriginal || '+55 91 98095-3531'}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-[8px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded uppercase">
+                              SMS
+                            </span>
+                          </div>
+
+                          {/* SMS Conversation Body */}
+                          <div className="p-3.5 flex-1 flex flex-col justify-end space-y-2 bg-gradient-to-b from-slate-50/50 to-slate-100/40">
+                            <div className="text-center text-[9px] text-slate-400 font-medium">
+                              Hoje · Mensagem de Texto
+                            </div>
+
+                            {/* SMS Bubble */}
+                            <div className="flex justify-start">
+                              <div className="bg-blue-500 text-white rounded-2xl rounded-tl-xs px-3.5 py-2.5 max-w-[92%] shadow-sm text-xs space-y-1 leading-relaxed">
+                                <p className="whitespace-pre-wrap break-words font-sans text-[11.5px]">
+                                  {textoPreview}
+                                </p>
+                                <div className="flex items-center justify-end text-[8px] text-blue-100 pt-0.5 select-none font-medium">
+                                  <span>SMS · 1 crédito</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Input Area Mock */}
+                          <div className="bg-slate-50 px-3 py-2 border-t border-slate-200 text-[10px] text-slate-400 flex items-center justify-between">
+                            <span>Mensagem de Texto (SMS)</span>
+                            <div className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[8px]">
+                              ↑
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      <p className="text-[10px] text-center text-gray-400 pt-1">
-                        * As variáveis foram interpoladas com os dados do 1º destinatário válido da lista.
-                      </p>
+                      {/* Character & Interpolation Info Box */}
+                      <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-1 text-center">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-gray-500 font-medium">Comprimento na prévia:</span>
+                          <span className="font-bold text-gray-800">{textoPreview.length} / 160 caracteres</span>
+                        </div>
+                        <p className="text-[9px] text-gray-400 text-left">
+                          * Variáveis interpoladas com o 1º contato da lista. O custo é de <strong>1 crédito por envio</strong>.
+                        </p>
+                      </div>
                     </div>
                   );
                 })()

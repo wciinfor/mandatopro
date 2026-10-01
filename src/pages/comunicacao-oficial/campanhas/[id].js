@@ -16,7 +16,12 @@ import {
   faExclamationTriangle,
   faInfoCircle,
   faPause,
-  faPlay
+  faPlay,
+  faCommentSms,
+  faWallet,
+  faCoins,
+  faSyncAlt,
+  faMobileAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DetalhesComunicacaoPage() {
@@ -36,12 +41,53 @@ export default function DetalhesComunicacaoPage() {
   const [modalConfirmacao, setModalConfirmacao] = useState(false);
   const [disparando, setDisparando] = useState(false);
   const [mensagemFeedback, setMensagemFeedback] = useState(null);
+  const [atualizandoSilencioso, setAtualizandoSilencioso] = useState(false);
 
-  // Detecção da origem da verdade para o provider da campanha (WAFLY)
+  // Detecção da origem da verdade para o canal/provider da campanha (SMS e WAFLY)
+  const isSms = String(campanha?.canal || '').toLowerCase() === 'sms' ||
+                String(campanha?.metadata?.provider || '').toUpperCase() === 'SMSDEV';
+
   const providerCampanha = String(
     campanha?.metadata?.provider || ''
   ).toUpperCase();
-  const isWafly = providerCampanha === 'WAFLY';
+  const isWafly = !isSms && providerCampanha === 'WAFLY';
+
+  // Saldo SMS do tenant
+  const [saldoSms, setSaldoSms] = useState(null);
+  const [carregandoSaldoSms, setCarregandoSaldoSms] = useState(false);
+
+  useEffect(() => {
+    if (isSms) {
+      setCarregandoSaldoSms(true);
+      fetch('/api/sms/saldo')
+        .then(res => res.json())
+        .then(data => {
+          if (data && (data.saldo_creditos !== undefined || data.saldo_disponivel !== undefined)) {
+            setSaldoSms(data);
+          }
+        })
+        .catch(err => console.warn('Erro ao consultar saldo SMS:', err))
+        .finally(() => setCarregandoSaldoSms(false));
+    }
+  }, [isSms]);
+
+  const mascararTelefone = (tel) => {
+    if (!tel) return '—';
+    const limpo = String(tel).replace(/\D/g, '');
+    if (limpo.length === 13 && limpo.startsWith('55')) {
+      return `+55 (${limpo.substring(2, 4)}) ${limpo.substring(4, 5)}****-${limpo.substring(9)}`;
+    }
+    if (limpo.length === 12 && limpo.startsWith('55')) {
+      return `+55 (${limpo.substring(2, 4)}) ****-${limpo.substring(8)}`;
+    }
+    if (limpo.length === 11) {
+      return `(${limpo.substring(0, 2)}) ${limpo.substring(2, 3)}****-${limpo.substring(7)}`;
+    }
+    if (limpo.length === 10) {
+      return `(${limpo.substring(0, 2)}) ****-${limpo.substring(6)}`;
+    }
+    return tel;
+  };
 
   // Estados de orquestração sequencial e cadência exclusiva WAFLY
   const [waflyEmExecucao, setWaflyEmExecucao] = useState(false);
@@ -584,12 +630,36 @@ export default function DetalhesComunicacaoPage() {
           
           {/* Header e Ações */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-5 border border-gray-100 shadow-sm gap-4">
-            <button
-              onClick={() => router.push('/comunicacao-oficial/campanhas')}
-              className="text-gray-500 hover:text-teal-600 font-bold flex items-center gap-1.5 text-xs self-start sm:self-auto"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} /> Voltar para Comunicações
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => router.push('/comunicacao-oficial/campanhas')}
+                className="text-gray-500 hover:text-teal-600 font-bold flex items-center gap-1.5 text-xs self-start sm:self-auto"
+              >
+                <FontAwesomeIcon icon={faArrowLeft} /> Voltar para Comunicações
+              </button>
+
+              {isSms && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  <FontAwesomeIcon icon={faCommentSms} />
+                  SMS • SMSDev
+                </span>
+              )}
+
+              <button
+                onClick={async () => {
+                  setAtualizandoSilencioso(true);
+                  await carregarDetalhes(id, true);
+                  setAtualizandoSilencioso(false);
+                }}
+                disabled={atualizandoSilencioso}
+                className="text-gray-500 hover:text-teal-700 text-xs font-semibold px-2.5 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 transition flex items-center gap-1.5"
+                title="Atualizar dados em tempo real"
+              >
+                <FontAwesomeIcon icon={faSyncAlt} className={atualizandoSilencioso ? 'animate-spin text-teal-600' : ''} />
+                <span>Atualizar</span>
+              </button>
+            </div>
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium">Status da Fila:</span>
@@ -603,7 +673,7 @@ export default function DetalhesComunicacaoPage() {
                   className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
                 >
                   <FontAwesomeIcon icon={disparando ? faSpinner : faPaperPlane} className={disparando ? 'animate-spin' : ''} />
-                  {disparando ? 'Enviando...' : 'Iniciar Disparo'}
+                  {disparando ? 'Enviando...' : (isSms ? 'Iniciar Disparo SMS' : 'Iniciar Disparo')}
                 </button>
               )}
 
@@ -686,117 +756,52 @@ export default function DetalhesComunicacaoPage() {
             </div>
           )}
 
-          {/* Painel de Execução Sequencial e Cadência WAFLY */}
-          {isWafly && (waflyEmExecucao || waflyPausado) && (
-            <div className={`p-4 rounded-2xl border shadow-xs transition-all ${
-              waflyPausado 
-                ? 'bg-amber-50/90 border-amber-300 text-amber-900' 
-                : 'bg-teal-50/90 border-teal-300 text-teal-900'
-            }`}>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${
-                      waflyPausado ? 'bg-amber-500' : 'bg-teal-500 animate-pulse'
-                    }`} />
-                    <h4 className="font-extrabold text-sm">
-                      {waflyPausado ? 'Campanha WAFLY Pausada' : 'Campanha WAFLY em Execução'}
-                    </h4>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 border border-current">
-                      {waflyPausado ? 'Pausada' : 'Processando mensagens sequencialmente'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600">
-                    {waflyPausado ? (
-                      'O envio automático foi pausado. Clique em "Retomar Campanha" para continuar de onde parou.'
-                    ) : waflyProcessandoItem ? (
-                      <span className="font-semibold text-teal-800 flex items-center gap-1.5">
-                        <FontAwesomeIcon icon={faSpinner} spin />
-                        Processando mensagem unitária com o provedor WAFLY...
-                      </span>
-                    ) : waflySegundosRestantes !== null ? (
-                      <span>
-                        Processando mensagens sequencialmente · <strong className="text-teal-900">Próximo processamento em {waflySegundosRestantes} segundos</strong> (cadência anti-bloqueio)
-                      </span>
-                    ) : (
-                      'Aguardando próximo ciclo...'
-                    )}
-                  </p>
-                </div>
-
-                {/* Métricas do Painel WAFLY */}
-                <div className="flex items-center gap-3">
-                  <div className="bg-white/90 px-3 py-1.5 rounded-xl border border-gray-200 text-center">
-                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Enviados</span>
-                    <span className="text-xs font-extrabold text-emerald-700">
-                      {metricas?.enviadas || campanha?.total_enviadas || 0}
-                    </span>
-                  </div>
-                  <div className="bg-white/90 px-3 py-1.5 rounded-xl border border-gray-200 text-center">
-                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Falhas</span>
-                    <span className="text-xs font-extrabold text-rose-700">
-                      {metricas?.falhas || campanha?.total_falhas || 0}
-                    </span>
-                  </div>
-                  <div className="bg-white/90 px-3 py-1.5 rounded-xl border border-gray-200 text-center">
-                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Restantes</span>
-                    <span className="text-xs font-extrabold text-blue-700">
-                      {Math.max(0, (metricas?.pendentes ?? ((campanha?.total_destinatarios || 0) - ((campanha?.total_enviadas || 0) + (campanha?.total_falhas || 0)))))}
-                    </span>
-                  </div>
-
-                  {/* Ações Rápidas no Painel */}
-                  {waflyEmExecucao && !waflyPausado && (
-                    <button
-                      onClick={handlePausarWafly}
-                      className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-xs flex items-center gap-1.5"
-                    >
-                      <FontAwesomeIcon icon={faPause} />
-                      Pausar Campanha
-                    </button>
-                  )}
-                  {waflyPausado && (
-                    <button
-                      onClick={handleRetomarWafly}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition shadow-xs flex items-center gap-1.5"
-                    >
-                      <FontAwesomeIcon icon={faPlay} />
-                      Retomar Campanha
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Modal de Confirmação para Iniciar Disparo Oficial */}
+          {/* Modal de Confirmação para Iniciar Disparo */}
           {modalConfirmacao && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
               <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-4 animate-in fade-in zoom-in duration-150">
                 <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg shrink-0">
-                    <FontAwesomeIcon icon={faPaperPlane} />
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                    isSms ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    <FontAwesomeIcon icon={isSms ? faCommentSms : faPaperPlane} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 text-sm">Confirmar Início do Disparo Oficial</h3>
-                    <p className="text-[11px] text-gray-400">Verifique os parâmetros e o canal de transmissão antes de executar</p>
+                    <h3 className="font-bold text-gray-800 text-sm">
+                      {isSms ? 'Confirmar Início do Disparo SMS' : 'Confirmar Início do Disparo Oficial'}
+                    </h3>
+                    <p className="text-[11px] text-gray-400">
+                      Verifique os parâmetros e o canal de transmissão antes de executar
+                    </p>
                   </div>
                 </div>
 
-                {/* Destaque Crítico: Provider e Número de Origem */}
-                <div className="p-3.5 bg-teal-50/70 border-2 border-teal-500/30 rounded-xl space-y-2">
+                {/* Destaque do Provedor e Canal */}
+                <div className={`p-3.5 rounded-xl space-y-2 border-2 ${
+                  isSms ? 'bg-blue-50/70 border-blue-300' : 'bg-teal-50/70 border-teal-500/30'
+                }`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold text-teal-800">Provedor Oficial Configurado</span>
-                    <span className="text-[11px] font-extrabold text-teal-800 bg-white px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1 shadow-2xs">
-                      <FontAwesomeIcon icon={faCheckCircle} className="text-teal-600" /> {campanha.provider || 'WhatsApp Oficial'}
+                    <span className="text-[10px] uppercase font-bold text-gray-700">Provedor Configurado</span>
+                    <span className="text-[11px] font-extrabold text-blue-900 bg-white px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1 shadow-2xs">
+                      <FontAwesomeIcon icon={faCheckCircle} className="text-blue-600" />
+                      {isSms ? 'SMSDev (API Oficial)' : (campanha.provider || 'WhatsApp Oficial')}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between border-t border-teal-200/60 pt-2">
-                    <span className="text-[10px] uppercase font-bold text-teal-800">Número de Origem da Linha</span>
-                    <span className="font-mono text-sm font-extrabold text-teal-950 bg-white px-2.5 py-0.5 rounded-lg border border-teal-200 shadow-2xs">
-                      {campanha.numeroOrigem || '+55 91 8088-6129'}
-                    </span>
-                  </div>
+                  {isSms ? (
+                    <div className="flex items-center justify-between border-t border-blue-200/60 pt-2">
+                      <span className="text-[10px] uppercase font-bold text-gray-700">Tarifação</span>
+                      <span className="font-mono text-xs font-extrabold text-blue-950 bg-white px-2.5 py-0.5 rounded-lg border border-blue-200 shadow-2xs">
+                        1 crédito por envio
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between border-t border-teal-200/60 pt-2">
+                      <span className="text-[10px] uppercase font-bold text-teal-800">Número de Origem da Linha</span>
+                      <span className="font-mono text-sm font-extrabold text-teal-950 bg-white px-2.5 py-0.5 rounded-lg border border-teal-200 shadow-2xs">
+                        {campanha.numeroOrigem || '+55 91 8088-6129'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Dados da Comunicação */}
@@ -815,10 +820,10 @@ export default function DetalhesComunicacaoPage() {
                   <div className="grid grid-cols-2 gap-2 pt-0.5">
                     <div>
                       <span className="text-[10px] text-gray-400 block uppercase font-bold">
-                        {isWafly ? 'Tipo de Mensagem' : 'Template Homologado'}
+                        {isSms ? 'Tipo de Envio' : (isWafly ? 'Tipo de Mensagem' : 'Template Homologado')}
                       </span>
                       <strong className="font-mono text-teal-700 block truncate">
-                        {isWafly ? 'Variações Livres WAFLY' : (campanha.template || 'Template Oficial')}
+                        {isSms ? 'SMS Texto Direto' : (isWafly ? 'Variações Livres WAFLY' : (campanha.template || 'Template Oficial'))}
                       </strong>
                     </div>
                     <div>
@@ -828,13 +833,38 @@ export default function DetalhesComunicacaoPage() {
                       </strong>
                     </div>
                   </div>
+
+                  {isSms && saldoSms && (
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/60">
+                      <div>
+                        <span className="text-[10px] text-gray-400 block uppercase font-bold">Saldo Disponível</span>
+                        <strong className="text-gray-800 font-extrabold">
+                          {saldoSms.saldo_disponivel ?? saldoSms.saldo_creditos ?? 0} créditos
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 block uppercase font-bold">Saldo Após Envio</span>
+                        <strong className={`font-extrabold ${
+                          ((saldoSms.saldo_disponivel ?? saldoSms.saldo_creditos ?? 0) >= (metricas?.pendentes ?? metricas?.total ?? 0))
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
+                        }`}>
+                          {(saldoSms.saldo_disponivel ?? saldoSms.saldo_creditos ?? 0) - (metricas?.pendentes ?? metricas?.total ?? 0)} créditos
+                        </strong>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Aviso Operacional da Fila */}
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[11px] flex items-start gap-2.5">
                   <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 text-amber-600 shrink-0" />
                   <p className="leading-relaxed">
-                    {isWafly ? (
+                    {isSms ? (
+                      <>
+                        Esta ação consumirá a fila SMS e enviará mensagens reais para <strong>{metricas?.pendentes ?? metricas?.total ?? 0} destinatários</strong>. Os créditos serão reservados de forma atômica e o status de entrega será atualizado via DLR.
+                      </>
+                    ) : isWafly ? (
                       <>
                         Esta ação processará a fila <strong>sequencialmente (1 item por vez)</strong> com intervalo de segurança de <strong>20 a 40 segundos</strong> entre os envios, protegendo a linha contra bloqueios.
                       </>
@@ -879,7 +909,7 @@ export default function DetalhesComunicacaoPage() {
             </div>
           )}
 
-          {/* Modal de Detalhes da Falha Retornada pela Meta */}
+          {/* Modal de Detalhes da Falha */}
           {itemErroSelecionado && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
               <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-rose-100 space-y-4 animate-in fade-in zoom-in duration-150">
@@ -889,8 +919,12 @@ export default function DetalhesComunicacaoPage() {
                       <FontAwesomeIcon icon={faExclamationTriangle} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-gray-800 text-sm">Detalhes da Falha no Envio</h3>
-                      <p className="text-[11px] text-gray-400">Resposta oficial de erro retornada pela Meta Cloud API</p>
+                      <h3 className="font-bold text-gray-800 text-sm">
+                        {isSms ? 'Detalhes da Falha no Envio SMS' : 'Detalhes da Falha no Envio'}
+                      </h3>
+                      <p className="text-[11px] text-gray-400">
+                        {isSms ? 'Motivo registrado pelo gateway SMSDev' : 'Resposta oficial de erro retornada pela Meta Cloud API'}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -909,40 +943,58 @@ export default function DetalhesComunicacaoPage() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-gray-400 block uppercase font-bold">Telefone</span>
-                    <span className="font-mono text-gray-700 font-bold">{itemErroSelecionado.telefone}</span>
-                  </div>
-                </div>
-
-                {/* Bloco de Destaque da Meta API */}
-                <div className="bg-rose-50/70 border-2 border-rose-200 rounded-xl p-4 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold text-rose-800">Código do Erro Meta</span>
-                    <span className="font-mono font-extrabold text-rose-900 bg-white px-2.5 py-0.5 rounded border border-rose-200">
-                      {itemErroSelecionado.error_code || itemErroSelecionado.erro_detalhes?.errorCode || '—'}
+                    <span className="font-mono text-gray-700 font-bold">
+                      {isSms ? mascararTelefone(itemErroSelecionado.telefone) : itemErroSelecionado.telefone}
                     </span>
                   </div>
-
-                  <div className="pt-2 border-t border-rose-200/60">
-                    <span className="text-[10px] uppercase font-bold text-rose-800 block">Mensagem Retornada pela Meta</span>
-                    <p className="font-mono text-[11px] text-rose-950 font-semibold mt-1 bg-white p-2.5 rounded border border-rose-200 leading-relaxed">
-                      {itemErroSelecionado.error_message || itemErroSelecionado.erro_detalhes?.errorMessage || 'Falha de transmissão na API.'}
-                    </p>
-                  </div>
                 </div>
 
-                {/* Classificação Amigável em Português */}
-                {itemErroSelecionado.erro_detalhes?.classificacaoAmigavel && (
-                  <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-blue-700 block">Classificação Operacional</span>
-                    <strong className="block font-bold text-blue-950">
-                      {itemErroSelecionado.erro_detalhes.classificacaoAmigavel}
-                    </strong>
-                    {itemErroSelecionado.erro_detalhes.descricaoAmigavel && (
-                      <p className="text-[11px] text-blue-800 mt-1 leading-relaxed">
-                        {itemErroSelecionado.erro_detalhes.descricaoAmigavel}
-                      </p>
+                {/* Bloco de Destaque do Erro */}
+                {isSms ? (
+                  <div className="bg-rose-50/70 border-2 border-rose-200 rounded-xl p-4 space-y-2 text-xs">
+                    <span className="text-[10px] uppercase font-bold text-rose-800 block">Motivo da Falha</span>
+                    <p className="font-mono text-[11px] text-rose-950 font-semibold mt-1 bg-white p-2.5 rounded border border-rose-200 leading-relaxed">
+                      {itemErroSelecionado.last_error || itemErroSelecionado.error_message || 'Motivo não informado'}
+                    </p>
+                    {itemErroSelecionado.provider_message_id && (
+                      <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between text-[10px]">
+                        <span className="text-gray-500 font-semibold">SMSDev ID:</span>
+                        <span className="font-mono text-gray-700 font-bold">{itemErroSelecionado.provider_message_id}</span>
+                      </div>
                     )}
                   </div>
+                ) : (
+                  <>
+                    <div className="bg-rose-50/70 border-2 border-rose-200 rounded-xl p-4 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-rose-800">Código do Erro Meta</span>
+                        <span className="font-mono font-extrabold text-rose-900 bg-white px-2.5 py-0.5 rounded border border-rose-200">
+                          {itemErroSelecionado.error_code || itemErroSelecionado.erro_detalhes?.errorCode || '—'}
+                        </span>
+                      </div>
+
+                      <div className="pt-2 border-t border-rose-200/60">
+                        <span className="text-[10px] uppercase font-bold text-rose-800 block">Mensagem Retornada pela Meta</span>
+                        <p className="font-mono text-[11px] text-rose-950 font-semibold mt-1 bg-white p-2.5 rounded border border-rose-200 leading-relaxed">
+                          {itemErroSelecionado.error_message || itemErroSelecionado.erro_detalhes?.errorMessage || 'Falha de transmissão na API.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {itemErroSelecionado.erro_detalhes?.classificacaoAmigavel && (
+                      <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-blue-900 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-blue-700 block">Classificação Operacional</span>
+                        <strong className="block font-bold text-blue-950">
+                          {itemErroSelecionado.erro_detalhes.classificacaoAmigavel}
+                        </strong>
+                        {itemErroSelecionado.erro_detalhes.descricaoAmigavel && (
+                          <p className="text-[11px] text-blue-800 mt-1 leading-relaxed">
+                            {itemErroSelecionado.erro_detalhes.descricaoAmigavel}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Rodapé do Modal */}
@@ -966,8 +1018,10 @@ export default function DetalhesComunicacaoPage() {
             <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 lg:col-span-1 shadow-sm">
               <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
                 <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Ficha da Comunicação</h4>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
-                  {campanha.canal === 'whatsapp' ? 'WhatsApp Oficial' : campanha.canal}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isSms ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-teal-50 text-teal-700 border-teal-200'
+                }`}>
+                  {isSms ? 'SMS • SMSDev' : (campanha.canal === 'whatsapp' ? 'WhatsApp Oficial' : campanha.canal)}
                 </span>
               </div>
               
@@ -977,20 +1031,30 @@ export default function DetalhesComunicacaoPage() {
                   <p className="font-bold text-gray-800 mt-0.5">{campanha.nome}</p>
                 </div>
 
-                {/* Bloco de Destaque: Provedor e Número de Origem */}
+                {/* Bloco de Destaque: Provedor e Canal */}
                 <div className="p-3 bg-gray-50 border border-gray-200/80 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold text-gray-400">Provedor Oficial</span>
+                    <span className="text-[10px] uppercase font-bold text-gray-400">Provedor</span>
                     <span className="text-[10px] font-extrabold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1">
-                      <FontAwesomeIcon icon={faCheckCircle} /> {campanha.provider || 'Meta Cloud API'}
+                      <FontAwesomeIcon icon={faCheckCircle} />
+                      {isSms ? 'SMSDev (API REST)' : (campanha.provider || 'Meta Cloud API')}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between border-t border-gray-200/60 pt-1.5">
-                    <span className="text-[10px] uppercase font-bold text-gray-400">Número de Origem</span>
-                    <span className="font-mono text-xs font-extrabold text-gray-800">
-                      {campanha.numeroOrigem || '+55 91 8088-6129'}
-                    </span>
-                  </div>
+                  {isSms ? (
+                    <div className="flex items-center justify-between border-t border-gray-200/60 pt-1.5">
+                      <span className="text-[10px] uppercase font-bold text-gray-400">Tarifação</span>
+                      <span className="font-mono text-xs font-extrabold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        1 crédito / envio
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between border-t border-gray-200/60 pt-1.5">
+                      <span className="text-[10px] uppercase font-bold text-gray-400">Número de Origem</span>
+                      <span className="font-mono text-xs font-extrabold text-gray-800">
+                        {campanha.numeroOrigem || '+55 91 8088-6129'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
@@ -999,10 +1063,23 @@ export default function DetalhesComunicacaoPage() {
                     <p className="font-semibold text-gray-800 mt-0.5">{campanha.origem}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Template Homologado</span>
-                    <p className="font-mono text-xs font-bold text-teal-700 mt-0.5">{campanha.template}</p>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">
+                      {isSms ? 'Tipo de Mensagem' : 'Template Homologado'}
+                    </span>
+                    <p className="font-mono text-xs font-bold text-teal-700 mt-0.5">
+                      {isSms ? 'Texto Direto SMS' : campanha.template}
+                    </p>
                   </div>
                 </div>
+
+                {isSms && campanha?.metadata?.mensagem_sms && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Mensagem Base SMS</span>
+                    <p className="p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-[11px] text-gray-800 font-sans whitespace-pre-wrap leading-relaxed">
+                      {campanha.metadata.mensagem_sms}
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
                   <div>
@@ -1015,6 +1092,24 @@ export default function DetalhesComunicacaoPage() {
                   </div>
                 </div>
 
+                {isSms && (
+                  <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-xl space-y-1.5 pt-2">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-blue-900 flex items-center gap-1">
+                        <FontAwesomeIcon icon={faWallet} className="text-blue-600" />
+                        Carteira SMS
+                      </span>
+                      <span className="font-extrabold text-blue-900">
+                        {saldoSms?.saldo_disponivel ?? saldoSms?.saldo_creditos ?? '—'} créditos
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px] text-blue-700 border-t border-blue-200/60 pt-1">
+                      <div>Previstos: <strong>{metricas?.total || 0} cr.</strong></div>
+                      <div>Consumidos: <strong>{metricas?.creditosConsumidos ?? ((metricas?.enviadas || 0) + (metricas?.entregues || 0))} cr.</strong></div>
+                    </div>
+                  </div>
+                )}
+
                 {campanha.agendamento && (
                   <div className="pt-2 border-t border-gray-100">
                     <span className="text-[10px] uppercase font-bold text-amber-700 block">Agendado para</span>
@@ -1024,63 +1119,168 @@ export default function DetalhesComunicacaoPage() {
               </div>
             </div>
 
-            {/* Dashboard Executivo de Disparos - 6 KPIs Independentes + Progresso e Taxa de Sucesso */}
+            {/* Dashboard Executivo de Disparos */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 lg:col-span-2 space-y-4 shadow-sm">
               <div className="border-b border-gray-100 pb-3 flex flex-wrap items-center justify-between gap-2">
-                <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">Métricas de Envio em Lote</h4>
+                <h4 className="font-bold text-gray-800 text-xs uppercase tracking-wider">
+                  {isSms ? 'Resumo Executivo do Disparo SMS' : 'Métricas de Envio em Lote'}
+                </h4>
                 <div className="flex items-center gap-2">
-                  <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100">
-                    Progresso do Lote: {metricas?.taxaProgresso ?? metricas?.taxaConclusao ?? 0}%
+                  <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2.5 py-0.5 rounded border border-blue-100">
+                    {metricas?.processados || 0} de {metricas?.total || 0} processados ({metricas?.taxaProgresso ?? 0}%)
                   </span>
-                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100">
+                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-0.5 rounded border border-emerald-100">
                     Taxa de Sucesso: {metricas?.taxaSucesso ?? 0}%
                   </span>
                 </div>
               </div>
+
+              {/* Barra de Progresso Visual Segmentada */}
+              {(() => {
+                const total = metricas?.total || 0;
+                const entregues = metricas?.entregues || 0;
+                const enviadas = metricas?.enviadas || 0;
+                const falhas = metricas?.falhas || 0;
+                const pendentes = metricas?.pendentes || 0;
+
+                const pctEntregues = total > 0 ? (entregues / total) * 100 : 0;
+                const pctEnviadas = total > 0 ? (enviadas / total) * 100 : 0;
+                const pctFalhas = total > 0 ? (falhas / total) * 100 : 0;
+                const pctPendentes = total > 0 ? (pendentes / total) * 100 : 0;
+
+                return (
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
+                      {pctEntregues > 0 && (
+                        <div
+                          style={{ width: `${pctEntregues}%` }}
+                          className="bg-teal-500 h-full transition-all"
+                          title={`Entregues: ${entregues} (${pctEntregues.toFixed(1)}%)`}
+                        />
+                      )}
+                      {pctEnviadas > 0 && (
+                        <div
+                          style={{ width: `${pctEnviadas}%` }}
+                          className="bg-emerald-400 h-full transition-all"
+                          title={`Enviadas: ${enviadas} (${pctEnviadas.toFixed(1)}%)`}
+                        />
+                      )}
+                      {pctFalhas > 0 && (
+                        <div
+                          style={{ width: `${pctFalhas}%` }}
+                          className="bg-rose-500 h-full transition-all"
+                          title={`Falhas: ${falhas} (${pctFalhas.toFixed(1)}%)`}
+                        />
+                      )}
+                      {pctPendentes > 0 && (
+                        <div
+                          style={{ width: `${pctPendentes}%` }}
+                          className="bg-gray-200 h-full transition-all"
+                          title={`Pendentes: ${pendentes} (${pctPendentes.toFixed(1)}%)`}
+                        />
+                      )}
+                    </div>
+                    {isSms && (
+                      <p className="text-[10px] text-gray-400 text-right">
+                        * Enviado = aceito pela operadora · Entregue = confirmado no aparelho via DLR
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
               
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {/* 1. Total */}
-                <div className="bg-gray-50 border border-gray-200/80 p-3.5 rounded-xl text-center shadow-2xs">
-                  <span className="text-[10px] uppercase font-bold text-gray-500 block">Total</span>
-                  <p className="text-2xl font-extrabold text-gray-800 mt-0.5">{metricas?.total || 0}</p>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">destinatários</span>
-                </div>
+              {/* Cards de Métricas */}
+              {isSms ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {/* 1. Total */}
+                  <div className="bg-gray-50 border border-gray-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-gray-500 block">Total</span>
+                    <p className="text-2xl font-extrabold text-gray-800 mt-0.5">{metricas?.total || 0}</p>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">destinatários</span>
+                  </div>
 
-                {/* 2. Pendentes */}
-                <div className="bg-blue-50/60 border border-blue-200/80 p-3.5 rounded-xl text-center shadow-2xs">
-                  <span className="text-[10px] uppercase font-bold text-blue-600 block">Pendentes</span>
-                  <p className="text-2xl font-extrabold text-blue-800 mt-0.5">{metricas?.pendentes || 0}</p>
-                  <span className="text-[10px] text-blue-500 block mt-0.5">na fila oficial</span>
-                </div>
+                  {/* 2. Pendentes */}
+                  <div className="bg-blue-50/60 border border-blue-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-blue-600 block">Pendentes</span>
+                    <p className="text-2xl font-extrabold text-blue-800 mt-0.5">{metricas?.pendentes || 0}</p>
+                    <span className="text-[10px] text-blue-500 block mt-0.5">na fila SMS</span>
+                  </div>
 
-                {/* 3. Enviadas */}
-                <div className="bg-emerald-50/60 border border-emerald-200/80 p-3.5 rounded-xl text-center shadow-2xs">
-                  <span className="text-[10px] uppercase font-bold text-emerald-600 block">Enviadas</span>
-                  <p className="text-2xl font-extrabold text-emerald-800 mt-0.5">{metricas?.enviadas || 0}</p>
-                  <span className="text-[10px] text-emerald-500 block mt-0.5">aceitas na Meta</span>
-                </div>
+                  {/* 3. Enviados */}
+                  <div className="bg-emerald-50/60 border border-emerald-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-emerald-600 block">Enviados</span>
+                    <p className="text-2xl font-extrabold text-emerald-800 mt-0.5">{metricas?.enviadas || 0}</p>
+                    <span className="text-[10px] text-emerald-500 block mt-0.5">aceitos operadora</span>
+                  </div>
 
-                {/* 4. Entregues */}
-                <div className="bg-teal-50/60 border border-teal-200/80 p-3.5 rounded-xl text-center shadow-2xs">
-                  <span className="text-[10px] uppercase font-bold text-teal-600 block">Entregues</span>
-                  <p className="text-2xl font-extrabold text-teal-800 mt-0.5">{metricas?.entregues || 0}</p>
-                  <span className="text-[10px] text-teal-500 block mt-0.5">no aparelho</span>
-                </div>
+                  {/* 4. Entregues */}
+                  <div className="bg-teal-50/60 border border-teal-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-teal-600 block">Entregues</span>
+                    <p className="text-2xl font-extrabold text-teal-800 mt-0.5">{metricas?.entregues || 0}</p>
+                    <span className="text-[10px] text-teal-500 block mt-0.5">DLR confirmado</span>
+                  </div>
 
-                {/* 5. Lidas */}
-                <div className="bg-indigo-50/60 border border-indigo-200/80 p-3.5 rounded-xl text-center shadow-2xs">
-                  <span className="text-[10px] uppercase font-bold text-indigo-600 block">Lidas</span>
-                  <p className="text-2xl font-extrabold text-indigo-800 mt-0.5">{metricas?.lidas || 0}</p>
-                  <span className="text-[10px] text-indigo-500 block mt-0.5">pelo contato</span>
-                </div>
+                  {/* 5. Falhas */}
+                  <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-rose-600 block">Falhas</span>
+                    <p className="text-2xl font-extrabold text-rose-800 mt-0.5">{metricas?.falhas || 0}</p>
+                    <span className="text-[10px] text-rose-500 block mt-0.5">com erro</span>
+                  </div>
 
-                {/* 6. Falhas */}
-                <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-xl text-center shadow-2xs">
-                  <span className="text-[10px] uppercase font-bold text-rose-600 block">Falhas</span>
-                  <p className="text-2xl font-extrabold text-rose-800 mt-0.5">{metricas?.falhas || 0}</p>
-                  <span className="text-[10px] text-rose-500 block mt-0.5">com erro</span>
+                  {/* 6. Créditos Consumidos */}
+                  <div className="bg-purple-50/60 border border-purple-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-purple-700 block">Créditos Consumidos</span>
+                    <p className="text-2xl font-extrabold text-purple-900 mt-0.5">
+                      {metricas?.creditosConsumidos ?? ((metricas?.enviadas || 0) + (metricas?.entregues || 0))}
+                    </p>
+                    <span className="text-[10px] text-purple-600 block mt-0.5">1 crédito por envio</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {/* 1. Total */}
+                  <div className="bg-gray-50 border border-gray-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-gray-500 block">Total</span>
+                    <p className="text-2xl font-extrabold text-gray-800 mt-0.5">{metricas?.total || 0}</p>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">destinatários</span>
+                  </div>
+
+                  {/* 2. Pendentes */}
+                  <div className="bg-blue-50/60 border border-blue-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-blue-600 block">Pendentes</span>
+                    <p className="text-2xl font-extrabold text-blue-800 mt-0.5">{metricas?.pendentes || 0}</p>
+                    <span className="text-[10px] text-blue-500 block mt-0.5">na fila oficial</span>
+                  </div>
+
+                  {/* 3. Enviadas */}
+                  <div className="bg-emerald-50/60 border border-emerald-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-emerald-600 block">Enviadas</span>
+                    <p className="text-2xl font-extrabold text-emerald-800 mt-0.5">{metricas?.enviadas || 0}</p>
+                    <span className="text-[10px] text-emerald-500 block mt-0.5">aceitas na Meta</span>
+                  </div>
+
+                  {/* 4. Entregues */}
+                  <div className="bg-teal-50/60 border border-teal-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-teal-600 block">Entregues</span>
+                    <p className="text-2xl font-extrabold text-teal-800 mt-0.5">{metricas?.entregues || 0}</p>
+                    <span className="text-[10px] text-teal-500 block mt-0.5">no aparelho</span>
+                  </div>
+
+                  {/* 5. Lidas */}
+                  <div className="bg-indigo-50/60 border border-indigo-200/80 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-indigo-600 block">Lidas</span>
+                    <p className="text-2xl font-extrabold text-indigo-800 mt-0.5">{metricas?.lidas || 0}</p>
+                    <span className="text-[10px] text-indigo-500 block mt-0.5">pelo contato</span>
+                  </div>
+
+                  {/* 6. Falhas */}
+                  <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-xl text-center shadow-2xs">
+                    <span className="text-[10px] uppercase font-bold text-rose-600 block">Falhas</span>
+                    <p className="text-2xl font-extrabold text-rose-800 mt-0.5">{metricas?.falhas || 0}</p>
+                    <span className="text-[10px] text-rose-500 block mt-0.5">com erro</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1095,7 +1295,7 @@ export default function DetalhesComunicacaoPage() {
                     : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}
               >
-                Fila de Destinatários
+                Fila de Destinatários ({destinatariosFiltrados.length})
               </button>
               <button
                 onClick={() => setAbaAtiva('timeline')}
@@ -1113,40 +1313,47 @@ export default function DetalhesComunicacaoPage() {
               <div className="space-y-0">
                 <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faList} className="text-teal-600 text-sm" />
-                    <h4 className="font-bold text-xs text-gray-800 font-medium">Contatos da Transmissão</h4>
+                    <FontAwesomeIcon icon={isSms ? faCommentSms : faList} className="text-teal-600 text-sm" />
+                    <h4 className="font-bold text-xs text-gray-800 font-medium">
+                      {isSms ? 'Destinatários do Disparo SMS' : 'Contatos da Transmissão'}
+                    </h4>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-xs flex-wrap">
                     <input
                       type="text"
                       value={buscaDestinatario}
                       onChange={(e) => setBuscaDestinatario(e.target.value)}
                       placeholder="Buscar destinatário..."
-                      className="px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none"
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none text-xs"
                     />
                     <select
                       value={filtroStatus}
                       onChange={(e) => setFiltroStatus(e.target.value)}
-                      className="bg-white border border-gray-200 rounded-lg p-1.5 focus:outline-none"
+                      className="bg-white border border-gray-200 rounded-lg p-1.5 focus:outline-none text-xs"
                     >
                       <option value="all">Todos os Status</option>
                       <option value="pendente">Pendente</option>
                       <option value="processando">Processando</option>
                       <option value="enviado">Enviado</option>
+                      <option value="entregue">Entregue</option>
                       <option value="falha">Falha</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* VISUALIZAÇÃO DESKTOP: TABELA */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wider text-[10px] border-b border-gray-100">
                         <th className="p-4">Nome</th>
                         <th className="p-4">Telefone</th>
+                        {isSms && <th className="p-4">Mensagem Personalizada</th>}
                         <th className="p-4">Status</th>
+                        {isSms && <th className="p-4">Crédito</th>}
                         <th className="p-4">Data/Hora Processamento</th>
+                        <th className="p-4 text-right">Detalhes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1154,22 +1361,108 @@ export default function DetalhesComunicacaoPage() {
                         destinatariosFiltrados.map((dest) => (
                           <tr key={dest.id} className="hover:bg-gray-50/50">
                             <td className="p-4 font-bold text-gray-800">{dest.nome}</td>
-                            <td className="p-4 text-gray-600">{dest.telefone}</td>
+                            <td className="p-4 text-gray-600 font-mono">
+                              {isSms ? mascararTelefone(dest.telefone) : dest.telefone}
+                            </td>
+                            {isSms && (
+                              <td className="p-4 text-gray-600 max-w-xs truncate" title={dest.mensagem_personalizada || 'Mensagem SMS direta'}>
+                                {dest.mensagem_personalizada || '—'}
+                              </td>
+                            )}
                             <td className="p-4">{getStatusBadge(dest)}</td>
+                            {isSms && (
+                              <td className="p-4 font-mono text-[11px] text-gray-600">
+                                {dest.status === 'enviado' || dest.status === 'entregue' ? (
+                                  <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    1 cr.
+                                  </span>
+                                ) : dest.status === 'falha' ? (
+                                  <span className="text-gray-400 font-medium bg-gray-100 px-1.5 py-0.5 rounded">
+                                    0 cr.
+                                  </span>
+                                ) : (
+                                  <span className="text-blue-600 font-medium bg-blue-50 px-1.5 py-0.5 rounded">
+                                    1 cr. (res.)
+                                  </span>
+                                )}
+                              </td>
+                            )}
                             <td className="p-4 text-gray-400">
                               {dest.processado_em ? new Date(dest.processado_em).toLocaleString('pt-BR') : '—'}
+                            </td>
+                            <td className="p-4 text-right">
+                              {dest.status === 'falha' || dest.status === 'falhou' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setItemErroSelecionado(dest)}
+                                  className="text-rose-600 hover:text-rose-800 font-bold text-[11px] bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded border border-rose-200 transition"
+                                >
+                                  Ver Erro
+                                </button>
+                              ) : (
+                                <span className="text-gray-300 text-[11px]">—</span>
+                              )}
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="4" className="text-center py-8 text-gray-400">
+                          <td colSpan={isSms ? 7 : 5} className="text-center py-8 text-gray-400">
                             Nenhum destinatário localizado com os critérios informados.
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* VISUALIZAÇÃO MOBILE: CARDS COMPACTOS */}
+                <div className="md:hidden divide-y divide-gray-100 p-3 space-y-2.5">
+                  {destinatariosFiltrados.length > 0 ? (
+                    destinatariosFiltrados.map((dest) => (
+                      <div key={dest.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-xs text-gray-800">{dest.nome}</p>
+                            <p className="text-[10px] text-gray-500 font-mono">
+                              {isSms ? mascararTelefone(dest.telefone) : dest.telefone}
+                            </p>
+                          </div>
+                          <div>{getStatusBadge(dest)}</div>
+                        </div>
+
+                        {isSms && dest.mensagem_personalizada && (
+                          <div className="p-2 bg-gray-50 rounded-lg text-[11px] text-gray-700 italic border border-gray-100">
+                            &quot;{dest.mensagem_personalizada}&quot;
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-gray-100">
+                          <span>
+                            {dest.processado_em ? new Date(dest.processado_em).toLocaleTimeString('pt-BR') : 'Aguardando'}
+                          </span>
+                          {isSms && (
+                            <span className="font-bold text-gray-600">
+                              {dest.status === 'enviado' || dest.status === 'entregue' ? '1 crédito' : '0 créditos'}
+                            </span>
+                          )}
+                          {(dest.status === 'falha' || dest.status === 'falhou') && (
+                            <button
+                              type="button"
+                              onClick={() => setItemErroSelecionado(dest)}
+                              className="text-rose-600 font-bold underline"
+                            >
+                              Ver Motivo
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-400 text-xs">
+                      Nenhum destinatário localizado.
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

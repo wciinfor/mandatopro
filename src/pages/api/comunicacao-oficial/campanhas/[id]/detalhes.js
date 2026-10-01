@@ -83,12 +83,18 @@ export default async function handler(req, res) {
       origemFormatada = campanha.communication_audiences.nome;
     }
 
-    // Determina o nome amigável do Provider Oficial
-    const providerRaw = String(contaOficial?.provider || 'META').toUpperCase();
-    let providerFormatado = 'Meta Cloud API Oficial';
-    if (providerRaw === 'WABLAST') providerFormatado = 'WaBlast Oficial';
-    else if (providerRaw === 'YCLOUD') providerFormatado = 'YCloud Oficial';
-    else if (providerRaw === 'META') providerFormatado = 'Meta Cloud API Oficial';
+    // Determina o canal e o nome amigável do Provider Oficial
+    const isSms = String(campanha.canal || '').toLowerCase() === 'sms' ||
+                  String(campanha.metadata?.provider || '').toUpperCase() === 'SMSDEV';
+
+    const providerRaw = isSms ? 'SMSDEV' : String(contaOficial?.provider || 'META').toUpperCase();
+    let providerFormatado = isSms ? 'SMSDev' : 'Meta Cloud API Oficial';
+    if (!isSms) {
+      if (providerRaw === 'WABLAST') providerFormatado = 'WaBlast Oficial';
+      else if (providerRaw === 'YCLOUD') providerFormatado = 'YCloud Oficial';
+      else if (providerRaw === 'META') providerFormatado = 'Meta Cloud API Oficial';
+      else if (providerRaw === 'WAFLY') providerFormatado = 'WAFLY Oficial';
+    }
 
     // 4. Busca todos os itens da fila de execução associados (destinatários)
     const { data: itens, error: errItens } = await supabase
@@ -143,11 +149,27 @@ export default async function handler(req, res) {
       try {
         const st = String(item?.status || '').toLowerCase();
         const ehFalha = st === 'falha' || st === 'falhou';
-        if (ehFalha) {
+        if (ehFalha && !isSms) {
           erroNormalizado = resolverDetalhesFalhaMeta(item);
         }
       } catch (errHelper) {
         console.warn(`[DetalhesComunicacaoAPI] Aviso ao resolver erro do item ${item?.id}:`, errHelper);
+      }
+
+      // Mensagem personalizada interpolada para SMS / Wafly
+      let mensagemFormatada = item?.variaveis_mapeadas?.mensagem_personalizada || null;
+      if (isSms) {
+        const templateSms = item?.variaveis_mapeadas?.mensagem_sms || campanha.metadata?.mensagem_sms || '';
+        if (templateSms) {
+          const nomeVal = item?.variaveis_mapeadas?.nome || '';
+          const cidVal = item?.variaveis_mapeadas?.cidade || '';
+          const barVal = item?.variaveis_mapeadas?.bairro || '';
+          let txt = templateSms;
+          txt = nomeVal ? txt.replace(/\{nome\}/gi, nomeVal) : txt.replace(/\{nome\}/gi, '');
+          txt = cidVal ? txt.replace(/\{cidade\}/gi, cidVal) : txt.replace(/\{cidade\}/gi, '');
+          txt = barVal ? txt.replace(/\{bairro\}/gi, barVal) : txt.replace(/\{bairro\}/gi, '');
+          mensagemFormatada = txt.replace(/\s{2,}/g, ' ').trim();
+        }
       }
 
       return {
@@ -156,8 +178,12 @@ export default async function handler(req, res) {
         telefone: item?.contact_id || '',
         status: item?.status || 'pendente',
         processado_em: item?.finished_at || item?.updated_at || null,
+        mensagem_personalizada: mensagemFormatada,
+        credito_consumido: (item?.status === 'enviado' || item?.status === 'entregue') ? 1 : 0,
+        provider_message_id: item?.provider_message_id || null,
+        refer_id: item?.refer_id || null,
         error_code: item?.error_code || erroNormalizado?.errorCode || null,
-        error_message: item?.error_message || erroNormalizado?.errorMessage || null,
+        error_message: item?.error_message || item?.last_error || erroNormalizado?.errorMessage || null,
         last_error: item?.last_error || null,
         erro_detalhes: erroNormalizado
       };
@@ -168,11 +194,12 @@ export default async function handler(req, res) {
       campanha: {
         id: campanha.id,
         nome: campanha.nome,
-        canal: campanha.canal,
+        canal: isSms ? 'sms' : (campanha.canal || 'whatsapp'),
+        metadata: campanha.metadata || {},
         origem: origemFormatada,
         origemTipo: origemTipo || 'base_geral',
         nomeCampanhaCRM,
-        template: campanha.communication_templates?.nome || 'Personalizado',
+        template: isSms ? 'SMS Texto Livre' : (campanha.communication_templates?.nome || 'Personalizado'),
         publico: campanha.communication_audiences?.nome || 'Destinatários',
         status: campanha.status,
         agendamento: campanha.agendado_para,
@@ -180,8 +207,8 @@ export default async function handler(req, res) {
         operador: 'Operador Geral',
         provider: providerFormatado,
         providerRaw: providerRaw,
-        numeroOrigem: contaOficial?.displayPhoneNumber || contaOficial?.wablastDetails?.phoneNumber || '+55 91 8088-6129',
-        wabaId: contaOficial?.wabaId || '1052344067413300'
+        numeroOrigem: isSms ? 'Gateway SMSDev' : (contaOficial?.displayPhoneNumber || contaOficial?.wablastDetails?.phoneNumber || '+55 91 8088-6129'),
+        wabaId: isSms ? null : (contaOficial?.wabaId || '1052344067413300')
       },
       metricas: {
         total,
@@ -194,6 +221,9 @@ export default async function handler(req, res) {
         falhas,
         processados,
         sucessos,
+        creditosPrevistos: total,
+        creditosConsumidos: enviadas + entregues,
+        creditosEstornados: falhas,
         taxaProgresso,
         taxaSucesso,
         taxaConclusao
