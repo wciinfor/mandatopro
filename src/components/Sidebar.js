@@ -21,7 +21,8 @@ import {
   faCog,
   faShieldAlt,
   faPaperPlane,
-  faHeadset
+  faHeadset,
+  faCommentSms
 } from '@fortawesome/free-solid-svg-icons';
 
 const modulosBase = [
@@ -67,9 +68,15 @@ const modulosBase = [
       'Disparos Oficiais',
       'Templates Oficiais',
       'Definir Provedor',
-      'SMS - Visão Geral',
-      'SMS - Campanhas',
-      'SMS - Carteira',
+      {
+        nome: 'SMS (SMSDev)',
+        icone: faCommentSms,
+        subitens: [
+          { nome: 'Visão Geral', rota: '/comunicacao-oficial/sms' },
+          { nome: 'Campanhas', rota: '/comunicacao-oficial/campanhas?canal=sms' },
+          { nome: 'Carteira', rota: '/comunicacao-oficial/sms/carteira' }
+        ]
+      },
       'Central de Atendimento',
       'Relatórios de Atendimento'
     ],
@@ -154,17 +161,20 @@ const routeMap = {
   'Definir Provedor': '/comunicacao-oficial/whatsapp-business',
   'Comunicação - WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
   'WhatsApp Business Oficial': '/comunicacao-oficial/whatsapp-business',
-  'Comunicação - SMS - Visão Geral': '/comunicacao-oficial/sms',
-  'SMS - Visão Geral': '/comunicacao-oficial/sms',
-  'SMS (SMSDev)': '/comunicacao-oficial/sms',
-  'Comunicação - SMS - Campanhas': '/comunicacao-oficial/campanhas?canal=sms',
-  'SMS - Campanhas': '/comunicacao-oficial/campanhas?canal=sms',
-  'Campanhas SMS': '/comunicacao-oficial/campanhas?canal=sms',
-  'Comunicação - SMS - Carteira': '/comunicacao-oficial/sms/carteira',
-  'SMS - Carteira': '/comunicacao-oficial/sms/carteira',
-  'Carteira SMS': '/comunicacao-oficial/sms/carteira',
   'Comunicação - Central de Atendimento': '/atendimento-connect',
   'Comunicação - Relatórios de Atendimento': '/atendimento-connect/relatorios',
+
+  // SMS (SMSDev)
+  'Comunicação - SMS (SMSDev) - Visão Geral': '/comunicacao-oficial/sms',
+  'Comunicação - SMS (SMSDev) - Campanhas': '/comunicacao-oficial/campanhas?canal=sms',
+  'Comunicação - SMS (SMSDev) - Carteira': '/comunicacao-oficial/sms/carteira',
+  'SMS (SMSDev) - Visão Geral': '/comunicacao-oficial/sms',
+  'SMS (SMSDev) - Campanhas': '/comunicacao-oficial/campanhas?canal=sms',
+  'SMS (SMSDev) - Carteira': '/comunicacao-oficial/sms/carteira',
+  'SMS - Visão Geral': '/comunicacao-oficial/sms',
+  'SMS - Campanhas': '/comunicacao-oficial/campanhas?canal=sms',
+  'SMS - Carteira': '/comunicacao-oficial/sms/carteira',
+  'SMS (SMSDev)': '/comunicacao-oficial/sms',
 
   // Alias para retrocompatibilidade
   'Dashboard': '/comunicacao-oficial/dashboard',
@@ -182,9 +192,18 @@ const routeMap = {
   'Mandato Connect': '/comunicacao-oficial/campanhas'
 };
 
-function obterMenusAbertosIniciais(moduloAtivo) {
+function isRotaSms(asPath = '') {
+  return asPath.startsWith('/comunicacao-oficial/sms') ||
+    (asPath.startsWith('/comunicacao-oficial/campanhas') && asPath.includes('canal=sms'));
+}
+
+function obterMenusAbertosIniciais(moduloAtivo, asPath = '') {
+  if (isRotaSms(asPath) || (moduloAtivo && moduloAtivo.startsWith('Comunicação'))) {
+    return { 'Comunicação': true };
+  }
+
   const moduloAtual = modulosBase.find((modulo) =>
-    modulo.submenu.length > 0 && moduloAtivo.startsWith(`${modulo.nome} - `)
+    modulo.submenu && modulo.submenu.length > 0 && moduloAtivo.startsWith(`${modulo.nome} - `)
   );
 
   return moduloAtual ? { [moduloAtual.nome]: true } : {};
@@ -193,8 +212,19 @@ function obterMenusAbertosIniciais(moduloAtivo) {
 export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, setModuloAtivo }) {
   const router = useRouter();
   const { logout } = useAuth();
-  const [menusAbertos, setMenusAbertos] = useState(() => obterMenusAbertosIniciais(moduloAtivo));
+  const currentPath = router.asPath || router.pathname || '';
+  const [menusAbertos, setMenusAbertos] = useState(() => obterMenusAbertosIniciais(moduloAtivo, currentPath));
+  const [nestedMenusAbertos, setNestedMenusAbertos] = useState(() => ({
+    'SMS (SMSDev)': isRotaSms(currentPath)
+  }));
   const [usuarioAtual, setUsuarioAtual] = useState(null);
+
+  useEffect(() => {
+    if (isRotaSms(router.asPath || '')) {
+      setMenusAbertos(prev => ({ ...prev, 'Comunicação': true }));
+      setNestedMenusAbertos(prev => ({ ...prev, 'SMS (SMSDev)': true }));
+    }
+  }, [router.asPath]);
 
   const lerUsuarioAtual = () => {
     if (typeof window === 'undefined') return null;
@@ -235,14 +265,33 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
   };
 
   const handleSubmenuClick = (modulo, subitem) => {
-    setModuloAtivo(`${modulo.nome} - ${subitem}`);
+    const nomeSub = typeof subitem === 'string' ? subitem : subitem?.nome;
+    setModuloAtivo(`${modulo.nome} - ${nomeSub}`);
     setSidebarAberto(false);
 
-    const rota = routeMap[`${modulo.nome} - ${subitem}`] || routeMap[subitem];
+    const rota = typeof subitem === 'object' && subitem.rota
+      ? subitem.rota
+      : (routeMap[`${modulo.nome} - ${nomeSub}`] || routeMap[nomeSub]);
 
     if (rota) {
       router.push(rota).catch(err => console.error('Erro ao navegar:', err));
     }
+  };
+
+  const isRouteActive = (rota) => {
+    if (!rota) return false;
+    const asPath = router.asPath || router.pathname || '';
+    if (rota.includes('?')) {
+      const [pathPart, queryPart] = rota.split('?');
+      return asPath.startsWith(pathPart) && asPath.includes(queryPart);
+    }
+    if (rota === '/comunicacao-oficial/campanhas') {
+      return asPath.startsWith(rota) && !asPath.includes('canal=sms');
+    }
+    if (rota === '/comunicacao-oficial/sms') {
+      return asPath === '/comunicacao-oficial/sms' || (asPath.startsWith('/comunicacao-oficial/sms') && !asPath.startsWith('/comunicacao-oficial/sms/carteira'));
+    }
+    return asPath.startsWith(rota);
   };
 
   const modulos = modulosBase
@@ -331,30 +380,109 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                   {modulo.submenu.length > 0 && (
                     <div className={`mt-1 overflow-hidden transition-all duration-300 ease-in-out ${
                       menuAberto
-                        ? 'max-h-[34rem] opacity-100 translate-y-0'
+                        ? 'max-h-[38rem] opacity-100 translate-y-0'
                         : 'max-h-0 opacity-0 -translate-y-2'
                     }`}>
                       <div className="bg-[#032E35] rounded-lg p-2 space-y-1 border-l-2 border-teal-400 ml-4">
-                        {modulo.submenu.map((subitem, subIdx) => (
-                          <button
-                            key={subitem}
-                            type="button"
-                            onClick={() => handleSubmenuClick(modulo, subitem)}
-                            className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all duration-150 ${
-                              moduloAtivo === `${modulo.nome} - ${subitem}`
-                                ? 'bg-white text-[#0A4C53] font-bold shadow-md transform scale-105'
-                                : 'hover:bg-[#0A4C53] hover:translate-x-2 text-gray-300'
-                            }`}
-                            style={{
-                              transitionDelay: menusAbertos[modulo.nome] ? `${subIdx * 30}ms` : '0ms'
-                            }}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
-                              {subitem}
-                            </span>
-                          </button>
-                        ))}
+                        {modulo.submenu.map((subitem, subIdx) => {
+                          // Item com sub-menu aninhado (Ex: SMS (SMSDev))
+                          if (typeof subitem === 'object' && subitem.subitens) {
+                            const nestedNome = subitem.nome;
+                            const isNestedOpen = Boolean(nestedMenusAbertos[nestedNome]);
+                            const isAnyChildActive = subitem.subitens.some(child => isRouteActive(child.rota));
+
+                            return (
+                              <div key={nestedNome} className="pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNestedMenusAbertos(prev => ({
+                                      ...prev,
+                                      [nestedNome]: !prev[nestedNome]
+                                    }));
+                                  }}
+                                  className={`w-full text-left px-3.5 py-2 text-xs rounded-md transition-all duration-150 flex items-center justify-between ${
+                                    isAnyChildActive
+                                      ? 'bg-[#054248] text-teal-200 font-bold border border-teal-500/40 shadow-xs'
+                                      : 'hover:bg-[#0A4C53] text-gray-300'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <FontAwesomeIcon icon={subitem.icone || faCommentSms} className="w-3.5 text-teal-400" />
+                                    <span>{subitem.nome}</span>
+                                  </span>
+                                  <FontAwesomeIcon
+                                    icon={isNestedOpen ? faChevronUp : faChevronDown}
+                                    className={`text-[10px] text-gray-400 transition-transform duration-200 ${
+                                      isNestedOpen ? 'rotate-180' : 'rotate-0'
+                                    }`}
+                                  />
+                                </button>
+
+                                {/* Sub-itens aninhados */}
+                                <div
+                                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                    isNestedOpen
+                                      ? 'max-h-48 opacity-100 mt-1'
+                                      : 'max-h-0 opacity-0'
+                                  }`}
+                                >
+                                  <div className="bg-[#022227] rounded-md p-1.5 space-y-0.5 border-l-2 border-teal-400/80 ml-3">
+                                    {subitem.subitens.map((child) => {
+                                      const childAtivo = isRouteActive(child.rota);
+                                      return (
+                                        <button
+                                          key={child.nome}
+                                          type="button"
+                                          onClick={() => {
+                                            setModuloAtivo(`${modulo.nome} - ${subitem.nome} - ${child.nome}`);
+                                            setSidebarAberto(false);
+                                            router.push(child.rota).catch(err => console.error('Erro ao navegar:', err));
+                                          }}
+                                          className={`w-full text-left px-3 py-1.5 text-xs rounded transition-all duration-150 flex items-center justify-between ${
+                                            childAtivo
+                                              ? 'bg-white text-[#0A4C53] font-bold shadow-xs transform scale-[1.02]'
+                                              : 'hover:bg-[#0A4C53] text-gray-300 hover:text-white'
+                                          }`}
+                                        >
+                                          <span className="flex items-center gap-2">
+                                            <span className={`w-1.5 h-1.5 rounded-full ${childAtivo ? 'bg-[#0A4C53]' : 'bg-teal-400'}`}></span>
+                                            <span>{child.nome}</span>
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Subitem padrão (string)
+                          const rotaSubitem = routeMap[`${modulo.nome} - ${subitem}`] || routeMap[subitem];
+                          const subitemAtivo = isRouteActive(rotaSubitem) || moduloAtivo === `${modulo.nome} - ${subitem}`;
+
+                          return (
+                            <button
+                              key={subitem}
+                              type="button"
+                              onClick={() => handleSubmenuClick(modulo, subitem)}
+                              className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all duration-150 ${
+                                subitemAtivo
+                                  ? 'bg-white text-[#0A4C53] font-bold shadow-md transform scale-105'
+                                  : 'hover:bg-[#0A4C53] hover:translate-x-2 text-gray-300'
+                              }`}
+                              style={{
+                                transitionDelay: menusAbertos[modulo.nome] ? `${subIdx * 30}ms` : '0ms'
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
+                                {subitem}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
