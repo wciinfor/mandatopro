@@ -260,7 +260,7 @@ export default async function handler(req, res) {
 
       let query = aplicarFiltroPertencimentoEleitor(
         aplicarFiltrosBase(
-          supabase.from('eleitores').select(COLUNAS_LISTAGEM_ELEITORES, { count: 'estimated' }),
+          supabase.from('eleitores').select(COLUNAS_LISTAGEM_ELEITORES, { count: 'exact' }),
           { status, liderancaFiltro, excludeLiderancas }
         ),
         contextoMandato
