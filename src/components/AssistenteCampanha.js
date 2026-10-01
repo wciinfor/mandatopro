@@ -25,7 +25,7 @@ import * as XLSX from 'xlsx';
 import { normalizarTelefone, deduplicarContatos } from '@/lib/disparos/contatos';
 import { TemplateVisualizerCard } from '@/components/TemplateVisualizerCard';
 
-export default function AssistenteCampanha({ onCancel, onSave }) {
+export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'whatsapp' }) {
   const [step, setStep] = useState(1);
   const [origemDestinatarios, setOrigemDestinatarios] = useState('campanha_politica');
   const [campanhasCRM, setCampanhasCRM] = useState([]);
@@ -40,7 +40,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
   const [pesquisaPublico, setPesquisaPublico] = useState('');
 
   const [nome, setNome] = useState('');
-  const [canal, setCanal] = useState('whatsapp');
+  const [canal, setCanal] = useState(canalInicial || 'whatsapp');
   const [erroAlerta, setErroAlerta] = useState(null);
   
   const [publicoSelecionado, setPublicoSelecionado] = useState(null);

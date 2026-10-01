@@ -55,11 +55,21 @@ export default function CampanhasOficiaisPage() {
     carregarCampanhasReais();
   }, []);
 
+  const canalFiltro = router.query.canal ? String(router.query.canal).toLowerCase() : null;
+
+  // Filtra por canal caso informado na URL (ex: ?canal=sms)
+  const campanhasFiltradasPorCanal = canalFiltro === 'sms'
+    ? campanhas.filter(c =>
+        String(c.canal || '').toLowerCase() === 'sms' ||
+        String(c.metadata?.provider || '').toUpperCase() === 'SMSDEV'
+      )
+    : campanhas;
+
   // Campanhas na Fila ou rascunho (não iniciadas)
-  const campanhasFila = campanhas.filter(c => ['Na Fila', 'rascunho', 'agendado'].includes(c.status));
+  const campanhasFila = campanhasFiltradasPorCanal.filter(c => ['Na Fila', 'rascunho', 'agendado'].includes(c.status));
 
   // Campanhas já iniciadas/executadas/entregues/concluídas/pausadas/canceladas
-  const campanhasHistorico = campanhas.filter(c => !['Na Fila', 'rascunho', 'agendado'].includes(c.status));
+  const campanhasHistorico = campanhasFiltradasPorCanal.filter(c => !['Na Fila', 'rascunho', 'agendado'].includes(c.status));
 
   // Filtragem da aba 'Fila'
   const campanhasFilaFiltradas = campanhasFila.filter((c) =>
@@ -151,6 +161,7 @@ export default function CampanhasOficiaisPage() {
               <h3 className="font-bold text-gray-800 text-sm">Criar Novo Disparo Oficial (Transmissão em Massa)</h3>
             </div>
             <AssistenteCampanha
+              canalInicial={canalFiltro === 'sms' ? 'sms' : 'whatsapp'}
               onCancel={() => setCriando(false)}
               onSave={handleSalvarNovaCampanha}
             />
@@ -172,9 +183,18 @@ export default function CampanhasOficiaisPage() {
             {/* Cabeçalho */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-6 shadow-sm border border-teal-100/50 gap-4">
               <div>
-                <h3 className="text-xl font-bold text-gray-800">Disparos Oficiais & Histórico</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xl font-bold text-gray-800">Disparos Oficiais & Histórico</h3>
+                  {canalFiltro === 'sms' && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                      Filtro: SMS (SMSDev)
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  Gerencie transmissões pendentes na fila e consulte o histórico de campanhas executadas e entregues.
+                  {canalFiltro === 'sms'
+                    ? 'Exibindo somente transmissões e campanhas do canal SMS (SMSDev).'
+                    : 'Gerencie transmissões pendentes na fila e consulte o histórico de campanhas executadas e entregues.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
