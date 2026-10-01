@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server';
 import { buscarContaWhatsappPrincipal, normalizarWhatsappAccount } from '@/lib/whatsapp-business-accounts';
 import { createWhatsAppProvider } from '@/services/whatsapp-provider-factory';
+import { enviarNotificacaoSmsServico } from '@/services/sms/smsNotificationService';
 
 /**
  * Extrai, valida e formata os parâmetros das variáveis do template de forma dinâmica.
@@ -51,13 +52,45 @@ function extrairEValidarParametrosTemplate(variaveisMapeadas = {}) {
   return [];
 }
 
+/**
+ * Interpola dinamicamente as variáveis de texto para disparos SMS ({nome}, {cidade}, {bairro}).
+ */
+function interpolarMensagemSms(templateTexto, item) {
+  let msg = String(templateTexto || '');
+  const vars = item?.variaveis_mapeadas || {};
+  const nomeContato = String(vars.nome || '').trim();
+  const cidadeContato = String(vars.cidade || vars.municipio || '').trim();
+  const bairroContato = String(vars.bairro || '').trim();
+
+  if (nomeContato) {
+    msg = msg.replace(/\{nome\}/gi, nomeContato);
+  } else {
+    msg = msg.replace(/\{nome\}/gi, 'Contato');
+  }
+
+  if (cidadeContato) {
+    msg = msg.replace(/\{cidade\}/gi, cidadeContato);
+  } else {
+    msg = msg.replace(/\{cidade\}/gi, '');
+  }
+
+  if (bairroContato) {
+    msg = msg.replace(/\{bairro\}/gi, bairroContato);
+  } else {
+    msg = msg.replace(/\{bairro\}/gi, '');
+  }
+
+  return msg.replace(/\s{2,}/g, ' ').trim();
+}
+
 export const config = {
   maxDuration: 60
 };
 
 /**
  * API Handler para processamento assíncrono em lote da fila de disparos oficiais (communication_campaign_items).
- * Consome contatos pendentes, sinaliza envio na Graph API, grava status na fila e incrementa totais da campanha.
+ * Suporta canais WhatsApp (Oficial / Wafly) e SMS (SMSDev).
+ * Consome contatos pendentes, sinaliza envio nos provedores, grava status na fila e incrementa totais da campanha.
  */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -76,7 +109,7 @@ export default async function handler(req, res) {
     if (campaign_id) {
       const { data: campInfo } = await supabase
         .from('communication_campaigns')
-        .select('metadata')
+        .select('canal, metadata')
         .eq('id', campaign_id)
         .maybeSingle();
 
@@ -93,7 +126,7 @@ export default async function handler(req, res) {
 
     let queryPendentes = supabase
       .from('communication_campaign_items')
-      .select('id, status, started_at, campaign_id, communication_campaigns!inner(status, metadata)')
+      .select('id, status, started_at, campaign_id, communication_campaigns!inner(status, canal, metadata)')
       .or(`status.eq.pendente,and(status.eq.processando,started_at.lt.${cutoffOrfaos})`)
       .in('communication_campaigns.status', ['Na Fila', 'Executando', 'processando']);
 
@@ -137,13 +170,17 @@ export default async function handler(req, res) {
     const timelineRegistradaMap = new Set();
     const { registrarEventoTimeline } = require('@/lib/timeline-helper');
 
-    // Função auxiliar para carregar campanha e conta
+    // Função auxiliar para carregar contexto da campanha
     async function carregarContextoCampanha(campId) {
       if (campanhasMap.has(campId)) {
+        const cachedCamp = campanhasMap.get(campId);
+        const cachedIsSms = String(cachedCamp?.canal || '').toLowerCase() === 'sms' ||
+                            String(cachedCamp?.metadata?.provider || '').toUpperCase() === 'SMSDEV';
         return {
-          campanha: campanhasMap.get(campId),
+          campanha: cachedCamp,
           provider: providersMap.get(campId),
-          contaSelecionada: contasMap.get(campId)
+          contaSelecionada: contasMap.get(campId),
+          isSms: cachedIsSms
         };
       }
 
@@ -157,37 +194,45 @@ export default async function handler(req, res) {
         throw new Error(`Campanha ${campId} não localizada.`);
       }
 
+      const isSms = String(campanha.canal || '').toLowerCase() === 'sms' ||
+                    String(campanha.metadata?.provider || '').toUpperCase() === 'SMSDEV';
+
       let contaSelecionada = null;
-      const providerCampanha = String(campanha.metadata?.provider || '').toUpperCase();
+      let provider = null;
 
-      // Se a campanha possui provider explicitamente fixado no metadata (ex: WAFLY), busca a conta ativa correspondente
-      if (providerCampanha) {
-        const { data: contas } = await supabase
-          .from('whatsapp_business_accounts')
-          .select('*')
-          .eq('tenant_id', campanha.tenant_id)
-          .eq('status', 'ATIVO');
-        contaSelecionada = (contas || []).find(c => String(c.provider || '').toUpperCase() === providerCampanha);
+      // Se NÃO for SMS, busca a conta WhatsApp e instancia o provider correspondente
+      if (!isSms) {
+        const providerCampanha = String(campanha.metadata?.provider || '').toUpperCase();
+
+        // Se a campanha possui provider explicitamente fixado no metadata (ex: WAFLY), busca a conta ativa correspondente
+        if (providerCampanha) {
+          const { data: contas } = await supabase
+            .from('whatsapp_business_accounts')
+            .select('*')
+            .eq('tenant_id', campanha.tenant_id)
+            .eq('status', 'ATIVO');
+          contaSelecionada = (contas || []).find(c => String(c.provider || '').toUpperCase() === providerCampanha);
+        }
+
+        // Se não encontrou ou não foi fixado, utiliza a conta principal ativa do tenant (padrão META/YCLOUD/WABLAST)
+        if (!contaSelecionada) {
+          contaSelecionada = await buscarContaWhatsappPrincipal(supabase, { tenant_id: campanha.tenant_id });
+        }
+
+        if (!contaSelecionada) {
+          throw new Error(`Credenciais de disparo de WhatsApp ausentes para este tenant (${campanha.tenant_id}).`);
+        }
+
+        const contaNormalizada = normalizarWhatsappAccount(contaSelecionada);
+        const providerAccount = {
+          ...contaSelecionada,
+          ...contaNormalizada,
+          accessToken: contaSelecionada.access_token || contaSelecionada.ycloud_api_key,
+          ycloudApiKey: contaSelecionada.ycloud_api_key
+        };
+
+        provider = createWhatsAppProvider(providerAccount);
       }
-
-      // Se não encontrou ou não foi fixado, utiliza a conta principal ativa do tenant (padrão META/YCLOUD/WABLAST)
-      if (!contaSelecionada) {
-        contaSelecionada = await buscarContaWhatsappPrincipal(supabase, { tenant_id: campanha.tenant_id });
-      }
-
-      if (!contaSelecionada) {
-        throw new Error(`Credenciais de disparo de WhatsApp ausentes para este tenant (${campanha.tenant_id}).`);
-      }
-
-      const contaNormalizada = normalizarWhatsappAccount(contaSelecionada);
-      const providerAccount = {
-        ...contaSelecionada,
-        ...contaNormalizada,
-        accessToken: contaSelecionada.access_token || contaSelecionada.ycloud_api_key,
-        ycloudApiKey: contaSelecionada.ycloud_api_key
-      };
-
-      const provider = createWhatsAppProvider(providerAccount);
 
       campanhasMap.set(campId, campanha);
       contasMap.set(campId, contaSelecionada);
@@ -198,18 +243,20 @@ export default async function handler(req, res) {
         timelineRegistradaMap.add(campId);
         await registrarEventoTimeline(supabase, campanha.id, {
           tipo: 'Processamento iniciado',
-          descricao: 'O motor de disparos oficiais iniciou o processamento em lote da fila de transmissão.'
+          descricao: isSms
+            ? 'O motor de disparos SMS iniciou o processamento em lote da fila de transmissão.'
+            : 'O motor de disparos oficiais iniciou o processamento em lote da fila de transmissão.'
         });
       }
 
-      return { campanha, provider, contaSelecionada };
+      return { campanha, provider, contaSelecionada, isSms };
     }
 
     let sucessos = 0;
     let falhas = 0;
     const campaignStats = new Map(); // campId => { sucessos: 0, falhas: 0 }
 
-    // Processamento concorrente: estritamente 1 para WAFLY, e 5 para provedores oficiais (META/YCLOUD)
+    // Processamento concorrente: estritamente 1 para WAFLY, e 5 para provedores oficiais (META/YCLOUD) e SMS
     const isLoteWafly = isCampanhaAlvoWafly || contemWafly;
     const CONCURRENCY_LIMIT = isLoteWafly ? 1 : 5;
     const itemsParaProcessar = itensReservados || [];
@@ -220,8 +267,115 @@ export default async function handler(req, res) {
       await Promise.all(
         chunk.map(async (item) => {
           try {
-            const { campanha, provider, contaSelecionada } = await carregarContextoCampanha(item.campaign_id);
+            const { campanha, provider, contaSelecionada, isSms } = await carregarContextoCampanha(item.campaign_id);
 
+            // ─── RAMO SMS (SMSDEV) ──────────────────────────────────────────────────
+            if (isSms) {
+              const textoBase = item.variaveis_mapeadas?.mensagem_personalizada ||
+                                item.variaveis_mapeadas?.mensagem_sms ||
+                                campanha.metadata?.mensagem_sms ||
+                                '';
+
+              const textoMensagem = interpolarMensagemSms(textoBase, item);
+
+              if (!textoMensagem) {
+                throw new Error('Item de campanha SMS sem conteúdo de mensagem preenchido para envio.');
+              }
+
+              const referId = `t${campanha.tenant_id}_camp_${campanha.id}_item_${item.id}`;
+              const destinatarioNome = item.variaveis_mapeadas?.nome || 'Contato';
+
+              const resSms = await enviarNotificacaoSmsServico({
+                supabase,
+                usuarioOuTenant: campanha.tenant_id,
+                telefone: item.contact_id,
+                destinatarioNome,
+                mensagem: textoMensagem,
+                evento: 'campanha',
+                referIdCustom: referId
+              });
+
+              if (resSms.success) {
+                await supabase
+                  .from('communication_campaign_items')
+                  .update({
+                    status: 'enviado',
+                    provider_message_id: resSms.providerMessageId || null,
+                    attempts: (item.attempts || 0) + 1,
+                    finished_at: new Date().toISOString()
+                  })
+                  .eq('id', item.id);
+
+                sucessos++;
+                const stats = campaignStats.get(item.campaign_id) || { sucessos: 0, falhas: 0 };
+                stats.sucessos++;
+                campaignStats.set(item.campaign_id, stats);
+                return;
+              }
+
+              // Se a falha foi por saldo insuficiente ou bloqueio de carteira
+              if (resSms.status === 'saldo_insuficiente' || resSms.status === 'falha_reserva' || resSms.status === 'bloqueado_carteira') {
+                await supabase
+                  .from('communication_campaign_items')
+                  .update({
+                    status: 'falha',
+                    attempts: (item.attempts || 0) + 1,
+                    last_error: resSms.erro || 'Saldo de créditos SMS insuficiente no tenant',
+                    finished_at: new Date().toISOString()
+                  })
+                  .eq('id', item.id);
+
+                falhas++;
+                const stats = campaignStats.get(item.campaign_id) || { sucessos: 0, falhas: 0 };
+                stats.falhas++;
+                campaignStats.set(item.campaign_id, stats);
+
+                await registrarEventoTimeline(supabase, item.campaign_id, {
+                  tipo: 'Falhas relevantes',
+                  descricao: `Disparo interrompido para ${item.contact_id}: ${resSms.erro || 'Saldo de créditos SMS insuficiente'}`,
+                  metadata: { contact_id: item.contact_id, erro: resSms.erro }
+                });
+                return;
+              }
+
+              // Se o resultado for incerto (timeout de rede/5xx), mantém em processamento para reconciliação DLR
+              if (resSms.incerto || resSms.status === 'pendente') {
+                await supabase
+                  .from('communication_campaign_items')
+                  .update({
+                    status: 'processando',
+                    attempts: (item.attempts || 0) + 1,
+                    last_error: resSms.erro || 'Envio com resultado incerto, aguardando confirmação DLR'
+                  })
+                  .eq('id', item.id);
+                return;
+              }
+
+              // Falha explícita / validação / rejeição do gateway
+              await supabase
+                .from('communication_campaign_items')
+                .update({
+                  status: 'falha',
+                  attempts: (item.attempts || 0) + 1,
+                  last_error: resSms.erro || 'Falha no disparo de SMS',
+                  finished_at: new Date().toISOString()
+                })
+                .eq('id', item.id);
+
+              falhas++;
+              const stats = campaignStats.get(item.campaign_id) || { sucessos: 0, falhas: 0 };
+              stats.falhas++;
+              campaignStats.set(item.campaign_id, stats);
+
+              await registrarEventoTimeline(supabase, item.campaign_id, {
+                tipo: 'Falhas relevantes',
+                descricao: `Erro ao enviar SMS para ${item.contact_id}: ${resSms.erro || 'Falha no envio'}`,
+                metadata: { contact_id: item.contact_id, error: resSms.erro }
+              });
+              return;
+            }
+
+            // ─── RAMO WHATSAPP (OFICIAL & WAFLY) ──────────────────────────────────
             const isCampanhaWafly = String(campanha.metadata?.provider || contaSelecionada?.provider || '').toUpperCase() === 'WAFLY';
             const temMensagemPersonalizada = Boolean(item.variaveis_mapeadas?.mensagem_personalizada && String(item.variaveis_mapeadas.mensagem_personalizada).trim().length > 0);
             const isWaflyItem = isCampanhaWafly || temMensagemPersonalizada || item.template_id === 'wafly_variacoes';
@@ -334,7 +488,7 @@ export default async function handler(req, res) {
             }
 
             // 6.1 Registra a mensagem de saída na Central de Atendimento
-            const realProvider = isWaflyItem ? 'WAFLY' : String(contaSelecionada.provider || 'META').toUpperCase();
+            const realProvider = isWaflyItem ? 'WAFLY' : String(contaSelecionada?.provider || 'META').toUpperCase();
             await supabase
               .from('communication_messages')
               .insert({
@@ -356,7 +510,7 @@ export default async function handler(req, res) {
               })
               .eq('id', conversa.id);
 
-            // 7. Atualização SUCESSO: Altera status para 'enviada'
+            // 7. Atualização SUCESSO: Altera status para 'enviado'
             const novasVariaveis = {
               ...(item.variaveis_mapeadas || {}),
               conversation_id: conversa.id

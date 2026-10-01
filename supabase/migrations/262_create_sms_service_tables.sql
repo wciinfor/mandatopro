@@ -551,20 +551,23 @@ CREATE POLICY authenticated_select_tenant_sms_transactions
 -- Funções SECURITY DEFINER de saldo e ledger NUNCA devem ser invocadas diretamente
 -- por clientes anônimos ou autenticados (PostgREST). Somente o backend (service_role)
 -- ou triggers internos possuem permissão de execução.
-REVOKE EXECUTE ON FUNCTION public.fn_sms_reservar_credito(BIGINT, INT, BIGINT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_sms_reservar_credito(BIGINT, INT, BIGINT) TO service_role;
-
-REVOKE EXECUTE ON FUNCTION public.fn_sms_confirmar_consumo(BIGINT, INT, BIGINT, TEXT, BIGINT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_sms_confirmar_consumo(BIGINT, INT, BIGINT, TEXT, BIGINT) TO service_role;
-
-REVOKE EXECUTE ON FUNCTION public.fn_sms_liberar_reserva(BIGINT, INT, BIGINT, TEXT, BIGINT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_sms_liberar_reserva(BIGINT, INT, BIGINT, TEXT, BIGINT) TO service_role;
-
-REVOKE EXECUTE ON FUNCTION public.fn_sms_estornar_credito(BIGINT, INT, BIGINT, TEXT, BIGINT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_sms_estornar_credito(BIGINT, INT, BIGINT, TEXT, BIGINT) TO service_role;
-
-REVOKE EXECUTE ON FUNCTION public.fn_sms_adicionar_credito(BIGINT, INT, BIGINT, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_sms_adicionar_credito(BIGINT, INT, BIGINT, TEXT) TO service_role;
-
-REVOKE EXECUTE ON FUNCTION public.fn_sms_consultar_saldo(BIGINT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_sms_consultar_saldo(BIGINT) TO service_role;
+-- Revoga acesso público/anon/authenticated e garante acesso estrito ao service_role
+DO $$
+BEGIN
+  -- Permissões das funções RPC de saldo
+  GRANT EXECUTE ON FUNCTION public.fn_sms_reservar_credito TO service_role;
+  GRANT EXECUTE ON FUNCTION public.fn_sms_confirmar_consumo TO service_role;
+  GRANT EXECUTE ON FUNCTION public.fn_sms_liberar_reserva TO service_role;
+  GRANT EXECUTE ON FUNCTION public.fn_sms_estornar_credito TO service_role;
+  GRANT EXECUTE ON FUNCTION public.fn_sms_adicionar_credito TO service_role;
+  GRANT EXECUTE ON FUNCTION public.fn_sms_consultar_saldo TO service_role;
+  
+  REVOKE EXECUTE ON FUNCTION public.fn_sms_reservar_credito FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.fn_sms_confirmar_consumo FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.fn_sms_liberar_reserva FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.fn_sms_estornar_credito FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.fn_sms_adicionar_credito FROM anon, authenticated;
+  REVOKE EXECUTE ON FUNCTION public.fn_sms_consultar_saldo FROM anon, authenticated;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Aviso nas permissões RPC: %', SQLERRM;
+END $$;

@@ -194,26 +194,34 @@ export default async function handler(req, res) {
     const totalDestinatariosReal = destinatariosValidos.length;
 
     // 0.1 RESOLUÇÃO E VALIDAÇÃO SEGURA DO PROVIDER
-    const { data: contasTenant } = await supabase
-      .from('whatsapp_business_accounts')
-      .select('id, provider, principal, status')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'ATIVO');
-
     const providerDesejado = body.provider ? String(body.provider).toUpperCase().trim() : null;
+    const isSms = String(body.canal || '').toLowerCase() === 'sms' || providerDesejado === 'SMSDEV';
 
-    // Valida se o provider requisitado realmente existe e está ativo para o tenant (segurança contra input cego)
     let contaResolvida = null;
-    if (providerDesejado) {
-      contaResolvida = (contasTenant || []).find(c => String(c.provider || '').toUpperCase() === providerDesejado);
+    let providerResolvido = 'META';
+
+    if (isSms) {
+      providerResolvido = 'SMSDEV';
+    } else {
+      const { data: contasTenant } = await supabase
+        .from('whatsapp_business_accounts')
+        .select('id, provider, principal, status')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'ATIVO');
+
+      // Valida se o provider requisitado realmente existe e está ativo para o tenant (segurança contra input cego)
+      if (providerDesejado) {
+        contaResolvida = (contasTenant || []).find(c => String(c.provider || '').toUpperCase() === providerDesejado);
+      }
+
+      // Se não informou provider explicitamente ou o informado não é válido para o tenant, adota a conta principal ativa
+      if (!contaResolvida) {
+        contaResolvida = (contasTenant || []).find(c => c.principal) || (contasTenant || [])[0] || null;
+      }
+
+      providerResolvido = String(contaResolvida?.provider || 'META').toUpperCase();
     }
 
-    // Se não informou provider explicitamente ou o informado não é válido para o tenant, adota a conta principal ativa
-    if (!contaResolvida) {
-      contaResolvida = (contasTenant || []).find(c => c.principal) || (contasTenant || [])[0] || null;
-    }
-
-    const providerResolvido = String(contaResolvida?.provider || 'META').toUpperCase();
     const isWafly = providerResolvido === 'WAFLY';
 
     // 0.2 PROCESSAMENTO E VALIDAÇÃO DAS VARIAÇÕES DE MENSAGEM
@@ -318,6 +326,13 @@ export default async function handler(req, res) {
         },
         variacoes_mensagem: variacoesValidadas
       };
+    } else if (isSms) {
+      metadataFinal = {
+        ...metadataFinal,
+        provider: 'SMSDEV',
+        canal: 'sms',
+        mensagem_sms: body.mensagem_sms || body.variaveis?.mensagem_sms || ''
+      };
     }
 
     // 3.1 Persiste a comunicação na tabela principal de campanhas de disparos (communication_campaigns)
@@ -326,7 +341,7 @@ export default async function handler(req, res) {
       .insert({
         tenant_id: tenantId,
         nome: body.nome,
-        canal: body.canal || 'whatsapp',
+        canal: body.canal || (isSms ? 'sms' : 'whatsapp'),
         status: body.agendamento ? 'agendado' : 'Na Fila',
         template_id: templateId,
         audience_id: audienceId,
@@ -357,6 +372,10 @@ export default async function handler(req, res) {
         ...variaveisConfig
       };
 
+      if (isSms) {
+        variaveisMapeadas.mensagem_sms = body.mensagem_sms || body.variaveis?.mensagem_sms || '';
+      }
+
       // 4.2 Para WAFLY com variações: aplica distribuição determinística (index % K) e personalização segura
       if (temVariacoesWafly) {
         const variacaoIndex = index % K;
@@ -371,7 +390,7 @@ export default async function handler(req, res) {
         tenant_id: tenantId,
         campaign_id: campanhaCriada.id,
         contact_id: String(d.telefone_limpo || d.telefone_original).replace(/\D/g, ''),
-        template_id: body.template || (temVariacoesWafly ? 'wafly_variacoes' : 'default'),
+        template_id: body.template || (isSms ? 'sms_texto_livre' : (temVariacoesWafly ? 'wafly_variacoes' : 'default')),
         status: 'pendente',
         variaveis_mapeadas: variaveisMapeadas
       };

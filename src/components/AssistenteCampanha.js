@@ -16,7 +16,10 @@ import {
   faInfoCircle,
   faUpload,
   faTrash,
-  faPlus
+  faPlus,
+  faCommentSms,
+  faCoins,
+  faWallet
 } from '@fortawesome/free-solid-svg-icons';
 import * as XLSX from 'xlsx';
 import { normalizarTelefone, deduplicarContatos } from '@/lib/disparos/contatos';
@@ -112,6 +115,23 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       }
       return v;
     }));
+    if (erroAlerta) setErroAlerta(null);
+  };
+
+  // Estados e controle de fluxo específico para canal SMS (SMSDev)
+  const isSms = canal === 'sms';
+  const [mensagemSms, setMensagemSms] = useState('');
+  const [saldoSms, setSaldoSms] = useState(null);
+  const [carregandoSaldoSms, setCarregandoSaldoSms] = useState(false);
+  const [erroSaldoSms, setErroSaldoSms] = useState(null);
+
+  const handleInserirTagSms = (tag) => {
+    setMensagemSms(prev => {
+      const atual = prev || '';
+      const nova = atual ? `${atual} ${tag}` : tag;
+      if (nova.length > 160) return nova.substring(0, 160);
+      return nova;
+    });
     if (erroAlerta) setErroAlerta(null);
   };
 
@@ -297,11 +317,39 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
     }
   };
 
+  // Carrega saldo de créditos da carteira de SMS do tenant
+  const carregarSaldoSms = async () => {
+    setCarregandoSaldoSms(true);
+    setErroSaldoSms(null);
+    try {
+      const res = await fetch('/api/sms/saldo');
+      if (!res.ok) throw new Error('Falha ao consultar saldo da carteira de SMS.');
+      const data = await res.json();
+      if (data.success && data.saldo) {
+        setSaldoSms(data.saldo);
+      } else {
+        throw new Error(data.error || 'Saldo de SMS não retornado');
+      }
+    } catch (err) {
+      console.warn('Aviso ao consultar saldo SMS:', err?.message);
+      setErroSaldoSms(err.message || 'Não foi possível carregar o saldo de SMS.');
+    } finally {
+      setCarregandoSaldoSms(false);
+    }
+  };
+
   useEffect(() => {
     carregarContaOficial();
     carregarTemplatesReais();
+    carregarSaldoSms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (canal === 'sms') {
+      carregarSaldoSms();
+    }
+  }, [canal]);
 
   // Carrega a lista de campanhas para o select através da API real existente
   const carregarCampanhasCRM = async () => {
@@ -683,6 +731,21 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       .replace(/\{cidade\}/gi, exemploCidade);
   };
 
+  // Gera o texto interpolado da mensagem SMS para prévia em tempo real usando o primeiro contato
+  const getMensagemSmsPreview = () => {
+    const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+    const exemploNome = listaBase[0]?.nome || 'João da Silva';
+    const exemploCidade = listaBase[0]?.cidade || listaBase[0]?.municipio || 'Belém';
+    const exemploBairro = listaBase[0]?.bairro || 'Centro';
+
+    if (!mensagemSms.trim()) return '';
+
+    return mensagemSms
+      .replace(/\{nome\}/gi, exemploNome)
+      .replace(/\{cidade\}/gi, exemploCidade)
+      .replace(/\{bairro\}/gi, exemploBairro);
+  };
+
   // Total de 7 etapas estruturadas no fluxo oficial
   const totalSteps = 7;
 
@@ -703,7 +766,11 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step === 4) {
-        if (isWafly) {
+        if (isSms) {
+          const txt = String(mensagemSms || '').trim();
+          if (!txt) return 'Digite a mensagem de texto do SMS.';
+          if (txt.length > 160) return `A mensagem SMS excede o limite de 160 caracteres (atual: ${txt.length}).`;
+        } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
           if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
@@ -713,7 +780,13 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step === 5) {
-        if (isWafly) {
+        if (isSms) {
+          const totalAptos = destinatariosFiltrados.length;
+          const saldoDisponivel = saldoSms?.saldo_disponivel ?? saldoSms?.saldo_creditos ?? 0;
+          if (saldoDisponivel < totalAptos) {
+            return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${totalAptos} crédito(s).`;
+          }
+        } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem válida.';
         } else {
@@ -739,7 +812,15 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         if (!Array.isArray(listaAlvo) || listaAlvo.length === 0) {
           return 'A lista não possui destinatários aptos para disparo.';
         }
-        if (isWafly) {
+        if (isSms) {
+          const txt = String(mensagemSms || '').trim();
+          if (!txt) return 'Digite a mensagem de texto do SMS.';
+          if (txt.length > 160) return `A mensagem SMS excede o limite de 160 caracteres (atual: ${txt.length}).`;
+          const saldoDisponivel = saldoSms?.saldo_disponivel ?? saldoSms?.saldo_creditos ?? 0;
+          if (saldoDisponivel < listaAlvo.length) {
+            return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${listaAlvo.length} crédito(s).`;
+          }
+        } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
           if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
@@ -775,7 +856,11 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step === 4) {
-        if (isWafly) {
+        if (isSms) {
+          const txt = String(mensagemSms || '').trim();
+          if (!txt) return 'Digite a mensagem de texto do SMS.';
+          if (txt.length > 160) return `A mensagem SMS excede o limite de 160 caracteres (atual: ${txt.length}).`;
+        } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
           if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
@@ -785,7 +870,13 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         }
       }
       if (step === 5) {
-        if (isWafly) {
+        if (isSms) {
+          const totalAptos = destinatariosFiltrados.length;
+          const saldoDisponivel = saldoSms?.saldo_disponivel ?? saldoSms?.saldo_creditos ?? 0;
+          if (saldoDisponivel < totalAptos) {
+            return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${totalAptos} crédito(s).`;
+          }
+        } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem válida.';
         } else {
@@ -809,7 +900,15 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
         if (!Array.isArray(listaAlvo) || listaAlvo.length === 0) {
           return 'A lista não possui destinatários aptos para disparo.';
         }
-        if (isWafly) {
+        if (isSms) {
+          const txt = String(mensagemSms || '').trim();
+          if (!txt) return 'Digite a mensagem de texto do SMS.';
+          if (txt.length > 160) return `A mensagem SMS excede o limite de 160 caracteres (atual: ${txt.length}).`;
+          const saldoDisponivel = saldoSms?.saldo_disponivel ?? saldoSms?.saldo_creditos ?? 0;
+          if (saldoDisponivel < listaAlvo.length) {
+            return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${listaAlvo.length} crédito(s).`;
+          }
+        } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
           if (variacoesWafly.length > 5) return 'O número máximo de variações permitido é 5.';
@@ -895,6 +994,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       return {
         id: c.origemId || c.id || null,
         nome: c.nome || 'Contato',
+        cidade: c.cidade || null,
+        bairro: c.bairro || null,
         telefone_limpo: telLimpo,
         telefone_original: telOrig
       };
@@ -931,7 +1032,18 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
       falhas: 0
     };
 
-    if (isWafly) {
+    if (isSms) {
+      payloadSalvar.provider = 'SMSDEV';
+      payloadSalvar.template = 'sms_texto_livre';
+      payloadSalvar.template_id = 'sms_texto_livre';
+      payloadSalvar.idioma = 'pt_BR';
+      payloadSalvar.header_image_url = null;
+      payloadSalvar.variaveis = {
+        mensagem_sms: mensagemSms.trim()
+      };
+      payloadSalvar.mensagem_sms = mensagemSms.trim();
+      payloadSalvar.custo_estimado = listaFinal.length;
+    } else if (isWafly) {
       const variacoesValidas = variacoesWafly
         .filter(v => String(v.texto || '').trim())
         .map(v => ({ id: v.id, texto: v.texto.trim() }));
@@ -976,8 +1088,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   <>
                     {step === 2 && 'Informações do Disparo'}
                     {step === 3 && (origemDestinatarios === 'publico_salvo' ? 'Confirmar Público e Destinatários' : 'Selecionar Público da Base MandatoPRO')}
-                    {step === 4 && (isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
-                    {step === 5 && (isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
+                    {step === 4 && (isSms ? 'Mensagem de Texto (SMS)' : isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
+                    {step === 5 && (isSms ? 'Validação de Saldo e Créditos' : isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
                     {step === 6 && 'Revisão da Comunicação'}
                     {step === 7 && 'Configurar Agendamento'}
                   </>
@@ -988,8 +1100,8 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                   <>
                     {step === 2 && 'Informações do Disparo'}
                     {step === 3 && 'Importar arquivo CSV'}
-                    {step === 4 && (isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
-                    {step === 5 && (isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
+                    {step === 4 && (isSms ? 'Mensagem de Texto (SMS)' : isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
+                    {step === 5 && (isSms ? 'Validação de Saldo e Créditos' : isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
                     {step === 6 && 'Revisão da Comunicação'}
                     {step === 7 && 'Configurar Agendamento'}
                   </>
@@ -1187,8 +1299,11 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Canal de Disparo</label>
                 <select
                   value={canal}
-                  onChange={(e) => setCanal(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-sm focus:outline-none"
+                  onChange={(e) => {
+                    setCanal(e.target.value);
+                    if (erroAlerta) setErroAlerta(null);
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded-xl p-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 >
                   <option value="whatsapp">
                     {(() => {
@@ -1199,6 +1314,7 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                       return 'WhatsApp Business Oficial (YCloud / Meta / WaBlast)';
                     })()}
                   </option>
+                  <option value="sms">SMS (SMSDev)</option>
                 </select>
               </div>
 
@@ -1737,8 +1853,92 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
+          {/* Mensagem de Texto Direta (SMS SMSDev) */}
+          {step === 4 && isSms && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Mensagem de Texto do SMS
+                  </label>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Digite a mensagem direta que será enviada para cada destinatário via SMS.
+                  </p>
+                </div>
+                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                  mensagemSms.length > 160
+                    ? 'bg-rose-50 text-rose-700 border-rose-300'
+                    : mensagemSms.length > 140
+                    ? 'bg-amber-50 text-amber-700 border-amber-300'
+                    : 'bg-teal-50 text-teal-700 border-teal-200'
+                }`}>
+                  {mensagemSms.length} / 160 caracteres (1 crédito)
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white border border-gray-200 rounded-xl space-y-2.5 shadow-2xs">
+                <textarea
+                  rows={4}
+                  value={mensagemSms}
+                  maxLength={160}
+                  onChange={(e) => {
+                    setMensagemSms(e.target.value);
+                    if (erroAlerta) setErroAlerta(null);
+                  }}
+                  placeholder="Ex: Olá {nome}, informamos que seu atendimento em {cidade} foi agendado com sucesso!"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white resize-y font-sans leading-relaxed"
+                />
+
+                {/* Atalhos para Tags Dinâmicas */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-gray-100">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-gray-400 font-semibold">Inserir variável:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleInserirTagSms('{nome}')}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded-lg border border-teal-200 transition"
+                      title="Substitui pelo nome do eleitor/contato"
+                    >
+                      + Nome ({'{nome}'})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInserirTagSms('{cidade}')}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded-lg border border-teal-200 transition"
+                      title="Substitui pela cidade do contato"
+                    >
+                      + Cidade ({'{cidade}'})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInserirTagSms('{bairro}')}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded-lg border border-teal-200 transition"
+                      title="Substitui pelo bairro do contato"
+                    >
+                      + Bairro ({'{bairro}'})
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-gray-400">
+                    Restam {160 - mensagemSms.length} caracteres
+                  </span>
+                </div>
+              </div>
+
+              {/* Dica de Boas Práticas SMS */}
+              <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl text-blue-900 text-[11px] space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-blue-800">
+                  <FontAwesomeIcon icon={faInfoCircle} />
+                  <span>Dica de Envio SMS</span>
+                </p>
+                <p className="text-blue-700 leading-relaxed">
+                  As tags <code>{'{nome}'}</code>, <code>{'{cidade}'}</code> e <code>{'{bairro}'}</code> serão preenchidas com os dados de cada linha da planilha ou base de eleitores. Evite caracteres especiais para garantir entrega perfeita pelas operadoras.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Selecionar Template Oficial (META / YCLOUD) */}
-          {step === 4 && !isWafly && (
+          {step === 4 && !isSms && !isWafly && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold text-gray-700">Selecione o Template Oficial Homologado</label>
@@ -1947,8 +2147,119 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
             </div>
           )}
 
+          {/* Validação de Saldo e Créditos (SMS SMSDev) */}
+          {step === 5 && isSms && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Validação de Saldo e Créditos SMS
+                  </label>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Confira a carteira de créditos do seu tenant e o custo estimado do disparo.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={carregarSaldoSms}
+                  disabled={carregandoSaldoSms}
+                  className="text-teal-600 hover:text-teal-800 text-xs font-semibold flex items-center gap-1 disabled:opacity-50"
+                  title="Atualizar saldo da carteira"
+                >
+                  <FontAwesomeIcon icon={faSpinner} className={carregandoSaldoSms ? 'animate-spin' : ''} />
+                  Atualizar Saldo
+                </button>
+              </div>
+
+              {/* Cards de Métricas Financeiras SMS */}
+              {(() => {
+                const totalAptos = destinatariosFiltrados.length;
+                const creditosNecessarios = totalAptos * 1; // 1 crédito por destinatário
+                const saldoTotal = saldoSms?.saldo_creditos ?? 0;
+                const saldoReservado = saldoSms?.saldo_reservado ?? 0;
+                const saldoDisponivel = saldoSms?.saldo_disponivel ?? Math.max(0, saldoTotal - saldoReservado);
+                const saldoAposEnvio = saldoDisponivel - creditosNecessarios;
+                const saldoSuficiente = saldoDisponivel >= creditosNecessarios;
+
+                return (
+                  <div className="space-y-3.5">
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <div className="p-3 bg-white border border-gray-200 rounded-xl space-y-1 shadow-2xs">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase">
+                          <FontAwesomeIcon icon={faWallet} className="text-gray-400" />
+                          <span>Saldo Disponível</span>
+                        </div>
+                        <p className="text-xl font-extrabold text-gray-800">
+                          {carregandoSaldoSms ? (
+                            <FontAwesomeIcon icon={faSpinner} spin className="text-teal-600 text-sm" />
+                          ) : (
+                            saldoDisponivel
+                          )}
+                        </p>
+                        <span className="text-[10px] text-gray-400 block">créditos na carteira</span>
+                      </div>
+
+                      <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl space-y-1 shadow-2xs">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-700 uppercase">
+                          <FontAwesomeIcon icon={faCoins} className="text-blue-600" />
+                          <span>Necessários</span>
+                        </div>
+                        <p className="text-xl font-extrabold text-blue-900">
+                          {creditosNecessarios}
+                        </p>
+                        <span className="text-[10px] text-blue-600 block">1 crédito / envio</span>
+                      </div>
+
+                      <div className={`p-3 rounded-xl border space-y-1 shadow-2xs ${
+                        saldoSuficiente
+                          ? 'bg-emerald-50/80 border-emerald-300 text-emerald-900'
+                          : 'bg-rose-50 border-rose-300 text-rose-900'
+                      }`}>
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase">
+                          <span>{saldoSuficiente ? 'Saldo Após Envio' : 'Déficit'}</span>
+                        </div>
+                        <p className={`text-xl font-extrabold ${saldoSuficiente ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          {saldoAposEnvio >= 0 ? saldoAposEnvio : Math.abs(saldoAposEnvio)}
+                        </p>
+                        <span className={`text-[10px] block ${saldoSuficiente ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {saldoSuficiente ? 'créditos restantes' : 'créditos em falta'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Alerta de Saldo Insuficiente ou Confirmação Positiva */}
+                    {!saldoSuficiente ? (
+                      <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs space-y-2">
+                        <div className="flex items-center gap-2 font-bold text-rose-800">
+                          <FontAwesomeIcon icon={faExclamationTriangle} className="text-rose-600 text-base shrink-0" />
+                          <span>Saldo Insuficiente na Carteira de SMS</span>
+                        </div>
+                        <p className="text-[11px] text-rose-700 leading-relaxed">
+                          Sua instituição possui <strong>{saldoDisponivel} créditos disponíveis</strong>, mas esta campanha possui <strong>{totalAptos} destinatários aptos</strong> (necessitando de {creditosNecessarios} créditos).
+                        </p>
+                        <p className="text-[11px] text-rose-800 font-semibold">
+                          ⚠️ O avanço para finalização está bloqueado até que uma recarga de créditos seja realizada ou o público seja reduzido.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 text-xs space-y-1.5">
+                        <div className="flex items-center gap-2 font-bold text-emerald-800">
+                          <FontAwesomeIcon icon={faCheckCircle} className="text-emerald-600" />
+                          <span>Saldo Suficiente para Transmissão</span>
+                        </div>
+                        <p className="text-[11px] text-emerald-800 leading-relaxed">
+                          Os <strong>{creditosNecessarios} créditos</strong> serão reservados de forma atômica no banco de dados e debitados somente após o aceite pela SMSDev.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Configurar Variáveis (META / YCLOUD) */}
-          {step === 5 && !isWafly && (
+          {step === 5 && !isSms && !isWafly && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700">Preencha as Variáveis do Template Oficial</label>
@@ -2361,36 +2672,65 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
 
                 {/* 3. Canal de Envio */}
                 <div className="border-b border-gray-200/60 pb-2.5">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">3. Canal & Número de Origem</span>
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                      <span className="text-gray-400 block text-[10px]">Provedor Oficial:</span>
-                      <strong className="text-teal-700">
-                        {(() => {
-                          const prov = String(contaOficial?.provider || '').toUpperCase();
-                          if (prov === 'WAFLY') return 'WAFLY Oficial';
-                          if (prov === 'WABLAST') return 'WaBlast Oficial';
-                          if (prov === 'YCLOUD') return 'YCloud Oficial';
-                          if (prov === 'META') return 'Meta Cloud API Oficial';
-                          return 'WhatsApp Oficial';
-                        })()}
-                      </strong>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">3. Canal & Provedor</span>
+                  {isSms ? (
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Canal / Provedor:</span>
+                        <strong className="text-teal-700">SMS (SMSDev)</strong>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Custo Estimado:</span>
+                        <strong className="text-gray-800">
+                          {destinatariosFiltrados.length} crédito(s)
+                        </strong>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400 block text-[10px]">Número de Origem:</span>
-                      <strong className="font-mono text-gray-800">
-                        {contaOficial?.displayPhoneNumber || contaOficial?.wablastDetails?.phoneNumber || '+55 91 8088-6129'}
-                      </strong>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Provedor Oficial:</span>
+                        <strong className="text-teal-700">
+                          {(() => {
+                            const prov = String(contaOficial?.provider || '').toUpperCase();
+                            if (prov === 'WAFLY') return 'WAFLY Oficial';
+                            if (prov === 'WABLAST') return 'WaBlast Oficial';
+                            if (prov === 'YCLOUD') return 'YCloud Oficial';
+                            if (prov === 'META') return 'Meta Cloud API Oficial';
+                            return 'WhatsApp Oficial';
+                          })()}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px]">Número de Origem:</span>
+                        <strong className="font-mono text-gray-800">
+                          {contaOficial?.displayPhoneNumber || contaOficial?.wablastDetails?.phoneNumber || '+55 91 8088-6129'}
+                        </strong>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                   {/* 4. Mensagem e Template / Variações */}
                   <div className="space-y-1.5">
                     <span className="text-[10px] font-bold text-gray-400 uppercase block">
-                      {isWafly ? '4. Mensagens Livres (Variações)' : '4. Mensagem & Template Homologado'}
+                      {isSms ? '4. Mensagem SMS' : isWafly ? '4. Mensagens Livres (Variações)' : '4. Mensagem & Template Homologado'}
                     </span>
-                    {isWafly ? (
+                    {isSms ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div>Modo: <strong className="text-gray-800">Texto Direto SMS</strong></div>
+                          <span className="bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-200 text-[10px]">
+                            {mensagemSms.length}/160 caracteres (1 crédito)
+                          </span>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg border border-gray-200 text-[11px]">
+                          <p className="text-gray-700 font-sans whitespace-pre-wrap leading-relaxed">
+                            {mensagemSms}
+                          </p>
+                        </div>
+                      </div>
+                    ) : isWafly ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-[11px]">
                           <div>Modo: <strong className="text-gray-800">Mensagens Livres WAFLY</strong></div>
@@ -2624,7 +2964,9 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
                       <p className="text-2xl font-extrabold text-emerald-700 mt-1">
                         {destinatariosFiltrados.length}
                       </p>
-                      <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">com WhatsApp válido</span>
+                      <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">
+                        {isSms ? 'com celular válido' : 'com WhatsApp válido'}
+                      </span>
                     </div>
                   </div>
 
@@ -2686,11 +3028,67 @@ export default function AssistenteCampanha({ onCancel, onSave }) {
           ) : (
             <div>
               <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-3">
-                {isWafly
+                {isSms
+                  ? 'Prévia em Tempo Real (SMS)'
+                  : isWafly
                   ? `Prévia em Tempo Real (Variação #${(variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) >= 0 ? variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) : 0) + 1})`
                   : 'Prévia em Tempo Real (WhatsApp)'}
               </h4>
-              {isWafly ? (
+              {isSms ? (
+                (() => {
+                  const textoPreview = getMensagemSmsPreview();
+                  const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+                  const primeiroContato = listaBase[0] || null;
+
+                  if (!textoPreview) {
+                    return (
+                      <div className="text-center py-20 text-gray-400 text-xs">
+                        Digite o texto do SMS para visualizar a prévia na tela do celular.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="bg-gray-100 p-5 rounded-2xl border border-gray-200 shadow-inner space-y-3">
+                      {/* Header do Telefone do Destinatário */}
+                      <div className="bg-white px-3 py-2 rounded-xl border border-gray-200 flex items-center justify-between text-[11px] shadow-2xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <FontAwesomeIcon icon={faCommentSms} />
+                          </div>
+                          <div className="truncate">
+                            <p className="font-bold text-gray-800 truncate">
+                              {primeiroContato?.nome || 'Exemplo de Contato'}
+                            </p>
+                            <p className="text-[10px] text-gray-400 font-mono">
+                              {primeiroContato?.telefoneNormalizado || primeiroContato?.telefoneOriginal || '+55 (91) 98095-3531'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[9px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-200 shrink-0">
+                          Mensagem SMS
+                        </span>
+                      </div>
+
+                      {/* Balão de SMS Padrão Celular */}
+                      <div className="flex justify-start pt-1">
+                        <div className="bg-blue-600 text-white rounded-2xl rounded-tl-xs px-4 py-3 max-w-[90%] shadow-sm text-xs space-y-1.5 leading-relaxed">
+                          <p className="whitespace-pre-wrap break-words font-sans">
+                            {textoPreview}
+                          </p>
+                          <div className="flex items-center justify-end text-[9px] text-blue-200 select-none pt-0.5">
+                            <span>SMS · Agora</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-center text-gray-400 pt-1">
+                        * As variáveis foram interpoladas com os dados do 1º destinatário válido da lista.
+                      </p>
+                    </div>
+                  );
+                })()
+              ) : isWafly ? (
                 (() => {
                   const textoPreview = getMensagemWaflyPreview();
                   if (!textoPreview) {
