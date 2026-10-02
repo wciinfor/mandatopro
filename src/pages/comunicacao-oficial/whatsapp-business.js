@@ -7,6 +7,7 @@ import {
   faPlug,
   faShieldAlt,
   faCheck,
+  faCheckCircle,
   faTriangleExclamation,
   faServer,
   faSpinner,
@@ -15,8 +16,11 @@ import {
   faKey,
   faCopy,
   faTimes,
-  faCog
+  faCog,
+  faQrcode,
+  faArrowRight
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { MODULES } from '@/utils/permissions';
 
 export default function WhatsAppBusinessOficial() {
@@ -27,7 +31,7 @@ export default function WhatsAppBusinessOficial() {
   const [iniciandoWablast, setIniciandoWablast] = useState(false);
   const [mensagemStatus, setMensagemStatus] = useState(null);
 
-  // Estados específicos para modal e configuração WAFLY
+  // Estados específicos para modal e configuração manual WAFLY
   const [modalWaflyAberto, setModalWaflyAberto] = useState(false);
   const [salvandoWafly, setSalvandoWafly] = useState(false);
   const [waflyForm, setWaflyForm] = useState({
@@ -41,6 +45,14 @@ export default function WhatsAppBusinessOficial() {
   const [erroWaflyModal, setErroWaflyModal] = useState(null);
   const [webhookCopiado, setWebhookCopiado] = useState(false);
 
+  // Estados específicos para Modal de Conexão WhatsApp via QR Code WAFLY
+  const [modalQrAberto, setModalQrAberto] = useState(false);
+  const [carregandoQr, setCarregandoQr] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [erroQrModal, setErroQrModal] = useState(null);
+  const [conectadoSucesso, setConectadoSucesso] = useState(false);
+  const [telefoneConectado, setTelefoneConectado] = useState(null);
+
   useEffect(() => {
     if (!router.isReady) return;
 
@@ -50,6 +62,33 @@ export default function WhatsAppBusinessOficial() {
       carregarConfiguracao();
     }
   }, [router.isReady, router.query]);
+
+  // Polling automático para detectar conexão quando o modal de QR Code estiver aberto
+  useEffect(() => {
+    let intervalId = null;
+
+    if (modalQrAberto && !conectadoSucesso) {
+      intervalId = setInterval(async () => {
+        try {
+          const res = await fetch('/api/whatsapp-business/wafly-status');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.connected) {
+              setConectadoSucesso(true);
+              setTelefoneConectado(data.phone || config?.waflyDetails?.phoneNumber || null);
+              await carregarConfiguracao();
+            }
+          }
+        } catch (pollErr) {
+          console.warn('[WAFLY POLLING] Erro ao consultar status:', pollErr);
+        }
+      }, 3000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [modalQrAberto, conectadoSucesso, config?.waflyDetails?.phoneNumber]);
 
   const executarSincronizacaoWaBlast = async () => {
     try {
@@ -111,39 +150,6 @@ export default function WhatsAppBusinessOficial() {
     }
   };
 
-  const handleIniciarOnboardingWaBlast = async () => {
-    try {
-      setIniciandoWablast(true);
-      setMensagemStatus(null);
-
-      const res = await fetch('/api/whatsapp-business/wablast-onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success || !data.embed_url) {
-        throw new Error(data.error || 'Não foi possível gerar a sessão de onboarding do WaBlast');
-      }
-
-      setMensagemStatus({
-        tipo: 'sucesso',
-        texto: 'Sessão de onboarding gerada com sucesso! Redirecionando para a conexão oficial...'
-      });
-
-      // Abre a tela oficial do Embedded Signup do WaBlast
-      window.location.href = data.embed_url;
-    } catch (err) {
-      setMensagemStatus({
-        tipo: 'erro',
-        texto: err.message || 'Falha ao iniciar onboarding WaBlast'
-      });
-    } finally {
-      setIniciandoWablast(false);
-    }
-  };
-
   const handleTrocarProvedor = async (novoProvedor) => {
     if (changing || config?.provider === novoProvedor) return;
 
@@ -179,6 +185,45 @@ export default function WhatsAppBusinessOficial() {
     }
   };
 
+  // --- Handlers de QR Code WAFLY ---
+  const carregarQrCode = async () => {
+    try {
+      setCarregandoQr(true);
+      setErroQrModal(null);
+      const res = await fetch('/api/whatsapp-business/wafly-qr');
+      const data = await res.json();
+      if (res.ok && data.success && data.qrCode) {
+        setQrCodeData(data.qrCode);
+      } else {
+        throw new Error(data.error || 'Não foi possível obter o QR Code da WAFLY.');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar QR Code WAFLY:', err);
+      setErroQrModal(err.message || 'Falha ao gerar QR Code.');
+    } finally {
+      setCarregandoQr(false);
+    }
+  };
+
+  const handleAbrirModalQr = () => {
+    setModalQrAberto(true);
+    setConectadoSucesso(false);
+    setTelefoneConectado(null);
+    setErroQrModal(null);
+    setQrCodeData(null);
+    carregarQrCode();
+  };
+
+  const handleFecharModalQr = () => {
+    setModalQrAberto(false);
+    setQrCodeData(null);
+    setErroQrModal(null);
+    if (conectadoSucesso) {
+      carregarConfiguracao();
+    }
+  };
+
+  // --- Handlers de Modal Manual WAFLY ---
   const handleAbrirModalWafly = () => {
     setWaflyForm({
       clientToken: '',
@@ -259,10 +304,9 @@ export default function WhatsAppBusinessOficial() {
       setModalWaflyAberto(false);
       setMensagemStatus({
         tipo: 'sucesso',
-        texto: 'Configuração da WAFLY salva com sucesso! Selecione a WAFLY como provedor ativo quando desejar.'
+        texto: 'Configuração da WAFLY salva com sucesso! Você pode conectar o WhatsApp via QR Code agora.'
       });
 
-      // Recarrega o estado atual da configuração
       await carregarConfiguracao();
     } catch (err) {
       setErroWaflyModal(err.message || 'Erro ao salvar configuração WAFLY.');
@@ -311,7 +355,7 @@ export default function WhatsAppBusinessOficial() {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-teal-100/50">
             <h3 className="text-xl font-bold text-gray-800">WhatsApp Business Oficial</h3>
             <p className="text-sm text-gray-500 mt-1">
-              Configuração e seleção centralizada do provedor oficial de WhatsApp para envios e atendimentos.
+              Configuração, conexão via QR Code e seleção centralizada do provedor oficial de WhatsApp.
             </p>
           </div>
 
@@ -333,7 +377,7 @@ export default function WhatsAppBusinessOficial() {
             </div>
           )}
 
-          {/* CARD NOVO: Seletor Central de Provedor */}
+          {/* CARD: Seletor Central de Provedor */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-6">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4">
               <div>
@@ -369,7 +413,7 @@ export default function WhatsAppBusinessOficial() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {/* Opção WAFLY (Conta Direta via Bridge API) */}
+                {/* Opção WAFLY (Conexão Direta via QR Code / Bridge API) */}
                 {(() => {
                   const isWaflyConnected = Boolean(
                     config?.waflyDetails?.connected ||
@@ -383,7 +427,7 @@ export default function WhatsAppBusinessOficial() {
                   const isWaflyAtivo = providerAtivo === 'WAFLY';
                   const waflyPhone = config?.waflyDetails?.phoneNumber || (isWaflyAtivo ? config?.displayPhoneNumber : null);
                   const waflyInstance = config?.waflyDetails?.instance;
-                  const waflyStatus = config?.waflyDetails?.status || (isWaflyConnected ? 'ATIVO' : 'INATIVO');
+                  const waflyStatus = config?.waflyDetails?.status || (isWaflyConnected ? 'ATIVO' : 'DESCONECTADO');
 
                   return (
                     <div
@@ -392,83 +436,134 @@ export default function WhatsAppBusinessOficial() {
                           handleTrocarProvedor('WAFLY');
                         }
                       }}
-                      className={`p-5 rounded-xl border-2 transition relative ${
-                        isWaflyConnected ? 'cursor-pointer hover:border-gray-300' : ''
+                      className={`p-5 rounded-2xl border-2 transition relative ${
+                        isWaflyConnected ? 'cursor-pointer hover:border-teal-300' : ''
                       } ${
                         isWaflyAtivo
                           ? 'border-teal-600 bg-teal-50/30 shadow-sm'
                           : 'border-gray-200 bg-gray-50/40'
                       }`}
                     >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3">
+                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3.5">
                           <input
                             type="radio"
                             name="provider_choice"
                             checked={isWaflyAtivo}
                             onChange={() => handleTrocarProvedor('WAFLY')}
                             disabled={changing || !isWaflyConnected}
-                            className="w-4 h-4 text-teal-600 focus:ring-teal-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed mt-1"
+                            className="w-4 h-4 text-teal-600 focus:ring-teal-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed mt-1 shrink-0"
                           />
-                          <div className="p-2.5 bg-teal-100/60 text-teal-700 rounded-lg shrink-0">
-                            <FontAwesomeIcon icon={faMobileAlt} className="text-lg" />
+                          <div className="p-3 bg-teal-100/70 text-teal-700 rounded-xl shrink-0">
+                            <FontAwesomeIcon icon={faWhatsapp} className="text-xl" />
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h5 className="font-bold text-gray-800 text-sm">WAFLY</h5>
                               {isWaflyAtivo ? (
-                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-teal-600 text-white rounded">
+                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-teal-600 text-white rounded-md">
                                   Ativo
                                 </span>
                               ) : isWaflyConnected ? (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md">
                                   Conectado / Pronto
                                 </span>
                               ) : isWaflyConfigured ? (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-800 rounded">
-                                  Configuração Incompleta
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded-md">
+                                  Desconectado
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-gray-200 text-gray-700 rounded-md">
                                   Não Configurado
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500">Conexão direta oficial via WAFLY Bridge API</p>
+                            <p className="text-xs text-gray-500">
+                              Conexão direta do WhatsApp via leitura de QR Code (WAFLY Bridge API)
+                            </p>
 
                             {(isWaflyConfigured || isWaflyConnected) && (
-                              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600 bg-white/70 px-3 py-1.5 rounded-lg border border-teal-100">
+                              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600 bg-white/80 px-3 py-1.5 rounded-xl border border-teal-100">
                                 {waflyInstance && (
                                   <span className="flex items-center gap-1">
-                                    <strong>Instância:</strong> {waflyInstance}
+                                    <strong className="text-gray-700">Instância:</strong> {waflyInstance}
                                   </span>
                                 )}
                                 {waflyPhone && (
                                   <span className="flex items-center gap-1">
-                                    <strong>Número:</strong> {waflyPhone}
+                                    <strong className="text-gray-700">Número:</strong> +{waflyPhone}
                                   </span>
                                 )}
                                 <span className="flex items-center gap-1">
-                                  <strong>Status:</strong> {waflyStatus}
+                                  <strong className="text-gray-700">Status:</strong>
+                                  <span className={`font-semibold ${isWaflyConnected ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                    {waflyStatus}
+                                  </span>
                                 </span>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="shrink-0 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAbrirModalWafly();
-                            }}
-                            disabled={changing}
-                            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-2 disabled:opacity-50"
-                          >
-                            <FontAwesomeIcon icon={isWaflyConfigured ? faCog : faPlug} className="text-xs" />
-                            {isWaflyConfigured ? 'Configurar WAFLY' : 'Conectar WAFLY'}
-                          </button>
+                        {/* Botões de Ação do Card WAFLY */}
+                        <div className="shrink-0 flex items-center gap-2 flex-wrap self-end md:self-center">
+                          {isWaflyConnected ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalQr();
+                                }}
+                                disabled={changing}
+                                className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
+                                title="Reconectar via QR Code"
+                              >
+                                <FontAwesomeIcon icon={faQrcode} className="text-teal-600" />
+                                <span>Reconectar QR</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalWafly();
+                                }}
+                                disabled={changing}
+                                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                              >
+                                <FontAwesomeIcon icon={faCog} className="text-xs" />
+                                <span>Configurar WAFLY</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalQr();
+                                }}
+                                disabled={changing}
+                                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                              >
+                                <FontAwesomeIcon icon={faQrcode} className="text-sm" />
+                                <span>Conectar WhatsApp</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalWafly();
+                                }}
+                                disabled={changing}
+                                className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
+                                title="Configurar credenciais da instância"
+                              >
+                                <FontAwesomeIcon icon={faCog} className="text-gray-500 text-xs" />
+                                <span>Configurar</span>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -478,6 +573,7 @@ export default function WhatsAppBusinessOficial() {
             )}
           </div>
 
+          {/* Grid de Detalhes e Status */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
               {/* Card de Informações da Conta */}
@@ -495,7 +591,7 @@ export default function WhatsAppBusinessOficial() {
                       disabled
                       value={
                         providerAtivo === 'WAFLY'
-                          ? 'WAFLY Bridge API (Conexão Direta)'
+                          ? 'WAFLY Bridge API (Conexão Direta QR Code)'
                           : providerAtivo === 'WABLAST'
                             ? 'WaBlast Partner API (Onboarding Integrado)'
                             : providerAtivo === 'YCLOUD'
@@ -510,7 +606,7 @@ export default function WhatsAppBusinessOficial() {
                     <input
                       type="text"
                       disabled
-                      value={config?.displayPhoneNumber || 'Nenhum número ativo identificado'}
+                      value={config?.displayPhoneNumber ? `+${config.displayPhoneNumber}` : 'Nenhum número ativo identificado'}
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700"
                     />
                   </div>
@@ -549,9 +645,152 @@ export default function WhatsAppBusinessOficial() {
             </div>
           </div>
 
-          {/* Modal de Configuração WAFLY */}
+          {/* MODAL 1: Conexão WhatsApp via QR Code WAFLY */}
+          {modalQrAberto && (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-5 border border-gray-100 relative">
+                {/* Cabeçalho */}
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                      <FontAwesomeIcon icon={faWhatsapp} className="text-xl" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-base">Conectar WhatsApp via QR Code</h3>
+                      <p className="text-xs text-gray-500">Pareamento direto com a instância WAFLY</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFecharModalQr}
+                    className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+
+                {/* Conteúdo Dinâmico */}
+                {conectadoSucesso ? (
+                  <div className="py-6 flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl shadow-xs">
+                      <FontAwesomeIcon icon={faCheckCircle} />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-extrabold text-gray-800 text-lg">WhatsApp Conectado com Sucesso!</h4>
+                      <p className="text-xs text-gray-500 max-w-xs">
+                        Sua instância foi pareada com sucesso. O sistema já está apto para envios de campanhas e atendimentos.
+                      </p>
+                    </div>
+                    {telefoneConectado && (
+                      <div className="px-3.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold">
+                        Número: +{telefoneConectado}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleFecharModalQr}
+                      className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-sm"
+                    >
+                      Concluir
+                    </button>
+                  </div>
+                ) : erroQrModal ? (
+                  <div className="py-4 space-y-4">
+                    <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs space-y-2">
+                      <div className="font-bold flex items-center gap-2 text-rose-900">
+                        <FontAwesomeIcon icon={faTriangleExclamation} />
+                        <span>Não foi possível gerar o QR Code</span>
+                      </div>
+                      <p>{erroQrModal}</p>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleFecharModalQr();
+                          handleAbrirModalWafly();
+                        }}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition"
+                      >
+                        Configurar Credenciais
+                      </button>
+                      <button
+                        type="button"
+                        onClick={carregarQrCode}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                      >
+                        <FontAwesomeIcon icon={faSyncAlt} />
+                        <span>Tentar Novamente</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Box do QR Code */}
+                    <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200/80 rounded-2xl min-h-[280px]">
+                      {carregandoQr ? (
+                        <div className="flex flex-col items-center justify-center gap-2 text-gray-400 py-16">
+                          <FontAwesomeIcon icon={faSpinner} spin className="text-3xl text-emerald-600" />
+                          <span className="text-xs font-medium">Gerando QR Code...</span>
+                        </div>
+                      ) : qrCodeData ? (
+                        <div className="space-y-3 flex flex-col items-center">
+                          <div className="p-2 bg-white rounded-2xl shadow-xs border border-gray-200">
+                            <img
+                              src={qrCodeData}
+                              alt="QR Code WhatsApp WAFLY"
+                              className="w-[230px] h-[230px] object-contain rounded-xl"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-gray-600">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="font-semibold text-gray-700">Aguardando leitura pelo celular...</span>
+                            <button
+                              type="button"
+                              onClick={carregarQrCode}
+                              className="ml-2 text-teal-600 hover:text-teal-800 font-bold hover:underline flex items-center gap-1 text-[10px]"
+                              title="Renovar QR Code"
+                            >
+                              <FontAwesomeIcon icon={faSyncAlt} className="text-[9px]" />
+                              <span>Atualizar</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Instruções */}
+                    <div className="bg-white border border-gray-100 rounded-2xl p-4 text-xs text-gray-600 space-y-2">
+                      <h5 className="font-bold text-gray-800 flex items-center gap-1.5 text-xs">
+                        <FontAwesomeIcon icon={faMobileAlt} className="text-teal-600" />
+                        <span>Instruções no celular:</span>
+                      </h5>
+                      <ol className="list-decimal list-inside space-y-1 text-[11.5px] text-gray-600 leading-relaxed">
+                        <li>Abra o <strong>WhatsApp</strong> no seu celular.</li>
+                        <li>Toque em <strong>Mais opções (⋮)</strong> ou <strong>Configurações (⚙️)</strong>.</li>
+                        <li>Toque em <strong>Dispositivos conectados</strong>.</li>
+                        <li>Toque em <strong>Conectar dispositivo</strong> e aponte a câmera para o QR Code acima.</li>
+                      </ol>
+                    </div>
+
+                    <div className="flex items-center justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={handleFecharModalQr}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-xl transition"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 2: Modal de Configuração Manual WAFLY */}
           {modalWaflyAberto && (
-            <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full p-6 space-y-6 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150">
                 {/* Cabeçalho do Modal */}
                 <div className="flex items-center justify-between border-b border-gray-100 pb-4">

@@ -292,6 +292,91 @@ export class WaflyApiService {
       id: returnedId
     };
   }
+
+  /**
+   * Consulta o status da conexão da instância Wafly
+   * Endpoint: GET /instances/{instance}/token/{token}/status
+   * 
+   * @returns {Promise<{ success: boolean, connected: boolean, smartphoneConnected: string, error: string|null, phone?: string, status: string, raw: Object }>}
+   */
+  async getStatus() {
+    const response = await this._request('/status', {
+      method: 'GET'
+    });
+
+    const isConnected = Boolean(
+      response?.connected === true ||
+      String(response?.smartphoneConnected || '').toLowerCase() === 'true' ||
+      String(response?.status || '').toLowerCase() === 'connected'
+    );
+
+    return {
+      success: true,
+      connected: isConnected,
+      smartphoneConnected: String(response?.smartphoneConnected || isConnected),
+      phone: response?.phone || response?.phoneNumber || response?.connectedPhone || null,
+      status: isConnected ? 'CONNECTED' : (response?.status || 'DISCONNECTED'),
+      raw: response
+    };
+  }
+
+  /**
+   * Obtém o QR Code em base64 para pareamento do WhatsApp
+   * Endpoint: GET /instances/{instance}/token/{token}/qr-code
+   * 
+   * @returns {Promise<{ success: boolean, qrCode: string, value: string }>}
+   */
+  async getQrCode() {
+    const response = await this._request('/qr-code', {
+      method: 'GET'
+    });
+
+    let rawValue = response?.value || response?.qrcode || response?.qrCode || response?.code || null;
+
+    if (!rawValue) {
+      // Se não retornou em /qr-code, tenta fallback /connect
+      const fallback = await this._request('/connect', { method: 'GET' }).catch(() => null);
+      rawValue = fallback?.value || fallback?.qrcode || fallback?.qrCode || null;
+    }
+
+    if (!rawValue) {
+      throw {
+        success: false,
+        error: 'A API Wafly não retornou o código do QR Code. Verifique se a instância já está conectada.',
+        statusCode: 400,
+        provider: 'WAFLY',
+        details: response
+      };
+    }
+
+    // Garante prefixo data:image/png;base64, se for base64 puro
+    const formattedQrCode = rawValue.startsWith('data:')
+      ? rawValue
+      : `data:image/png;base64,${rawValue}`;
+
+    return {
+      success: true,
+      qrCode: formattedQrCode,
+      value: rawValue
+    };
+  }
+
+  /**
+   * Desconecta a instância Wafly
+   * Endpoint: POST /instances/{instance}/token/{token}/disconnect
+   * 
+   * @returns {Promise<{ success: boolean }>}
+   */
+  async disconnect() {
+    try {
+      const response = await this._request('/disconnect', { method: 'POST' });
+      return { success: true, response };
+    } catch {
+      // Fallback para /logout
+      const response = await this._request('/logout', { method: 'POST' }).catch(() => ({}));
+      return { success: true, response };
+    }
+  }
 }
 
 /**
