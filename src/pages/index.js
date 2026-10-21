@@ -516,13 +516,13 @@ export default function LandingPage() {
             fill
             className="object-cover object-center"
           />
-          {/* Overlays de contraste para garantir legibilidade dos textos e estilo tecnológico */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#001026]/95 via-[#001026]/80 to-[#001026]/40" />
+          {/* Overlays de contraste posicionados para proteger a figura da mulher/mapa à esquerda e dar legibilidade aos textos à direita */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#001026]/75 to-[#001026]/95" />
           <div className="absolute inset-0 bg-[radial-gradient(#0ea5e9_1px,transparent_1px)] [background-size:28px_28px] opacity-15 pointer-events-none" />
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-3xl space-y-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex justify-end">
+          <div className="w-full lg:max-w-2xl space-y-6">
             <div className="inline-block">
               <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
                 Inteligência que transforma dados em estratégia
@@ -543,7 +543,7 @@ export default function LandingPage() {
 
             {/* 4 Cards / Pills de Recursos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+              <div className="bg-[#021838]/85 backdrop-blur-md border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
                   <FontAwesomeIcon icon={faGlobeAmericas} />
                 </div>
@@ -552,7 +552,7 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+              <div className="bg-[#021838]/85 backdrop-blur-md border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
                   <FontAwesomeIcon icon={faDatabase} />
                 </div>
@@ -561,7 +561,7 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+              <div className="bg-[#021838]/85 backdrop-blur-md border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
                   <FontAwesomeIcon icon={faChartPie} />
                 </div>
@@ -570,7 +570,7 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+              <div className="bg-[#021838]/85 backdrop-blur-md border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
                   <FontAwesomeIcon icon={faFileLines} />
                 </div>
