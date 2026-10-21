@@ -116,17 +116,14 @@ export default function Login() {
         {/* Topo / Header da Página de Login */}
         <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <span className="text-white font-black text-2xl tracking-tighter">M</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-2xl font-black tracking-tight text-white flex items-center">
-                Mandato<span className="text-cyan-400">PRO</span>
-              </span>
-              <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold -mt-1">
-                Gestão & Inteligência
-              </span>
-            </div>
+            <Image
+              src="/img/logoh.png"
+              alt="MandatoPRO"
+              width={200}
+              height={50}
+              className="h-11 w-auto object-contain"
+              priority
+            />
           </div>
 
           <a

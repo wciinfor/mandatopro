@@ -120,18 +120,15 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Logo MandatoPRO */}
           <div className="flex items-center gap-3">
-            <a href="#" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-                <span className="text-white font-black text-2xl tracking-tighter">M</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-black tracking-tight text-white flex items-center">
-                  Mandato<span className="text-cyan-400">PRO</span>
-                </span>
-                <span className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold -mt-1">
-                  Gestão & Inteligência
-                </span>
-              </div>
+            <a href="#" className="flex items-center group">
+              <Image
+                src="/img/logoh.png"
+                alt="MandatoPRO"
+                width={200}
+                height={50}
+                className="h-11 w-auto object-contain group-hover:opacity-90 transition-opacity"
+                priority
+              />
             </a>
           </div>
 
@@ -1051,17 +1048,13 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo e Slogan */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                <span className="text-white font-black text-xl tracking-tighter">M</span>
-              </div>
-              <div>
-                <span className="text-xl font-black tracking-tight text-white flex items-center">
-                  Mandato<span className="text-cyan-400">PRO</span>
-                </span>
-                <p className="text-xs text-slate-500">
-                  Tecnologia e Inteligência Política
-                </p>
-              </div>
+              <Image
+                src="/img/logoh.png"
+                alt="MandatoPRO"
+                width={180}
+                height={45}
+                className="h-9 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+              />
             </div>
 
             {/* Links Institucionais e Legais */}
