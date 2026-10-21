@@ -292,100 +292,80 @@ export default function LandingPage() {
         <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none z-[1]" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            {/* Coluna Esquerda: Textos, Títulos e CTAs */}
-            <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
-              {/* Badge de Categoria */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-800/60 text-cyan-400 text-xs font-bold uppercase tracking-wider shadow-inner">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                Gestão Política e Inteligência Eleitoral
-              </div>
+          <div className="max-w-3xl space-y-6 text-center lg:text-left">
+            {/* Badge de Categoria */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-800/60 text-cyan-400 text-xs font-bold uppercase tracking-wider shadow-inner">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              Gestão Política e Inteligência Eleitoral
+            </div>
 
-              {/* Título Principal Fiel ao Mockup */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.12]">
-                Tecnologia para <br className="hidden sm:inline" />
-                quem representa, <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
-                  inteligência para <br className="hidden sm:inline" />
-                  quem decide.
-                </span>
-              </h1>
+            {/* Título Principal Fiel ao Mockup */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.12]">
+              Tecnologia para <br className="hidden sm:inline" />
+              quem representa, <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
+                inteligência para <br className="hidden sm:inline" />
+                quem decide.
+              </span>
+            </h1>
 
-              {/* Subtítulo Descritivo */}
-              <p className="text-base sm:text-lg text-slate-300 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
-                O MandatoPRO é uma plataforma completa para gestão de mandatos, relacionamento com a população, comunicação estratégica e inteligência eleitoral, com o poder da Insystens.AI.
-              </p>
+            {/* Subtítulo Descritivo */}
+            <p className="text-base sm:text-lg text-slate-300 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
+              O MandatoPRO é uma plataforma completa para gestão de mandatos, relacionamento com a população, comunicação estratégica e inteligência eleitoral, com o poder da Insystens.AI.
+            </p>
 
-              {/* Lista dos 5 Públicos com Ícones no Hero */}
-              <div className="pt-2 pb-4">
-                <div className="grid grid-cols-5 gap-2 max-w-md mx-auto lg:mx-0 border-t border-b border-cyan-950/80 py-4">
-                  <div className="flex flex-col items-center gap-1.5 text-center">
-                    <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                      <FontAwesomeIcon icon={faUserTie} />
-                    </div>
-                    <span className="text-[11px] font-medium text-slate-300">Vereadores</span>
+            {/* Lista dos 5 Públicos com Ícones no Hero */}
+            <div className="pt-2 pb-4">
+              <div className="grid grid-cols-5 gap-2 max-w-md mx-auto lg:mx-0 border-t border-b border-cyan-950/80 py-4">
+                <div className="flex flex-col items-center gap-1.5 text-center">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
+                    <FontAwesomeIcon icon={faUserTie} />
                   </div>
-                  <div className="flex flex-col items-center gap-1.5 text-center">
-                    <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                      <FontAwesomeIcon icon={faLandmark} />
-                    </div>
-                    <span className="text-[11px] font-medium text-slate-300">Prefeitos</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1.5 text-center">
-                    <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                      <FontAwesomeIcon icon={faBuildingColumns} />
-                    </div>
-                    <span className="text-[11px] font-medium text-slate-300">Deputados</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1.5 text-center">
-                    <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                      <FontAwesomeIcon icon={faScaleUnbalanced} />
-                    </div>
-                    <span className="text-[11px] font-medium text-slate-300">Senadores</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1.5 text-center">
-                    <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                      <FontAwesomeIcon icon={faAward} />
-                    </div>
-                    <span className="text-[11px] font-medium text-slate-300">Presidentes</span>
-                  </div>
+                  <span className="text-[11px] font-medium text-slate-300">Vereadores</span>
                 </div>
-              </div>
-
-              {/* Botões de Ação */}
-              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-                <button
-                  onClick={() => scrollToSection('contato')}
-                  className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold px-8 py-3.5 rounded-xl shadow-xl shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <FontAwesomeIcon icon={faCalendarCheck} />
-                  Solicitar Demonstração
-                </button>
-                <button
-                  onClick={() => scrollToSection('funcionalidades')}
-                  className="w-full sm:w-auto bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80 font-semibold px-7 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <FontAwesomeIcon icon={faPlay} className="text-xs text-cyan-400" />
-                  Conheça a Plataforma
-                </button>
+                <div className="flex flex-col items-center gap-1.5 text-center">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
+                    <FontAwesomeIcon icon={faLandmark} />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-300">Prefeitos</span>
+                </div>
+                <div className="flex flex-col items-center gap-1.5 text-center">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
+                    <FontAwesomeIcon icon={faBuildingColumns} />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-300">Deputados</span>
+                </div>
+                <div className="flex flex-col items-center gap-1.5 text-center">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
+                    <FontAwesomeIcon icon={faScaleUnbalanced} />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-300">Senadores</span>
+                </div>
+                <div className="flex flex-col items-center gap-1.5 text-center">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
+                    <FontAwesomeIcon icon={faAward} />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-300">Presidentes</span>
+                </div>
               </div>
             </div>
 
-            {/* Coluna Direita: Mockup do Laptop com Dashboard */}
-            <div className="lg:col-span-6 relative flex justify-center items-center">
-              <div className="relative w-full max-w-[560px] transform hover:scale-[1.01] transition-transform duration-500">
-                <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 rounded-3xl blur-2xl" />
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-cyan-950/80 border border-cyan-800/40 bg-slate-900">
-                  <Image
-                    src="/landing/hero_laptop.png"
-                    alt="Dashboard do MandatoPRO em Notebook"
-                    width={560}
-                    height={380}
-                    className="w-full h-auto object-contain"
-                    priority
-                  />
-                </div>
-              </div>
+            {/* Botões de Ação */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+              <button
+                onClick={() => scrollToSection('contato')}
+                className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold px-8 py-3.5 rounded-xl shadow-xl shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <FontAwesomeIcon icon={faCalendarCheck} />
+                Solicitar Demonstração
+              </button>
+              <button
+                onClick={() => scrollToSection('funcionalidades')}
+                className="w-full sm:w-auto bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80 font-semibold px-7 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <FontAwesomeIcon icon={faPlay} className="text-xs text-cyan-400" />
+                Conheça a Plataforma
+              </button>
             </div>
           </div>
         </div>
@@ -528,90 +508,87 @@ export default function LandingPage() {
         id="insystens"
         className="py-20 lg:py-28 bg-[#001026] text-white relative overflow-hidden border-t border-b border-cyan-950/80"
       >
+        {/* Imagem de Fundo Oficial do Card Insystens.AI */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/img/bg_cadai.png"
+            alt="Insystens.AI Background"
+            fill
+            className="object-cover object-center"
+          />
+          {/* Overlays de contraste para garantir legibilidade dos textos e estilo tecnológico */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#001026]/95 via-[#001026]/80 to-[#001026]/40" />
+          <div className="absolute inset-0 bg-[radial-gradient(#0ea5e9_1px,transparent_1px)] [background-size:28px_28px] opacity-15 pointer-events-none" />
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            {/* Visual Esquerdo: Mapa do Brasil e Gráficos Analíticos */}
-            <div className="lg:col-span-6 flex justify-center">
-              <div className="relative w-full max-w-[500px] rounded-2xl overflow-hidden shadow-2xl border border-cyan-800/40 bg-slate-950/80">
-                <Image
-                  src="/landing/insystens_map.png"
-                  alt="Mapa territorial de inteligência Insystens.AI"
-                  width={500}
-                  height={340}
-                  className="w-full h-auto object-cover"
-                />
-              </div>
+          <div className="max-w-3xl space-y-6">
+            <div className="inline-block">
+              <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
+                Inteligência que transforma dados em estratégia
+              </span>
             </div>
 
-            {/* Conteúdo Direito: Textos e Pills */}
-            <div className="lg:col-span-6 space-y-6">
-              <div className="inline-block">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
-                  Inteligência que transforma dados em estratégia
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white flex items-center gap-2">
+              Insystens.<span className="text-cyan-400">AI</span>
+            </h2>
+
+            <h3 className="text-xl sm:text-2xl font-bold text-slate-200">
+              Inteligência eleitoral a serviço do seu mandato.
+            </h3>
+
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+              Nosso motor analítico cruza dados das eleições anteriores, informações atualizadas do IBGE e os dados do seu mandato para identificar oportunidades, áreas prioritárias e estratégias de atuação com base em dados reais.
+            </p>
+
+            {/* 4 Cards / Pills de Recursos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
+                  <FontAwesomeIcon icon={faGlobeAmericas} />
+                </div>
+                <span className="text-xs font-semibold text-slate-200">
+                  Análise territorial eleitoral
                 </span>
               </div>
 
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white flex items-center gap-2">
-                Insystens.<span className="text-cyan-400">AI</span>
-              </h2>
-
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-200">
-                Inteligência eleitoral a serviço do seu mandato.
-              </h3>
-
-              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                Nosso motor analítico cruza dados das eleições anteriores, informações atualizadas do IBGE e os dados do seu mandato para identificar oportunidades, áreas prioritárias e estratégias de atuação com base em dados reais.
-              </p>
-
-              {/* 4 Cards / Pills de Recursos */}
-              <div className="grid grid-cols-2 gap-3.5 pt-2">
-                <div className="bg-[#021838]/80 border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faGlobeAmericas} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Análise territorial eleitoral
-                  </span>
+              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
+                  <FontAwesomeIcon icon={faDatabase} />
                 </div>
-
-                <div className="bg-[#021838]/80 border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faDatabase} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Cruzamento com dados do IBGE
-                  </span>
-                </div>
-
-                <div className="bg-[#021838]/80 border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faChartPie} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Identificação de oportunidades
-                  </span>
-                </div>
-
-                <div className="bg-[#021838]/80 border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faFileLines} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Relatórios estratégicos para sua equipe
-                  </span>
-                </div>
+                <span className="text-xs font-semibold text-slate-200">
+                  Cruzamento com dados do IBGE
+                </span>
               </div>
 
-              {/* CTA da Seção */}
-              <div className="pt-4">
-                <button
-                  onClick={() => scrollToSection('contato')}
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  Conheça o Insystens.AI
-                  <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
-                </button>
+              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
+                  <FontAwesomeIcon icon={faChartPie} />
+                </div>
+                <span className="text-xs font-semibold text-slate-200">
+                  Identificação de oportunidades
+                </span>
               </div>
+
+              <div className="bg-[#021838]/80 backdrop-blur-sm border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
+                  <FontAwesomeIcon icon={faFileLines} />
+                </div>
+                <span className="text-xs font-semibold text-slate-200">
+                  Relatórios estratégicos para sua equipe
+                </span>
+              </div>
+            </div>
+
+            {/* CTA da Seção */}
+            <div className="pt-4">
+              <button
+                onClick={() => scrollToSection('contato')}
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                Conheça o Insystens.AI
+                <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
+              </button>
             </div>
           </div>
         </div>
