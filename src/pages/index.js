@@ -271,12 +271,25 @@ export default function LandingPage() {
       ========================================================= */}
       <section
         id="hero"
-        className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden bg-gradient-to-b from-[#001733] via-[#001124] to-[#000a17]"
+        className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden bg-[#001124]"
       >
+        {/* Imagem de Fundo Oficial do Hero */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/img/bg_hero.png"
+            alt="Hero Background MandatoPRO"
+            fill
+            className="object-cover object-center"
+            priority
+          />
+          {/* Overlays sutis para garantir legibilidade dos textos e transição suave para a próxima seção */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#001124]/90 via-[#001124]/70 to-[#001124]/40" />
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#000a17] to-transparent" />
+        </div>
+
         {/* Efeitos de Iluminação e Gradiente Tecnológico */}
-        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(#083358_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
+        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none z-[1]" />
+        <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none z-[1]" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
