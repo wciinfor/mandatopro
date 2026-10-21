@@ -117,16 +117,16 @@ export default function LandingPage() {
           1. HEADER
       ========================================================= */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#001428]/90 backdrop-blur-md border-b border-cyan-900/40 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between">
           {/* Logo MandatoPRO */}
           <div className="flex items-center gap-3">
-            <a href="#" className="flex items-center group">
+            <a href="#" className="flex items-center group py-2">
               <Image
-                src="/img/logoh.png"
+                src="/img/logohb.png"
                 alt="MandatoPRO"
-                width={200}
-                height={50}
-                className="h-11 w-auto object-contain group-hover:opacity-90 transition-opacity"
+                width={280}
+                height={70}
+                className="h-14 sm:h-16 w-auto object-contain group-hover:scale-[1.02] transition-transform"
                 priority
               />
             </a>
@@ -1049,11 +1049,11 @@ export default function LandingPage() {
             {/* Logo e Slogan */}
             <div className="flex items-center gap-3">
               <Image
-                src="/img/logoh.png"
+                src="/img/logohb.png"
                 alt="MandatoPRO"
-                width={180}
-                height={45}
-                className="h-9 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+                width={240}
+                height={60}
+                className="h-12 w-auto object-contain opacity-95 hover:opacity-100 transition-opacity"
               />
             </div>
 

@@ -117,11 +117,11 @@ export default function Login() {
         <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="/img/logoh.png"
+              src="/img/logohb.png"
               alt="MandatoPRO"
-              width={200}
-              height={50}
-              className="h-11 w-auto object-contain"
+              width={280}
+              height={70}
+              className="h-14 sm:h-16 w-auto object-contain"
               priority
             />
           </div>
