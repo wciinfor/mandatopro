@@ -31,6 +31,7 @@ export default function GerenciarEleitores() {
   const [ordem, setOrdem] = useState('recentes');
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina] = useState(10);
+  const [exportando, setExportando] = useState(false);
 
   // Estados do Ranking de Cadastradores
   const [rankingAberto, setRankingAberto] = useState(false);
@@ -244,24 +245,49 @@ export default function GerenciarEleitores() {
     });
   };
 
-  const handleExportarCSV = () => {
-    const cabecalho = ['Nome', 'Telefone'];
-    const escapar = (v) => {
-      const s = String(v ?? '');
-      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const linhas = eleitoresPaginados.map(el => [
-      el.nome,
-      el.telefone || ''
-    ].map(escapar).join(','));
-    const conteudo = [cabecalho.join(','), ...linhas].join('\n');
-    const blob = new Blob(['\uFEFF' + conteudo], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `eleitores-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const handleExportarCSV = async () => {
+    try {
+      setExportando(true);
+      const params = new URLSearchParams();
+      params.set('status', situacao);
+      params.set('ordem', ordem);
+      if (mandatoAtivoId) {
+        params.set('mandato_id', String(mandatoAtivoId));
+      }
+
+      if (filtro && filtro.trim().length > 0) params.set('search', filtro.trim());
+      if (filtroLideranca) params.set('liderancaId', filtroLideranca);
+
+      if (filtroCidade) {
+        const cidadeSelecionada = cidades.find((c) => c.key === filtroCidade);
+        if (cidadeSelecionada?.values?.length) {
+          cidadeSelecionada.values.forEach((value) => params.append('cidadeValues', value));
+        } else {
+          params.set('cidade', filtroCidade);
+        }
+      }
+
+      const response = await fetch(`/api/cadastros/eleitores/export?${params.toString()}`);
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null);
+        throw new Error(errJson?.message || `Erro ao exportar eleitores (HTTP ${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `eleitores-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showSuccess('CSV exportado com sucesso!');
+    } catch (error) {
+      showError('Erro ao exportar CSV: ' + (error?.message || 'Falha inesperada'));
+    } finally {
+      setExportando(false);
+    }
   };
 
   const handleImprimirListagem = () => {
@@ -480,11 +506,12 @@ export default function GerenciarEleitores() {
               </button>
               <button
                 onClick={handleExportarCSV}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2"
+                disabled={exportando}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Exportar listagem filtrada para CSV"
               >
-                <FontAwesomeIcon icon={faFileDownload} />
-                Exportar CSV
+                <FontAwesomeIcon icon={exportando ? faSyncAlt : faFileDownload} className={exportando ? 'animate-spin' : ''} />
+                {exportando ? 'Exportando...' : 'Exportar CSV'}
               </button>
             </div>
           </div>

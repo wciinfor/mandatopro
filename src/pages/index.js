@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 export default function Home() {
   return (
     <div className="flex items-center justify-center h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-cyan-50">
@@ -11,11 +9,11 @@ export default function Home() {
         </div>
         <h1 className="text-4xl font-bold text-gray-800 mb-4">MandatoPro</h1>
         <p className="text-gray-600 mb-8">Sistema de Gestão Política</p>
-        <Link href="/login">
-          <button className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
+        <a href="https://app.mandatopro.com/login">
+          <button className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-lg transition transform hover:scale-105 shadow-lg cursor-pointer">
             Acessar Sistema
           </button>
-        </Link>
+        </a>
       </div>
     </div>
   );
