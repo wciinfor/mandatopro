@@ -729,75 +729,72 @@ export default function LandingPage() {
         id="tai"
         className="py-20 lg:py-28 bg-[#000f1f] text-white relative overflow-hidden border-t border-b border-cyan-950/90"
       >
+        {/* Imagem de Fundo Oficial da Assistente TAI */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/img/bg_ia.png"
+            alt="TAI Background"
+            fill
+            className="object-cover object-center"
+          />
+          {/* Overlays de contraste para legibilidade e visual moderno */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#000f1f]/90 via-[#000f1f]/70 to-[#000f1f]/40" />
+          <div className="absolute inset-0 bg-[radial-gradient(#0ea5e9_1px,transparent_1px)] [background-size:28px_28px] opacity-15 pointer-events-none" />
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            {/* Coluna Esquerda: Textos, Título e Pills */}
-            <div className="lg:col-span-6 space-y-6">
-              <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
-                TAI — Sua Assistente Inteligente
-              </span>
+          <div className="max-w-3xl space-y-6 text-left">
+            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
+              TAI — Sua Assistente Inteligente
+            </span>
 
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-                Pergunte. Analise. Decida.
-              </h2>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
+              Pergunte. Analise. Decida.
+            </h2>
 
-              <p className="text-slate-300 text-base leading-relaxed">
-                A TAI é o chat inteligente do MandatoPRO. Consulte informações do seu banco de dados em linguagem natural, gere relatórios, obtenha insights e agilize o trabalho da sua equipe.
-              </p>
+            <p className="text-slate-300 text-base leading-relaxed">
+              A TAI é o chat inteligente do MandatoPRO. Consulte informações do seu banco de dados em linguagem natural, gere relatórios, obtenha insights e agilize o trabalho da sua equipe.
+            </p>
 
-              {/* 3 Pills de Recursos */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
-                <div className="bg-[#021838]/80 border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faBolt} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Respostas rápidas
-                  </span>
+            {/* 3 Pills de Recursos */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+              <div className="bg-[#021838]/85 backdrop-blur-md border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
+                  <FontAwesomeIcon icon={faBolt} />
                 </div>
-
-                <div className="bg-[#021838]/80 border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faCommentDots} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Consultas em linguagem natural
-                  </span>
-                </div>
-
-                <div className="bg-[#021838]/80 border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faLock} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-200">
-                    Informações seguras e autorizadas
-                  </span>
-                </div>
+                <span className="text-xs font-semibold text-slate-200">
+                  Respostas rápidas
+                </span>
               </div>
 
-              {/* CTA da TAI */}
-              <div className="pt-4">
-                <button
-                  onClick={() => scrollToSection('contato')}
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  Conheça a TAI
-                  <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
-                </button>
+              <div className="bg-[#021838]/85 backdrop-blur-md border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
+                  <FontAwesomeIcon icon={faCommentDots} />
+                </div>
+                <span className="text-xs font-semibold text-slate-200">
+                  Consultas em linguagem natural
+                </span>
+              </div>
+
+              <div className="bg-[#021838]/85 backdrop-blur-md border border-cyan-900/60 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-950 flex items-center justify-center text-cyan-400 text-sm">
+                  <FontAwesomeIcon icon={faLock} />
+                </div>
+                <span className="text-xs font-semibold text-slate-200">
+                  Informações seguras e autorizadas
+                </span>
               </div>
             </div>
 
-            {/* Coluna Direita: Composição Visual do Chat + Robô TAI */}
-            <div className="lg:col-span-6 flex justify-center">
-              <div className="relative w-full max-w-[500px] rounded-2xl overflow-hidden shadow-2xl border border-cyan-800/40 bg-slate-950">
-                <Image
-                  src="/landing/tai_robot_chat.png"
-                  alt="Interface da TAI com robô assistente e chat interativo"
-                  width={500}
-                  height={340}
-                  className="w-full h-auto object-cover"
-                />
-              </div>
+            {/* CTA da TAI */}
+            <div className="pt-4">
+              <button
+                onClick={() => scrollToSection('contato')}
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                Conheça a TAI
+                <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
+              </button>
             </div>
           </div>
         </div>
