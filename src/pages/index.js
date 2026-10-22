@@ -299,9 +299,9 @@ export default function LandingPage() {
               O MandatoPRO é uma plataforma completa para gestão de mandatos, relacionamento com a população, comunicação estratégica e inteligência eleitoral, com o poder da Insystens.AI.
             </p>
 
-            {/* Lista dos 5 Públicos com Ícones no Hero */}
+            {/* Lista dos 4 Públicos com Ícones no Hero */}
             <div className="pt-2 pb-4">
-              <div className="grid grid-cols-5 gap-2 max-w-md mx-auto lg:mx-0 border-t border-b border-cyan-950/80 py-4">
+              <div className="grid grid-cols-4 gap-2 max-w-md mx-auto lg:mx-0 border-t border-b border-cyan-950/80 py-4">
                 <div className="flex flex-col items-center gap-1.5 text-center">
                   <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
                     <FontAwesomeIcon icon={faUserTie} />
@@ -325,12 +325,6 @@ export default function LandingPage() {
                     <FontAwesomeIcon icon={faScaleUnbalanced} />
                   </div>
                   <span className="text-[11px] font-medium text-slate-300">Senadores</span>
-                </div>
-                <div className="flex flex-col items-center gap-1.5 text-center">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faAward} />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-300">Presidentes</span>
                 </div>
               </div>
             </div>
@@ -374,11 +368,11 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Grid dos 5 Cards com Fotos Institucionais */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* Grid dos 4 Cards com Fotos Institucionais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Card 1: Vereadores */}
             <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-40 overflow-hidden bg-slate-200">
+              <div className="relative h-44 overflow-hidden bg-slate-200">
                 <Image
                   src="/landing/lideranca_vereadores.png"
                   alt="Vereadores no Plenário"
@@ -399,7 +393,7 @@ export default function LandingPage() {
 
             {/* Card 2: Prefeitos */}
             <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-40 overflow-hidden bg-slate-200">
+              <div className="relative h-44 overflow-hidden bg-slate-200">
                 <Image
                   src="/landing/lideranca_prefeitos.png"
                   alt="Prefeitura e Gestão Municipal"
@@ -420,7 +414,7 @@ export default function LandingPage() {
 
             {/* Card 3: Deputados Estaduais e Federais */}
             <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-40 overflow-hidden bg-slate-200">
+              <div className="relative h-44 overflow-hidden bg-slate-200">
                 <Image
                   src="/landing/lideranca_deputados.png"
                   alt="Congresso e Assembleias Legislativas"
@@ -443,7 +437,7 @@ export default function LandingPage() {
 
             {/* Card 4: Senadores */}
             <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-40 overflow-hidden bg-slate-200">
+              <div className="relative h-44 overflow-hidden bg-slate-200">
                 <Image
                   src="/landing/lideranca_senadores.png"
                   alt="Senado Federal"
@@ -458,27 +452,6 @@ export default function LandingPage() {
                 <h3 className="text-lg font-bold text-slate-900 mb-2">Senadores</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
                   Visão ampla, análise nacional e gestão de emendas.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 5: Presidentes */}
-            <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-40 overflow-hidden bg-slate-200">
-                <Image
-                  src="/landing/lideranca_presidentes.png"
-                  alt="Palácio do Planalto e Liderança Maior"
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center mb-3">
-                  <FontAwesomeIcon icon={faAward} className="text-sm" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">Presidentes</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Inteligência de dados para decisões de grande impacto.
                 </p>
               </div>
             </div>
