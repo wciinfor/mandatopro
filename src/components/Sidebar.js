@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,8 +22,9 @@ import {
   faCog,
   faShieldAlt,
   faPaperPlane,
-  faHeadset,
-  faCommentSms
+  faCommentSms,
+  faChevronLeft,
+  faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 
 const modulosBase = [
@@ -209,7 +211,14 @@ function obterMenusAbertosIniciais(moduloAtivo, asPath = '') {
   return moduloAtual ? { [moduloAtual.nome]: true } : {};
 }
 
-export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, setModuloAtivo }) {
+export default function Sidebar({
+  sidebarAberto,
+  setSidebarAberto,
+  moduloAtivo,
+  setModuloAtivo,
+  sidebarRecolhida = false,
+  setSidebarRecolhida = () => {}
+}) {
   const router = useRouter();
   const { logout } = useAuth();
   const currentPath = router.asPath || router.pathname || '';
@@ -253,6 +262,10 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
     setModuloAtivo(modulo.nome);
 
     if (modulo.submenu.length > 0) {
+      // Se estiver recolhida e o usuário clicar em um item com submenu, expande a sidebar
+      if (sidebarRecolhida) {
+        setSidebarRecolhida(false);
+      }
       setMenusAbertos(prev => (prev[modulo.nome] ? {} : { [modulo.nome]: true }));
       return;
     }
@@ -324,68 +337,185 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
 
   return (
     <>
+      {/* Overlay Escuro para Mobile */}
       {sidebarAberto && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 lg:hidden"
           onClick={() => setSidebarAberto(false)}
         />
       )}
 
+      {/* 
+        SIDEBAR FIXA À ALTURA DA VIEWPORT (100dvh / 100vh)
+        3 Regiões Flex:
+        1. Topo fixo com logo e botão de recolher/expandir
+        2. Centro rolável independente (min-h-0 overflow-y-auto)
+        3. Rodapé fixo com botão Sair sempre visível
+      */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 w-64 bg-[#0A4C53] text-white flex flex-col z-50 transition-transform duration-300 ease-in-out ${
+        className={`fixed lg:sticky top-0 h-screen h-[100dvh] max-h-screen text-[#15345F] flex flex-col z-50 transition-all duration-300 ease-in-out border-r border-[#BBD5EE] shadow-sm select-none shrink-0 ${
+          sidebarRecolhida ? 'w-20' : 'w-64'
+        } ${
           sidebarAberto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
+        style={{
+          backgroundImage: 'linear-gradient(to bottom, #E7F3FF 0%, #D4E9FE 35%, #BEE0FD 65%, #9BCFFF 88%, rgba(142, 196, 250, 0.95) 100%), url("/img/bg_menu1.png")',
+          backgroundBlendMode: 'soft-light, normal',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: '#E7F3FF'
+        }}
       >
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4 border-b border-[#054248] flex justify-between items-center">
-            <h1 className="text-2xl font-bold">MandatoPro</h1>
-            <button
-              onClick={() => setSidebarAberto(false)}
-              className="lg:hidden text-white hover:text-gray-300"
-            >
-              <FontAwesomeIcon icon={faTimes} />
-            </button>
-          </div>
+        {/* =========================================================================
+            REGIÃO 1: CABEÇALHO FIXO COM LOGO E BOTÃO DE RECOLHER/EXPANDIR
+           ========================================================================= */}
+        <div className={`relative border-b border-[#BBD5EE]/80 flex items-center shrink-0 bg-white/60 backdrop-blur-xs transition-all ${
+          sidebarRecolhida ? 'p-3 flex-col gap-2' : 'py-4 px-3.5 justify-between'
+        }`}>
+          {/* Logo Expandida vs Ícone Compacto */}
+          {sidebarRecolhida ? (
+            <div className="flex flex-col items-center gap-2 w-full">
+              <div className="w-10 h-10 rounded-xl bg-white border border-[#CBDCEC] flex items-center justify-center shadow-xs p-1">
+                <Image
+                  src="/img/logo1.png"
+                  alt="MandatoPRO"
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-contain"
+                  priority
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setSidebarRecolhida(false)}
+                className="w-7 h-7 rounded-lg bg-white/80 hover:bg-white text-[#087CFA] border border-[#CBDCEC] flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                title="Expandir menu lateral"
+                aria-label="Expandir menu lateral"
+              >
+                <FontAwesomeIcon icon={faChevronRight} className="text-xs" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center min-w-0 pr-2 flex-1 justify-center">
+                <Image
+                  src="/img/logoh.png"
+                  alt="MandatoPRO Gestão & Inteligência"
+                  width={220}
+                  height={56}
+                  className="h-12 w-auto max-w-[190px] object-contain drop-shadow-xs"
+                  priority
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setSidebarRecolhida(true)}
+                className="hidden lg:flex w-7 h-7 rounded-lg bg-white/80 hover:bg-white text-[#15345F] hover:text-[#087CFA] border border-[#CBDCEC] items-center justify-center transition-colors shadow-2xs shrink-0 cursor-pointer"
+                title="Recolher menu lateral"
+                aria-label="Recolher menu lateral"
+              >
+                <FontAwesomeIcon icon={faChevronLeft} className="text-xs" />
+              </button>
+            </>
+          )}
 
-          <nav className="p-4">
+          {/* Botão de Fechar no Mobile (Drawer) */}
+          <button
+            onClick={() => setSidebarAberto(false)}
+            className="lg:hidden absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            aria-label="Fechar menu"
+          >
+            <FontAwesomeIcon icon={faTimes} className="text-sm" />
+          </button>
+        </div>
+
+        {/* =========================================================================
+            REGIÃO 2: NAVEGAÇÃO CENTRAL COM ROLAGEM VERTICAL INDEPENDENTE
+           ========================================================================= */}
+        <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3 scrollbar-thin scrollbar-thumb-blue-200/80 hover:scrollbar-thumb-blue-300 ${
+          sidebarRecolhida ? 'px-2' : 'px-3'
+        }`}>
+          <nav className="space-y-1">
             {modulos.map((modulo) => {
               const menuAberto = Boolean(menusAbertos[modulo.nome]);
               const moduloSelecionado = moduloAtivo === modulo.nome || moduloAtivo.startsWith(`${modulo.nome} - `);
 
+              // ----------------------------------------------------
+              // Modo Recolhido: Botão compacto centralizado + Tooltip
+              // ----------------------------------------------------
+              if (sidebarRecolhida) {
+                return (
+                  <div key={modulo.nome} className="relative group flex justify-center mb-1">
+                    <button
+                      type="button"
+                      onClick={() => handleModuloClick(modulo)}
+                      className={`w-11 h-11 rounded-xl transition-all duration-200 flex items-center justify-center relative cursor-pointer ${
+                        moduloSelecionado
+                          ? 'bg-[#087CFA] text-white font-bold shadow-md shadow-blue-500/30 ring-1 ring-blue-600/30'
+                          : 'text-[#15345F] hover:bg-white/70 hover:text-[#087CFA] hover:shadow-2xs'
+                      }`}
+                      aria-label={modulo.nome}
+                    >
+                      <FontAwesomeIcon icon={modulo.icone} className="text-base" />
+                      {modulo.submenu.length > 0 && (
+                        <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
+                          moduloSelecionado ? 'bg-white' : 'bg-[#087CFA]'
+                        }`} />
+                      )}
+                    </button>
+
+                    {/* Tooltip Lateral Elegante */}
+                    <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center z-50 pointer-events-none">
+                      <div className="bg-[#10254B] text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+                        {modulo.nome}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // ----------------------------------------------------
+              // Modo Expandido: Item completo com label e submenus
+              // ----------------------------------------------------
               return (
-                <div key={modulo.nome} className="mb-2">
+                <div key={modulo.nome} className="mb-0.5">
                   <button
                     type="button"
                     onClick={() => handleModuloClick(modulo)}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-all duration-200 flex items-center justify-between group cursor-pointer ${
                       moduloSelecionado
-                        ? 'bg-white text-[#0A4C53] font-bold shadow-lg'
-                        : 'hover:bg-[#054248] hover:translate-x-1 text-gray-300'
+                        ? 'bg-[#087CFA] text-white font-bold shadow-md shadow-blue-500/30 ring-1 ring-blue-600/25'
+                        : 'text-[#15345F] hover:bg-white/60 hover:text-[#087CFA] font-medium'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <FontAwesomeIcon icon={modulo.icone} className="w-5" />
-                      <span>{modulo.nome}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-5 flex items-center justify-center text-sm ${
+                        moduloSelecionado ? 'text-white' : 'text-[#15345F]/75 group-hover:text-[#087CFA]'
+                      }`}>
+                        <FontAwesomeIcon icon={modulo.icone} />
+                      </div>
+                      <span className="text-sm truncate tracking-tight">{modulo.nome}</span>
                     </div>
                     {modulo.submenu.length > 0 && (
                       <FontAwesomeIcon
                         icon={menuAberto ? faChevronUp : faChevronDown}
-                        className={`text-sm transition-transform duration-200 ${
-                          menuAberto ? 'rotate-180' : 'rotate-0'
+                        className={`text-xs transition-transform duration-200 ${
+                          moduloSelecionado ? 'text-white/80' : 'text-[#15345F]/60 group-hover:text-[#087CFA]'
                         }`}
                       />
                     )}
                   </button>
 
                   {modulo.submenu.length > 0 && (
-                    <div className={`mt-1 overflow-hidden transition-all duration-300 ease-in-out ${
+                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
                       menuAberto
-                        ? 'max-h-[38rem] opacity-100 translate-y-0'
-                        : 'max-h-0 opacity-0 -translate-y-2'
+                        ? 'max-h-[38rem] opacity-100 mt-1 mb-1'
+                        : 'max-h-0 opacity-0'
                     }`}>
-                      <div className="bg-[#032E35] rounded-lg p-2 space-y-1 border-l-2 border-teal-400 ml-4">
+                      <div className="bg-white/90 backdrop-blur-xs rounded-xl p-1.5 space-y-0.5 border border-[#BBD5EE] ml-3 shadow-xs">
                         {modulo.submenu.map((subitem, subIdx) => {
-                          // Item com sub-menu aninhado (Ex: SMS (SMSDev))
+                          // Submenu aninhado (ex: SMS)
                           if (typeof subitem === 'object' && subitem.subitens) {
                             const nestedNome = subitem.nome;
                             const isNestedOpen = Boolean(nestedMenusAbertos[nestedNome]);
@@ -401,25 +531,22 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                                       [nestedNome]: !prev[nestedNome]
                                     }));
                                   }}
-                                  className={`w-full text-left px-3.5 py-2 text-xs rounded-md transition-all duration-150 flex items-center justify-between ${
+                                  className={`w-full text-left px-3 py-1.5 text-xs rounded-lg transition-all duration-150 flex items-center justify-between cursor-pointer ${
                                     isAnyChildActive
-                                      ? 'bg-[#054248] text-teal-200 font-bold border border-teal-500/40 shadow-xs'
-                                      : 'hover:bg-[#0A4C53] text-gray-300'
+                                      ? 'bg-blue-50 text-[#087CFA] font-bold border border-blue-200'
+                                      : 'hover:bg-blue-50/60 text-[#15345F] hover:text-[#087CFA]'
                                   }`}
                                 >
                                   <span className="flex items-center gap-2">
-                                    <FontAwesomeIcon icon={subitem.icone || faCommentSms} className="w-3.5 text-teal-400" />
+                                    <FontAwesomeIcon icon={subitem.icone || faCommentSms} className="w-3 text-[#087CFA]" />
                                     <span>{subitem.nome}</span>
                                   </span>
                                   <FontAwesomeIcon
                                     icon={isNestedOpen ? faChevronUp : faChevronDown}
-                                    className={`text-[10px] text-gray-400 transition-transform duration-200 ${
-                                      isNestedOpen ? 'rotate-180' : 'rotate-0'
-                                    }`}
+                                    className="text-[10px] text-slate-400"
                                   />
                                 </button>
 
-                                {/* Sub-itens aninhados */}
                                 <div
                                   className={`overflow-hidden transition-all duration-300 ease-in-out ${
                                     isNestedOpen
@@ -427,7 +554,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                                       : 'max-h-0 opacity-0'
                                   }`}
                                 >
-                                  <div className="bg-[#022227] rounded-md p-1.5 space-y-0.5 border-l-2 border-teal-400/80 ml-3">
+                                  <div className="bg-slate-50/80 rounded-lg p-1 space-y-0.5 ml-2 border-l-2 border-blue-400">
                                     {subitem.subitens.map((child) => {
                                       const childAtivo = isRouteActive(child.rota);
                                       return (
@@ -439,14 +566,14 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                                             setSidebarAberto(false);
                                             router.push(child.rota).catch(err => console.error('Erro ao navegar:', err));
                                           }}
-                                          className={`w-full text-left px-3 py-1.5 text-xs rounded transition-all duration-150 flex items-center justify-between ${
+                                          className={`w-full text-left px-2.5 py-1.5 text-xs rounded transition-all duration-150 flex items-center justify-between cursor-pointer ${
                                             childAtivo
-                                              ? 'bg-white text-[#0A4C53] font-bold shadow-xs transform scale-[1.02]'
-                                              : 'hover:bg-[#0A4C53] text-gray-300 hover:text-white'
+                                              ? 'bg-[#087CFA] text-white font-bold shadow-xs'
+                                              : 'hover:bg-white text-[#15345F] hover:text-[#087CFA]'
                                           }`}
                                         >
                                           <span className="flex items-center gap-2">
-                                            <span className={`w-1.5 h-1.5 rounded-full ${childAtivo ? 'bg-[#0A4C53]' : 'bg-teal-400'}`}></span>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${childAtivo ? 'bg-white' : 'bg-blue-400'}`} />
                                             <span>{child.nome}</span>
                                           </span>
                                         </button>
@@ -458,7 +585,7 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                             );
                           }
 
-                          // Subitem padrão (string)
+                          // Subitem padrão
                           const rotaSubitem = routeMap[`${modulo.nome} - ${subitem}`] || routeMap[subitem];
                           const subitemAtivo = isRouteActive(rotaSubitem) || moduloAtivo === `${modulo.nome} - ${subitem}`;
 
@@ -467,18 +594,18 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
                               key={subitem}
                               type="button"
                               onClick={() => handleSubmenuClick(modulo, subitem)}
-                              className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all duration-150 ${
+                              className={`w-full text-left px-3 py-1.5 text-xs rounded-lg transition-all duration-150 flex items-center justify-between cursor-pointer ${
                                 subitemAtivo
-                                  ? 'bg-white text-[#0A4C53] font-bold shadow-md transform scale-105'
-                                  : 'hover:bg-[#0A4C53] hover:translate-x-2 text-gray-300'
+                                  ? 'bg-[#087CFA] text-white font-bold shadow-xs'
+                                  : 'hover:bg-blue-50/70 text-[#15345F] hover:text-[#087CFA]'
                               }`}
                               style={{
-                                transitionDelay: menusAbertos[modulo.nome] ? `${subIdx * 30}ms` : '0ms'
+                                transitionDelay: menusAbertos[modulo.nome] ? `${subIdx * 25}ms` : '0ms'
                               }}
                             >
                               <span className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
-                                {subitem}
+                                <span className={`w-1.5 h-1.5 rounded-full ${subitemAtivo ? 'bg-white' : 'bg-[#087CFA]'}`} />
+                                <span>{subitem}</span>
                               </span>
                             </button>
                           );
@@ -492,14 +619,38 @@ export default function Sidebar({ sidebarAberto, setSidebarAberto, moduloAtivo, 
           </nav>
         </div>
 
-        <div className="border-t border-[#054248] p-4">
-          <button
-            onClick={handleLogout}
-            className="w-full bg-red-500 hover:bg-red-600 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"
-          >
-            <FontAwesomeIcon icon={faSignOutAlt} />
-            <span>Sair</span>
-          </button>
+        {/* =========================================================================
+            REGIÃO 3: RODAPÉ FIXO COM O BOTÃO SAIR SEMPRE VISÍVEL
+           ========================================================================= */}
+        <div className={`border-t border-[#BBD5EE]/80 p-3 bg-white/50 backdrop-blur-xs shrink-0 ${
+          sidebarRecolhida ? 'flex justify-center px-2' : ''
+        }`}>
+          {sidebarRecolhida ? (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-11 h-11 bg-white/95 hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+                title="Encerrar Sessão"
+                aria-label="Encerrar Sessão"
+              >
+                <FontAwesomeIcon icon={faSignOutAlt} className="text-sm" />
+              </button>
+              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center z-50 pointer-events-none">
+                <div className="bg-rose-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+                  Encerrar Sessão
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleLogout}
+              className="w-full bg-white/95 hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-200/80 py-2.5 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer backdrop-blur-xs"
+            >
+              <FontAwesomeIcon icon={faSignOutAlt} className="text-xs" />
+              <span>Encerrar Sessão</span>
+            </button>
+          )}
         </div>
       </aside>
     </>

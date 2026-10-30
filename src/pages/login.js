@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -18,7 +18,8 @@ import {
   faBullhorn,
   faShieldHalved,
   faArrowRight,
-  faSpinner
+  faSpinner,
+  faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function Login() {
@@ -27,8 +28,47 @@ export default function Login() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
+  
+  // Estados para o fluxo de "Esqueceu sua senha?"
+  const [modalEsqueciSenha, setModalEsqueciSenha] = useState(false);
+  const [emailRecuperacao, setEmailRecuperacao] = useState('');
+  const [carregandoRecuperacao, setCarregandoRecuperacao] = useState(false);
+  const [mensagemRecuperacao, setMensagemRecuperacao] = useState('');
+  const [erroRecuperacao, setErroRecuperacao] = useState('');
+
   const router = useRouter();
   const { login } = useAuth();
+
+  const handleRecuperarSenha = async (e) => {
+    e.preventDefault();
+    setErroRecuperacao('');
+    setMensagemRecuperacao('');
+    setCarregandoRecuperacao(true);
+
+    try {
+      const response = await fetch('/api/auth/esqueci-senha', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: emailRecuperacao }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao processar recuperacao de senha');
+      }
+
+      setMensagemRecuperacao(
+        data.message || 'Se o e-mail estiver cadastrado, as instrucoes foram enviadas. Verifique sua caixa de entrada e spam.'
+      );
+    } catch (error) {
+      setErroRecuperacao(error.message);
+    } finally {
+      setCarregandoRecuperacao(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -95,14 +135,14 @@ export default function Login() {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
 
-      <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden bg-[#001020] text-slate-100 font-sans selection:bg-cyan-500 selection:text-white">
+      <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden overflow-hidden bg-[#001020] text-slate-100 font-sans selection:bg-cyan-500 selection:text-white">
         {/* Imagem de Fundo Parlamentar Cinematográfica com Overlays */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 pointer-events-none">
           <Image
             src="/landing/login_background.jpg"
             alt="Gabinete Parlamentar MandatoPRO"
             fill
-            className="object-cover object-center scale-105 transform motion-safe:animate-pulse [animation-duration:8s]"
+            className="object-cover object-center scale-105"
             priority
           />
           {/* Camada de Gradiente Tecnológico Azul-Marinho / Ciano idêntica à referência visual */}
@@ -114,21 +154,21 @@ export default function Login() {
         </div>
 
         {/* Topo / Header da Página de Login */}
-        <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+        <header className="relative z-10 w-full max-w-7xl mx-auto px-6 pt-7 pb-4 lg:pt-10 lg:pb-5 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <Image
               src="/img/logohb.png"
               alt="MandatoPRO"
-              width={280}
-              height={70}
-              className="h-14 sm:h-16 w-auto object-contain"
+              width={380}
+              height={95}
+              className="h-16 sm:h-20 lg:h-24 w-auto object-contain drop-shadow-2xl"
               priority
             />
           </div>
 
           <a
             href="https://mandatopro.com"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900/60 hover:bg-slate-800/80 border border-cyan-800/50 text-xs font-semibold text-cyan-300 hover:text-white transition-all shadow-sm backdrop-blur-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-cyan-800/50 text-xs font-semibold text-cyan-300 hover:text-white transition-all shadow-sm backdrop-blur-sm"
           >
             <FontAwesomeIcon icon={faArrowLeft} className="text-xs" />
             Voltar para o site
@@ -136,74 +176,79 @@ export default function Login() {
         </header>
 
         {/* Corpo Principal: Duas Colunas (Hero Institucional à esquerda + Card de Login flutuante à direita) */}
-        <main className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 lg:py-10 flex-1 flex items-center">
-          <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+        <main className="relative z-10 w-full max-w-7xl mx-auto px-6 py-4 lg:py-6 flex-1 flex items-center min-h-0">
+          <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             
-            {/* Coluna Esquerda: Apresentação Institucional de Alto Impacto */}
-            <div className="lg:col-span-7 space-y-8 text-left">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/70 border border-cyan-800/60 text-cyan-400 text-xs font-bold uppercase tracking-wider shadow-inner">
+            {/* Coluna Esquerda: Apresentação Institucional de Alto Impacto e Verticalmente Equilibrada */}
+            <div className="lg:col-span-7 flex flex-col justify-center space-y-5 lg:space-y-6 text-left">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/70 border border-cyan-800/60 text-cyan-400 text-xs font-bold uppercase tracking-wider shadow-inner w-fit">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
                 Painel Parlamentar Unificado
               </div>
 
-              <div className="space-y-4">
-                <h1 className="text-4xl sm:text-5xl lg:text-5xl font-black text-white tracking-tight leading-[1.15]">
+              <div className="space-y-3">
+                <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-black text-white tracking-tight leading-[1.14]">
                   Bem-vindo ao <br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
                     Ambiente Parlamentar
                   </span>{' '}
                   MandatoPRO
                 </h1>
-                <p className="text-base sm:text-lg text-slate-300 max-w-xl font-normal leading-relaxed">
+                <p className="text-sm lg:text-base text-slate-300 max-w-xl font-normal leading-relaxed">
                   Gestão centralizada do mandato, relacionamento com eleitores, articulação de lideranças e inteligência territorial e estratégica em um só lugar.
                 </p>
               </div>
 
-              {/* 4 Cards Informativos Translúcidos (como na referência) */}
-              <div className="space-y-3 max-w-lg">
-                <div className="flex items-center gap-4 p-3.5 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
-                  <div className="w-9 h-9 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
-                    <FontAwesomeIcon icon={faChartLine} className="text-sm" />
+              {/* 4 Cards Informativos Translúcidos e Confortáveis */}
+              <div className="space-y-3 max-w-lg pt-1">
+                <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <FontAwesomeIcon icon={faChartLine} className="text-xs" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-200">Visão Estratégica & Inteligência Territorial</span>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-200">Visão Estratégica & Inteligência Territorial</span>
                 </div>
 
-                <div className="flex items-center gap-4 p-3.5 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
-                  <div className="w-9 h-9 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
-                    <FontAwesomeIcon icon={faUsers} className="text-sm" />
+                <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <FontAwesomeIcon icon={faUsers} className="text-xs" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-200">Gestão de Eleitores, Equipes & Lideranças</span>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-200">Gestão de Eleitores, Equipes & Lideranças</span>
                 </div>
 
-                <div className="flex items-center gap-4 p-3.5 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
-                  <div className="w-9 h-9 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
-                    <FontAwesomeIcon icon={faBullhorn} className="text-sm" />
+                <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <FontAwesomeIcon icon={faBullhorn} className="text-xs" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-200">Comunicação Oficial & Atendimento Integrado</span>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-200">Comunicação Oficial & Atendimento Integrado</span>
                 </div>
 
-                <div className="flex items-center gap-4 p-3.5 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
-                  <div className="w-9 h-9 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
-                    <FontAwesomeIcon icon={faShieldHalved} className="text-sm" />
+                <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/50 hover:bg-slate-900/70 border border-cyan-900/40 backdrop-blur-md transition-colors group">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-800/50 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <FontAwesomeIcon icon={faShieldHalved} className="text-xs" />
                   </div>
-                  <span className="text-sm font-semibold text-slate-200">Auditoria Rígida & Conformidade Eleitoral</span>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-200">Auditoria Rígida & Conformidade Eleitoral</span>
                 </div>
               </div>
 
-              <div className="text-xs text-slate-400 font-medium italic pt-2">
+              <div className="text-xs text-slate-400 font-medium italic pt-1">
                 — Tecnologia a serviço de uma liderança de excelência.
               </div>
             </div>
 
-            {/* Coluna Direita: Card de Login Flutuante (Estilo Branco Premium da referência) */}
+            {/* Coluna Direita: Card de Login Flutuante Original Preservado */}
             <div className="lg:col-span-5 flex justify-center lg:justify-end">
               <div className="w-full max-w-[430px] bg-white rounded-3xl p-8 sm:p-10 shadow-2xl shadow-black/60 border border-slate-100 text-slate-900 relative">
                 
-                {/* Ícone de Topo Centralizado */}
-                <div className="flex justify-center mb-5">
-                  <div className="w-14 h-14 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-600 shadow-sm">
-                    <FontAwesomeIcon icon={faShieldHalved} className="text-2xl" />
-                  </div>
+                {/* Logo Oficial Centralizada no Card */}
+                <div className="flex justify-center mb-6">
+                  <Image
+                    src="/img/logo1.png"
+                    alt="MandatoPRO"
+                    width={220}
+                    height={60}
+                    className="h-14 w-auto object-contain"
+                    priority
+                  />
                 </div>
 
                 {/* Título e Subtítulo do Card */}
@@ -266,16 +311,18 @@ export default function Login() {
                   </div>
 
                   <div className="flex justify-end">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        alert('Para redefinição de credenciais, solicite suporte ao Administrador do Mandato.');
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmailRecuperacao(email || '');
+                        setMensagemRecuperacao('');
+                        setErroRecuperacao('');
+                        setModalEsqueciSenha(true);
                       }}
-                      className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 hover:underline"
+                      className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 hover:underline cursor-pointer bg-transparent border-none p-0"
                     >
                       Esqueceu sua senha?
-                    </a>
+                    </button>
                   </div>
 
                   {erro && (
@@ -314,8 +361,8 @@ export default function Login() {
           </div>
         </main>
 
-        {/* Rodapé da Página de Login */}
-        <footer className="relative z-10 w-full max-w-7xl mx-auto px-6 py-5 border-t border-cyan-950/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
+        {/* Rodapé da Página de Login Perfeitamente Enquadrado */}
+        <footer className="relative z-10 w-full max-w-7xl mx-auto px-6 py-4 border-t border-cyan-950/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2 flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-300">MandatoPRO</span>
             <span>— Tecnologia para quem representa, inteligência para quem decide.</span>
@@ -327,9 +374,117 @@ export default function Login() {
             <a href="https://mandatopro.com#contato" className="hover:text-cyan-400 transition-colors">
               Suporte
             </a>
-            <span className="text-slate-500">© {new Date().getFullYear()} MandatoPRO. Todos os direitos reservados.</span>
+            <span className="text-slate-500">
+              © 2026 MandatoPRO. Todos os direitos reservados.
+            </span>
           </div>
         </footer>
+
+        {/* Modal Elegante de Recuperação de Senha */}
+        {modalEsqueciSenha && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative w-full max-w-md bg-white rounded-3xl p-7 sm:p-8 shadow-2xl shadow-black/80 border border-slate-100 text-slate-900">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                    <FontAwesomeIcon icon={faLock} className="text-sm" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Recuperar Senha</h3>
+                    <p className="text-xs text-slate-500">Instruções de redefinição de acesso</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalEsqueciSenha(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {mensagemRecuperacao ? (
+                <div className="space-y-5 py-2">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3">
+                    <FontAwesomeIcon icon={faCheckCircle} className="text-emerald-600 text-lg mt-0.5 flex-shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-xs text-emerald-900 font-semibold leading-relaxed">
+                        {mensagemRecuperacao}
+                      </p>
+                      <p className="text-[11px] text-emerald-700">
+                        O link de redefinição é válido por tempo limitado. Caso não receba em alguns minutos, verifique sua caixa de spam ou lixo eletrônico.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setModalEsqueciSenha(false)}
+                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    Fechar e Voltar ao Login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRecuperarSenha} className="space-y-4 pt-2">
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Informe o e-mail cadastrado do seu usuário operador. Enviaremos um link seguro para você cadastrar uma nova senha.
+                  </p>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                      E-mail do Operador
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <FontAwesomeIcon icon={faEnvelope} className="text-sm" />
+                      </div>
+                      <input
+                        type="email"
+                        value={emailRecuperacao}
+                        onChange={(e) => setEmailRecuperacao(e.target.value)}
+                        required
+                        disabled={carregandoRecuperacao}
+                        placeholder="operador@mandatopro.com"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+
+                  {erroRecuperacao && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+                      {erroRecuperacao}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalEsqueciSenha(false)}
+                      className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={carregandoRecuperacao}
+                      className="w-1/2 py-3 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/30 text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
+                    >
+                      {carregandoRecuperacao ? (
+                        <>
+                          <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />
+                          Enviando...
+                        </>
+                      ) : (
+                        'Enviar Link'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

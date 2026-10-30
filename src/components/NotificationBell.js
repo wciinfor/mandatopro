@@ -40,8 +40,6 @@ export default function NotificationBell() {
     };
 
     atualizar();
-    // [MANUTENÇÃO P0 — 2026-08-06] Polling desabilitado temporariamente
-    // intervalId = setInterval(atualizar, 30000);
 
     return () => {
       cancelled = true;
@@ -56,13 +54,15 @@ export default function NotificationBell() {
   return (
     <button
       onClick={handleClick}
-      className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+      className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-[#536987] hover:text-[#087CFA] hover:bg-blue-50/70 border border-[#CBDCEC] transition-colors cursor-pointer bg-white shadow-xs"
       title={unreadCount > 0 ? `Notificações (${unreadCount} não lidas)` : 'Notificações'}
       aria-label={unreadCount > 0 ? `Notificações, ${unreadCount} não lidas` : 'Notificações'}
     >
-      <FontAwesomeIcon icon={faBell} className="text-gray-600 text-xl" />
+      <FontAwesomeIcon icon={faBell} className="text-sm" />
       {unreadCount > 0 && (
-        <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs ring-2 ring-white">
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
       )}
     </button>
   );

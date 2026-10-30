@@ -1,9 +1,13 @@
 import '../styles/globals.css';
 import 'leaflet/dist/leaflet.css';
+import '@fortawesome/fontawesome-svg-core/styles.css';
+import { config } from '@fortawesome/fontawesome-svg-core';
 import { useEffect } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { installAuthenticatedFetch } from '@/lib/auth-fetch';
+
+config.autoAddCss = false;
 
 function RuntimeAbortErrorGuard() {
   useEffect(() => {
@@ -31,8 +35,6 @@ function RuntimeAbortErrorGuard() {
 }
 
 export default function App({ Component, pageProps }) {
-  installAuthenticatedFetch();
-
   return (
     <AuthProvider>
       <NotificationProvider>

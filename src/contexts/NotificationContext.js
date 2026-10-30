@@ -188,27 +188,4 @@ function getTimeAgo(date) {
   return `${Math.floor(seconds / 86400)}d atrás`;
 }
 
-// CSS para animação
-const styles = `
-  @keyframes slide-in {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-  
-  .animate-slide-in {
-    animation: slide-in 0.3s ease-out;
-  }
-`;
-
-// Injetar CSS
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = styles;
-  document.head.appendChild(styleSheet);
-}
+// Nota: animação slide-in definida em globals.css para evitar hydration mismatch
