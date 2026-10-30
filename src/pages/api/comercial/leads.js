@@ -101,10 +101,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: 'Por favor, selecione seu cargo ou função.' });
     }
 
-    if (!instituicaoLimpa) {
-      return res.status(400).json({ success: false, message: 'Por favor, informe sua instituição ou gabinete.' });
-    }
-
     if (!ufLimpa || ufLimpa.length !== 2) {
       return res.status(400).json({ success: false, message: 'Por favor, informe uma UF válida (ex: DF, SP, PA).' });
     }

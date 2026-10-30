@@ -26,8 +26,19 @@ import {
   faCheckCircle,
   faBars,
   faTimes,
-  faCalendarCheck
+  faCalendarCheck,
+  faHeadset,
+  faMapMarkedAlt,
+  faChartLine,
+  faPaperPlane,
+  faCalendarDay,
+  faSliders,
+  faUser,
+  faBriefcase,
+  faLocationDot,
+  faEnvelope
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -114,81 +125,81 @@ export default function LandingPage() {
       </Head>
 
       {/* =========================================================
-          1. HEADER
+          1. HEADER (Design translúcido moderno com efeito glassmorphism)
       ========================================================= */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#001428]/90 backdrop-blur-md border-b border-cyan-900/40 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#001428]/60 backdrop-blur-xl border-b border-cyan-800/20 shadow-lg shadow-black/20 transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 sm:h-22 flex items-center justify-between">
           {/* Logo MandatoPRO */}
           <div className="flex items-center gap-3">
-            <a href="#" className="flex items-center group py-2">
+            <a href="#" className="flex items-center group py-1.5">
               <Image
                 src="/img/logohb.png"
                 alt="MandatoPRO"
-                width={280}
-                height={70}
-                className="h-14 sm:h-16 w-auto object-contain group-hover:scale-[1.02] transition-transform"
+                width={260}
+                height={65}
+                className="h-11 sm:h-13 w-auto object-contain group-hover:scale-[1.02] transition-transform drop-shadow"
                 priority
               />
             </a>
           </div>
 
           {/* Navegação Desktop */}
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-300">
+          <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-200">
             <button
               onClick={() => scrollToSection('hero')}
-              className="hover:text-cyan-400 transition-colors cursor-pointer"
+              className="hover:text-amber-400 transition-colors cursor-pointer"
             >
               Início
             </button>
             <button
               onClick={() => scrollToSection('para-quem')}
-              className="hover:text-cyan-400 transition-colors cursor-pointer"
+              className="hover:text-amber-400 transition-colors cursor-pointer"
             >
               Para quem é
             </button>
             <button
               onClick={() => scrollToSection('insystens')}
-              className="hover:text-cyan-400 transition-colors cursor-pointer"
+              className="hover:text-amber-400 transition-colors cursor-pointer"
             >
               Inteligência Eleitoral
             </button>
             <button
               onClick={() => scrollToSection('funcionalidades')}
-              className="hover:text-cyan-400 transition-colors cursor-pointer"
+              className="hover:text-amber-400 transition-colors cursor-pointer"
             >
               Funcionalidades
             </button>
             <button
               onClick={() => scrollToSection('tai')}
-              className="hover:text-cyan-400 transition-colors cursor-pointer"
+              className="hover:text-amber-400 transition-colors cursor-pointer"
             >
               TAI
             </button>
             <button
               onClick={() => scrollToSection('contato')}
-              className="hover:text-cyan-400 transition-colors cursor-pointer"
+              className="hover:text-amber-400 transition-colors cursor-pointer"
             >
               Contato
             </button>
           </nav>
 
-          {/* CTA Desktop */}
+          {/* CTAs Desktop - Apenas Entrar no Sistema */}
           <div className="hidden lg:flex items-center">
             <a
               href="https://app.mandatopro.com/login"
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm px-6 py-2.5 rounded-lg shadow-lg shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5 inline-flex items-center justify-center cursor-pointer"
+              className="px-6 py-2.5 rounded-xl border border-cyan-500/40 hover:border-cyan-400 bg-gradient-to-r from-cyan-500/10 to-blue-600/15 hover:from-cyan-500/25 hover:to-blue-600/30 text-white font-semibold text-sm transition-all shadow-sm hover:shadow-cyan-500/20"
             >
-              Acesso ao Sistema
+              Entrar no Sistema
             </a>
           </div>
 
           {/* Botão Mobile Menu */}
-          <div className="lg:hidden flex items-center gap-3">
+          <div className="lg:hidden flex items-center gap-2.5">
             <a
               href="https://app.mandatopro.com/login"
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs px-3.5 py-1.5 rounded-md shadow-md shadow-cyan-500/20"
+              className="px-3.5 py-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 text-xs font-semibold text-white"
             >
-              Acesso ao Sistema
+              Entrar no Sistema
             </a>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -202,149 +213,207 @@ export default function LandingPage() {
 
         {/* Menu Gaveta Mobile */}
         {mobileMenuOpen && (
-          <div className="lg:hidden bg-[#001428] border-b border-cyan-900/60 px-6 py-6 space-y-4 animate-in slide-in-from-top">
+          <div className="lg:hidden bg-[#001428]/95 backdrop-blur-2xl border-b border-cyan-900/60 px-6 py-6 space-y-4 animate-in slide-in-from-top">
             <button
               onClick={() => scrollToSection('hero')}
-              className="block w-full text-left text-base font-medium text-slate-200 hover:text-cyan-400"
+              className="block w-full text-left text-base font-medium text-slate-200 hover:text-amber-400"
             >
               Início
             </button>
             <button
               onClick={() => scrollToSection('para-quem')}
-              className="block w-full text-left text-base font-medium text-slate-200 hover:text-cyan-400"
+              className="block w-full text-left text-base font-medium text-slate-200 hover:text-amber-400"
             >
               Para quem é
             </button>
             <button
               onClick={() => scrollToSection('insystens')}
-              className="block w-full text-left text-base font-medium text-slate-200 hover:text-cyan-400"
+              className="block w-full text-left text-base font-medium text-slate-200 hover:text-amber-400"
             >
               Inteligência Eleitoral
             </button>
             <button
               onClick={() => scrollToSection('funcionalidades')}
-              className="block w-full text-left text-base font-medium text-slate-200 hover:text-cyan-400"
+              className="block w-full text-left text-base font-medium text-slate-200 hover:text-amber-400"
             >
               Funcionalidades
             </button>
             <button
               onClick={() => scrollToSection('tai')}
-              className="block w-full text-left text-base font-medium text-slate-200 hover:text-cyan-400"
+              className="block w-full text-left text-base font-medium text-slate-200 hover:text-amber-400"
             >
               TAI — Assistente Inteligente
             </button>
             <button
               onClick={() => scrollToSection('contato')}
-              className="block w-full text-left text-base font-medium text-slate-200 hover:text-cyan-400"
+              className="block w-full text-left text-base font-medium text-slate-200 hover:text-amber-400"
             >
               Contato
             </button>
             <div className="pt-4 border-t border-slate-800 flex flex-col gap-3">
               <a
                 href="https://app.mandatopro.com/login"
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-3 rounded-lg text-center shadow-lg shadow-cyan-500/25"
+                className="w-full border border-slate-600 text-slate-200 font-bold py-3 rounded-xl text-center"
               >
-                Acesso ao Sistema
+                Entrar no Sistema
               </a>
+              <button
+                onClick={() => scrollToSection('contato')}
+                className="w-full bg-[#f5a623] text-slate-950 font-bold py-3 rounded-xl text-center shadow-lg shadow-amber-500/25"
+              >
+                Solicitar Demonstração
+              </button>
             </div>
           </div>
         )}
       </header>
 
       {/* =========================================================
-          2. HERO SECTION
+          2. HERO SECTION COM bg_hero3.png E COMPOSIÇÃO MODERNA
       ========================================================= */}
       <section
         id="hero"
-        className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 overflow-hidden bg-[#001124]"
+        className="relative pt-32 pb-16 lg:pt-40 lg:pb-24 overflow-hidden bg-[#001020]"
       >
-        {/* Imagem de Fundo Oficial do Hero */}
+        {/* Imagem de Fundo Oficial do Hero (bg_hero3.png) */}
         <div className="absolute inset-0 z-0">
           <Image
-            src="/img/bg_hero.png"
+            src="/img/bg_hero3.png"
             alt="Hero Background MandatoPRO"
             fill
             className="object-cover object-center"
             priority
           />
-          {/* Overlays sutis para garantir legibilidade dos textos e transição suave para a próxima seção */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#001124]/90 via-[#001124]/70 to-[#001124]/40" />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#000a17] to-transparent" />
+          {/* Overlays suaves para integração elegante com a barra superior e transição inferior */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#001020]/90 via-[#001020]/60 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#ffffff] via-[#ffffff]/60 to-transparent" />
         </div>
 
-        {/* Efeitos de Iluminação e Gradiente Tecnológico */}
-        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none z-[1]" />
-        <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none z-[1]" />
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-3xl space-y-6 text-center lg:text-left">
-            {/* Badge de Categoria */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-800/60 text-cyan-400 text-xs font-bold uppercase tracking-wider shadow-inner">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              Gestão Política e Inteligência Eleitoral
+          <div className="max-w-2xl space-y-7 text-center lg:text-left">
+            {/* Badge Tecnológica */}
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-600/50 backdrop-blur-md text-slate-200 text-xs font-bold tracking-wider shadow-sm uppercase">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              Tecnologia a serviço do seu mandato
             </div>
 
-            {/* Título Principal Fiel ao Mockup */}
+            {/* Título Principal de Alto Impacto */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.12]">
-              Tecnologia para <br className="hidden sm:inline" />
-              quem representa, <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500">
-                inteligência para <br className="hidden sm:inline" />
-                quem decide.
+              Mais organização. <br />
+              Mais resultados. <br />
+              <span className="text-[#f5a623]">
+                Um mandato mais forte.
               </span>
             </h1>
 
             {/* Subtítulo Descritivo */}
-            <p className="text-base sm:text-lg text-slate-300 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
-              O MandatoPRO é uma plataforma completa para gestão de mandatos, relacionamento com a população, comunicação estratégica e inteligência eleitoral, com o poder da Insystens.AI.
+            <p className="text-base sm:text-lg text-slate-200 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed drop-shadow-sm">
+              O <strong className="text-white font-semibold">MandatoPRO</strong> é a plataforma completa para gestão de mandatos políticos, unindo organização, atendimento ao cidadão, comunicação e inteligência de dados em um só lugar.
             </p>
 
-            {/* Lista dos 4 Públicos com Ícones no Hero */}
-            <div className="pt-2 pb-4">
-              <div className="grid grid-cols-4 gap-2 max-w-md mx-auto lg:mx-0 border-t border-b border-cyan-950/80 py-4">
-                <div className="flex flex-col items-center gap-1.5 text-center">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faUserTie} />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-300">Vereadores</span>
+            {/* Botões de Ação Principais (Amber + Dark Translucent) */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-1">
+              <button
+                onClick={() => scrollToSection('contato')}
+                className="w-full sm:w-auto bg-[#f5a623] hover:bg-[#ffb534] text-slate-950 font-bold px-8 py-3.5 rounded-xl shadow-xl shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer text-sm"
+              >
+                Solicitar demonstração
+                <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
+              </button>
+              <button
+                onClick={() => scrollToSection('funcionalidades')}
+                className="w-full sm:w-auto bg-slate-900/60 hover:bg-slate-900/80 text-white border border-slate-600/70 backdrop-blur-md font-semibold px-7 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer text-sm"
+              >
+                <FontAwesomeIcon icon={faPlay} className="text-xs text-amber-400" />
+                Conheça o sistema
+              </button>
+            </div>
+
+            {/* 3 Pilares com Ícones Circulares (Implantação rápida / Suporte especializado / Dados seguros) */}
+            <div className="pt-4 flex flex-wrap items-center justify-center lg:justify-start gap-6 sm:gap-8 text-slate-200 text-xs sm:text-sm font-semibold">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full border border-slate-400/50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center text-amber-400 text-xs">
+                  <FontAwesomeIcon icon={faBolt} />
                 </div>
-                <div className="flex flex-col items-center gap-1.5 text-center">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faLandmark} />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-300">Prefeitos</span>
+                <span>Implantação rápida</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full border border-slate-400/50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center text-amber-400 text-xs">
+                  <FontAwesomeIcon icon={faHeadset} />
                 </div>
-                <div className="flex flex-col items-center gap-1.5 text-center">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faBuildingColumns} />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-300">Deputados</span>
+                <span>Suporte especializado</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full border border-slate-400/50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center text-amber-400 text-xs">
+                  <FontAwesomeIcon icon={faShieldHalved} />
                 </div>
-                <div className="flex flex-col items-center gap-1.5 text-center">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-950/60 flex items-center justify-center text-cyan-400 text-sm">
-                    <FontAwesomeIcon icon={faScaleUnbalanced} />
-                  </div>
-                  <span className="text-[11px] font-medium text-slate-300">Senadores</span>
+                <span>Dados seguros</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================
+          FAIXA DE NÚMEROS / MÉTRICAS DE IMPACTO
+      ========================================================= */}
+      <section className="bg-white text-slate-900 py-10 sm:py-12 border-b border-slate-200 shadow-sm relative z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+            <div className="flex items-center gap-4">
+              <div className="w-13 h-13 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-2xl flex-shrink-0">
+                <FontAwesomeIcon icon={faUsers} />
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
+                  + 1.500
+                </div>
+                <div className="text-xs sm:text-sm text-slate-600 font-medium">
+                  mandatos atendidos em todo o Brasil
                 </div>
               </div>
             </div>
 
-            {/* Botões de Ação */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-              <button
-                onClick={() => scrollToSection('contato')}
-                className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold px-8 py-3.5 rounded-xl shadow-xl shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <FontAwesomeIcon icon={faCalendarCheck} />
-                Solicitar Demonstração
-              </button>
-              <button
-                onClick={() => scrollToSection('funcionalidades')}
-                className="w-full sm:w-auto bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80 font-semibold px-7 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <FontAwesomeIcon icon={faPlay} className="text-xs text-cyan-400" />
-                Conheça a Plataforma
-              </button>
+            <div className="flex items-center gap-4">
+              <div className="w-13 h-13 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-2xl flex-shrink-0">
+                <FontAwesomeIcon icon={faMapMarkedAlt} />
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
+                  26
+                </div>
+                <div className="text-xs sm:text-sm text-slate-600 font-medium">
+                  estados com <strong className="text-slate-900 font-bold">clientes ativos</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="w-13 h-13 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-2xl flex-shrink-0">
+                <FontAwesomeIcon icon={faShieldHalved} />
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
+                  95%
+                </div>
+                <div className="text-xs sm:text-sm text-slate-600 font-medium">
+                  de renovação dos mandatos
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="w-13 h-13 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center text-2xl flex-shrink-0">
+                <FontAwesomeIcon icon={faChartLine} />
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
+                  + 3 milhões
+                </div>
+                <div className="text-xs sm:text-sm text-slate-600 font-medium">
+                  de atendimentos registrados
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -369,91 +438,121 @@ export default function LandingPage() {
           </div>
 
           {/* Grid dos 4 Cards com Fotos Institucionais */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
             {/* Card 1: Vereadores */}
-            <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-44 overflow-hidden bg-slate-200">
+            <div className="group relative bg-white rounded-2xl overflow-hidden border border-[#E2ECF7] shadow-sm hover:shadow-2xl hover:border-cyan-500/50 hover:-translate-y-1.5 transition-all duration-300 flex flex-col">
+              <div className="relative h-48 sm:h-44 lg:h-48 overflow-hidden bg-slate-100">
                 <Image
-                  src="/landing/lideranca_vereadores.png"
-                  alt="Vereadores no Plenário"
+                  src="/landing/card_vereadores_hd.jpg"
+                  alt="Vereadores no Plenário da Câmara Municipal"
                   fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent pointer-events-none" />
+                <span className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase bg-white/95 backdrop-blur-md text-cyan-800 shadow-sm border border-white/60">
+                  Municipal
+                </span>
               </div>
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center mb-3">
-                  <FontAwesomeIcon icon={faUserTie} className="text-sm" />
+              <div className="p-6 flex-1 flex flex-col">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white flex items-center justify-center mb-4 shadow-md shadow-cyan-500/20 group-hover:scale-110 transition-transform duration-300">
+                  <FontAwesomeIcon icon={faUserTie} className="text-base" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">Vereadores</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Mais proximidade e resultados na sua cidade.
+                <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight group-hover:text-cyan-700 transition-colors">
+                  Vereadores
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Mais proximidade, resolutividade nos bairros e resultados visíveis na sua cidade.
                 </p>
               </div>
+              <div className="h-1 w-0 group-hover:w-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500 ease-out" />
             </div>
 
             {/* Card 2: Prefeitos */}
-            <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-44 overflow-hidden bg-slate-200">
+            <div className="group relative bg-white rounded-2xl overflow-hidden border border-[#E2ECF7] shadow-sm hover:shadow-2xl hover:border-blue-500/50 hover:-translate-y-1.5 transition-all duration-300 flex flex-col">
+              <div className="relative h-48 sm:h-44 lg:h-48 overflow-hidden bg-slate-100">
                 <Image
-                  src="/landing/lideranca_prefeitos.png"
+                  src="/landing/card_prefeitos_hd.jpg"
                   alt="Prefeitura e Gestão Municipal"
                   fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent pointer-events-none" />
+                <span className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase bg-white/95 backdrop-blur-md text-blue-800 shadow-sm border border-white/60">
+                  Executivo
+                </span>
               </div>
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center mb-3">
-                  <FontAwesomeIcon icon={faLandmark} className="text-sm" />
+              <div className="p-6 flex-1 flex flex-col">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center mb-4 shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform duration-300">
+                  <FontAwesomeIcon icon={faLandmark} className="text-base" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">Prefeitos</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Gestão eficiente e relacionamento direto com a população.
+                <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight group-hover:text-blue-700 transition-colors">
+                  Prefeitos
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Gestão eficiente, acompanhamento de demandas e relacionamento direto com a população.
                 </p>
               </div>
+              <div className="h-1 w-0 group-hover:w-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-500 ease-out" />
             </div>
 
             {/* Card 3: Deputados Estaduais e Federais */}
-            <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-44 overflow-hidden bg-slate-200">
+            <div className="group relative bg-white rounded-2xl overflow-hidden border border-[#E2ECF7] shadow-sm hover:shadow-2xl hover:border-sky-500/50 hover:-translate-y-1.5 transition-all duration-300 flex flex-col">
+              <div className="relative h-48 sm:h-44 lg:h-48 overflow-hidden bg-slate-100">
                 <Image
-                  src="/landing/lideranca_deputados.png"
-                  alt="Congresso e Assembleias Legislativas"
+                  src="/landing/card_deputados_hd.jpg"
+                  alt="Congresso Nacional e Assembleias Legislativas"
                   fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent pointer-events-none" />
+                <span className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase bg-white/95 backdrop-blur-md text-sky-800 shadow-sm border border-white/60">
+                  Estadual & Federal
+                </span>
               </div>
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center mb-3">
-                  <FontAwesomeIcon icon={faBuildingColumns} className="text-sm" />
+              <div className="p-6 flex-1 flex flex-col">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white flex items-center justify-center mb-4 shadow-md shadow-sky-500/20 group-hover:scale-110 transition-transform duration-300">
+                  <FontAwesomeIcon icon={faBuildingColumns} className="text-base" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">
+                <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight group-hover:text-sky-700 transition-colors">
                   Deputados Estaduais e Federais
                 </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Atuação estratégica com dados e inteligência territorial.
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Atuação estratégica multirregional com dados e inteligência territorial de bases eleitorais.
                 </p>
               </div>
+              <div className="h-1 w-0 group-hover:w-full bg-gradient-to-r from-sky-500 to-cyan-600 transition-all duration-500 ease-out" />
             </div>
 
             {/* Card 4: Senadores */}
-            <div className="bg-slate-50 rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
-              <div className="relative h-44 overflow-hidden bg-slate-200">
+            <div className="group relative bg-white rounded-2xl overflow-hidden border border-[#E2ECF7] shadow-sm hover:shadow-2xl hover:border-teal-500/50 hover:-translate-y-1.5 transition-all duration-300 flex flex-col">
+              <div className="relative h-48 sm:h-44 lg:h-48 overflow-hidden bg-slate-100">
                 <Image
-                  src="/landing/lideranca_senadores.png"
+                  src="/landing/card_senadores_hd.jpg"
                   alt="Senado Federal"
                   fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent pointer-events-none" />
+                <span className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase bg-white/95 backdrop-blur-md text-teal-800 shadow-sm border border-white/60">
+                  Senado Federal
+                </span>
               </div>
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="w-9 h-9 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center mb-3">
-                  <FontAwesomeIcon icon={faScaleUnbalanced} className="text-sm" />
+              <div className="p-6 flex-1 flex flex-col">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-600 to-cyan-700 text-white flex items-center justify-center mb-4 shadow-md shadow-teal-500/20 group-hover:scale-110 transition-transform duration-300">
+                  <FontAwesomeIcon icon={faScaleUnbalanced} className="text-base" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">Senadores</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Visão ampla, análise nacional e gestão de emendas.
+                <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight group-hover:text-teal-700 transition-colors">
+                  Senadores
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Visão ampla de federação, análise macrorregional e gestão integrada de emendas parlamentares.
                 </p>
               </div>
+              <div className="h-1 w-0 group-hover:w-full bg-gradient-to-r from-teal-600 to-cyan-700 transition-all duration-500 ease-out" />
             </div>
           </div>
         </div>
@@ -762,43 +861,65 @@ export default function LandingPage() {
       </section>
 
       {/* =========================================================
-          7. CONTATO COMERCIAL & DEMONSTRAÇÃO
+          7. CONTATO COMERCIAL & DEMONSTRAÇÃO (Fiel ao Mockup Aprovado)
       ========================================================= */}
-      <section id="contato" className="py-20 lg:py-28 bg-[#ffffff] text-slate-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            {/* Coluna Esquerda: Chamada e Formulário Comercial */}
-            <div className="lg:col-span-7 space-y-6">
-              <span className="text-xs font-bold text-cyan-600 uppercase tracking-widest">
-                Conheça o MandatoPRO na prática
-              </span>
+      <section
+        id="contato"
+        className="relative py-14 lg:py-16 overflow-hidden bg-gradient-to-b from-[#F5F9FD] via-white to-white text-slate-900 border-t border-slate-200/80"
+      >
+        <div className="relative max-w-[1320px] w-full mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Fotografia Ampla Integrada ao Fundo no Topo Direito — Restrita ao Container Centralizado */}
+          <div
+            className="hidden lg:block absolute top-0 right-4 sm:right-6 lg:right-8 w-[58%] h-[420px] pointer-events-none z-0"
+            style={{
+              maskImage: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 15%, rgba(0,0,0,1) 38%), linear-gradient(to bottom, rgba(0,0,0,1) 68%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.85) 15%, rgba(0,0,0,1) 38%), linear-gradient(to bottom, rgba(0,0,0,1) 68%, transparent 100%)',
+              maskComposite: 'intersect',
+              WebkitMaskComposite: 'destination-in'
+            }}
+          >
+            <Image
+              src="/img/bg_atendimento.png"
+              alt="Equipe MandatoPRO em demonstração da plataforma"
+              fill
+              priority
+              sizes="(max-width: 1320px) 58vw, 765px"
+              className="object-cover object-right-top"
+            />
+          </div>
 
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
-                Solicite uma demonstração com nossa equipe.
-              </h2>
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[minmax(0,42%)_minmax(0,58%)] gap-8 lg:gap-12 items-start lg:items-stretch">
+            {/* =========================================================
+                COLUNA ESQUERDA: Formulário Comercial (Aprox. 42%)
+            ========================================================= */}
+            <div className="space-y-4 lg:space-y-4">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
+                  Conheça o MandatoPRO na prática
+                </span>
+                <h2 className="text-2xl sm:text-3xl lg:text-[34px] font-black text-slate-900 tracking-tight leading-tight max-w-lg">
+                  Solicite uma demonstração com nossa equipe.
+                </h2>
+              </div>
 
-              <p className="text-base sm:text-lg text-slate-600">
-                Descubra como o MandatoPRO pode transformar a gestão do seu mandato. Preencha o formulário e fale com um de nossos especialistas.
-              </p>
-
-              {/* Formulário Comercial */}
+              {/* Formulário Comercial em Card Branco */}
               {formEnviado ? (
-                <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-6 text-emerald-900 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <FontAwesomeIcon icon={faCheckCircle} className="text-2xl text-emerald-600" />
-                    <h3 className="text-lg font-bold">Solicitação enviada com sucesso!</h3>
+                <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-6 text-emerald-900 space-y-3 shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <FontAwesomeIcon icon={faCheckCircle} className="text-xl text-emerald-600" />
+                    <h3 className="text-base font-bold">Solicitação enviada com sucesso!</h3>
                   </div>
-                  <p className="text-sm">
+                  <p className="text-xs sm:text-sm">
                     Agradecemos pelo seu interesse. Nossa equipe de especialistas entrará em contato pelo WhatsApp e e-mail informados nas próximas horas.
                   </p>
                 </div>
               ) : (
                 <form
                   onSubmit={handleFormSubmit}
-                  className="bg-slate-50 p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-sm space-y-4"
+                  className="bg-white p-6 sm:p-7 rounded-2xl border border-[#CBDCEC] shadow-lg space-y-4"
                 >
                   {formErro && (
-                    <div className="bg-rose-50 border border-rose-300 rounded-xl p-3.5 text-xs text-rose-700 font-medium">
+                    <div className="bg-rose-50 border border-rose-300 rounded-xl p-3 text-xs text-rose-700 font-medium">
                       {formErro}
                     </div>
                   )}
@@ -815,11 +936,15 @@ export default function LandingPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                        Nome Completo *
-                      </label>
+                  {/* Linha 1: Nome Completo (Linha Inteira) */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1.5">
+                      Nome Completo *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <FontAwesomeIcon icon={faUser} className="text-xs" />
+                      </div>
                       <input
                         type="text"
                         name="nome"
@@ -827,129 +952,140 @@ export default function LandingPage() {
                         value={formData.nome}
                         onChange={handleInputChange}
                         placeholder="Ex: Carlos Eduardo"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition"
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white text-slate-900 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
                       />
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  {/* Linha 2: Cargo / Função e UF */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                         Cargo / Função *
                       </label>
-                      <select
-                        name="cargo"
-                        required
-                        value={formData.cargo}
-                        onChange={handleInputChange}
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition"
-                      >
-                        <option value="">Selecione...</option>
-                        <option value="Vereador">Vereador(a)</option>
-                        <option value="Prefeito">Prefeito(a)</option>
-                        <option value="Deputado Estadual">Deputado(a) Estadual</option>
-                        <option value="Deputado Federal">Deputado(a) Federal</option>
-                        <option value="Senador">Senador(a)</option>
-                        <option value="Presidente">Presidente</option>
-                        <option value="Chefe de Gabinete">Chefe de Gabinete</option>
-                        <option value="Assessor Parlamentar">Assessor(a) Parlamentar</option>
-                        <option value="Outro">Outro</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                        Instituição / Gabinete *
-                      </label>
-                      <input
-                        type="text"
-                        name="gabinete"
-                        required
-                        value={formData.gabinete}
-                        onChange={handleInputChange}
-                        placeholder="Ex: Gabinete Deputado João"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition"
-                      />
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <FontAwesomeIcon icon={faBriefcase} className="text-xs" />
+                        </div>
+                        <select
+                          name="cargo"
+                          required
+                          value={formData.cargo}
+                          onChange={handleInputChange}
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white text-slate-900 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="Vereador">Vereador(a)</option>
+                          <option value="Prefeito">Prefeito(a)</option>
+                          <option value="Deputado Estadual">Deputado(a) Estadual</option>
+                          <option value="Deputado Federal">Deputado(a) Federal</option>
+                          <option value="Senador">Senador(a)</option>
+                          <option value="Presidente">Presidente</option>
+                          <option value="Chefe de Gabinete">Chefe de Gabinete</option>
+                          <option value="Assessor Parlamentar">Assessor(a) Parlamentar</option>
+                          <option value="Outro">Outro</option>
+                        </select>
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                         UF *
                       </label>
-                      <input
-                        type="text"
-                        name="uf"
-                        required
-                        maxLength={2}
-                        value={formData.uf}
-                        onChange={handleInputChange}
-                        placeholder="PA, SP, DF..."
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm uppercase focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition"
-                      />
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <FontAwesomeIcon icon={faLocationDot} className="text-xs" />
+                        </div>
+                        <input
+                          type="text"
+                          name="uf"
+                          required
+                          maxLength={2}
+                          value={formData.uf}
+                          onChange={handleInputChange}
+                          placeholder="PA, SP..."
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white text-slate-900 text-sm uppercase focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                         Município
                       </label>
-                      <input
-                        type="text"
-                        name="municipio"
-                        value={formData.municipio}
-                        onChange={handleInputChange}
-                        placeholder="Ex: Belém"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition"
-                      />
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <FontAwesomeIcon icon={faLocationDot} className="text-xs" />
+                        </div>
+                        <input
+                          type="text"
+                          name="municipio"
+                          value={formData.municipio}
+                          onChange={handleInputChange}
+                          placeholder="Ex: Belém"
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white text-slate-900 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                      <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                         WhatsApp Oficial *
                       </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-emerald-600">
+                          <FontAwesomeIcon icon={faWhatsapp} className="text-sm" />
+                        </div>
+                        <input
+                          type="tel"
+                          name="whatsapp"
+                          required
+                          value={formData.whatsapp}
+                          onChange={handleInputChange}
+                          placeholder="(91) 98765-4321"
+                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white text-slate-900 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1.5">
+                      E-mail Institucional / Gabinete *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <FontAwesomeIcon icon={faEnvelope} className="text-xs" />
+                      </div>
                       <input
-                        type="tel"
-                        name="whatsapp"
+                        type="email"
+                        name="email"
                         required
-                        value={formData.whatsapp}
+                        value={formData.email}
                         onChange={handleInputChange}
-                        placeholder="(91) 98765-4321"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition"
+                        placeholder="seuemail@gabinete.leg.br"
+                        className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white text-slate-900 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      E-mail Institucional / Gabinete *
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      placeholder="seuemail@gabinete.leg.br"
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                       Mensagem / Principais Demandas
                     </label>
                     <textarea
                       name="mensagem"
-                      rows={3}
+                      rows={2}
                       value={formData.mensagem}
                       onChange={handleInputChange}
                       placeholder="Descreva brevemente como podemos ajudar seu mandato ou gabinete..."
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none transition resize-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white text-slate-900 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition resize-none"
                     />
                   </div>
 
-                  <div className="pt-1">
+                  <div className="pt-0.5">
                     <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
                       <input
                         type="checkbox"
@@ -957,41 +1093,140 @@ export default function LandingPage() {
                         required
                         checked={formData.consentimento}
                         onChange={handleInputChange}
-                        className="mt-0.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
+                        className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span>
+                      <span className="leading-tight text-[11px] sm:text-xs">
                         Concordo com o tratamento dos dados informados para fins de contato e demonstração comercial da plataforma MandatoPRO, em total conformidade com a LGPD.
                       </span>
                     </label>
                   </div>
 
-                  <div className="pt-2">
+                  <div className="pt-1.5">
                     <button
                       type="submit"
                       disabled={formCarregando}
-                      className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="w-full bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold py-3.5 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-sm"
                     >
                       <FontAwesomeIcon icon={faCalendarCheck} />
                       {formCarregando ? 'Enviando...' : 'Solicitar Demonstração'}
                     </button>
                     <p className="text-[11px] text-slate-500 text-center mt-2">
-                      Seus dados estão protegidos em conformidade com a LGPD e serão utilizados unicamente para retorno de contato comercial.
+                      Seus dados estão protegidos em conformidade com a LGPD e serão utilizados exclusivamente para retorno de contato comercial.
                     </p>
                   </div>
                 </form>
               )}
             </div>
 
-            {/* Coluna Direita: Foto da Equipe Comercial */}
-            <div className="lg:col-span-5 flex justify-center">
-              <div className="relative w-full max-w-[450px] rounded-2xl overflow-hidden shadow-2xl border border-slate-200">
+            {/* =========================================================
+                COLUNA DIREITA: Fotografia no Topo e Benefícios Abaixo
+            ========================================================= */}
+            <div className="flex flex-col h-full justify-between">
+              {/* No mobile: exibe a fotografia integrada antes dos benefícios */}
+              <div className="lg:hidden relative w-full h-[240px] mb-6 overflow-hidden rounded-2xl">
                 <Image
-                  src="/landing/contato_equipe.png"
-                  alt="Equipe MandatoPRO em atendimento com liderança política"
-                  width={450}
-                  height={320}
-                  className="w-full h-auto object-cover"
+                  src="/img/bg_atendimento.png"
+                  alt="Equipe MandatoPRO demonstrando a plataforma no notebook"
+                  fill
+                  sizes="100vw"
+                  className="object-cover object-right-top"
                 />
+              </div>
+
+              {/* No desktop: espaço reservado correspondente à altura da fotografia da equipe */}
+              <div className="hidden lg:block h-[350px] w-full" aria-hidden="true" />
+
+              {/* Bloco de Benefícios: Estritamente ABAIXO da fotografia no espaço claro, ocupando a altura para alinhar com o card */}
+              <div className="space-y-6 pt-4 lg:pt-6">
+                <div className="space-y-2">
+                  <h3 className="text-xl sm:text-2xl lg:text-[26px] font-black text-slate-900 tracking-tight leading-snug">
+                    Uma demonstração completa,<br className="hidden sm:inline" /> online ou presencial, feita por especialistas.
+                  </h3>
+                  <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl">
+                    Conheça na prática como o MandatoPRO pode atender às necessidades reais do seu mandato ou gabinete.
+                  </p>
+                </div>
+
+                {/* Grid Compacto de 6 Diferenciais em Duas Colunas com espaçamento respirável */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 pt-2">
+                  {/* Diferencial 1 */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#E7F3FF] text-[#087CFA] flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                      <FontAwesomeIcon icon={faChartLine} className="text-sm" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Visão completa da plataforma</h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Conheça todos os módulos e funcionalidades.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Diferencial 2 */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#E7F3FF] text-[#087CFA] flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                      <FontAwesomeIcon icon={faPaperPlane} className="text-sm" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Campanhas e comunicação</h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Conheça o disparador multicanal (WhatsApp e SMS).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Diferencial 3 */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#E7F3FF] text-[#087CFA] flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                      <FontAwesomeIcon icon={faUsers} className="text-sm" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Dados reais do seu mandato</h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Entenda como seus dados são organizados e protegidos.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Diferencial 4 */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#E7F3FF] text-[#087CFA] flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                      <FontAwesomeIcon icon={faChartPie} className="text-sm" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Relatórios e indicadores</h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Acompanhe métricas e resultados em tempo real.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Diferencial 5 */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#E7F3FF] text-[#087CFA] flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                      <FontAwesomeIcon icon={faCalendarDay} className="text-sm" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Rotina de atendimento e agenda</h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Veja na prática a gestão de eleitores, atendimentos e eventos.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Diferencial 6 */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#E7F3FF] text-[#087CFA] flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                      <FontAwesomeIcon icon={faSliders} className="text-sm" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Tira-dúvidas personalizado</h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Nossa equipe responde suas perguntas e mostra como aplicar no seu dia a dia.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1009,9 +1244,9 @@ export default function LandingPage() {
               <Image
                 src="/img/logohb.png"
                 alt="MandatoPRO"
-                width={240}
-                height={60}
-                className="h-12 w-auto object-contain opacity-95 hover:opacity-100 transition-opacity"
+                width={480}
+                height={120}
+                className="h-24 w-auto object-contain opacity-95 hover:opacity-100 transition-opacity"
               />
             </div>
 
