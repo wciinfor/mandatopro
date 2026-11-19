@@ -2,6 +2,8 @@ import YCloudApiService, { createYCloudApiService } from './ycloud-api.js';
 import WhatsAppBusinessService from './whatsapp-business.js';
 import WaBlastApiService, { createWaBlastApiService } from './wablast-api.js';
 import WaflyApiService, { createWaflyApiService } from './wafly-api.js';
+import VibeWhatsApiService, { createVibeWhatsApiService } from './vibewhats-api.js';
+import { decryptCredential } from '../lib/credential-crypto.js';
 
 /**
  * Interface/Contrato comum de Provider para WhatsApp
@@ -495,7 +497,118 @@ export class WaflyWhatsAppAdapter extends WhatsAppProviderContract {
 }
 
 /**
- * Factory para instanciar o Provider correto (META, WABLAST, YCLOUD ou WAFLY) baseado na conta/mandato
+ * Adaptador para o provedor VIBEWHATS implementando o contrato unificado
+ */
+export class VibeWhatsWhatsAppAdapter extends WhatsAppProviderContract {
+  constructor(account = {}) {
+    super();
+    this.account = account;
+
+    const metadata = typeof account.access_token_metadata === 'object' && account.access_token_metadata
+      ? account.access_token_metadata
+      : {};
+
+    const instance = account.vibewhatsInstance
+      || account.vibewhats_instance
+      || account.instance
+      || account.instanceId
+      || metadata.vibewhats_instance
+      || metadata.instance
+      || '';
+
+    const rawToken = account.vibewhatsToken
+      || account.vibewhats_token
+      || account.token
+      || metadata.vibewhats_token
+      || metadata.token
+      || (account.access_token && String(account.provider || '').toUpperCase() === 'VIBEWHATS' ? account.access_token : '')
+      || '';
+
+    const token = decryptCredential(rawToken) || rawToken;
+
+    const clientToken = account.vibewhatsClientToken
+      || account.vibewhats_client_token
+      || metadata.vibewhats_client_token
+      || '';
+
+    const baseUrl = account.vibewhatsBaseUrl
+      || account.vibewhats_base_url
+      || metadata.vibewhats_base_url
+      || 'https://api.vibewhats.site';
+
+    this.service = createVibeWhatsApiService({
+      instance,
+      token,
+      clientToken,
+      baseUrl
+    });
+  }
+
+  async sendMessage(payload = {}) {
+    const to = payload.to || payload.phone || payload.destinatario;
+    const message = payload.message || payload.text || payload.body || payload.conteudo;
+    const delayMessage = payload.delayMessage || payload.delay_message;
+
+    const res = await this.service.sendText({
+      phone: to,
+      message,
+      delayMessage
+    });
+
+    return {
+      success: true,
+      messageId: res.messageId,
+      id: res.id,
+      zaapId: res.zaapId,
+      provider: 'VIBEWHATS'
+    };
+  }
+
+  async sendTemplate(payload = {}) {
+    const to = payload.to || payload.phone || payload.destinatario;
+    let text = payload.message || payload.text || payload.body;
+
+    if (!text && payload.templateName) {
+      text = `Olá, esta é uma mensagem oficial do mandato [${payload.templateName}]`;
+    }
+
+    const res = await this.service.sendText({
+      phone: to,
+      message: text || ''
+    });
+
+    return {
+      success: true,
+      messageId: res.messageId,
+      id: res.id,
+      provider: 'VIBEWHATS'
+    };
+  }
+
+  async getStatus() {
+    try {
+      const res = await this.service.getStatus();
+      return {
+        success: true,
+        status: res.status,
+        connected: res.connected,
+        phone: res.phone,
+        provider: 'VIBEWHATS',
+        data: res.raw
+      };
+    } catch (err) {
+      return {
+        success: false,
+        status: 'ERROR',
+        error: err?.error || err?.message || 'Falha ao consultar status VIBEWHATS',
+        provider: 'VIBEWHATS'
+      };
+    }
+  }
+}
+
+/**
+ * Factory para instanciar o Provider correto (META, WABLAST, YCLOUD, WAFLY ou VIBEWHATS) baseado na conta/mandato
  */
 export function createWhatsAppProvider(account = {}) {
   const provider = String(account.provider || account.provider_type || 'META').toUpperCase();
@@ -510,6 +623,10 @@ export function createWhatsAppProvider(account = {}) {
 
   if (provider === 'WAFLY') {
     return new WaflyWhatsAppAdapter(account);
+  }
+
+  if (provider === 'VIBEWHATS') {
+    return new VibeWhatsWhatsAppAdapter(account);
   }
 
   // Padrão: META

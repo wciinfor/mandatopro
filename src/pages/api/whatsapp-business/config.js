@@ -6,6 +6,7 @@ import {
   normalizarWhatsappAccount,
   salvarContaWhatsappPrincipal,
   salvarContaWhatsappWafly,
+  salvarContaWhatsappVibeWhats,
   salvarContaWhatsappWaBlast,
   salvarContaWhatsappYCloud,
   alterarProvedorWhatsappAtivo
@@ -78,6 +79,20 @@ export default async function handler(req, res) {
       // 2. Calcular isWaflyConnected: instance válida + token válido + número WhatsApp vinculado/ativo
       const isWaflyConnected = Boolean(waflyInstance && waflyToken && waflyPhone);
 
+      // 3. Identificar se existe conta ativa/configurada com provider = 'VIBEWHATS' para o tenant atual
+      const contaVibeRaw = (todasContas || []).find(c => c.provider === 'VIBEWHATS');
+      const vibeMeta = typeof contaVibeRaw?.access_token_metadata === 'object' && contaVibeRaw.access_token_metadata
+        ? contaVibeRaw.access_token_metadata
+        : {};
+
+      const numVibe = contaVibeRaw?.whatsapp_business_numbers?.find(n => n.status !== 'INATIVO' && (n.display_phone_number || n.phone_number_id))
+        || contaVibeRaw?.whatsapp_business_numbers?.[0];
+      const vibeInstance = vibeMeta.vibewhats_instance || vibeMeta.instance || numVibe?.phone_number_id || null;
+      const vibeToken = contaVibeRaw?.access_token || vibeMeta.vibewhats_token || vibeMeta.token || null;
+      const vibePhone = numVibe?.display_phone_number || numVibe?.phone_number_id || vibeMeta.connected_phone || null;
+
+      const isVibeConnected = Boolean(vibeInstance && vibeToken && (vibePhone || contaVibeRaw?.status === 'ATIVO'));
+
       // Resposta estritamente segura sem expor tokens ou API Keys
       return res.status(200).json({
         success: true,
@@ -93,7 +108,8 @@ export default async function handler(req, res) {
           META: isMetaConnected,
           YCLOUD: isYCloudConnected,
           WABLAST: isWablastConnected,
-          WAFLY: isWaflyConnected
+          WAFLY: isWaflyConnected,
+          VIBEWHATS: isVibeConnected
         },
         wablastDetails: {
           connected: isWablastConnected,
@@ -109,6 +125,14 @@ export default async function handler(req, res) {
           phoneNumber: waflyPhone,
           status: contaWaflyRaw?.status || (isWaflyConnected ? 'ATIVO' : 'INATIVO'),
           principal: Boolean(contaWaflyRaw?.principal)
+        },
+        vibewhatsDetails: {
+          configured: Boolean(vibeInstance && vibeToken),
+          connected: isVibeConnected,
+          instance: vibeInstance,
+          phoneNumber: vibePhone,
+          status: contaVibeRaw?.status || (isVibeConnected ? 'ATIVO' : 'INATIVO'),
+          principal: Boolean(contaVibeRaw?.principal)
         }
       });
     } catch (error) {
@@ -119,6 +143,24 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
+      // 0. Se for salvar credenciais manuais VIBEWHATS
+      const hasVibePayload = Boolean(
+        req.body.vibewhatsInstance ||
+        req.body.vibewhatsToken ||
+        (String(req.body.provider || req.body.targetProvider || '').toUpperCase() === 'VIBEWHATS' &&
+          (req.body.token || req.body.instanceToken || req.body.instance || req.body.instanceId))
+      );
+
+      if (hasVibePayload) {
+        const resVibe = await salvarContaWhatsappVibeWhats(supabase, usuario, req.body);
+        return res.status(200).json({
+          success: true,
+          message: 'Configuração VibeWhats salva com sucesso',
+          account: resVibe.account,
+          number: resVibe.number
+        });
+      }
+
       // 1. Se for salvar credenciais manuais WAFLY
       const hasWaflyPayload = Boolean(
         req.body.waflyClientToken ||
@@ -171,14 +213,14 @@ export default async function handler(req, res) {
         });
       }
 
-      // 4. Se for apenas alternar o provedor ativo (META / YCLOUD / WABLAST / WAFLY)
+      // 4. Se for apenas alternar o provedor ativo (META / YCLOUD / WABLAST / WAFLY / VIBEWHATS)
       const providerParam = req.body.provider || req.body.targetProvider;
       if (providerParam) {
         const targetProvider = String(providerParam).toUpperCase();
-        if (!['META', 'YCLOUD', 'WABLAST', 'WAFLY'].includes(targetProvider)) {
+        if (!['META', 'YCLOUD', 'WABLAST', 'WAFLY', 'VIBEWHATS'].includes(targetProvider)) {
           return res.status(400).json({
             success: false,
-            error: 'Provedor invalido. Escolha META, YCLOUD, WABLAST ou WAFLY'
+            error: 'Provedor invalido. Escolha META, YCLOUD, WABLAST, WAFLY ou VIBEWHATS'
           });
         }
 

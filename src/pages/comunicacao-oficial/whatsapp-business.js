@@ -53,6 +53,31 @@ export default function WhatsAppBusinessOficial() {
   const [conectadoSucesso, setConectadoSucesso] = useState(false);
   const [telefoneConectado, setTelefoneConectado] = useState(null);
 
+  // Estados específicos para VIBEWHATS
+  const [modalVibeAberto, setModalVibeAberto] = useState(false);
+  const [salvandoVibe, setSalvandoVibe] = useState(false);
+  const [vibeForm, setVibeForm] = useState({
+    instance: '',
+    token: '',
+    clientToken: '',
+    connectedPhone: '',
+    webhookSecret: ''
+  });
+  const [erroVibeModal, setErroVibeModal] = useState(null);
+  const [modalQrVibeAberto, setModalQrVibeAberto] = useState(false);
+  const [carregandoQrVibe, setCarregandoQrVibe] = useState(false);
+  const [qrCodeVibeData, setQrCodeVibeData] = useState(null);
+  const [erroQrVibeModal, setErroQrVibeModal] = useState(null);
+  const [conectadoSucessoVibe, setConectadoSucessoVibe] = useState(false);
+  const [telefoneConectadoVibe, setTelefoneConectadoVibe] = useState(null);
+
+  // Estados para teste de envio VibeWhats
+  const [modalTesteVibeAberto, setModalTesteVibeAberto] = useState(false);
+  const [testandoVibe, setTestandoVibe] = useState(false);
+  const [testeTelefoneVibe, setTesteTelefoneVibe] = useState('');
+  const [testeMensagemVibe, setTesteMensagemVibe] = useState('Olá! Este é um teste oficial de conexão da VibeWhats no MandatoPRO.');
+  const [resultadoTesteVibe, setResultadoTesteVibe] = useState(null);
+
   useEffect(() => {
     if (!router.isReady) return;
 
@@ -89,6 +114,33 @@ export default function WhatsAppBusinessOficial() {
       if (intervalId) clearInterval(intervalId);
     };
   }, [modalQrAberto, conectadoSucesso, config?.waflyDetails?.phoneNumber]);
+
+  // Polling automático para detectar conexão quando o modal de QR Code VIBEWHATS estiver aberto
+  useEffect(() => {
+    let intervalId = null;
+
+    if (modalQrVibeAberto && !conectadoSucessoVibe) {
+      intervalId = setInterval(async () => {
+        try {
+          const res = await fetch('/api/whatsapp-business/vibewhats-status');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.connected) {
+              setConectadoSucessoVibe(true);
+              setTelefoneConectadoVibe(data.phone || config?.vibewhatsDetails?.phoneNumber || null);
+              await carregarConfiguracao();
+            }
+          }
+        } catch (pollErr) {
+          console.warn('[VIBEWHATS POLLING] Erro ao consultar status:', pollErr);
+        }
+      }, 3000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [modalQrVibeAberto, conectadoSucessoVibe, config?.vibewhatsDetails?.phoneNumber]);
 
   const executarSincronizacaoWaBlast = async () => {
     try {
@@ -345,6 +397,169 @@ export default function WhatsAppBusinessOficial() {
     }
   };
 
+  // --- Handlers de QR Code e Configuração VIBEWHATS ---
+  const carregarQrCodeVibe = async () => {
+    try {
+      setCarregandoQrVibe(true);
+      setErroQrVibeModal(null);
+      const res = await fetch('/api/whatsapp-business/vibewhats-qr');
+      const data = await res.json();
+      if (res.ok && data.success && data.qrCode) {
+        setQrCodeVibeData(data.qrCode);
+      } else {
+        throw new Error(data.error || 'Não foi possível obter o QR Code da VibeWhats.');
+      }
+    } catch (err) {
+      console.error('Erro ao carregar QR Code VibeWhats:', err);
+      setErroQrVibeModal(err.message || 'Falha ao gerar QR Code.');
+    } finally {
+      setCarregandoQrVibe(false);
+    }
+  };
+
+  const handleAbrirModalQrVibe = () => {
+    setModalQrVibeAberto(true);
+    setConectadoSucessoVibe(false);
+    setTelefoneConectadoVibe(null);
+    setErroQrVibeModal(null);
+    setQrCodeVibeData(null);
+    carregarQrCodeVibe();
+  };
+
+  const handleFecharModalQrVibe = () => {
+    setModalQrVibeAberto(false);
+    setQrCodeVibeData(null);
+    setErroQrVibeModal(null);
+    if (conectadoSucessoVibe) {
+      carregarConfiguracao();
+    }
+  };
+
+  const handleAbrirModalVibe = () => {
+    setVibeForm({
+      instance: config?.vibewhatsDetails?.instance || '',
+      token: '',
+      clientToken: '',
+      connectedPhone: config?.vibewhatsDetails?.phoneNumber || '',
+      webhookSecret: ''
+    });
+    setErroVibeModal(null);
+    setModalVibeAberto(true);
+  };
+
+  const handleFecharModalVibe = () => {
+    if (salvandoVibe) return;
+    setModalVibeAberto(false);
+    setErroVibeModal(null);
+  };
+
+  const handleSalvarVibe = async (e) => {
+    e.preventDefault();
+    setErroVibeModal(null);
+
+    const instance = String(vibeForm.instance || '').trim();
+    const token = String(vibeForm.token || '').trim();
+    const clientToken = String(vibeForm.clientToken || '').trim();
+    const cleanPhone = String(vibeForm.connectedPhone || '').replace(/\D+/g, '');
+    const webhookSecret = String(vibeForm.webhookSecret || '').trim();
+
+    if (!instance) {
+      setErroVibeModal('ID da Instância da VibeWhats é obrigatório.');
+      return;
+    }
+    if (!token) {
+      setErroVibeModal('Token da Instância da VibeWhats é obrigatório.');
+      return;
+    }
+
+    try {
+      setSalvandoVibe(true);
+
+      const payload = {
+        provider: 'VIBEWHATS',
+        instance,
+        token,
+        clientToken,
+        connectedPhone: cleanPhone
+      };
+
+      if (webhookSecret) {
+        payload.webhookSecret = webhookSecret;
+      }
+
+      const res = await fetch('/api/whatsapp-business/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao salvar credenciais da VibeWhats.');
+      }
+
+      setModalVibeAberto(false);
+      setMensagemStatus({
+        tipo: 'sucesso',
+        texto: 'Configuração da VibeWhats salva com sucesso! Você pode conectar o WhatsApp via QR Code agora.'
+      });
+
+      await carregarConfiguracao();
+    } catch (err) {
+      setErroVibeModal(err.message || 'Erro ao salvar configuração VibeWhats.');
+    } finally {
+      setSalvandoVibe(false);
+    }
+  };
+
+  const handleAbrirTesteVibe = () => {
+    setModalTesteVibeAberto(true);
+    setResultadoTesteVibe(null);
+  };
+
+  const handleExecutarTesteVibe = async (e) => {
+    e.preventDefault();
+    setResultadoTesteVibe(null);
+    const cleanPhone = String(testeTelefoneVibe || '').replace(/\D+/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setResultadoTesteVibe({
+        tipo: 'erro',
+        mensagem: 'Informe um número de WhatsApp válido com DDD.'
+      });
+      return;
+    }
+
+    try {
+      setTestandoVibe(true);
+      const res = await fetch('/api/whatsapp-business/vibewhats-test-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: cleanPhone,
+          message: testeMensagemVibe
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao enviar mensagem de teste');
+      }
+
+      setResultadoTesteVibe({
+        tipo: 'sucesso',
+        mensagem: `Mensagem aceita pela VibeWhats! Message ID: ${data.messageId}. (Aguardando entrega via webhook).`
+      });
+    } catch (err) {
+      setResultadoTesteVibe({
+        tipo: 'erro',
+        mensagem: err.message || 'Erro na chamada de teste de envio.'
+      });
+    } finally {
+      setTestandoVibe(false);
+    }
+  };
+
   const providerAtivo = config?.provider || 'META';
   const prontoParaEnvio = Boolean(config?.isConfigured || config?.productionReady);
 
@@ -554,6 +769,171 @@ export default function WhatsAppBusinessOficial() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleAbrirModalWafly();
+                                }}
+                                disabled={changing}
+                                className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
+                                title="Configurar credenciais da instância"
+                              >
+                                <FontAwesomeIcon icon={faCog} className="text-gray-500 text-xs" />
+                                <span>Configurar</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Card 5: VIBEWHATS */}
+                {(() => {
+                  const isVibeAtivo = providerAtivo === 'VIBEWHATS';
+                  const isVibeConnected = Boolean(config?.vibewhatsDetails?.connected);
+                  const isVibeConfigured = Boolean(config?.vibewhatsDetails?.configured);
+                  const vibePhone = config?.vibewhatsDetails?.phoneNumber || null;
+                  const vibeInstance = config?.vibewhatsDetails?.instance || null;
+                  const vibeStatus = config?.vibewhatsDetails?.status || 'INATIVO';
+
+                  return (
+                    <div
+                      key="provider_vibewhats"
+                      onClick={() => {
+                        if (isVibeConnected && !changing && !isVibeAtivo) {
+                          handleTrocarProvedor('VIBEWHATS');
+                        }
+                      }}
+                      className={`p-5 rounded-2xl border-2 transition relative ${
+                        isVibeConnected ? 'cursor-pointer hover:border-emerald-300' : ''
+                      } ${
+                        isVibeAtivo
+                          ? 'border-emerald-600 bg-emerald-50/30 shadow-sm'
+                          : 'border-gray-200 bg-gray-50/40'
+                      }`}
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                          <input
+                            type="radio"
+                            name="provider_choice"
+                            checked={isVibeAtivo}
+                            onChange={() => handleTrocarProvedor('VIBEWHATS')}
+                            disabled={changing || !isVibeConnected}
+                            className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed mt-1 shrink-0"
+                          />
+                          <div className="p-3 bg-emerald-100/70 text-emerald-700 rounded-xl shrink-0">
+                            <FontAwesomeIcon icon={faWhatsapp} className="text-xl" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h5 className="font-bold text-gray-800 text-sm">VibeWhats API</h5>
+                              {isVibeAtivo ? (
+                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-emerald-600 text-white rounded-md">
+                                  Ativo
+                                </span>
+                              ) : isVibeConnected ? (
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md">
+                                  Conectado / Pronto
+                                </span>
+                              ) : isVibeConfigured ? (
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded-md">
+                                  Aguardando QR Code
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-gray-200 text-gray-700 rounded-md">
+                                  Não Configurado
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Instância independente WhatsApp via VibeWhats API (Padrão Z-API)
+                            </p>
+
+                            {(isVibeConfigured || isVibeConnected) && (
+                              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600 bg-white/80 px-3 py-1.5 rounded-xl border border-emerald-100">
+                                {vibeInstance && (
+                                  <span className="flex items-center gap-1">
+                                    <strong className="text-gray-700">Instância:</strong> {vibeInstance}
+                                  </span>
+                                )}
+                                {vibePhone && (
+                                  <span className="flex items-center gap-1">
+                                    <strong className="text-gray-700">Número:</strong> +{vibePhone}
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1">
+                                  <strong className="text-gray-700">Status:</strong>
+                                  <span className={`font-semibold ${isVibeConnected ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                    {vibeStatus}
+                                  </span>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Botões de Ação do Card VIBEWHATS */}
+                        <div className="shrink-0 flex items-center gap-2 flex-wrap self-end md:self-center">
+                          {isVibeConfigured && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAbrirTesteVibe();
+                              }}
+                              disabled={changing}
+                              className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
+                              title="Testar envio de mensagem"
+                            >
+                              <span>Testar Envio</span>
+                            </button>
+                          )}
+                          {isVibeConnected ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalQrVibe();
+                                }}
+                                disabled={changing}
+                                className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
+                                title="Reconectar via QR Code"
+                              >
+                                <FontAwesomeIcon icon={faQrcode} className="text-emerald-600" />
+                                <span>Reconectar QR</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalVibe();
+                                }}
+                                disabled={changing}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                              >
+                                <FontAwesomeIcon icon={faCog} className="text-xs" />
+                                <span>Configurar</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalQrVibe();
+                                }}
+                                disabled={changing || !isVibeConfigured}
+                                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                              >
+                                <FontAwesomeIcon icon={faQrcode} className="text-sm" />
+                                <span>Ler QR Code</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAbrirModalVibe();
                                 }}
                                 disabled={changing}
                                 className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
@@ -944,6 +1324,284 @@ export default function WhatsAppBusinessOficial() {
                     >
                       {salvandoWafly && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
                       <span>{salvandoWafly ? 'Salvando...' : 'Salvar Credenciais'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Modal 1: Configuração Manual VIBEWHATS */}
+          {modalVibeAberto && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl">
+                      <FontAwesomeIcon icon={faWhatsapp} className="text-lg" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-base">Configurar Instância VibeWhats</h4>
+                      <p className="text-xs text-gray-500">Credenciais criptografadas no servidor (AES-256-GCM)</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleFecharModalVibe}
+                    disabled={salvandoVibe}
+                    className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+
+                {erroVibeModal && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2.5">
+                    <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5 shrink-0" />
+                    <span>{erroVibeModal}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSalvarVibe} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      ID da Instância <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vibeForm.instance}
+                      onChange={(e) => setVibeForm({ ...vibeForm, instance: e.target.value })}
+                      placeholder="Ex: 3B4C5D6E7F8G9H"
+                      disabled={salvandoVibe}
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Token da Instância <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={vibeForm.token}
+                      onChange={(e) => setVibeForm({ ...vibeForm, token: e.target.value })}
+                      placeholder="Token gerado no painel da VibeWhats"
+                      disabled={salvandoVibe}
+                      required
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Client-Token <span className="text-gray-400 font-normal">(Opcional se ativado no painel)</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={vibeForm.clientToken}
+                      onChange={(e) => setVibeForm({ ...vibeForm, clientToken: e.target.value })}
+                      placeholder="Deixe em branco se não ativou Client-Token na conta"
+                      disabled={salvandoVibe}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Número Conectado <span className="text-gray-400 font-normal">(Preenchido automaticamente após QR)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vibeForm.connectedPhone}
+                      onChange={(e) => setVibeForm({ ...vibeForm, connectedPhone: e.target.value })}
+                      placeholder="Ex: 5511999998888"
+                      disabled={salvandoVibe}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={handleFecharModalVibe}
+                      disabled={salvandoVibe}
+                      className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-xl transition disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={salvandoVibe}
+                      className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition flex items-center gap-2 shadow-sm disabled:opacity-50"
+                    >
+                      {salvandoVibe && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
+                      <span>{salvandoVibe ? 'Salvando...' : 'Salvar Credenciais'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Modal 2: QR Code VIBEWHATS */}
+          {modalQrVibeAberto && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 text-center space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <h4 className="font-bold text-gray-800 text-base">Conectar WhatsApp - VibeWhats</h4>
+                  <button
+                    type="button"
+                    onClick={handleFecharModalQrVibe}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+
+                {conectadoSucessoVibe ? (
+                  <div className="py-6 space-y-3">
+                    <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+                      <FontAwesomeIcon icon={faCheckCircle} />
+                    </div>
+                    <h5 className="font-bold text-gray-800 text-lg">WhatsApp Conectado com Sucesso!</h5>
+                    {telefoneConectadoVibe && (
+                      <p className="text-sm font-semibold text-gray-600">Número: +{telefoneConectadoVibe}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleFecharModalQrVibe}
+                      className="px-6 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-sm hover:bg-emerald-700 transition"
+                    >
+                      Concluir
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500">
+                      Abra o WhatsApp no celular do gabinete, acesse <strong>Aparelhos Conectados</strong> e aponte a câmera para o QR Code abaixo:
+                    </p>
+
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-center min-h-[260px]">
+                      {carregandoQrVibe ? (
+                        <div className="space-y-2">
+                          <FontAwesomeIcon icon={faSpinner} className="text-emerald-600 text-3xl animate-spin" />
+                          <p className="text-xs text-gray-500 font-medium">Gerando QR Code...</p>
+                        </div>
+                      ) : erroQrVibeModal ? (
+                        <div className="p-3 text-red-600 text-xs space-y-2">
+                          <p>{erroQrVibeModal}</p>
+                          <button
+                            type="button"
+                            onClick={carregarQrCodeVibe}
+                            className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded-lg text-red-800 font-semibold"
+                          >
+                            Tentar novamente
+                          </button>
+                        </div>
+                      ) : qrCodeVibeData ? (
+                        <img
+                          src={qrCodeVibeData}
+                          alt="QR Code WhatsApp VibeWhats"
+                          className="w-60 h-60 object-contain rounded-xl shadow-xs"
+                        />
+                      ) : (
+                        <p className="text-xs text-gray-400">Nenhum QR Code disponível.</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-gray-500 pt-2">
+                      <button
+                        type="button"
+                        onClick={carregarQrCodeVibe}
+                        disabled={carregandoQrVibe}
+                        className="text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1"
+                      >
+                        <FontAwesomeIcon icon={faSyncAlt} className={carregandoQrVibe ? 'animate-spin' : ''} />
+                        <span>Atualizar código</span>
+                      </button>
+                      <span>Aguardando leitura...</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Modal 3: Teste de Envio VIBEWHATS */}
+          {modalTesteVibeAberto && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <h4 className="font-bold text-gray-800 text-base">Teste de Envio - VibeWhats</h4>
+                  <button
+                    type="button"
+                    onClick={() => setModalTesteVibeAberto(false)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+
+                {resultadoTesteVibe && (
+                  <div
+                    className={`p-3.5 text-xs rounded-xl border flex items-start gap-2.5 ${
+                      resultadoTesteVibe.tipo === 'sucesso'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-red-50 border-red-200 text-red-800'
+                    }`}
+                  >
+                    <FontAwesomeIcon
+                      icon={resultadoTesteVibe.tipo === 'sucesso' ? faCheckCircle : faTriangleExclamation}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <span>{resultadoTesteVibe.mensagem}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleExecutarTesteVibe} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Destinatário (WhatsApp com DDI e DDD) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={testeTelefoneVibe}
+                      onChange={(e) => setTesteTelefoneVibe(e.target.value)}
+                      placeholder="Ex: 5511999998888"
+                      required
+                      disabled={testandoVibe}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">Mensagem de Teste</label>
+                    <textarea
+                      value={testeMensagemVibe}
+                      onChange={(e) => setTesteMensagemVibe(e.target.value)}
+                      rows={3}
+                      disabled={testandoVibe}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setModalTesteVibeAberto(false)}
+                      disabled={testandoVibe}
+                      className="px-4 py-2 text-xs font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200"
+                    >
+                      Fechar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={testandoVibe}
+                      className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl flex items-center gap-2 shadow-sm disabled:opacity-50"
+                    >
+                      {testandoVibe && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
+                      <span>{testandoVibe ? 'Enviando...' : 'Disparar Teste'}</span>
                     </button>
                   </div>
                 </form>

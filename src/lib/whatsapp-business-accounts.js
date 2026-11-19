@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { obterTenantId } from './tenant';
 import { createTokenStorageService } from '../services/token-storage';
+import { encryptCredential, decryptCredential } from './credential-crypto';
 
 export function normalizarWhatsappAccount(row) {
   const numbers = Array.isArray(row?.whatsapp_business_numbers)
@@ -196,8 +197,8 @@ export async function alterarProvedorWhatsappAtivo(supabase, usuario, providerDe
   }
 
   const targetProvider = String(providerDesejado || '').toUpperCase();
-  if (!['META', 'YCLOUD', 'WABLAST', 'WAFLY'].includes(targetProvider)) {
-    const err = new Error('Provedor inválido. Escolha META, YCLOUD, WABLAST ou WAFLY');
+  if (!['META', 'YCLOUD', 'WABLAST', 'WAFLY', 'VIBEWHATS'].includes(targetProvider)) {
+    const err = new Error('Provedor inválido. Escolha META, YCLOUD, WABLAST, WAFLY ou VIBEWHATS');
     err.statusCode = 400;
     throw err;
   }
@@ -271,6 +272,22 @@ export async function alterarProvedorWhatsappAtivo(supabase, usuario, providerDe
     const temNumeroWafly = temNumero || (Array.isArray(contaAlvo.whatsapp_business_numbers) && contaAlvo.whatsapp_business_numbers.some(n => n.display_phone_number && n.status !== 'INATIVO'));
     if (!temNumeroWafly) {
       const err = new Error('Conta Wafly selecionada não possui número WhatsApp vinculado');
+      err.statusCode = 400;
+      throw err;
+    }
+  } else if (targetProvider === 'VIBEWHATS') {
+    const metadata = typeof contaAlvo.access_token_metadata === 'object' && contaAlvo.access_token_metadata
+      ? contaAlvo.access_token_metadata
+      : {};
+    const hasToken = Boolean(contaAlvo.access_token || metadata.vibewhats_token || metadata.token);
+    if (!hasToken) {
+      const err = new Error('Conta VibeWhats selecionada não possui token de instância configurado');
+      err.statusCode = 400;
+      throw err;
+    }
+    const temNumeroVibe = temNumero || (Array.isArray(contaAlvo.whatsapp_business_numbers) && contaAlvo.whatsapp_business_numbers.some(n => (n.display_phone_number || n.phone_number_id) && n.status !== 'INATIVO'));
+    if (!temNumeroVibe) {
+      const err = new Error('Conta VibeWhats selecionada não possui número WhatsApp vinculado');
       err.statusCode = 400;
       throw err;
     }
@@ -1037,6 +1054,210 @@ export async function salvarContaWhatsappWafly(supabase, usuario, dados = {}) {
     number: {
       id: numeroSalvo?.id || null,
       displayPhoneNumber: cleanPhone,
+      status: numeroSalvo?.status || 'ATIVO'
+    }
+  };
+}
+
+/**
+ * Salva ou atualiza a conta WhatsApp do provedor VIBEWHATS
+ * - Criptografa o token de acesso no banco via AES-256-GCM.
+ * - Não ativa automaticamente a conta como principal (responsabilidade de alterarProvedorWhatsappAtivo).
+ * - Não expõe nem registra credenciais secretas em logs.
+ * - Suporta expansão futura para múltiplas instâncias por tenant.
+ * 
+ * @param {Object} supabase - Cliente Supabase
+ * @param {Object} usuario - Usuário autenticado
+ * @param {Object} dados - Credenciais e configurações VIBEWHATS
+ * @returns {Promise<{ success: boolean, provider: string, account: Object, number: Object }>}
+ */
+export async function salvarContaWhatsappVibeWhats(supabase, usuario, dados = {}) {
+  const tenantId = obterTenantId(usuario);
+  if (!tenantId) {
+    const err = new Error('Tenant atual não identificado');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // 1. Extração e validação rigorosa dos parâmetros obrigatórios
+  const instance = String(
+    dados.instance || dados.instanceId || dados.instance_id || dados.vibewhatsInstance || ''
+  ).trim();
+
+  const token = String(
+    dados.token || dados.instanceToken || dados.instance_token || dados.vibewhatsToken || ''
+  ).trim();
+
+  const clientToken = String(
+    dados.clientToken || dados.client_token || dados.vibewhatsClientToken || ''
+  ).trim();
+
+  const rawPhone = dados.connectedPhone || dados.phone || dados.displayPhoneNumber || dados.phoneNumber || '';
+  const cleanPhone = String(rawPhone || '').replace(/\D+/g, '');
+
+  if (!instance) {
+    const err = new Error('ID da Instância VibeWhats é obrigatório');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!token) {
+    const err = new Error('Token da Instância VibeWhats é obrigatório');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // 2. Webhook Secret: usa o informado ou gera token aleatório
+  let webhookSecret = String(dados.webhookSecret || dados.webhook_secret || '').trim();
+  if (!webhookSecret) {
+    webhookSecret = crypto.randomBytes(24).toString('hex');
+  }
+
+  // 3. Localiza se já existe conta VIBEWHATS do mesmo tenant
+  const { data: contaExistenteVibe, error: errBusca } = await supabase
+    .from('whatsapp_business_accounts')
+    .select(`
+      id,
+      tenant_id,
+      provider,
+      nome,
+      verify_token,
+      access_token,
+      access_token_metadata,
+      status,
+      principal,
+      whatsapp_business_numbers (
+        id,
+        phone_number_id,
+        display_phone_number,
+        status,
+        principal
+      )
+    `)
+    .eq('tenant_id', tenantId)
+    .eq('provider', 'VIBEWHATS')
+    .maybeSingle();
+
+  if (errBusca) throw errBusca;
+
+  const metadataExistente = typeof contaExistenteVibe?.access_token_metadata === 'object' && contaExistenteVibe.access_token_metadata
+    ? contaExistenteVibe.access_token_metadata
+    : {};
+
+  if (!dados.webhookSecret && !dados.webhook_secret && contaExistenteVibe?.verify_token) {
+    webhookSecret = contaExistenteVibe.verify_token;
+  }
+
+  // Criptografa o token antes de salvar
+  const encryptedToken = encryptCredential(token);
+  const encryptedClientToken = clientToken ? encryptCredential(clientToken) : null;
+
+  const metadataAtualizada = {
+    ...metadataExistente,
+    vibewhats_instance: instance,
+    vibewhats_token: encryptedToken,
+    vibewhats_client_token: encryptedClientToken,
+    webhook_secret: webhookSecret,
+    connected_phone: cleanPhone || metadataExistente.connected_phone || null,
+    storage: 'encrypted_aes256gcm',
+    updated_at: new Date().toISOString()
+  };
+
+  const isPrincipal = contaExistenteVibe ? Boolean(contaExistenteVibe.principal) : false;
+
+  const contaPayload = {
+    tenant_id: tenantId,
+    provider: 'VIBEWHATS',
+    nome: String(dados.nome || contaExistenteVibe?.nome || 'WhatsApp VibeWhats').trim(),
+    access_token: encryptedToken,
+    verify_token: webhookSecret,
+    access_token_metadata: metadataAtualizada,
+    token_validated: true,
+    phone_validated: Boolean(cleanPhone),
+    production_ready: true,
+    status: 'ATIVO',
+    principal: isPrincipal,
+    atualizado_por_id: usuario?.id || null,
+    updated_at: new Date().toISOString()
+  };
+
+  if (!contaExistenteVibe?.id) {
+    contaPayload.criado_por_id = usuario?.id || null;
+  }
+
+  const { data: contaSalva, error: contaError } = contaExistenteVibe?.id
+    ? await supabase
+      .from('whatsapp_business_accounts')
+      .update(contaPayload)
+      .eq('id', contaExistenteVibe.id)
+      .eq('tenant_id', tenantId)
+      .select('*')
+      .single()
+    : await supabase
+      .from('whatsapp_business_accounts')
+      .insert(contaPayload)
+      .select('*')
+      .single();
+
+  if (contaError) throw contaError;
+
+  // 4. Persistir/vincular número em whatsapp_business_numbers se fornecido
+  let numeroSalvo = null;
+  if (cleanPhone || instance) {
+    const numerosAtuais = Array.isArray(contaExistenteVibe?.whatsapp_business_numbers)
+      ? contaExistenteVibe.whatsapp_business_numbers
+      : [];
+
+    const numeroAtual = numerosAtuais.find(item => item?.status !== 'INATIVO')
+      || numerosAtuais[0]
+      || null;
+
+    const numeroPayload = {
+      tenant_id: tenantId,
+      account_id: contaSalva.id,
+      phone_number_id: instance,
+      display_phone_number: cleanPhone || numeroAtual?.display_phone_number || instance,
+      display_name: dados.displayName || dados.nome || 'VibeWhats WhatsApp',
+      status: 'ATIVO',
+      principal: true,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: numResult, error: numError } = numeroAtual?.id
+      ? await supabase
+        .from('whatsapp_business_numbers')
+        .update(numeroPayload)
+        .eq('id', numeroAtual.id)
+        .eq('tenant_id', tenantId)
+        .select('*')
+        .single()
+      : await supabase
+        .from('whatsapp_business_numbers')
+        .insert(numeroPayload)
+        .select('*')
+        .single();
+
+    if (numError) throw numError;
+    numeroSalvo = numResult;
+  }
+
+  return {
+    success: true,
+    provider: 'VIBEWHATS',
+    account: {
+      id: contaSalva.id,
+      tenantId: contaSalva.tenant_id,
+      provider: contaSalva.provider,
+      nome: contaSalva.nome,
+      instance: instance,
+      status: contaSalva.status,
+      principal: contaSalva.principal,
+      configured: true,
+      webhookUrl: `/api/whatsapp-business/vibewhats-webhook?token=${webhookSecret}`
+    },
+    number: {
+      id: numeroSalvo?.id || null,
+      displayPhoneNumber: numeroSalvo?.display_phone_number || cleanPhone,
       status: numeroSalvo?.status || 'ATIVO'
     }
   };
