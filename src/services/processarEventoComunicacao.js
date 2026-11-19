@@ -1,6 +1,7 @@
-import { buscarContaWhatsappPorWabaOuNumero } from '@/lib/whatsapp-business-accounts';
-import { normalizarTelefone } from '@/lib/atendimento-connect';
-import { resolverCampanhaInbound } from '@/lib/atendimento-connect-campanhas';
+import { buscarContaWhatsappPorWabaOuNumero } from '../lib/whatsapp-business-accounts.js';
+import { normalizarTelefone } from '../lib/atendimento-connect.js';
+import { resolverCampanhaInbound } from '../lib/atendimento-connect-campanhas.js';
+import { WhatsAppInboundIdempotencyService } from './whatsapp-inbound-idempotency.js';
 
 /**
  * Processa um evento inbound normalizado da Meta Cloud API diretamente no servidor,
@@ -41,29 +42,59 @@ export async function processarEventoMensagem(supabase, evento) {
 
   // ─── 2. RESOLUÇÃO DO TENANT ───────────────────────────────────────────────────
   console.log(`${logPrefix} processando tenant`);
-  let tenantId = null;
-  try {
-    const contaMeta = await buscarContaWhatsappPorWabaOuNumero(supabase, {
-      wabaId: evento.waba_id,
-      phoneNumberId: evento.phone_number_id
-    });
-    tenantId = contaMeta?.tenant_id || null;
-  } catch (errConta) {
-    console.warn(`${logPrefix} falha ao resolver conta por WABA/Número:`, errConta?.message);
+  let tenantId = Number(evento.tenant_id) || null;
+
+  if (!tenantId) {
+    try {
+      const contaMeta = await buscarContaWhatsappPorWabaOuNumero(supabase, {
+        wabaId: evento.waba_id,
+        phoneNumberId: evento.phone_number_id
+      });
+      tenantId = contaMeta?.tenant_id || null;
+    } catch (errConta) {
+      console.warn(`${logPrefix} falha ao resolver conta por WABA/Número:`, errConta?.message);
+    }
   }
 
   if (!tenantId) {
-    const { data: contaFallback } = await supabase
-      .from('whatsapp_business_accounts')
-      .select('tenant_id')
-      .eq('status', 'ATIVO')
-      .order('principal', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    tenantId = contaFallback?.tenant_id || 1;
+    console.error(`${logPrefix} ERRO CRÍTICO: Não foi possível determinar o tenant_id do evento. Abortando para evitar vazamento.`);
+    return { success: false, error: 'tenant_id não resolvido para o evento de mensagem' };
   }
 
   console.log(`${logPrefix} tenant resolvido: ${tenantId}`);
+
+  // ─── 2.1 TRAVA ATÔMICA DE IDEMPOTÊNCIA (MIGRATION 265) ────────────────────────
+  let reservaIdempotencia = null;
+  let fencingToken = null;
+
+  if (evento.provider_message_id && evento.account_id) {
+    const reserva = await WhatsAppInboundIdempotencyService.adquirirReserva(supabase, {
+      tenantId,
+      provider: evento.provider || 'UNKNOWN',
+      accountId: evento.account_id,
+      instanceId: evento.metadata?.instanceId || null,
+      providerMessageId: evento.provider_message_id,
+      timeoutSeconds: 60
+    });
+
+    if (reserva.duplicada) {
+      console.log(`${logPrefix} idempotência atômica: wamid=${evento.provider_message_id} já concluído anteriormente.`);
+      return { success: true, duplicated: true };
+    }
+
+    if (reserva.emProcessamento) {
+      console.log(`${logPrefix} idempotência atômica: wamid=${evento.provider_message_id} em processamento ativo concorrente.`);
+      // Retorna success: false para que o webhook sinalize HTTP 429/503 e o provedor retente de forma segura
+      return { 
+        success: false, 
+        locked: true, 
+        error: 'Evento em processamento concorrente por outro nó' 
+      };
+    }
+
+    reservaIdempotencia = reserva.reservaId;
+    fencingToken = reserva.fencingToken;
+  }
 
   // ─── 3. LOCALIZAÇÃO DO ELEITOR ─────────────────────────────────────────────────
   const telefoneLimpo = normalizarTelefone(evento.contact_id || '');
@@ -80,6 +111,7 @@ export async function processarEventoMensagem(supabase, evento) {
     const { data: eleitor } = await supabase
       .from('eleitores')
       .select('id, nome, whatsapp, celular, telefone')
+      .eq('tenant_id', tenantId)
       .or(`whatsapp.ilike.%${dddNumero}%,celular.ilike.%${dddNumero}%,telefone.ilike.%${dddNumero}%,whatsapp.ilike.%${dddNumeroSemNono}%,celular.ilike.%${dddNumeroSemNono}%,telefone.ilike.%${dddNumeroSemNono}%`)
       .limit(1)
       .maybeSingle();
@@ -95,6 +127,7 @@ export async function processarEventoMensagem(supabase, evento) {
   let { data: conversaComm } = await supabase
     .from('communication_conversations')
     .select('*')
+    .eq('tenant_id', tenantId)
     .eq('contact_id', evento.contact_id)
     .neq('status', 'finalizada')
     .limit(1)
@@ -137,7 +170,7 @@ export async function processarEventoMensagem(supabase, evento) {
       tenant_id: tenantId,
       conversation_id: conversaComm.id,
       provider_message_id: evento.provider_message_id,
-      provider: 'whatsapp',
+      provider: evento.provider ? String(evento.provider).toLowerCase() : 'whatsapp',
       channel: conversaComm.channel || 'whatsapp',
       direction: 'entrada',
       mensagem: evento.conteudo
@@ -145,18 +178,62 @@ export async function processarEventoMensagem(supabase, evento) {
     .select('*')
     .single();
 
-  if (errMsgComm) throw errMsgComm;
+  let isDuplicata = false;
+
+  if (errMsgComm) {
+    // Trata idempotência concorrente no communication_messages
+    if (errMsgComm.code === '23505' || String(errMsgComm.message || '').includes('unique')) {
+      console.log(`${logPrefix} idempotência concorrente (communication_messages): wamid=${evento.provider_message_id} já inserido.`);
+      isDuplicata = true;
+    } else {
+      console.error(`${logPrefix} Erro ao inserir communication_messages:`, errMsgComm.message);
+      if (reservaIdempotencia) {
+        await WhatsAppInboundIdempotencyService.liberarReserva(supabase, reservaIdempotencia, fencingToken, errMsgComm.message);
+      }
+      return { success: false, error: errMsgComm.message };
+    }
+  }
 
   // ─── 5. ATENDIMENTO_CONNECT_CONVERSAS & ATENDIMENTO_CONNECT_MENSAGENS ──────────
   try {
     const now = evento.timestamp || new Date().toISOString();
 
-    const { data: conversaConnectExistente } = await supabase
+    // Busca conversa do canal whatsapp pelo telefone do eleitor
+    const { data: conversasCandidatas } = await supabase
       .from('atendimento_connect_conversas')
       .select('*')
       .eq('canal', 'whatsapp')
-      .eq('contato_telefone', telefoneLimpo)
-      .maybeSingle();
+      .eq('contato_telefone', telefoneLimpo);
+
+    // Filtra pela conversa que pertença comprovadamente ao mesmo tenant e instância (quando aplicável)
+    const conversaConnectExistente = (conversasCandidatas || []).find(c => {
+      const meta = c.metadata || {};
+      const tId = Number(meta.tenant_id);
+
+      // 1. Se a conversa possui tenant_id explícito no metadata, exige igualdade estrita
+      if (tId) {
+        if (tId !== tenantId) return false;
+
+        // Se for evento VibeWhats e a conversa possuir instância definida, exige correspondência
+        const eventoInstancia = evento.metadata?.instanceId || null;
+        if (evento.provider === 'VIBEWHATS' && eventoInstancia && meta.instanceId) {
+          return String(meta.instanceId).trim() === String(eventoInstancia).trim();
+        }
+        return true;
+      }
+
+      // 2. Para conversas legadas sem metadata.tenant_id:
+      // NUNCA associa automaticamente ao tenant 1 por suposição ou omissão.
+      // Exige comprovação estrita:
+      // a) O evento em processamento deve ser do tenant 1; E
+      // b) O eleitor identificado pelo telefone deve existir comprovadamente no banco do tenant 1 E corresponder ao c.eleitor_id
+      if (tenantId === 1 && eleitorId && c.eleitor_id === eleitorId) {
+        return true;
+      }
+
+      // Conversas órfãs sem eleitor comprovado ou de outros tenants não são reaproveitadas
+      return false;
+    }) || null;
 
     let conversaConnectId = conversaConnectExistente?.id;
 
@@ -169,7 +246,7 @@ export async function processarEventoMensagem(supabase, evento) {
         quotedMessageId: evento.quoted_message_id || evento.context?.id || null,
         contatoTelefone: telefoneLimpo,
         timestamp: now,
-        provider: 'META',
+        provider: evento.provider || 'META',
         campanhaIdExistente: conversaConnectExistente?.campanha_id || null
       });
     } catch (errResCamp) {
@@ -178,8 +255,11 @@ export async function processarEventoMensagem(supabase, evento) {
 
     const connectMetadata = {
       ...(conversaConnectExistente?.metadata || {}),
+      tenant_id: tenantId,
+      account_id: evento.account_id || null,
       origem: evento.origem || 'whatsapp_meta',
       provider: evento.provider || 'META',
+      instanceId: evento.metadata?.instanceId || null,
       wabaId: evento.waba_id || null,
       phoneNumberId: evento.phone_number_id || null,
       lastProviderMessageId: evento.provider_message_id,
@@ -247,6 +327,14 @@ export async function processarEventoMensagem(supabase, evento) {
 
       const mediaUrl = evento.media_url || evento.audio_url || null;
 
+      // Inclusão de campos estruturados de identificação no raw_payload para roteamento exato
+      const payloadParaGravar = {
+        ...(evento || {}),
+        tenant_id: tenantId,
+        account_id: evento.account_id || null,
+        provider: evento.provider || 'META'
+      };
+
       const { error: errMsgConnect } = await supabase
         .from('atendimento_connect_mensagens')
         .insert({
@@ -256,22 +344,52 @@ export async function processarEventoMensagem(supabase, evento) {
           media_tipo: mediaTipo,
           media_url: mediaUrl,
           provider_message_id: evento.provider_message_id,
-          raw_payload: evento
+          raw_payload: payloadParaGravar
         });
 
       if (errMsgConnect) {
-        console.error('[ATENDIMENTO CONNECT] erro ao registrar mensagem:', errMsgConnect.message);
+        // Se falhou por violação de unicidade concorrente (código 23505), trata de forma idempotente sem lançar erro
+        if (errMsgConnect.code === '23505' || String(errMsgConnect.message || '').includes('unique')) {
+          console.log(`${logPrefix} idempotência concorrente (atendimento_connect_mensagens): wamid=${evento.provider_message_id} já inserido.`);
+          isDuplicata = true;
+        } else {
+          console.error('[ATENDIMENTO CONNECT] erro ao registrar mensagem:', errMsgConnect.message);
+          if (reservaIdempotencia) {
+            await WhatsAppInboundIdempotencyService.liberarReserva(supabase, reservaIdempotencia, fencingToken, errMsgConnect.message);
+          }
+          return { success: false, error: errMsgConnect.message };
+        }
       } else {
         console.log(`[ATENDIMENTO CONNECT] mensagem registrada: wamid=${evento.provider_message_id} conversa=${conversaConnectId}`);
       }
     }
   } catch (errConnect) {
-    // Falha no Atendimento Connect não bloqueia a Comunicação Oficial
     console.error('[ATENDIMENTO CONNECT] falha na sincronização:', errConnect?.message);
+    if (reservaIdempotencia) {
+      await WhatsAppInboundIdempotencyService.liberarReserva(supabase, reservaIdempotencia, fencingToken, errConnect?.message);
+    }
+    return { success: false, error: errConnect?.message || 'Falha no Atendimento Connect' };
+  }
+
+  // Conclui a reserva de idempotência com sucesso definitivo validado pelo Fencing Token (Ajuste 3)
+  if (reservaIdempotencia) {
+    const concluidoComSucesso = await WhatsAppInboundIdempotencyService.concluirReserva(supabase, reservaIdempotencia, fencingToken);
+    if (!concluidoComSucesso) {
+      console.warn(`${logPrefix} Conclusão de reserva rejeitada por perda de fencing token ou lock expirado/reassumido.`);
+      // Se a reserva não pertencia mais a esta execução, não confirma processamento indevido
+      return {
+        success: false,
+        error: 'Conclusão de reserva rejeitada por expiração de token concorrente'
+      };
+    }
   }
 
   console.log(`${logPrefix} processamento concluído: wamid=${evento.provider_message_id}`);
-  return { success: true, mensagem: msgInserida };
+  return { 
+    success: true, 
+    duplicated: isDuplicata,
+    mensagem: msgInserida 
+  };
 }
 
 /**
@@ -304,12 +422,17 @@ export async function processarEventoStatus(supabase, evento) {
   const statusInterno = statusMap[evento.status] || evento.status;
   const novoStatusPrioridade = STATUS_PRIORITY[evento.status] || STATUS_PRIORITY[statusInterno] || 0;
 
-  // Atualiza communication_messages
-  const { data: msgFila } = await supabase
+  // 1. Atualiza communication_messages com validação defensiva de tenant/provider se fornecido
+  let queryMsgFila = supabase
     .from('communication_messages')
     .select('*')
-    .eq('provider_message_id', evento.provider_message_id)
-    .maybeSingle();
+    .eq('provider_message_id', evento.provider_message_id);
+
+  if (evento.tenant_id) {
+    queryMsgFila = queryMsgFila.eq('tenant_id', evento.tenant_id);
+  }
+
+  const { data: msgFila } = await queryMsgFila.maybeSingle();
 
   if (msgFila) {
     const statusAtualMsg = msgFila.meta_dados?.status;
@@ -332,14 +455,17 @@ export async function processarEventoStatus(supabase, evento) {
     }
   }
 
-  // Atualiza communication_campaign_items com progressão estrita de status
-  const { data: itemFilaObj } = await supabase
+  // 2. Atualiza communication_campaign_items com progressão estrita de status
+  let queryItemFila = supabase
     .from('communication_campaign_items')
-    .select('id, campaign_id, status, delivered_at, read_at, last_error')
-    .eq('provider_message_id', evento.provider_message_id)
-    .maybeSingle();
+    .select('id, campaign_id, status, delivered_at, read_at, last_error, communication_campaigns:campaign_id (tenant_id)')
+    .eq('provider_message_id', evento.provider_message_id);
 
-  if (itemFilaObj) {
+  const { data: itemFilaObj } = await queryItemFila.maybeSingle();
+
+  // Verifica se o item de campanha pertence ao mesmo tenant do evento (se tenant_id estiver presente)
+  const itemTenantId = itemFilaObj?.communication_campaigns?.tenant_id;
+  if (itemFilaObj && (!evento.tenant_id || !itemTenantId || Number(itemTenantId) === Number(evento.tenant_id))) {
     const prioridadeAtualItem = STATUS_PRIORITY[itemFilaObj.status] || 0;
     const updatePayload = {};
 

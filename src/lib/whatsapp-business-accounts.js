@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { obterTenantId } from './tenant';
-import { createTokenStorageService } from '../services/token-storage';
-import { encryptCredential, decryptCredential } from './credential-crypto';
+import { obterTenantId } from './tenant.js';
+import { createTokenStorageService } from '../services/token-storage.js';
+import { encryptCredential, decryptCredential } from './credential-crypto.js';
 
 export function normalizarWhatsappAccount(row) {
   const numbers = Array.isArray(row?.whatsapp_business_numbers)
@@ -1391,14 +1391,28 @@ export async function resolverContaWhatsappDaConversa(supabase, conversa, usuari
         }
       }
 
-      // 1.3 Tentar por indicação explícita de provider na mensagem de entrada
+      // 1.3 Tentar por indicação explícita de provider na mensagem de entrada ou metadata
       if (!contaResolvida) {
         const provEntrada = payload.provider || (payload.type?.startsWith('whatsapp.') ? 'YCLOUD' : null);
         if (provEntrada) {
-          const contaPorProv = encontrarContaPorProvider(provEntrada);
-          if (contaPorProv) {
-            contaResolvida = contaPorProv;
-            motivoResolucao = 'ultima_entrada_provider';
+          // Validação cruzada: o account_id deve pertencer estritamente ao mesmo tenant_id e provider esperado
+          if (payload.account_id) {
+            const contaPorId = contas.find(c => 
+              Number(c.id) === Number(payload.account_id) && 
+              Number(c.tenant_id) === Number(tenantId) &&
+              String(c.provider || '').toUpperCase() === String(provEntrada).toUpperCase()
+            );
+            if (contaPorId) {
+              contaResolvida = contaPorId;
+              motivoResolucao = 'ultima_entrada_account_id';
+            }
+          }
+          if (!contaResolvida) {
+            const contaPorProv = encontrarContaPorProvider(provEntrada);
+            if (contaPorProv) {
+              contaResolvida = contaPorProv;
+              motivoResolucao = 'ultima_entrada_provider';
+            }
           }
         }
       }
@@ -1430,17 +1444,34 @@ export async function resolverContaWhatsappDaConversa(supabase, conversa, usuari
 
     // 2.3 Pelo provider ou origem no metadata
     if (!contaResolvida) {
-      let provSugerido = meta.provider || null;
-      if (!provSugerido && meta.origem === 'ycloud') provSugerido = 'YCLOUD';
-      if (!provSugerido && meta.origem === 'wablast') provSugerido = 'WABLAST';
-      if (!provSugerido && meta.origem === 'whatsapp_meta') provSugerido = 'META';
-      if (!provSugerido && meta.origem === 'wafly') provSugerido = 'WAFLY';
+      // Se metadata da conversa possuir account_id explícito, valida também tenant_id e provider se informado
+      if (meta.account_id) {
+        const contaPorId = contas.find(c => {
+          if (Number(c.id) !== Number(meta.account_id)) return false;
+          if (Number(c.tenant_id) !== Number(tenantId)) return false;
+          if (meta.provider && String(c.provider || '').toUpperCase() !== String(meta.provider).toUpperCase()) return false;
+          return true;
+        });
+        if (contaPorId) {
+          contaResolvida = contaPorId;
+          motivoResolucao = 'metadata_conversa_account_id';
+        }
+      }
 
-      if (provSugerido) {
-        const contaPorMetaProv = encontrarContaPorProvider(provSugerido);
-        if (contaPorMetaProv) {
-          contaResolvida = contaPorMetaProv;
-          motivoResolucao = 'metadata_conversa_origem_provider';
+      if (!contaResolvida) {
+        let provSugerido = meta.provider || null;
+        if (!provSugerido && meta.origem === 'ycloud') provSugerido = 'YCLOUD';
+        if (!provSugerido && meta.origem === 'wablast') provSugerido = 'WABLAST';
+        if (!provSugerido && meta.origem === 'whatsapp_meta') provSugerido = 'META';
+        if (!provSugerido && meta.origem === 'wafly') provSugerido = 'WAFLY';
+        if (!provSugerido && meta.origem === 'vibewhats') provSugerido = 'VIBEWHATS';
+
+        if (provSugerido) {
+          const contaPorMetaProv = encontrarContaPorProvider(provSugerido);
+          if (contaPorMetaProv) {
+            contaResolvida = contaPorMetaProv;
+            motivoResolucao = 'metadata_conversa_origem_provider';
+          }
         }
       }
     }

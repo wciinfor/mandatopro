@@ -63,13 +63,12 @@ export class ConversasService {
    * Compatível com ambiente Serverless/Vercel (Node.js runtime).
    * @param {Object} eventoNormalizado
    */
-  static async processarEventoMeta(eventoNormalizado) {
-    // Importação dinâmica garante que este código só execute no servidor (Node.js)
-    // e não cause erros de bundle no lado do cliente
-    const { createServerClient } = await import('@/lib/supabase-server');
-    const { processarEventoMensagem, processarEventoStatus } = await import('@/services/processarEventoComunicacao');
+  static async processarEventoMeta(eventoNormalizado, customSupabase = null) {
+    // Importação dinâmica relativa para compatibilidade tanto com bundler Next.js quanto execução Node.js direta
+    const { createServerClient } = await import('../lib/supabase-server.js');
+    const { processarEventoMensagem, processarEventoStatus } = await import('./processarEventoComunicacao.js');
 
-    const supabase = createServerClient();
+    const supabase = customSupabase || createServerClient();
 
     if (eventoNormalizado.tipo === 'mensagem') {
       return processarEventoMensagem(supabase, eventoNormalizado);
