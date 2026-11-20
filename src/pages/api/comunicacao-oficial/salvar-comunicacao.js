@@ -70,27 +70,47 @@ function sanitizarVariacoesMensagem(rawVariacoes) {
 }
 
 /**
- * Personaliza o texto da mensagem com as tags {nome} e {cidade}, sem inventar dados inexistentes.
+ * Personaliza o texto da mensagem com os placeholders permitidos:
+ * {{nome}}, {{primeiro_nome}}, {{cidade}}, {{bairro}} (e variantes com chaves simples).
+ * Trata dados ausentes com segurança, sem emitir 'undefined' ou 'null'.
  */
 function personalizarMensagem(textoBase, contato, variaveisConfig = {}) {
   let msg = String(textoBase || '');
-  const nomeContato = String(contato?.nome || variaveisConfig?.nome || '').trim();
+  const nomeCompleto = String(contato?.nome || variaveisConfig?.nome || '').trim();
+  const primeiroNome = nomeCompleto ? nomeCompleto.split(/\s+/)[0] : '';
   const cidadeContato = String(contato?.cidade || contato?.municipio || variaveisConfig?.cidade || '').trim();
+  const bairroContato = String(contato?.bairro || variaveisConfig?.bairro || '').trim();
 
-  if (nomeContato) {
-    msg = msg.replace(/\{nome\}/gi, nomeContato);
+  // 1. Placeholder de Nome Completo: {{nome}} e {nome}
+  if (nomeCompleto) {
+    msg = msg.replace(/\{\{nome\}\}/gi, nomeCompleto).replace(/\{nome\}/gi, nomeCompleto);
   } else {
-    msg = msg.replace(/\{nome\}/gi, 'Contato');
+    msg = msg.replace(/\{\{nome\}\}/gi, 'Contato').replace(/\{nome\}/gi, 'Contato');
   }
 
+  // 2. Placeholder de Primeiro Nome: {{primeiro_nome}} e {primeiro_nome}
+  if (primeiroNome) {
+    msg = msg.replace(/\{\{primeiro_nome\}\}/gi, primeiroNome).replace(/\{primeiro_nome\}/gi, primeiroNome);
+  } else {
+    msg = msg.replace(/\{\{primeiro_nome\}\}/gi, 'Contato').replace(/\{primeiro_nome\}/gi, 'Contato');
+  }
+
+  // 3. Placeholder de Cidade: {{cidade}} e {cidade}
   if (cidadeContato) {
-    msg = msg.replace(/\{cidade\}/gi, cidadeContato);
+    msg = msg.replace(/\{\{cidade\}\}/gi, cidadeContato).replace(/\{cidade\}/gi, cidadeContato);
   } else {
-    // Se não há cidade informada, remove a tag e normaliza espaços
-    msg = msg.replace(/\{cidade\}/gi, '').replace(/\s{2,}/g, ' ');
+    msg = msg.replace(/\{\{cidade\}\}/gi, '').replace(/\{cidade\}/gi, '');
   }
 
-  return msg.trim();
+  // 4. Placeholder de Bairro: {{bairro}} e {bairro}
+  if (bairroContato) {
+    msg = msg.replace(/\{\{bairro\}\}/gi, bairroContato).replace(/\{bairro\}/gi, bairroContato);
+  } else {
+    msg = msg.replace(/\{\{bairro\}\}/gi, '').replace(/\{bairro\}/gi, '');
+  }
+
+  // Limpa espaços duplos remanescentes de variáveis ausentes
+  return msg.replace(/\s{2,}/g, ' ').trim();
 }
 
 /**
@@ -223,6 +243,7 @@ export default async function handler(req, res) {
     }
 
     const isWafly = providerResolvido === 'WAFLY';
+    const isVibeWhats = providerResolvido === 'VIBEWHATS';
 
     // 0.2 PROCESSAMENTO E VALIDAÇÃO DAS VARIAÇÕES DE MENSAGEM
     const rawVariacoes = body.variacoes_mensagem ?? body.variacoesMensagem ?? body.variacoes;
@@ -234,6 +255,34 @@ export default async function handler(req, res) {
         return res.status(400).json({
           success: false,
           error: 'Para campanhas WAFLY com mensagem livre, é obrigatório informar de 1 a 5 variações de mensagem.'
+        });
+      }
+    }
+
+    if (isVibeWhats) {
+      // Para campanhas VIBEWHATS, valida mensagem e parâmetros de mídia
+      const formatoMidia = String(body.formato_midia || body.formatoMidia || 'texto').toLowerCase();
+      const mediaUrl = body.media_url || body.mediaUrl || null;
+      const mensagemVibe = String(body.mensagem_vibewhats || body.mensagem || body.variaveis?.mensagem || '').trim();
+
+      if (formatoMidia === 'imagem' && !mediaUrl) {
+        return res.status(400).json({
+          success: false,
+          error: 'Para o formato Imagem, o upload ou URL da imagem é obrigatório.'
+        });
+      }
+
+      if (formatoMidia === 'video' && !mediaUrl) {
+        return res.status(400).json({
+          success: false,
+          error: 'Para o formato Vídeo, o upload ou URL do vídeo é obrigatório.'
+        });
+      }
+
+      if (formatoMidia === 'texto' && !mensagemVibe) {
+        return res.status(400).json({
+          success: false,
+          error: 'Para campanhas VibeWhats no formato texto, a mensagem é obrigatória.'
         });
       }
     }
@@ -326,6 +375,22 @@ export default async function handler(req, res) {
         },
         variacoes_mensagem: variacoesValidadas
       };
+    } else if (isVibeWhats) {
+      const formatoMidia = String(body.formato_midia || body.formatoMidia || 'texto').toLowerCase();
+      const mediaUrl = body.media_url || body.mediaUrl || null;
+      const storagePath = body.storage_path || body.storagePath || null;
+      const storageBucket = body.storage_bucket || body.storageBucket || 'midias_campanha';
+      const mensagemVibe = String(body.mensagem_vibewhats || body.mensagem || body.variaveis?.mensagem || '').trim();
+      metadataFinal = {
+        ...metadataFinal,
+        provider: 'VIBEWHATS',
+        canal: 'whatsapp',
+        formato_midia: formatoMidia,
+        media_url: mediaUrl,
+        storage_path: storagePath,
+        storage_bucket: storageBucket,
+        mensagem_vibewhats: mensagemVibe
+      };
     } else if (isSms) {
       metadataFinal = {
         ...metadataFinal,
@@ -376,7 +441,27 @@ export default async function handler(req, res) {
         variaveisMapeadas.mensagem_sms = body.mensagem_sms || body.variaveis?.mensagem_sms || '';
       }
 
-      // 4.2 Para WAFLY com variações: aplica distribuição determinística (index % K) e personalização segura
+      // 4.2 Para VIBEWHATS: personaliza a mensagem individualmente por destinatário com tratamento seguro de dados
+      if (isVibeWhats) {
+        const formatoMidia = String(body.formato_midia || body.formatoMidia || 'texto').toLowerCase();
+        const mediaUrl = body.media_url || body.mediaUrl || null;
+        const storagePath = body.storage_path || body.storagePath || null;
+        const storageBucket = body.storage_bucket || body.storageBucket || 'midias_campanha';
+        const mensagemBaseVibe = String(body.mensagem_vibewhats || body.mensagem || body.variaveis?.mensagem || '').trim();
+        const mensagemPersonalizada = personalizarMensagem(mensagemBaseVibe, d, variaveisConfig);
+        variaveisMapeadas.mensagem_personalizada = mensagemPersonalizada;
+        variaveisMapeadas.formato_midia = formatoMidia;
+        if (mediaUrl) {
+          variaveisMapeadas.media_url = mediaUrl;
+          variaveisMapeadas.media_tipo = formatoMidia === 'video' ? 'video' : 'image';
+        }
+        if (storagePath) {
+          variaveisMapeadas.storage_path = storagePath;
+          variaveisMapeadas.storage_bucket = storageBucket;
+        }
+      }
+
+      // 4.3 Para WAFLY com variações: aplica distribuição determinística (index % K) e personalização segura
       if (temVariacoesWafly) {
         const variacaoIndex = index % K;
         const variacao = variacoesValidadas[variacaoIndex];
@@ -390,7 +475,7 @@ export default async function handler(req, res) {
         tenant_id: tenantId,
         campaign_id: campanhaCriada.id,
         contact_id: String(d.telefone_limpo || d.telefone_original).replace(/\D/g, ''),
-        template_id: body.template || (isSms ? 'sms_texto_livre' : (temVariacoesWafly ? 'wafly_variacoes' : 'default')),
+        template_id: body.template || (isSms ? 'sms_texto_livre' : isVibeWhats ? 'vibewhats_texto_livre' : (temVariacoesWafly ? 'wafly_variacoes' : 'default')),
         status: 'pendente',
         variaveis_mapeadas: variaveisMapeadas
       };

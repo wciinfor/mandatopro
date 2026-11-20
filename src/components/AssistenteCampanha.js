@@ -83,6 +83,53 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
 
   // Estados e controle de fluxo específico para provedor WAFLY (Mensagens Livres com Variações)
   const isWafly = String(contaOficial?.provider || '').toUpperCase() === 'WAFLY';
+  const isVibeWhats = String(contaOficial?.provider || '').toUpperCase() === 'VIBEWHATS';
+  const [formatoVibeWhats, setFormatoVibeWhats] = useState('texto'); // 'texto', 'imagem', 'video'
+  const [midiaVibeWhats, setMidiaVibeWhats] = useState(null); // { url, nome, tamanho, tipo, mime_type, storage_path }
+  const [fazendoUploadMidiaVibe, setFazendoUploadMidiaVibe] = useState(false);
+  const [erroMidiaVibe, setErroMidiaVibe] = useState(null);
+  const [mensagemVibeWhats, setMensagemVibeWhats] = useState('');
+  const textareaVibeWhatsRef = useRef(null);
+
+  const handleInserirTagVibeWhats = (tag) => {
+    const textarea = textareaVibeWhatsRef.current;
+    if (!textarea) {
+      setMensagemVibeWhats(prev => {
+        const atual = prev || '';
+        return atual ? `${atual} ${tag}` : tag;
+      });
+      if (erroAlerta) setErroAlerta(null);
+      return;
+    }
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const textoAtual = textarea.value || '';
+
+    const antes = textoAtual.substring(0, start);
+    const depois = textoAtual.substring(end);
+
+    let tagFormatada = tag;
+    if (antes.length > 0 && !antes.endsWith(' ')) {
+      tagFormatada = ' ' + tagFormatada;
+    }
+    if (depois.length > 0 && !depois.startsWith(' ')) {
+      tagFormatada = tagFormatada + ' ';
+    }
+
+    const novoTexto = antes + tagFormatada + depois;
+    setMensagemVibeWhats(novoTexto);
+    if (erroAlerta) setErroAlerta(null);
+
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        const novoCursor = start + tagFormatada.length;
+        textarea.setSelectionRange(novoCursor, novoCursor);
+      }
+    }, 0);
+  };
+
   const [variacoesWafly, setVariacoesWafly] = useState([{ id: 1, texto: '' }]);
   const [variacaoAtivaPreview, setVariacaoAtivaPreview] = useState(1);
 
@@ -770,6 +817,67 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
     };
   };
 
+  // Valida mensagem e placeholders para VibeWhats (considerando formato texto, imagem ou vídeo)
+  const validarMensagemVibeWhats = () => {
+    if (formatoVibeWhats === 'imagem' && !midiaVibeWhats?.url) {
+      return 'Selecione uma imagem (JPEG, PNG ou WEBP) para o envio via VibeWhats.';
+    }
+
+    if (formatoVibeWhats === 'video' && !midiaVibeWhats?.url) {
+      return 'Selecione um vídeo (MP4) para o envio via VibeWhats.';
+    }
+
+    const txt = String(mensagemVibeWhats || '').trim();
+    if (formatoVibeWhats === 'texto' && !txt) {
+      return 'Digite a mensagem de texto para o envio via VibeWhats.';
+    }
+
+    if (txt) {
+      const tagsEncontradas = txt.match(/\{\{?[^\{\}]+\}\}?/g) || [];
+      const tagsPermitidas = new Set([
+        '{{nome}}', '{{primeiro_nome}}', '{{cidade}}', '{{bairro}}',
+        '{nome}', '{primeiro_nome}', '{cidade}', '{bairro}'
+      ]);
+      const tagsInvalidas = tagsEncontradas.filter(t => !tagsPermitidas.has(t.toLowerCase()));
+      if (tagsInvalidas.length > 0) {
+        return `Placeholder(s) não permitido(s): ${tagsInvalidas.join(', ')}. Use apenas {{nome}}, {{primeiro_nome}}, {{cidade}} e {{bairro}}.`;
+      }
+    }
+    return null;
+  };
+
+  // Gera o texto interpolado da mensagem VibeWhats para prévia em tempo real usando o primeiro contato
+  const getMensagemVibeWhatsPreview = () => {
+    const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+    const primeiroContato = listaBase[0] || null;
+    const nomeCompleto = primeiroContato ? String(primeiroContato.nome || '').trim() : 'Carlos Silva';
+    const primeiroNome = nomeCompleto ? nomeCompleto.split(/\s+/)[0] : '';
+    const cidadeVal = primeiroContato ? String(primeiroContato.cidade || primeiroContato.municipio || '').trim() : 'Belém';
+    const bairroVal = primeiroContato ? String(primeiroContato.bairro || '').trim() : 'Centro';
+
+    if (!mensagemVibeWhats || !mensagemVibeWhats.trim()) return '';
+
+    let texto = mensagemVibeWhats;
+    // Substitui variáveis {{...}} e {...}
+    texto = nomeCompleto
+      ? texto.replace(/\{\{nome\}\}/gi, nomeCompleto).replace(/\{nome\}/gi, nomeCompleto)
+      : texto.replace(/\{\{nome\}\}/gi, 'Contato').replace(/\{nome\}/gi, 'Contato');
+
+    texto = primeiroNome
+      ? texto.replace(/\{\{primeiro_nome\}\}/gi, primeiroNome).replace(/\{primeiro_nome\}/gi, primeiroNome)
+      : texto.replace(/\{\{primeiro_nome\}\}/gi, 'Contato').replace(/\{primeiro_nome\}/gi, 'Contato');
+
+    texto = cidadeVal
+      ? texto.replace(/\{\{cidade\}\}/gi, cidadeVal).replace(/\{cidade\}/gi, cidadeVal)
+      : texto.replace(/\{\{cidade\}\}/gi, '').replace(/\{cidade\}/gi, '');
+
+    texto = bairroVal
+      ? texto.replace(/\{\{bairro\}\}/gi, bairroVal).replace(/\{bairro\}/gi, bairroVal)
+      : texto.replace(/\{\{bairro\}\}/gi, '').replace(/\{bairro\}/gi, '');
+
+    return texto.replace(/\s{2,}/g, ' ').trim();
+  };
+
   // Gera o texto interpolado da variação ativa para prévia em tempo real no balão de WhatsApp (WAFLY)
   const getMensagemWaflyPreview = () => {
     const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
@@ -832,6 +940,9 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
           const txt = String(mensagemSms || '').trim();
           if (!txt) return 'Digite a mensagem de texto do SMS.';
           if (txt.length > 160) return `A mensagem SMS excede o limite de 160 caracteres (atual: ${txt.length}).`;
+        } else if (isVibeWhats) {
+          const erroVibe = validarMensagemVibeWhats();
+          if (erroVibe) return erroVibe;
         } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
@@ -848,6 +959,9 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
           if (saldoDisponivel < totalAptos) {
             return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${totalAptos} crédito(s).`;
           }
+        } else if (isVibeWhats) {
+          const erroVibe = validarMensagemVibeWhats();
+          if (erroVibe) return erroVibe;
         } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem válida.';
@@ -882,6 +996,9 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
           if (saldoDisponivel < listaAlvo.length) {
             return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${listaAlvo.length} crédito(s).`;
           }
+        } else if (isVibeWhats) {
+          const erroVibe = validarMensagemVibeWhats();
+          if (erroVibe) return erroVibe;
         } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
@@ -922,6 +1039,9 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
           const txt = String(mensagemSms || '').trim();
           if (!txt) return 'Digite a mensagem de texto do SMS.';
           if (txt.length > 160) return `A mensagem SMS excede o limite de 160 caracteres (atual: ${txt.length}).`;
+        } else if (isVibeWhats) {
+          const erroVibe = validarMensagemVibeWhats();
+          if (erroVibe) return erroVibe;
         } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
@@ -938,6 +1058,9 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
           if (saldoDisponivel < totalAptos) {
             return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${totalAptos} crédito(s).`;
           }
+        } else if (isVibeWhats) {
+          const erroVibe = validarMensagemVibeWhats();
+          if (erroVibe) return erroVibe;
         } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem válida.';
@@ -970,6 +1093,9 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
           if (saldoDisponivel < listaAlvo.length) {
             return `Saldo insuficiente de créditos SMS. Disponível: ${saldoDisponivel} crédito(s) · Necessário: ${listaAlvo.length} crédito(s).`;
           }
+        } else if (isVibeWhats) {
+          const erroVibe = validarMensagemVibeWhats();
+          if (erroVibe) return erroVibe;
         } else if (isWafly) {
           const validas = variacoesWafly.filter(v => String(v.texto || '').trim());
           if (validas.length === 0) return 'Informe ao menos 1 variação de mensagem para o disparo.';
@@ -1105,6 +1231,27 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
       };
       payloadSalvar.mensagem_sms = mensagemSms.trim();
       payloadSalvar.custo_estimado = listaFinal.length;
+    } else if (isVibeWhats) {
+      payloadSalvar.provider = 'VIBEWHATS';
+      payloadSalvar.template = formatoVibeWhats === 'video' ? 'vibewhats_video' : formatoVibeWhats === 'imagem' ? 'vibewhats_imagem' : 'vibewhats_texto_livre';
+      payloadSalvar.template_id = payloadSalvar.template;
+      payloadSalvar.idioma = 'pt_BR';
+      payloadSalvar.header_image_url = midiaVibeWhats?.url || null;
+      payloadSalvar.media_url = midiaVibeWhats?.url || null;
+      payloadSalvar.storage_path = midiaVibeWhats?.storage_path || null;
+      payloadSalvar.storage_bucket = 'midias_campanha';
+      payloadSalvar.formato_midia = formatoVibeWhats;
+      payloadSalvar.variaveis = {
+        mensagem: mensagemVibeWhats.trim(),
+        ...(midiaVibeWhats?.url ? {
+          media_url: midiaVibeWhats.url,
+          storage_path: midiaVibeWhats.storage_path || null,
+          storage_bucket: 'midias_campanha',
+          formato_midia: formatoVibeWhats
+        } : {})
+      };
+      payloadSalvar.mensagem_vibewhats = mensagemVibeWhats.trim();
+      payloadSalvar.mensagem = mensagemVibeWhats.trim();
     } else if (isWafly) {
       const variacoesValidas = variacoesWafly
         .filter(v => String(v.texto || '').trim())
@@ -1156,8 +1303,8 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                         ? 'Confirmar Público e Destinatários'
                         : 'Selecionar Público da Base MandatoPRO'
                     )}
-                    {step === 4 && (isSms ? 'Mensagem de Texto (SMS)' : isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
-                    {step === 5 && (isSms ? 'Validação de Saldo e Créditos' : isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
+                    {step === 4 && (isSms ? 'Mensagem de Texto (SMS)' : isVibeWhats ? 'Editor de Mensagem (VibeWhats)' : isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
+                    {step === 5 && (isSms ? 'Validação de Saldo e Créditos' : isVibeWhats ? 'Confirmação do Envio' : isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
                     {step === 6 && 'Revisão da Comunicação'}
                     {step === 7 && 'Configurar Agendamento'}
                   </>
@@ -1168,8 +1315,8 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                   <>
                     {step === 2 && 'Informações do Disparo'}
                     {step === 3 && 'Importar arquivo CSV'}
-                    {step === 4 && (isSms ? 'Mensagem de Texto (SMS)' : isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
-                    {step === 5 && (isSms ? 'Validação de Saldo e Créditos' : isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
+                    {step === 4 && (isSms ? 'Mensagem de Texto (SMS)' : isVibeWhats ? 'Editor de Mensagem (VibeWhats)' : isWafly ? 'Mensagens da Campanha (Variações)' : 'Selecionar Template')}
+                    {step === 5 && (isSms ? 'Validação de Saldo e Créditos' : isVibeWhats ? 'Confirmação do Envio' : isWafly ? 'Distribuição das Mensagens' : 'Configurar Variáveis')}
                     {step === 6 && 'Revisão da Comunicação'}
                     {step === 7 && 'Configurar Agendamento'}
                   </>
@@ -2028,8 +2175,271 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
             </div>
           )}
 
+          {/* Editor de Mensagem e Mídia (VIBEWHATS) */}
+          {step === 4 && isVibeWhats && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Comunicação Direta (VibeWhats)
+                  </label>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Escolha o formato da mensagem: envie texto direto ou anexe imagem/vídeo com legenda personalizada.
+                  </p>
+                </div>
+                {formatoVibeWhats === 'texto' && (
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full border bg-teal-50 text-teal-700 border-teal-200">
+                    {mensagemVibeWhats.length} caracteres
+                  </span>
+                )}
+              </div>
+
+              {/* Seletor de Formato: Texto, Imagem ou Vídeo */}
+              <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100/80 rounded-xl border border-gray-200/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormatoVibeWhats('texto');
+                    if (erroAlerta) setErroAlerta(null);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    formatoVibeWhats === 'texto'
+                      ? 'bg-white text-teal-700 shadow-xs border border-gray-200/80'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faCommentSms} />
+                  Texto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormatoVibeWhats('imagem');
+                    if (erroAlerta) setErroAlerta(null);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    formatoVibeWhats === 'imagem'
+                      ? 'bg-white text-teal-700 shadow-xs border border-gray-200/80'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faUpload} />
+                  Imagem com Legenda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormatoVibeWhats('video');
+                    if (erroAlerta) setErroAlerta(null);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    formatoVibeWhats === 'video'
+                      ? 'bg-white text-teal-700 shadow-xs border border-gray-200/80'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faPaperPlane} />
+                  Vídeo com Legenda
+                </button>
+              </div>
+
+              {/* Upload de Mídia (Imagem ou Vídeo) */}
+              {(formatoVibeWhats === 'imagem' || formatoVibeWhats === 'video') && (
+                <div className="p-3.5 bg-gray-50/70 border border-gray-200 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-gray-800">
+                        {formatoVibeWhats === 'imagem' ? 'Upload de Imagem' : 'Upload de Vídeo'} <span className="text-rose-500">*</span>
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {formatoVibeWhats === 'imagem' ? 'Formatos: JPEG, PNG, WEBP (até 15MB)' : 'Formato: MP4 (até 25MB)'}
+                      </p>
+                    </div>
+                    {midiaVibeWhats && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-300">
+                        ✓ Mídia Pronta
+                      </span>
+                    )}
+                  </div>
+
+                  {!midiaVibeWhats ? (
+                    <div>
+                      <label className="inline-flex cursor-pointer bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-3.5 rounded-lg text-xs transition items-center gap-2 shadow-xs">
+                        <FontAwesomeIcon icon={fazendoUploadMidiaVibe ? faSpinner : faUpload} className={fazendoUploadMidiaVibe ? 'animate-spin' : ''} />
+                        <span>{fazendoUploadMidiaVibe ? 'Enviando e assinando mídia...' : `Selecionar ${formatoVibeWhats === 'imagem' ? 'Imagem' : 'Vídeo'}`}</span>
+                        <input
+                          type="file"
+                          accept={formatoVibeWhats === 'imagem' ? 'image/jpeg,image/png,image/webp' : 'video/mp4,video/quicktime'}
+                          disabled={fazendoUploadMidiaVibe}
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            setFazendoUploadMidiaVibe(true);
+                            setErroMidiaVibe(null);
+                            if (erroAlerta) setErroAlerta(null);
+
+                            try {
+                              const base64Data = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  const result = String(reader.result || '');
+                                  const base64 = result.includes(',') ? result.split(',')[1] : result;
+                                  resolve(base64);
+                                };
+                                reader.onerror = (err) => reject(err);
+                                reader.readAsDataURL(file);
+                              });
+
+                              const res = await fetch('/api/comunicacao-oficial/upload-midia', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  arquivo_nome: file.name,
+                                  mime_type: file.type || (formatoVibeWhats === 'imagem' ? 'image/jpeg' : 'video/mp4'),
+                                  tipo_solicitado: formatoVibeWhats,
+                                  arquivo_base64: base64Data
+                                })
+                              });
+
+                              const resData = await res.json();
+                              if (!res.ok || !resData.success) {
+                                throw new Error(resData.error || 'Falha ao processar upload da mídia.');
+                              }
+
+                              setMidiaVibeWhats({
+                                url: resData.data.url_assinada,
+                                nome: resData.data.nome_original,
+                                tamanho: resData.data.tamanho,
+                                tipo: resData.data.tipo,
+                                mime_type: resData.data.mime_type,
+                                storage_path: resData.data.storage_path
+                              });
+                            } catch (err) {
+                              console.error('Erro no upload de mídia VibeWhats:', err);
+                              setErroMidiaVibe(err.message || 'Erro ao processar arquivo.');
+                            } finally {
+                              setFazendoUploadMidiaVibe(false);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-teal-200">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="text-teal-600 font-bold text-xs uppercase bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                          {midiaVibeWhats.tipo}
+                        </span>
+                        <div className="truncate">
+                          <p className="font-bold text-xs text-gray-800 truncate">{midiaVibeWhats.nome}</p>
+                          <p className="text-[10px] text-gray-400">{midiaVibeWhats.tamanho}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMidiaVibeWhats(null);
+                          setErroMidiaVibe(null);
+                        }}
+                        className="text-xs text-rose-600 hover:text-rose-800 font-bold px-2 py-1"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  )}
+
+                  {erroMidiaVibe && (
+                    <p className="text-[11px] text-rose-600 font-medium">⚠️ {erroMidiaVibe}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Editor de Texto ou Legenda */}
+              <div className="p-3.5 bg-white border border-gray-200 rounded-xl space-y-2.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-700">
+                    {formatoVibeWhats === 'texto' ? 'Texto da Mensagem' : 'Legenda da Mídia (Opcional)'}
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    {mensagemVibeWhats.length} caracteres
+                  </span>
+                </div>
+
+                <textarea
+                  ref={textareaVibeWhatsRef}
+                  rows={4}
+                  value={mensagemVibeWhats}
+                  onChange={(e) => {
+                    setMensagemVibeWhats(e.target.value);
+                    if (erroAlerta) setErroAlerta(null);
+                  }}
+                  placeholder={formatoVibeWhats === 'texto'
+                    ? "Ex: Olá {{primeiro_nome}}, tudo bem? Passando para compartilhar nossas novidades com você de {{cidade}}!"
+                    : "Ex: Olá {{primeiro_nome}}, veja nossa prestação de contas com ações no bairro {{bairro}}!"
+                  }
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white resize-y font-sans leading-relaxed"
+                />
+
+                {/* Atalhos para Placeholders Permitidos */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-gray-100">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-gray-400 font-semibold">Placeholders permitidos:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleInserirTagVibeWhats('{{nome}}')}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded-lg border border-teal-200 transition"
+                      title="Substitui pelo nome completo do contato (fallback: Contato)"
+                    >
+                      + Nome (&#123;&#123;nome&#125;&#125;)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInserirTagVibeWhats('{{primeiro_nome}}')}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded-lg border border-teal-200 transition"
+                      title="Substitui pelo primeiro nome do contato (fallback: Contato)"
+                    >
+                      + Primeiro Nome (&#123;&#123;primeiro_nome&#125;&#125;)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInserirTagVibeWhats('{{cidade}}')}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded-lg border border-teal-200 transition"
+                      title="Substitui pela cidade do contato"
+                    >
+                      + Cidade (&#123;&#123;cidade&#125;&#125;)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInserirTagVibeWhats('{{bairro}}')}
+                      className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-bold rounded-lg border border-teal-200 transition"
+                      title="Substitui pelo bairro do contato"
+                    >
+                      + Bairro (&#123;&#123;bairro&#125;&#125;)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informativo VibeWhats */}
+              <div className="p-3 bg-teal-50/60 border border-teal-200 rounded-xl text-teal-900 text-[11px] space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-teal-800">
+                  <FontAwesomeIcon icon={faInfoCircle} />
+                  <span>Envio Unificado VibeWhats</span>
+                </p>
+                <p className="text-teal-700 leading-relaxed">
+                  {formatoVibeWhats === 'texto'
+                    ? 'Mensagem direta de texto livre com personalização automática de variáveis por contato.'
+                    : `A ${formatoVibeWhats === 'imagem' ? 'imagem' : 'vídeo'} e a legenda personalizada serão enviadas juntas em um único disparo por destinatário, sem duplicar mensagens.`}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Selecionar Template Oficial (META / YCLOUD) */}
-          {step === 4 && !isSms && !isWafly && (
+          {step === 4 && !isSms && !isWafly && !isVibeWhats && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold text-gray-700">Selecione o Template Oficial Homologado</label>
@@ -2349,8 +2759,83 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
             </div>
           )}
 
+          {/* Confirmação e Validação de Envio Direto (VIBEWHATS) */}
+          {step === 5 && isVibeWhats && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700">
+                  Confirmação de Envio via VibeWhats
+                </label>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Verifique a mensagem configurada e a resolução dos destinatários aptos para o envio sem necessidade de templates Meta.
+                </p>
+              </div>
+
+              {/* Cards de Métricas */}
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-teal-700 block">Provedor Ativo</span>
+                  <p className="text-sm font-extrabold text-teal-900 mt-0.5">VibeWhats</p>
+                  <p className="text-[10px] text-teal-600">Instância oficial vinculada</p>
+                </div>
+                <div className="p-3 bg-white border border-gray-200 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-gray-500 block">Formato</span>
+                  <p className="text-sm font-extrabold text-gray-800 mt-0.5 uppercase">{formatoVibeWhats}</p>
+                  <p className="text-[10px] text-gray-400">
+                    {midiaVibeWhats ? `${midiaVibeWhats.tipo} anexada` : 'texto direto'}
+                  </p>
+                </div>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-gray-500 block">Destinatários Aptos</span>
+                  <p className="text-sm font-extrabold text-gray-800 mt-0.5">
+                    {destinatariosFiltrados.length}
+                  </p>
+                  <p className="text-[10px] text-gray-500">com WhatsApp validado</p>
+                </div>
+              </div>
+
+              {/* Detalhes da Mídia e Legenda */}
+              <div className="p-3.5 bg-white border border-gray-200 rounded-xl space-y-2.5">
+                {midiaVibeWhats && (
+                  <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-teal-700 font-bold uppercase bg-teal-50 px-2 py-0.5 rounded border border-teal-200 text-[10px]">
+                        {midiaVibeWhats.tipo}
+                      </span>
+                      <span className="font-semibold text-gray-800 truncate">{midiaVibeWhats.nome}</span>
+                    </div>
+                    <span className="text-gray-400 text-[10px] shrink-0">{midiaVibeWhats.tamanho}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-gray-700">
+                      {midiaVibeWhats ? 'Legenda da Mídia:' : 'Texto Base Configurado:'}
+                    </span>
+                    <span className="text-teal-700 font-semibold">{mensagemVibeWhats.length} caracteres</span>
+                  </div>
+                  <div className="p-2.5 bg-gray-50 rounded-lg text-xs font-mono text-gray-800 whitespace-pre-wrap leading-relaxed border border-gray-100">
+                    {mensagemVibeWhats || '(Sem legenda de texto)'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Box Informativo */}
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 text-xs space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-emerald-800">
+                  <FontAwesomeIcon icon={faCheckCircle} className="text-emerald-600" />
+                  <span>Mensagem Pronta para Transmissão</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  Os placeholders configurados serão substituídos individualmente para cada um dos <strong>{destinatariosFiltrados.length} destinatários</strong> ao enfileirar o disparo.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Configurar Variáveis (META / YCLOUD) */}
-          {step === 5 && !isSms && !isWafly && (
+          {step === 5 && !isSms && !isWafly && !isVibeWhats && (
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700">Preencha as Variáveis do Template Oficial</label>
@@ -2806,7 +3291,7 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                   {/* 4. Mensagem e Template / Variações */}
                   <div className="space-y-1.5">
                     <span className="text-[10px] font-bold text-gray-400 uppercase block">
-                      {isSms ? '4. Mensagem e Resumo Financeiro SMS' : isWafly ? '4. Mensagens Livres (Variações)' : '4. Mensagem & Template Homologado'}
+                      {isSms ? '4. Mensagem e Resumo Financeiro SMS' : isVibeWhats ? '4. Mensagem Livre (VibeWhats)' : isWafly ? '4. Mensagens Livres (Variações)' : '4. Mensagem & Template Homologado'}
                     </span>
                     {isSms ? (
                       <div className="space-y-3">
@@ -2877,6 +3362,86 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                                     <div key={idx} className="bg-gray-50 p-2 rounded-lg border border-gray-200 text-[10px] space-y-0.5">
                                       <div className="flex items-center justify-between font-semibold text-gray-700">
                                         <span>#{idx + 1} {nomeC}</span>
+                                        <span className="font-mono text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                                          {c.telefoneNormalizado || c.telefone || c.phone}
+                                        </span>
+                                      </div>
+                                      <p className="text-gray-500 truncate italic">
+                                        &quot;{msgInterpolada}&quot;
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : isVibeWhats ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div>Modo: <strong className="text-gray-800">Mensagem Direta VibeWhats</strong></div>
+                          <span className="bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-200 text-[10px]">
+                            {formatoVibeWhats.toUpperCase()} · {mensagemVibeWhats.length} caracteres
+                          </span>
+                        </div>
+
+                        {/* Mídia Anexada na Revisão */}
+                        {midiaVibeWhats && (
+                          <div className="p-2.5 bg-white rounded-lg border border-teal-200 text-[11px] flex items-center justify-between shadow-2xs">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-teal-700 font-bold uppercase bg-teal-50 px-2 py-0.5 rounded border border-teal-200 text-[9px]">
+                                {midiaVibeWhats.tipo}
+                              </span>
+                              <span className="font-semibold text-gray-800 truncate">{midiaVibeWhats.nome}</span>
+                            </div>
+                            <span className="text-gray-400 text-[10px] shrink-0">{midiaVibeWhats.tamanho}</span>
+                          </div>
+                        )}
+
+                        <div className="bg-white p-3 rounded-lg border border-gray-200 text-[11px] shadow-2xs">
+                          <p className="text-gray-800 font-sans whitespace-pre-wrap leading-relaxed">
+                            {mensagemVibeWhats || '(Sem legenda de texto)'}
+                          </p>
+                        </div>
+
+                        {/* Amostra com Interpolação Real para os Primeiros Destinatários */}
+                        {(() => {
+                          const listaAmostra = (destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados).slice(0, 3);
+                          if (listaAmostra.length === 0) return null;
+                          return (
+                            <div className="pt-1 space-y-1.5">
+                              <span className="text-[10px] font-bold text-gray-500 uppercase block">Amostra Personalizada ({listaAmostra.length} primeiros):</span>
+                              <div className="space-y-1.5">
+                                {listaAmostra.map((c, idx) => {
+                                  const nomeCompleto = c.nome || '';
+                                  const primeiroNome = nomeCompleto ? nomeCompleto.split(/\s+/)[0] : '';
+                                  const cidadeC = c.cidade || c.municipio || '';
+                                  const bairroC = c.bairro || '';
+
+                                  let msgInterpolada = mensagemVibeWhats;
+                                  msgInterpolada = nomeCompleto
+                                    ? msgInterpolada.replace(/\{\{nome\}\}/gi, nomeCompleto).replace(/\{nome\}/gi, nomeCompleto)
+                                    : msgInterpolada.replace(/\{\{nome\}\}/gi, 'Contato').replace(/\{nome\}/gi, 'Contato');
+
+                                  msgInterpolada = primeiroNome
+                                    ? msgInterpolada.replace(/\{\{primeiro_nome\}\}/gi, primeiroNome).replace(/\{primeiro_nome\}/gi, primeiroNome)
+                                    : msgInterpolada.replace(/\{\{primeiro_nome\}\}/gi, 'Contato').replace(/\{primeiro_nome\}/gi, 'Contato');
+
+                                  msgInterpolada = cidadeC
+                                    ? msgInterpolada.replace(/\{\{cidade\}\}/gi, cidadeC).replace(/\{cidade\}/gi, cidadeC)
+                                    : msgInterpolada.replace(/\{\{cidade\}\}/gi, '').replace(/\{cidade\}/gi, '');
+
+                                  msgInterpolada = bairroC
+                                    ? msgInterpolada.replace(/\{\{bairro\}\}/gi, bairroC).replace(/\{bairro\}/gi, bairroC)
+                                    : msgInterpolada.replace(/\{\{bairro\}\}/gi, '').replace(/\{bairro\}/gi, '');
+
+                                  msgInterpolada = msgInterpolada.replace(/\s{2,}/g, ' ').trim();
+
+                                  return (
+                                    <div key={idx} className="bg-gray-50 p-2 rounded-lg border border-gray-200 text-[10px] space-y-0.5">
+                                      <div className="flex items-center justify-between font-semibold text-gray-700">
+                                        <span>#{idx + 1} {nomeCompleto || 'Contato'}</span>
                                         <span className="font-mono text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
                                           {c.telefoneNormalizado || c.telefone || c.phone}
                                         </span>
@@ -3209,6 +3774,8 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
               <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-3">
                 {isSms
                   ? 'Prévia no Smartphone (SMS)'
+                  : isVibeWhats
+                  ? 'Prévia em Tempo Real (WhatsApp VibeWhats)'
                   : isWafly
                   ? `Prévia em Tempo Real (Variação #${(variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) >= 0 ? variacoesWafly.findIndex(v => v.id === variacaoAtivaPreview) : 0) + 1})`
                   : 'Prévia em Tempo Real (WhatsApp)'}
@@ -3307,6 +3874,83 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                         </div>
                         <p className="text-[9px] text-gray-400 text-left">
                           * Variáveis interpoladas com o 1º contato da lista. O custo é de <strong>1 crédito por envio</strong>.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : isVibeWhats ? (
+                (() => {
+                  const textoPreview = getMensagemVibeWhatsPreview();
+                  const listaBase = destinatariosCongelados.length > 0 ? destinatariosCongelados : destinatariosFiltrados;
+                  const primeiroContato = listaBase[0] || null;
+
+                  if (!textoPreview && !midiaVibeWhats) {
+                    return (
+                      <div className="text-center py-20 text-gray-400 text-xs">
+                        {formatoVibeWhats === 'texto'
+                          ? 'Digite o texto da mensagem para visualizar a prévia no balão do WhatsApp.'
+                          : `Selecione a ${formatoVibeWhats === 'imagem' ? 'imagem' : 'vídeo'} para visualizar a prévia no balão do WhatsApp.`}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      <div className="bg-[#EFEAE2] p-5 rounded-2xl border border-gray-200 shadow-inner flex justify-end">
+                        <div className="bg-[#E7FFDB] rounded-xl p-2.5 max-w-[85%] shadow-sm text-xs text-gray-800 space-y-1.5 relative border border-emerald-100">
+                          {/* Mídia Renderizada no Balão */}
+                          {midiaVibeWhats?.url && (
+                            <div className="rounded-lg overflow-hidden border border-emerald-200/60 bg-black/5">
+                              {formatoVibeWhats === 'imagem' ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={midiaVibeWhats.url}
+                                  alt="Mídia da campanha"
+                                  className="w-full max-h-48 object-cover rounded-lg"
+                                />
+                              ) : (
+                                <video
+                                  src={midiaVibeWhats.url}
+                                  controls
+                                  className="w-full max-h-48 object-cover rounded-lg"
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Legenda / Mensagem */}
+                          {textoPreview && (
+                            <p className="whitespace-pre-wrap break-words leading-relaxed font-sans px-1 pt-0.5">
+                              {textoPreview}
+                            </p>
+                          )}
+
+                          <div className="flex items-center justify-end gap-1 text-[10px] text-gray-400 select-none pt-0.5">
+                            <span>12:00</span>
+                            <span className="text-teal-600 font-bold">✓✓</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs space-y-1 text-left">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-gray-500 font-medium">
+                            Formato: <strong className="text-teal-700 uppercase">{formatoVibeWhats}</strong>
+                          </span>
+                          {textoPreview && (
+                            <span className="font-bold text-teal-700">{textoPreview.length} caracteres na legenda</span>
+                          )}
+                        </div>
+                        <p className="text-[9px] text-gray-500">
+                          {primeiroContato ? (
+                            <>
+                              * Dados reais do 1º destinatário da seleção: <strong className="text-gray-700">{primeiroContato.nome || 'Contato'}</strong> ({primeiroContato.cidade || primeiroContato.municipio || 'Cidade não informada'}{primeiroContato.bairro ? ` · ${primeiroContato.bairro}` : ''}).
+                            </>
+                          ) : (
+                            <>
+                              * <span className="text-amber-700 font-semibold">[Dados Ilustrativos]</span> Nenhum destinatário selecionado ainda na lista; exibindo simulação com Carlos Silva (Belém · Centro).
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>

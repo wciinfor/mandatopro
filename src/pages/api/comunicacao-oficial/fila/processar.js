@@ -375,10 +375,14 @@ export default async function handler(req, res) {
               return;
             }
 
-            // ─── RAMO WHATSAPP (OFICIAL & WAFLY) ──────────────────────────────────
-            const isCampanhaWafly = String(campanha.metadata?.provider || contaSelecionada?.provider || '').toUpperCase() === 'WAFLY';
+            // ─── RAMO WHATSAPP (OFICIAL, WAFLY & VIBEWHATS) ──────────────────────────
+            const providerNome = String(campanha.metadata?.provider || contaSelecionada?.provider || '').toUpperCase();
+            const isCampanhaWafly = providerNome === 'WAFLY';
+            const isCampanhaVibeWhats = providerNome === 'VIBEWHATS';
             const temMensagemPersonalizada = Boolean(item.variaveis_mapeadas?.mensagem_personalizada && String(item.variaveis_mapeadas.mensagem_personalizada).trim().length > 0);
-            const isWaflyItem = isCampanhaWafly || temMensagemPersonalizada || item.template_id === 'wafly_variacoes';
+            const isVibeWhatsItem = isCampanhaVibeWhats || item.template_id === 'vibewhats_texto_livre';
+            const isWaflyItem = isCampanhaWafly || item.template_id === 'wafly_variacoes';
+            const isTextoLivreWhatsApp = isVibeWhatsItem || isWaflyItem || temMensagemPersonalizada;
 
             let wamid = null;
             let textoMensagem = '';
@@ -410,25 +414,57 @@ export default async function handler(req, res) {
               conversa = novaConv;
             }
 
-            // ─── RAMO WAFLY: CONSUMO DA MENSAGEM PERSONALIZADA (SEM TEMPLATE META) ───
-            if (isWaflyItem) {
-              textoMensagem = String(item.variaveis_mapeadas?.mensagem_personalizada || '').trim();
+            // ─── RAMO TEXTO LIVRE / MÍDIA: VIBEWHATS & WAFLY (SEM TEMPLATE META HSM) ─────────
+            if (isTextoLivreWhatsApp) {
+              textoMensagem = String(
+                item.variaveis_mapeadas?.mensagem_personalizada ||
+                campanha.metadata?.mensagem_vibewhats ||
+                ''
+              ).trim();
 
-              if (!textoMensagem) {
-                throw new Error('Item de campanha WAFLY sem mensagem_personalizada válida preenchida para envio.');
+              const formatoMidia = String(item.variaveis_mapeadas?.formato_midia || campanha.metadata?.formato_midia || 'texto').toLowerCase();
+              const mediaTipo = item.variaveis_mapeadas?.media_tipo || (formatoMidia === 'video' ? 'video' : 'image');
+              let mediaUrl = item.variaveis_mapeadas?.media_url || campanha.metadata?.media_url || null;
+              const storagePath = item.variaveis_mapeadas?.storage_path || campanha.metadata?.storage_path || null;
+              const storageBucket = item.variaveis_mapeadas?.storage_bucket || campanha.metadata?.storage_bucket || 'midias_campanha';
+
+              // Se possuir storage_path em bucket privado, gera URL assinada válida no momento exato do disparo (evita expiração em agendamentos)
+              if (storagePath) {
+                try {
+                  const { data: freshSigned, error: errFresh } = await supabase.storage
+                    .from(storageBucket)
+                    .createSignedUrl(storagePath, 3600); // 1 hora de validade a partir de agora
+
+                  if (!errFresh && freshSigned?.signedUrl) {
+                    mediaUrl = freshSigned.signedUrl;
+                  }
+                } catch (errSignFresh) {
+                  console.warn('[FILA PROCESSAR] Falha ao renovar URL assinada, utilizando mediaUrl de fallback:', errSignFresh?.message || errSignFresh);
+                }
               }
 
-              // Dispara texto livre diretamente via Wafly
+              if (!textoMensagem && !mediaUrl) {
+                throw new Error(`Item de campanha ${isVibeWhatsItem ? 'VIBEWHATS' : 'WAFLY'} sem mensagem ou mídia para envio.`);
+              }
+
+              // Dispara texto ou mídia com legenda diretamente via Provider (VibeWhats ou Wafly)
+              // Importante: Envia somente 1 mensagem por item (a legenda acompanha a mídia)
               const resProvider = await provider.sendMessage({
                 to: item.contact_id,
                 recipient: item.contact_id,
                 message: textoMensagem,
-                text: textoMensagem
+                text: textoMensagem,
+                media_tipo: mediaUrl ? mediaTipo : null,
+                media_url: mediaUrl
               });
 
-              wamid = resProvider?.messageId || resProvider?.id || resProvider?.messages?.[0]?.id;
+              wamid = resProvider?.messageId || resProvider?.id || resProvider?.messages?.[0]?.id || resProvider?.zaapId;
               if (!wamid) {
-                throw new Error('Provedor WAFLY não retornou um Message ID válido após o envio.');
+                throw new Error(`Provedor ${isVibeWhatsItem ? 'VIBEWHATS' : 'WAFLY'} não retornou um Message ID válido após o envio.`);
+              }
+
+              if (mediaUrl) {
+                textoMensagem = `[${mediaTipo === 'video' ? 'Vídeo' : 'Imagem'} VibeWhats] ${textoMensagem}`.trim();
               }
             } else {
               // ─── RAMO OFICIAL (META / YCLOUD / WABLAST): TEMPLATES HSM ───
@@ -488,7 +524,7 @@ export default async function handler(req, res) {
             }
 
             // 6.1 Registra a mensagem de saída na Central de Atendimento
-            const realProvider = isWaflyItem ? 'WAFLY' : String(contaSelecionada?.provider || 'META').toUpperCase();
+            const realProvider = isVibeWhatsItem ? 'VIBEWHATS' : isWaflyItem ? 'WAFLY' : String(contaSelecionada?.provider || 'META').toUpperCase();
             await supabase
               .from('communication_messages')
               .insert({

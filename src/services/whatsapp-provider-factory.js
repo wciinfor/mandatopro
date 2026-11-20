@@ -548,10 +548,73 @@ export class VibeWhatsWhatsAppAdapter extends WhatsAppProviderContract {
     const to = payload.to || payload.phone || payload.destinatario;
     const message = payload.message || payload.text || payload.body || payload.conteudo;
     const delayMessage = payload.delayMessage || payload.delay_message;
+    const mediaTipo = String(payload.media_tipo || payload.mediaTipo || '').toLowerCase();
+    const mediaUrl = payload.media_url || payload.mediaUrl || payload.imageUrl || payload.videoUrl;
 
-    const res = await this.service.sendText({
+    let res;
+    if (mediaTipo === 'image' && mediaUrl) {
+      res = await this.service.sendImage({
+        phone: to,
+        image: mediaUrl,
+        caption: message || '',
+        delayMessage
+      });
+    } else if (mediaTipo === 'video' && mediaUrl) {
+      res = await this.service.sendVideo({
+        phone: to,
+        video: mediaUrl,
+        caption: message || '',
+        delayMessage
+      });
+    } else {
+      res = await this.service.sendText({
+        phone: to,
+        message,
+        delayMessage
+      });
+    }
+
+    return {
+      success: true,
+      messageId: res.messageId,
+      id: res.id,
+      zaapId: res.zaapId,
+      provider: 'VIBEWHATS'
+    };
+  }
+
+  async sendImage(payload = {}) {
+    const to = payload.to || payload.phone || payload.destinatario;
+    const image = payload.image || payload.imageUrl || payload.url;
+    const caption = payload.caption || payload.message || payload.text || '';
+    const delayMessage = payload.delayMessage || payload.delay_message;
+
+    const res = await this.service.sendImage({
       phone: to,
-      message,
+      image,
+      caption,
+      delayMessage
+    });
+
+    return {
+      success: true,
+      messageId: res.messageId,
+      id: res.id,
+      zaapId: res.zaapId,
+      provider: 'VIBEWHATS'
+    };
+  }
+
+  async sendVideo(payload = {}) {
+    const to = payload.to || payload.phone || payload.destinatario;
+    const video = payload.video || payload.videoUrl || payload.url;
+    const caption = payload.caption || payload.message || payload.text || '';
+    const delayMessage = payload.delayMessage || payload.delay_message;
+
+    const res = await this.service.sendVideo({
+      phone: to,
+      video,
+      caption,
       delayMessage
     });
 

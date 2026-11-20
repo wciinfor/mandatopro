@@ -354,6 +354,148 @@ export class VibeWhatsApiService {
   }
 
   /**
+   * Envia uma mensagem com imagem e legenda opcional
+   * Endpoint: POST /instances/{ID}/token/{TOKEN}/send-image
+   * 
+   * @param {Object} params
+   * @param {string} params.phone - Telefone do destinatário (apenas dígitos)
+   * @param {string} params.image - URL pública/assinada ou Base64 da imagem
+   * @param {string} [params.caption] - Legenda opcional da imagem (com placeholders resolvidos)
+   * @param {number} [params.delayMessage] - Tempo de simulação de digitação em ms
+   * @returns {Promise<{ success: boolean, messageId: string, zaapId?: string, id: string, raw: Object }>}
+   */
+  async sendImage({ phone, image, caption, delayMessage } = {}) {
+    const cleanPhone = this._normalizePhone(phone);
+    if (!cleanPhone) {
+      throw {
+        success: false,
+        error: 'VibeWhatsApiService: phone é obrigatório e deve conter número válido',
+        statusCode: 400,
+        provider: 'VIBEWHATS'
+      };
+    }
+
+    const cleanImage = String(image || '').trim();
+    if (!cleanImage) {
+      throw {
+        success: false,
+        error: 'VibeWhatsApiService: image é obrigatório (URL ou Base64)',
+        statusCode: 400,
+        provider: 'VIBEWHATS'
+      };
+    }
+
+    const payload = {
+      phone: cleanPhone,
+      image: cleanImage
+    };
+
+    if (caption !== undefined && caption !== null && String(caption).trim().length > 0) {
+      payload.caption = String(caption).trim();
+    }
+
+    if (delayMessage !== undefined && delayMessage !== null) {
+      payload.delayMessage = Number(delayMessage);
+    }
+
+    const response = await this._request('/send-image', {
+      method: 'POST',
+      body: payload
+    });
+
+    const returnedId = response?.messageId || response?.id || response?.zaapId || null;
+
+    if (!returnedId) {
+      throw {
+        success: false,
+        error: 'A API VibeWhats confirmou o recebimento da imagem mas não retornou um ID de mensagem válido',
+        statusCode: 502,
+        provider: 'VIBEWHATS',
+        details: response
+      };
+    }
+
+    return {
+      success: true,
+      messageId: returnedId,
+      zaapId: response?.zaapId || null,
+      id: returnedId,
+      raw: response
+    };
+  }
+
+  /**
+   * Envia uma mensagem com vídeo e legenda opcional
+   * Endpoint: POST /instances/{ID}/token/{TOKEN}/send-video
+   * 
+   * @param {Object} params
+   * @param {string} params.phone - Telefone do destinatário (apenas dígitos)
+   * @param {string} params.video - URL pública/assinada ou Base64 do vídeo
+   * @param {string} [params.caption] - Legenda opcional do vídeo (com placeholders resolvidos)
+   * @param {number} [params.delayMessage] - Tempo de simulação de digitação em ms
+   * @returns {Promise<{ success: boolean, messageId: string, zaapId?: string, id: string, raw: Object }>}
+   */
+  async sendVideo({ phone, video, caption, delayMessage } = {}) {
+    const cleanPhone = this._normalizePhone(phone);
+    if (!cleanPhone) {
+      throw {
+        success: false,
+        error: 'VibeWhatsApiService: phone é obrigatório e deve conter número válido',
+        statusCode: 400,
+        provider: 'VIBEWHATS'
+      };
+    }
+
+    const cleanVideo = String(video || '').trim();
+    if (!cleanVideo) {
+      throw {
+        success: false,
+        error: 'VibeWhatsApiService: video é obrigatório (URL ou Base64)',
+        statusCode: 400,
+        provider: 'VIBEWHATS'
+      };
+    }
+
+    const payload = {
+      phone: cleanPhone,
+      video: cleanVideo
+    };
+
+    if (caption !== undefined && caption !== null && String(caption).trim().length > 0) {
+      payload.caption = String(caption).trim();
+    }
+
+    if (delayMessage !== undefined && delayMessage !== null) {
+      payload.delayMessage = Number(delayMessage);
+    }
+
+    const response = await this._request('/send-video', {
+      method: 'POST',
+      body: payload
+    });
+
+    const returnedId = response?.messageId || response?.id || response?.zaapId || null;
+
+    if (!returnedId) {
+      throw {
+        success: false,
+        error: 'A API VibeWhats confirmou o recebimento do vídeo mas não retornou um ID de mensagem válido',
+        statusCode: 502,
+        provider: 'VIBEWHATS',
+        details: response
+      };
+    }
+
+    return {
+      success: true,
+      messageId: returnedId,
+      zaapId: response?.zaapId || null,
+      id: returnedId,
+      raw: response
+    };
+  }
+
+  /**
    * Configuração de Webhooks na VibeWhats (preparação de estrutura sem ativação)
    * Endpoints: PUT /update-every-webhooks ou PUT /update-webhook-received
    * 
