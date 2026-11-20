@@ -997,6 +997,248 @@ await testAsync('Concorrência Webhook: Retorna HTTP 429 se o evento já estiver
   assert.strictEqual(jsonResponse.success, false);
 });
 
+// ─── 9. TESTES DE HOMOLOGAÇÃO: CONVERSAS LEGADAS E ISOLAMENTO ──────────────
+await testAsync('Conversa Legada: Associa com segurança se campanha_id pertencer comprovadamente ao mesmo tenant', async () => {
+  let conversaAtualizadaId = null;
+  let mensagemInseridaConnect = null;
+
+  const mockSupabase = {
+    from: (table) => {
+      if (table === 'atendimento_connect_conversas') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    id: 6,
+                    eleitor_id: null,
+                    campanha_id: 156,
+                    contato_nome: 'Alcântara Sistemas',
+                    contato_telefone: '559193121501',
+                    canal: 'whatsapp',
+                    status: 'nova',
+                    metadata: { instanceId: '3BC850512297F92832DDE3A475125689' },
+                    communication_campaigns: { id: 156, tenant_id: 1 }
+                  }
+                ],
+                error: null
+              })
+            })
+          }),
+          update: () => ({
+            eq: async (col, val) => {
+              conversaAtualizadaId = val;
+              return { error: null };
+            }
+          })
+        };
+      }
+      if (table === 'atendimento_connect_mensagens') {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+          insert: async (payload) => {
+            mensagemInseridaConnect = payload;
+            return { error: null };
+          }
+        };
+      }
+      if (table === 'communication_campaign_items') {
+        return {
+          select: () => ({
+            in: () => ({
+              in: () => ({
+                gte: () => ({
+                  lte: () => ({
+                    order: () => ({
+                      eq: () => ({
+                        limit: async () => ({ data: [], error: null })
+                      })
+                    })
+                  })
+                })
+              })
+            })
+          })
+        };
+      }
+      if (table === 'communication_messages') {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+          insert: () => ({ select: () => ({ single: async () => ({ data: { id: 15269 } }) }) })
+        };
+      }
+      if (table === 'communication_conversations') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ neq: () => ({ limit: () => ({ maybeSingle: async () => ({ data: { id: 6 } }) }) }) }) }) }),
+          update: () => ({ eq: async () => ({ error: null }) })
+        };
+      }
+      if (table === 'eleitores') {
+        return {
+          select: () => ({ eq: () => ({ or: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) })
+        };
+      }
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+        insert: () => ({ error: null })
+      };
+    },
+    rpc: async (fn, params) => {
+      if (fn === 'adquirir_reserva_inbound') {
+        return { data: [{ sucesso: true, reserva_id: 1, fencing_token: 1 }], error: null };
+      }
+      if (fn === 'concluir_reserva_inbound') {
+        return { data: true, error: null }; // boolean → retorno imediato, sem fallback .from
+      }
+      if (fn === 'liberar_reserva_inbound') {
+        return { data: true, error: null };
+      }
+      return { data: null, error: null };
+    }
+  };
+
+  const { processarEventoMensagem } = await import('./src/services/processarEventoComunicacao.js');
+  const evento = {
+    tipo: 'mensagem',
+    provider: 'VIBEWHATS',
+    tenant_id: 1,
+    account_id: 11,
+    provider_message_id: 'WPA_LEGACY_CAMP_MATCH_01',
+    contact_id: '559193121501',
+    contato_nome: 'Alcântara Sistemas',
+    conteudo: 'Mensagem inbound em conversa legada',
+    timestamp: new Date().toISOString(),
+    phone_number_id: '3BC850512297F92832DDE3A475125689',
+    metadata: {
+      instanceId: '3BC850512297F92832DDE3A475125689'
+    }
+  };
+
+  const res = await processarEventoMensagem(mockSupabase, evento);
+  assert.strictEqual(res.success, true);
+  assert.strictEqual(conversaAtualizadaId, 6, 'Deve atualizar exatamente a conversa legada ID 6 vinculada à campanha do tenant 1');
+  assert.strictEqual(mensagemInseridaConnect.conversa_id, 6, 'Deve persistir a mensagem na conversa 6');
+  assert.strictEqual(mensagemInseridaConnect.provider_message_id, 'WPA_LEGACY_CAMP_MATCH_01');
+  assert.strictEqual(mensagemInseridaConnect.raw_payload.account_id, 11);
+  assert.strictEqual(mensagemInseridaConnect.raw_payload.provider, 'VIBEWHATS');
+});
+
+await testAsync('Conversa Legada: Rejeita reaproveitamento se a campanha pertencer a outro tenant', async () => {
+  let conversaCriada = false;
+  let conversaAtualizadaId = null;
+
+  const mockSupabase = {
+    from: (table) => {
+      if (table === 'atendimento_connect_conversas') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    id: 99,
+                    eleitor_id: null,
+                    campanha_id: 999,
+                    contato_nome: 'Contato Outro Tenant',
+                    contato_telefone: '559193121501',
+                    canal: 'whatsapp',
+                    status: 'nova',
+                    metadata: {},
+                    communication_campaigns: { id: 999, tenant_id: 2 } // Outro tenant!
+                  }
+                ],
+                error: null
+              })
+            })
+          }),
+          insert: () => {
+            conversaCriada = true;
+            return {
+              select: () => ({ single: async () => ({ data: { id: 500 } }) })
+            };
+          },
+          update: () => ({
+            eq: async (col, val) => {
+              conversaAtualizadaId = val;
+              return { error: null };
+            }
+          })
+        };
+      }
+      if (table === 'atendimento_connect_mensagens') {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+          insert: async () => ({ error: null })
+        };
+      }
+      if (table === 'communication_campaign_items') {
+        return {
+          select: () => ({
+            in: () => ({
+              in: () => ({
+                gte: () => ({
+                  lte: () => ({
+                    order: () => ({
+                      eq: () => ({
+                        limit: async () => ({ data: [], error: null })
+                      })
+                    })
+                  })
+                })
+              })
+            })
+          })
+        };
+      }
+      if (table === 'communication_messages') {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+          insert: () => ({ select: () => ({ single: async () => ({ data: { id: 15270 } }) }) })
+        };
+      }
+      if (table === 'communication_conversations') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ neq: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }) }),
+          insert: () => ({ select: () => ({ single: async () => ({ data: { id: 500 } }) }) }),
+          update: () => ({ eq: async () => ({ error: null }) })
+        };
+      }
+      if (table === 'eleitores') {
+        return {
+          select: () => ({ eq: () => ({ or: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) })
+        };
+      }
+      return {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+        insert: () => ({ error: null })
+      };
+    },
+    rpc: async () => ({ data: [{ sucesso: true, reserva_id: 1, fencing_token: 1 }], error: null })
+  };
+
+  const { processarEventoMensagem } = await import('./src/services/processarEventoComunicacao.js');
+  const evento = {
+    tipo: 'mensagem',
+    provider: 'VIBEWHATS',
+    tenant_id: 1,
+    account_id: 11,
+    provider_message_id: 'WPA_OTHER_TENANT_REJECT_01',
+    contact_id: '559193121501',
+    contato_nome: 'Contato Outro Tenant',
+    conteudo: 'Tentativa de associação cruzada',
+    timestamp: new Date().toISOString(),
+    phone_number_id: '3BC850512297F92832DDE3A475125689',
+    metadata: {
+      instanceId: '3BC850512297F92832DDE3A475125689'
+    }
+  };
+
+  const res = await processarEventoMensagem(mockSupabase, evento);
+  assert.strictEqual(conversaAtualizadaId, null, 'NÃO deve atualizar conversa com campanha de outro tenant');
+  assert.strictEqual(conversaCriada, true, 'Deve tentar criar nova conversa isolada');
+});
+
 console.log(`\n--- RESULTADOS FINAIS: ${passed} PASSOU | ${failed} FALHOU ---`);
 if (failed > 0) {
   process.exit(1);

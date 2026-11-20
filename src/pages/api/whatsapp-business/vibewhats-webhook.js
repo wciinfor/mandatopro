@@ -94,6 +94,21 @@ export default async function handler(req, res) {
     evento.tenant_id = contaVibe.tenant_id;
     evento.account_id = contaVibe.id;
 
+    const numVibe = (contaVibe.whatsapp_business_numbers || [])[0];
+    const instanceIdDaConta = numVibe?.phone_number_id || contaVibe.access_token_metadata?.vibewhats_instance || null;
+    const connectedPhoneDaConta = numVibe?.display_phone_number || contaVibe.access_token_metadata?.connected_phone || null;
+
+    if (!evento.metadata) evento.metadata = {};
+    if (!evento.metadata.instanceId && instanceIdDaConta) {
+      evento.metadata.instanceId = instanceIdDaConta;
+    }
+    if (!evento.to && connectedPhoneDaConta) {
+      evento.to = connectedPhoneDaConta;
+    }
+    if (!evento.phone_number_id && instanceIdDaConta) {
+      evento.phone_number_id = instanceIdDaConta;
+    }
+
     // ─── CASO 1: MENSAGEM RECEBIDA (Inbound / Outbound) ────────────────────────
     if (evento.tipo === 'mensagem' && evento.provider_message_id) {
       // Regra de ouro: Descartar mensagens enviadas pelo próprio número (fromMe: true)

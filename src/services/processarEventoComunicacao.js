@@ -198,10 +198,10 @@ export async function processarEventoMensagem(supabase, evento) {
   try {
     const now = evento.timestamp || new Date().toISOString();
 
-    // Busca conversa do canal whatsapp pelo telefone do eleitor
+    // Busca conversas do canal whatsapp pelo telefone do eleitor, trazendo validação do tenant da campanha
     const { data: conversasCandidatas } = await supabase
       .from('atendimento_connect_conversas')
-      .select('*')
+      .select('*, communication_campaigns:campanha_id (id, tenant_id)')
       .eq('canal', 'whatsapp')
       .eq('contato_telefone', telefoneLimpo);
 
@@ -224,14 +224,29 @@ export async function processarEventoMensagem(supabase, evento) {
 
       // 2. Para conversas legadas sem metadata.tenant_id:
       // NUNCA associa automaticamente ao tenant 1 por suposição ou omissão.
-      // Exige comprovação estrita:
-      // a) O evento em processamento deve ser do tenant 1; E
-      // b) O eleitor identificado pelo telefone deve existir comprovadamente no banco do tenant 1 E corresponder ao c.eleitor_id
-      if (tenantId === 1 && eleitorId && c.eleitor_id === eleitorId) {
+      // Exige comprovação estrita diretamente no banco de dados:
+      // a) Vínculo comprovado por eleitor_id pertencente ao mesmo tenant_id:
+      if (eleitorId && c.eleitor_id && Number(c.eleitor_id) === Number(eleitorId)) {
+        // Exige compatibilidade com a instância se for VIBEWHATS
+        const eventoInstancia = evento.metadata?.instanceId || null;
+        if (evento.provider === 'VIBEWHATS' && eventoInstancia && meta.instanceId) {
+          return String(meta.instanceId).trim() === String(eventoInstancia).trim();
+        }
         return true;
       }
 
-      // Conversas órfãs sem eleitor comprovado ou de outros tenants não são reaproveitadas
+      // b) Vínculo comprovado por campanha_id cuja campanha pertença comprovadamente ao tenant_id:
+      const campTenantId = Number(c.communication_campaigns?.tenant_id);
+      if (c.campanha_id && campTenantId === tenantId) {
+        // Exige compatibilidade com a instância se for VIBEWHATS
+        const eventoInstancia = evento.metadata?.instanceId || null;
+        if (evento.provider === 'VIBEWHATS' && eventoInstancia && meta.instanceId) {
+          return String(meta.instanceId).trim() === String(eventoInstancia).trim();
+        }
+        return true;
+      }
+
+      // Conversas órfãs sem eleitor comprovado ou sem campanha pertencente ao tenant não são reaproveitadas
       return false;
     }) || null;
 
@@ -288,7 +303,66 @@ export async function processarEventoMensagem(supabase, evento) {
         .single();
 
       if (errNovaConnect) {
-        console.error('[ATENDIMENTO CONNECT] erro ao criar conversa:', errNovaConnect.message);
+        // Se falhou por colisão da constraint única (idx_atendimento_connect_conversas_canal_tel_inst),
+        // busca a conversa existente e atualiza SOMENTE se pertencer comprovadamente ao mesmo tenant/instância
+        if (errNovaConnect.code === '23505' || String(errNovaConnect.message || '').includes('unique')) {
+          console.warn('[ATENDIMENTO CONNECT] Colisão de constraint única em atendimento_connect_conversas. Verificando compatibilidade...');
+          const { data: convColidida } = await supabase
+            .from('atendimento_connect_conversas')
+            .select('*, communication_campaigns:campanha_id (id, tenant_id)')
+            .eq('canal', 'whatsapp')
+            .eq('contato_telefone', telefoneLimpo)
+            .limit(1)
+            .maybeSingle();
+
+          // Validação estrita de segurança multi-tenant:
+          // Apenas atualiza se metadata.tenant_id corresponder OU eleitor_id/campanha_id pertencer comprovadamente ao mesmo tenant
+          const colMeta = convColidida?.metadata || {};
+          const colMetaTenant = colMeta.tenant_id ? Number(colMeta.tenant_id) : null;
+          const colCampTenant = Number(convColidida?.communication_campaigns?.tenant_id);
+          const colEleitorValido = eleitorId && convColidida?.eleitor_id && Number(convColidida.eleitor_id) === Number(eleitorId);
+          const colCampValida = convColidida?.campanha_id && colCampTenant === tenantId;
+
+          const tenantCompativel = (colMetaTenant === tenantId) || (!colMetaTenant && (colEleitorValido || colCampValida));
+
+          // Verificação de compatibilidade de instância para VibeWhats
+          const eventoInstancia = evento.metadata?.instanceId || null;
+          const instanciaCompativel = (evento.provider !== 'VIBEWHATS') ||
+            (!eventoInstancia || !colMeta.instanceId || String(colMeta.instanceId).trim() === String(eventoInstancia).trim());
+
+          if (convColidida?.id && tenantCompativel && instanciaCompativel) {
+            conversaConnectId = convColidida.id;
+            const statusAtual = convColidida.status;
+            const novoStatus = (statusAtual === 'concluida' || statusAtual === 'aguardando_eleitor') ? 'nova' : statusAtual;
+            const novoUnread = (convColidida.unread_count || 0) + 1;
+
+            await supabase
+              .from('atendimento_connect_conversas')
+              .update({
+                status: novoStatus,
+                unread_count: novoUnread,
+                ultima_mensagem: evento.conteudo,
+                ultima_mensagem_em: now,
+                metadata: {
+                  ...colMeta,
+                  ...connectMetadata
+                },
+                updated_at: now
+              })
+              .eq('id', convColidida.id);
+            console.log(`[ATENDIMENTO CONNECT] Conversa colidida id=${convColidida.id} reutilizada com validação de tenant/instância com sucesso.`);
+          } else {
+            console.error('[ATENDIMENTO CONNECT] Colisão 23505 rejeitada: conversa existente não pertence ao mesmo tenant/instância ou não pôde ser comprovada.', {
+              colididaId: convColidida?.id,
+              colMetaTenant,
+              colCampTenant,
+              tenantId,
+              instanciaCompativel
+            });
+          }
+        } else {
+          console.error('[ATENDIMENTO CONNECT] erro ao criar conversa:', errNovaConnect.message);
+        }
       } else {
         conversaConnectId = novaConvConnect?.id;
         console.log(`[ATENDIMENTO CONNECT] conversa criada: id=${conversaConnectId} telefone=${telefoneLimpo} campanha_id=${campanhaIdParaSalvar}`);
