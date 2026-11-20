@@ -337,6 +337,14 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
         throw new Error('Falha ao consultar templates da conta WhatsApp ativa.');
       }
       const data = await res.json();
+      if (data?.provider) {
+        setContaOficial(prev => {
+          if (!prev || !prev.provider) {
+            return { ...(prev || {}), provider: data.provider };
+          }
+          return prev;
+        });
+      }
       const lista = (data.templates || data.data || (Array.isArray(data) ? data : []))
         .filter(t => String(t.status || '').toUpperCase() === 'APPROVED');
       setTemplates(lista);
