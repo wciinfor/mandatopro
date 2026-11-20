@@ -334,7 +334,7 @@ export default function AtendimentoConnect() {
   const [mensagens, setMensagens] = useState([]);
   const [carregandoMensagens, setCarregandoMensagens] = useState(false);
   const [resposta, setResposta] = useState('');
-  const [modoResposta, setModoResposta] = useState('nota');
+  const [modoResposta, setModoResposta] = useState('saida');
   const [modalTemplateAberto, setModalTemplateAberto] = useState(false);
   const [templatesDisponiveis, setTemplatesDisponiveis] = useState([]);
   const [carregandoTemplates, setCarregandoTemplates] = useState(false);
@@ -997,6 +997,7 @@ export default function AtendimentoConnect() {
                           key={conversa.id}
                           onClick={() => {
                             setAtiva(conversa);
+                            setModoResposta('saida');
                             setModalAtendimentoAberto(true);
                           }}
                           className={`cursor-pointer transition-colors group ${
@@ -1435,17 +1436,17 @@ export default function AtendimentoConnect() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setModoResposta('nota')}
-                      className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'nota' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'}`}
-                    >
-                      Nota interna
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => setModoResposta('saida')}
                       className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'saida' ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-700'}`}
                     >
                       Resposta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoResposta('nota')}
+                      className={`px-3 py-2 rounded-lg text-sm ${modoResposta === 'nota' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'}`}
+                    >
+                      Nota interna
                     </button>
                     <button
                       type="button"
