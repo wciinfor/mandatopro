@@ -90,7 +90,8 @@ export default async function handler(req, res) {
     const providerRaw = isSms ? 'SMSDEV' : String(contaOficial?.provider || 'META').toUpperCase();
     let providerFormatado = isSms ? 'SMSDev' : 'Meta Cloud API Oficial';
     if (!isSms) {
-      if (providerRaw === 'WABLAST') providerFormatado = 'WaBlast Oficial';
+      if (providerRaw === 'VIBEWHATS') providerFormatado = 'VibeWhats Oficial';
+      else if (providerRaw === 'WABLAST') providerFormatado = 'WaBlast Oficial';
       else if (providerRaw === 'YCLOUD') providerFormatado = 'YCloud Oficial';
       else if (providerRaw === 'META') providerFormatado = 'Meta Cloud API Oficial';
       else if (providerRaw === 'WAFLY') providerFormatado = 'WAFLY Oficial';

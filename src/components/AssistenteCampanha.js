@@ -319,7 +319,7 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
       const res = await fetch('/api/whatsapp-business/config');
       if (!res.ok) throw new Error('Falha ao consultar conta oficial');
       const data = await res.json();
-      setContaOficial(data.config || null);
+      setContaOficial(data.config || data || null);
     } catch (err) {
       console.warn('Aviso ao consultar conta WhatsApp oficial:', err?.message);
     } finally {
@@ -1346,10 +1346,12 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                   <option value="whatsapp">
                     {(() => {
                       const prov = String(contaOficial?.provider || '').toUpperCase();
+                      if (prov === 'VIBEWHATS') return 'WhatsApp Business Oficial (VibeWhats)';
                       if (prov === 'WABLAST') return 'WhatsApp Business Oficial (WaBlast)';
                       if (prov === 'YCLOUD') return 'WhatsApp Business Oficial (YCloud)';
                       if (prov === 'META') return 'WhatsApp Business Oficial (Meta Cloud API)';
-                      return 'WhatsApp Business Oficial (YCloud / Meta / WaBlast)';
+                      if (prov === 'WAFLY') return 'WhatsApp Business Oficial (Wafly)';
+                      return 'WhatsApp Business Oficial (VibeWhats / Meta / YCloud / WaBlast)';
                     })()}
                   </option>
                   <option value="sms">SMS (SMSDev)</option>
@@ -2732,6 +2734,7 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                         <strong className="text-teal-700">
                           {(() => {
                             const prov = String(contaOficial?.provider || '').toUpperCase();
+                            if (prov === 'VIBEWHATS') return 'VibeWhats Oficial';
                             if (prov === 'WAFLY') return 'WAFLY Oficial';
                             if (prov === 'WABLAST') return 'WaBlast Oficial';
                             if (prov === 'YCLOUD') return 'YCloud Oficial';
