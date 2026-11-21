@@ -223,6 +223,10 @@ export default async function handler(req, res) {
           throw new Error(`Credenciais de disparo de WhatsApp ausentes para este tenant (${campanha.tenant_id}).`);
         }
 
+        if (contaSelecionada.status === 'DESCONECTADO' || contaSelecionada.status === 'INATIVO') {
+          throw new Error(`A conta de WhatsApp (${contaSelecionada.provider}) está desconectada ou inativa no gabinete. Reconecte o WhatsApp para processar os envios.`);
+        }
+
         const contaNormalizada = normalizarWhatsappAccount(contaSelecionada);
         const providerAccount = {
           ...contaSelecionada,

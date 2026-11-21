@@ -18,7 +18,8 @@ import {
   faTimes,
   faCog,
   faQrcode,
-  faArrowRight
+  faArrowRight,
+  faPowerOff
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { MODULES } from '@/utils/permissions';
@@ -77,6 +78,10 @@ export default function WhatsAppBusinessOficial() {
   const [testeTelefoneVibe, setTesteTelefoneVibe] = useState('');
   const [testeMensagemVibe, setTesteMensagemVibe] = useState('Olá! Este é um teste oficial de conexão da VibeWhats no MandatoPRO.');
   const [resultadoTesteVibe, setResultadoTesteVibe] = useState(null);
+
+  // Estados para Desconexão VibeWhats
+  const [modalDesconectarVibeAberto, setModalDesconectarVibeAberto] = useState(false);
+  const [desconectandoVibe, setDesconectandoVibe] = useState(false);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -560,6 +565,36 @@ export default function WhatsAppBusinessOficial() {
     }
   };
 
+  const handleConfirmarDesconectarVibe = async () => {
+    try {
+      setDesconectandoVibe(true);
+      const res = await fetch('/api/whatsapp-business/vibewhats-disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao desconectar instância VibeWhats.');
+      }
+
+      setModalDesconectarVibeAberto(false);
+      setMensagemStatus({
+        tipo: 'sucesso',
+        texto: 'Instância VibeWhats desconectada com sucesso. Para voltar a disparar, conecte novamente via QR Code.'
+      });
+
+      await carregarConfiguracao();
+    } catch (err) {
+      setMensagemStatus({
+        tipo: 'erro',
+        texto: err.message || 'Erro ao desconectar instância VibeWhats.'
+      });
+    } finally {
+      setDesconectandoVibe(false);
+    }
+  };
+
   const providerAtivo = config?.provider || 'META';
   const prontoParaEnvio = Boolean(config?.isConfigured || config?.productionReady);
 
@@ -628,163 +663,6 @@ export default function WhatsAppBusinessOficial() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {/* Opção WAFLY (Conexão Direta via QR Code / Bridge API) */}
-                {(() => {
-                  const isWaflyConnected = Boolean(
-                    config?.waflyDetails?.connected ||
-                    config?.availableProviders?.WAFLY ||
-                    config?.provider === 'WAFLY'
-                  );
-                  const isWaflyConfigured = Boolean(
-                    config?.waflyDetails?.configured ||
-                    isWaflyConnected
-                  );
-                  const isWaflyAtivo = providerAtivo === 'WAFLY';
-                  const waflyPhone = config?.waflyDetails?.phoneNumber || (isWaflyAtivo ? config?.displayPhoneNumber : null);
-                  const waflyInstance = config?.waflyDetails?.instance;
-                  const waflyStatus = config?.waflyDetails?.status || (isWaflyConnected ? 'ATIVO' : 'DESCONECTADO');
-
-                  return (
-                    <div
-                      onClick={() => {
-                        if (isWaflyConnected) {
-                          handleTrocarProvedor('WAFLY');
-                        }
-                      }}
-                      className={`p-5 rounded-2xl border-2 transition relative ${
-                        isWaflyConnected ? 'cursor-pointer hover:border-teal-300' : ''
-                      } ${
-                        isWaflyAtivo
-                          ? 'border-teal-600 bg-teal-50/30 shadow-sm'
-                          : 'border-gray-200 bg-gray-50/40'
-                      }`}
-                    >
-                      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3.5">
-                          <input
-                            type="radio"
-                            name="provider_choice"
-                            checked={isWaflyAtivo}
-                            onChange={() => handleTrocarProvedor('WAFLY')}
-                            disabled={changing || !isWaflyConnected}
-                            className="w-4 h-4 text-teal-600 focus:ring-teal-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed mt-1 shrink-0"
-                          />
-                          <div className="p-3 bg-teal-100/70 text-teal-700 rounded-xl shrink-0">
-                            <FontAwesomeIcon icon={faWhatsapp} className="text-xl" />
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h5 className="font-bold text-gray-800 text-sm">WAFLY</h5>
-                              {isWaflyAtivo ? (
-                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-teal-600 text-white rounded-md">
-                                  Ativo
-                                </span>
-                              ) : isWaflyConnected ? (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md">
-                                  Conectado / Pronto
-                                </span>
-                              ) : isWaflyConfigured ? (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded-md">
-                                  Desconectado
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-gray-200 text-gray-700 rounded-md">
-                                  Não Configurado
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500">
-                              Conexão direta do WhatsApp via leitura de QR Code (WAFLY Bridge API)
-                            </p>
-
-                            {(isWaflyConfigured || isWaflyConnected) && (
-                              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-600 bg-white/80 px-3 py-1.5 rounded-xl border border-teal-100">
-                                {waflyInstance && (
-                                  <span className="flex items-center gap-1">
-                                    <strong className="text-gray-700">Instância:</strong> {waflyInstance}
-                                  </span>
-                                )}
-                                {waflyPhone && (
-                                  <span className="flex items-center gap-1">
-                                    <strong className="text-gray-700">Número:</strong> +{waflyPhone}
-                                  </span>
-                                )}
-                                <span className="flex items-center gap-1">
-                                  <strong className="text-gray-700">Status:</strong>
-                                  <span className={`font-semibold ${isWaflyConnected ? 'text-emerald-700' : 'text-amber-700'}`}>
-                                    {waflyStatus}
-                                  </span>
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Botões de Ação do Card WAFLY */}
-                        <div className="shrink-0 flex items-center gap-2 flex-wrap self-end md:self-center">
-                          {isWaflyConnected ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAbrirModalQr();
-                                }}
-                                disabled={changing}
-                                className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
-                                title="Reconectar via QR Code"
-                              >
-                                <FontAwesomeIcon icon={faQrcode} className="text-teal-600" />
-                                <span>Reconectar QR</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAbrirModalWafly();
-                                }}
-                                disabled={changing}
-                                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
-                              >
-                                <FontAwesomeIcon icon={faCog} className="text-xs" />
-                                <span>Configurar WAFLY</span>
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAbrirModalQr();
-                                }}
-                                disabled={changing}
-                                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
-                              >
-                                <FontAwesomeIcon icon={faQrcode} className="text-sm" />
-                                <span>Conectar WhatsApp</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAbrirModalWafly();
-                                }}
-                                disabled={changing}
-                                className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
-                                title="Configurar credenciais da instância"
-                              >
-                                <FontAwesomeIcon icon={faCog} className="text-gray-500 text-xs" />
-                                <span>Configurar</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
                 {/* Card 5: VIBEWHATS */}
                 {(() => {
                   const isVibeAtivo = providerAtivo === 'VIBEWHATS';
@@ -893,6 +771,19 @@ export default function WhatsAppBusinessOficial() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setModalDesconectarVibeAberto(true);
+                                }}
+                                disabled={changing || desconectandoVibe}
+                                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 disabled:opacity-50"
+                                title="Desconectar sessão do WhatsApp"
+                              >
+                                <FontAwesomeIcon icon={faPowerOff} className="text-rose-600" />
+                                <span>Desconectar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   handleAbrirModalQrVibe();
                                 }}
                                 disabled={changing}
@@ -927,7 +818,7 @@ export default function WhatsAppBusinessOficial() {
                                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
                               >
                                 <FontAwesomeIcon icon={faQrcode} className="text-sm" />
-                                <span>Ler QR Code</span>
+                                <span>Conectar novamente</span>
                               </button>
                               <button
                                 type="button"
@@ -970,13 +861,15 @@ export default function WhatsAppBusinessOficial() {
                       type="text"
                       disabled
                       value={
-                        providerAtivo === 'WAFLY'
-                          ? 'WAFLY Bridge API (Conexão Direta QR Code)'
-                          : providerAtivo === 'WABLAST'
-                            ? 'WaBlast Partner API (Onboarding Integrado)'
-                            : providerAtivo === 'YCLOUD'
-                              ? 'YCloud WhatsApp API (v2)'
-                              : 'Meta Cloud API (v21.0)'
+                        providerAtivo === 'VIBEWHATS'
+                          ? 'WhatsApp — API não oficial (VibeWhats)'
+                          : providerAtivo === 'WAFLY'
+                            ? 'WAFLY Bridge API (Conexão Direta QR Code)'
+                            : providerAtivo === 'WABLAST'
+                              ? 'WaBlast Partner API (Onboarding Integrado)'
+                              : providerAtivo === 'YCLOUD'
+                                ? 'YCloud WhatsApp API (v2)'
+                                : 'WhatsApp — API oficial (Meta)'
                       }
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700"
                     />
@@ -1605,6 +1498,67 @@ export default function WhatsAppBusinessOficial() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* Modal 4: Confirmação de Desconexão VIBEWHATS */}
+          {modalDesconectarVibeAberto && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-5">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
+                      <FontAwesomeIcon icon={faPowerOff} className="text-lg" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-base">Desconectar WhatsApp</h4>
+                      <p className="text-xs text-gray-500">Instância VibeWhats API</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setModalDesconectarVibeAberto(false)}
+                    disabled={desconectandoVibe}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-sm text-gray-600">
+                  <p>
+                    Tem certeza de que deseja desconectar a sessão do WhatsApp desta instância?
+                  </p>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+                    <p className="font-bold">Importante:</p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>Suas credenciais e integrações permanecem salvas com segurança.</li>
+                      <li>Novos disparos e mensagens automáticas serão pausados até reconexão.</li>
+                      <li>Para reconectar, basta escanear novamente o QR Code com seu WhatsApp.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setModalDesconectarVibeAberto(false)}
+                    disabled={desconectandoVibe}
+                    className="px-4 py-2 text-xs font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmarDesconectarVibe}
+                    disabled={desconectandoVibe}
+                    className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl flex items-center gap-2 shadow-sm disabled:opacity-50"
+                  >
+                    {desconectandoVibe && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />}
+                    <span>{desconectandoVibe ? 'Desconectando...' : 'Sim, Desconectar'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

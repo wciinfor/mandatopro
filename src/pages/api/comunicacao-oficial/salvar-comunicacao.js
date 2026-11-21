@@ -260,6 +260,13 @@ export default async function handler(req, res) {
     }
 
     if (isVibeWhats) {
+      if (!contaResolvida || contaResolvida.status !== 'ATIVO') {
+        return res.status(400).json({
+          success: false,
+          error: 'A conta VibeWhats está desconectada ou inativa. Reconecte o WhatsApp via QR Code em Definir Provedor antes de disparar.'
+        });
+      }
+
       // Para campanhas VIBEWHATS, valida mensagem e parâmetros de mídia
       const formatoMidia = String(body.formato_midia || body.formatoMidia || 'texto').toLowerCase();
       const mediaUrl = body.media_url || body.mediaUrl || null;

@@ -91,7 +91,12 @@ export default async function handler(req, res) {
       const vibeToken = contaVibeRaw?.access_token || vibeMeta.vibewhats_token || vibeMeta.token || null;
       const vibePhone = numVibe?.display_phone_number || numVibe?.phone_number_id || vibeMeta.connected_phone || null;
 
-      const isVibeConnected = Boolean(vibeInstance && vibeToken && (vibePhone || contaVibeRaw?.status === 'ATIVO'));
+      const isVibeConnected = Boolean(
+        vibeInstance &&
+        vibeToken &&
+        contaVibeRaw?.status === 'ATIVO' &&
+        (numVibe?.status === 'ATIVO' || vibeMeta.connected_phone)
+      );
 
       // Resposta estritamente segura sem expor tokens ou API Keys
       return res.status(200).json({
@@ -217,6 +222,12 @@ export default async function handler(req, res) {
       const providerParam = req.body.provider || req.body.targetProvider;
       if (providerParam) {
         const targetProvider = String(providerParam).toUpperCase();
+        if (targetProvider === 'WAFLY') {
+          return res.status(400).json({
+            success: false,
+            error: 'O provedor WAFLY foi descontinuado para novas seleções.'
+          });
+        }
         if (!['META', 'YCLOUD', 'WABLAST', 'WAFLY', 'VIBEWHATS'].includes(targetProvider)) {
           return res.status(400).json({
             success: false,

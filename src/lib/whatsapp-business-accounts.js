@@ -67,12 +67,27 @@ export function normalizarWhatsappAccount(row) {
       webhookLastSignatureStatus: row?.webhook_last_signature_status || '',
       webhookValidationMessage: row?.webhook_validation_message || ''
     },
-    isConfigured: Boolean(row?.production_ready),
-    isConnected: Boolean(
-      ((row?.provider === 'WABLAST' ? row?.wablast_account_id : (row?.access_token || row?.ycloud_api_key))) && 
-      (number?.phone_number_id || number?.display_phone_number)
+    isConfigured: Boolean(
+      row?.production_ready ||
+      (row?.provider === 'VIBEWHATS' && (row?.access_token || row?.access_token_metadata?.vibewhats_token || row?.access_token_metadata?.token)) ||
+      (row?.provider === 'WAFLY' && (row?.access_token || row?.access_token_metadata?.wafly_token || row?.access_token_metadata?.token))
     ),
-    productionReady: Boolean(row?.production_ready),
+    isConnected: Boolean(
+      (
+        row?.provider === 'WABLAST'
+          ? row?.wablast_account_id
+          : row?.provider === 'VIBEWHATS'
+            ? (row?.access_token || row?.access_token_metadata?.vibewhats_token || row?.access_token_metadata?.token) && row?.status === 'ATIVO' && (row?.access_token_metadata?.connected_phone || number?.display_phone_number)
+            : row?.provider === 'WAFLY'
+              ? (row?.access_token || row?.access_token_metadata?.wafly_token || row?.access_token_metadata?.token) && row?.status === 'ATIVO' && (row?.access_token_metadata?.connected_phone || number?.display_phone_number)
+              : (row?.access_token || row?.ycloud_api_key)
+      ) && (number?.phone_number_id || number?.display_phone_number)
+    ),
+    productionReady: Boolean(
+      row?.production_ready ||
+      (row?.provider === 'VIBEWHATS' && row?.status === 'ATIVO' && (row?.access_token || row?.access_token_metadata?.vibewhats_token) && (row?.access_token_metadata?.connected_phone || number?.display_phone_number)) ||
+      (row?.provider === 'WAFLY' && row?.status === 'ATIVO' && (row?.access_token || row?.access_token_metadata?.wafly_token) && (row?.access_token_metadata?.connected_phone || number?.display_phone_number))
+    ),
     sync: {
       lastSyncedAt: row?.last_synced_at || null,
       nextSyncAt: row?.next_sync_at || null,

@@ -916,7 +916,15 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
 
   // Lógica de mapeamento de etapas sequenciais para validação guiada
   const getErrosEtapa = () => {
-    if (step === 1) return null;
+    if (step === 1) {
+      if (canal === 'whatsapp' && isVibeWhats) {
+        const isDesconectado = contaOficial?.status === 'DESCONECTADO' || contaOficial?.status === 'INATIVO' || contaOficial?.vibewhatsDetails?.connected === false;
+        if (isDesconectado) {
+          return 'A instância VibeWhats está desconectada. Acesse "Comunicação > Definir Provedor" e conecte o WhatsApp via QR Code antes de iniciar novos disparos.';
+        }
+      }
+      return null;
+    }
     
     if (
       origemDestinatarios === 'campanha_politica' ||

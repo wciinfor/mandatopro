@@ -496,6 +496,41 @@ export class VibeWhatsApiService {
   }
 
   /**
+   * Desconecta o WhatsApp da instância VibeWhats (Padrão Z-API: GET ou POST /disconnect)
+   * Endpoint: GET /instances/{ID}/token/{TOKEN}/disconnect
+   * 
+   * @returns {Promise<{ success: boolean, disconnected: boolean, raw: Object }>}
+   */
+  async disconnect() {
+    let response;
+    try {
+      response = await this._request('/disconnect', { method: 'GET' });
+    } catch (err) {
+      // Fallback defensivo para POST se GET retornar 405 Method Not Allowed
+      if (err?.statusCode === 405) {
+        response = await this._request('/disconnect', { method: 'POST' });
+      } else {
+        throw err;
+      }
+    }
+
+    const isSuccess = Boolean(
+      response?.connected === false ||
+      response?.disconnected === true ||
+      response?.success === true ||
+      response?.status === 'DISCONNECTED' ||
+      response?.value === true ||
+      !response?.error
+    );
+
+    return {
+      success: isSuccess,
+      disconnected: true,
+      raw: response
+    };
+  }
+
+  /**
    * Configuração de Webhooks na VibeWhats (preparação de estrutura sem ativação)
    * Endpoints: PUT /update-every-webhooks ou PUT /update-webhook-received
    * 
