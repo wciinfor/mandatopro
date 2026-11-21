@@ -453,7 +453,7 @@ export default async function handler(req, res) {
         variaveisMapeadas.formato_midia = formatoMidia;
         if (mediaUrl) {
           variaveisMapeadas.media_url = mediaUrl;
-          variaveisMapeadas.media_tipo = formatoMidia === 'video' ? 'video' : 'image';
+          variaveisMapeadas.media_tipo = (formatoMidia === 'video' || formatoMidia === 'vídeo') ? 'video' : 'imagem';
         }
         if (storagePath) {
           variaveisMapeadas.storage_path = storagePath;

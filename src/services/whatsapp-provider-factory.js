@@ -549,17 +549,19 @@ export class VibeWhatsWhatsAppAdapter extends WhatsAppProviderContract {
     const message = payload.message || payload.text || payload.body || payload.conteudo;
     const delayMessage = payload.delayMessage || payload.delay_message;
     const mediaTipo = String(payload.media_tipo || payload.mediaTipo || '').toLowerCase();
+    const isImage = mediaTipo === 'image' || mediaTipo === 'imagem';
+    const isVideo = mediaTipo === 'video' || mediaTipo === 'vídeo';
     const mediaUrl = payload.media_url || payload.mediaUrl || payload.imageUrl || payload.videoUrl;
 
     let res;
-    if (mediaTipo === 'image' && mediaUrl) {
+    if (isImage && mediaUrl) {
       res = await this.service.sendImage({
         phone: to,
         image: mediaUrl,
         caption: message || '',
         delayMessage
       });
-    } else if (mediaTipo === 'video' && mediaUrl) {
+    } else if (isVideo && mediaUrl) {
       res = await this.service.sendVideo({
         phone: to,
         video: mediaUrl,

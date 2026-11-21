@@ -15,15 +15,33 @@ export const config = {
 const BUCKET_NAME = 'midias_campanha';
 
 const FORMATOS_PERMITIDOS = {
-  // Imagens
-  'image/jpeg': { ext: 'jpg', tipo: 'image', maxBytes: 15 * 1024 * 1024 },
-  'image/png': { ext: 'png', tipo: 'image', maxBytes: 15 * 1024 * 1024 },
-  'image/webp': { ext: 'webp', tipo: 'image', maxBytes: 15 * 1024 * 1024 },
+  // Imagens (aceita extensões e variações comuns)
+  'image/jpeg': { ext: 'jpg', tipo: 'imagem', maxBytes: 15 * 1024 * 1024 },
+  'image/jpg': { ext: 'jpg', tipo: 'imagem', maxBytes: 15 * 1024 * 1024 },
+  'image/pjpeg': { ext: 'jpg', tipo: 'imagem', maxBytes: 15 * 1024 * 1024 },
+  'image/png': { ext: 'png', tipo: 'imagem', maxBytes: 15 * 1024 * 1024 },
+  'image/x-png': { ext: 'png', tipo: 'imagem', maxBytes: 15 * 1024 * 1024 },
+  'image/webp': { ext: 'webp', tipo: 'imagem', maxBytes: 15 * 1024 * 1024 },
   // Vídeos
   'video/mp4': { ext: 'mp4', tipo: 'video', maxBytes: 25 * 1024 * 1024 },
   'video/quicktime': { ext: 'mov', tipo: 'video', maxBytes: 25 * 1024 * 1024 },
   'video/webm': { ext: 'webm', tipo: 'video', maxBytes: 25 * 1024 * 1024 },
 };
+
+/**
+ * Normaliza o tipo de mídia para forma canônica ('imagem' ou 'video')
+ * Aceita sinônimos em inglês ('image' -> 'imagem') e português ('vídeo' -> 'video')
+ */
+function normalizarTipoMidia(tipo) {
+  if (!tipo) return null;
+  const t = String(tipo).trim().toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); // remove acentos ('vídeo' -> 'video')
+
+  if (t === 'image' || t === 'imagem' || t === 'img') return 'imagem';
+  if (t === 'video' || t === 'vid') return 'video';
+  return t;
+}
 
 /**
  * POST /api/comunicacao-oficial/upload-midia
@@ -70,14 +88,19 @@ export default async function handler(req, res) {
     if (!formatoConfig) {
       return res.status(400).json({
         success: false,
-        error: `Formato de arquivo "${mime_type}" não permitido. Formatos aceitos: JPEG, PNG, WEBP, MP4.`
+        error: `Formato de arquivo "${mime_type}" não permitido. Formatos aceitos: JPEG, PNG, WEBP e MP4.`
       });
     }
 
-    if (tipo_solicitado && tipo_solicitado !== formatoConfig.tipo) {
+    const tipoSolicitadoNorm = normalizarTipoMidia(tipo_solicitado);
+    const tipoArquivoNorm = normalizarTipoMidia(formatoConfig.tipo);
+
+    if (tipoSolicitadoNorm && tipoSolicitadoNorm !== tipoArquivoNorm) {
+      const rotuloArquivo = tipoArquivoNorm === 'imagem' ? 'Imagem' : 'Vídeo';
+      const rotuloSolicitado = tipoSolicitadoNorm === 'imagem' ? 'Imagem' : 'Vídeo';
       return res.status(400).json({
         success: false,
-        error: `O arquivo enviado (${formatoConfig.tipo}) não corresponde ao tipo selecionado (${tipo_solicitado}).`
+        error: `O arquivo enviado (${rotuloArquivo}) não corresponde ao tipo selecionado (${rotuloSolicitado}).`
       });
     }
 

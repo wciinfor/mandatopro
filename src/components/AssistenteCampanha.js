@@ -2292,12 +2292,25 @@ export default function AssistenteCampanha({ onCancel, onSave, canalInicial = 'w
                                 reader.readAsDataURL(file);
                               });
 
+                              // Resolve mime_type com fallback robusto baseado na extensão do arquivo
+                              let mimeFinal = file.type;
+                              if (!mimeFinal) {
+                                const ext = (file.name.split('.').pop() || '').toLowerCase();
+                                if (ext === 'jpg' || ext === 'jpeg') mimeFinal = 'image/jpeg';
+                                else if (ext === 'png') mimeFinal = 'image/png';
+                                else if (ext === 'webp') mimeFinal = 'image/webp';
+                                else if (ext === 'mp4') mimeFinal = 'video/mp4';
+                                else if (ext === 'mov') mimeFinal = 'video/quicktime';
+                                else if (ext === 'webm') mimeFinal = 'video/webm';
+                                else mimeFinal = formatoVibeWhats === 'imagem' ? 'image/jpeg' : 'video/mp4';
+                              }
+
                               const res = await fetch('/api/comunicacao-oficial/upload-midia', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                   arquivo_nome: file.name,
-                                  mime_type: file.type || (formatoVibeWhats === 'imagem' ? 'image/jpeg' : 'video/mp4'),
+                                  mime_type: mimeFinal,
                                   tipo_solicitado: formatoVibeWhats,
                                   arquivo_base64: base64Data
                                 })

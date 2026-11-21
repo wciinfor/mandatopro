@@ -423,7 +423,9 @@ export default async function handler(req, res) {
               ).trim();
 
               const formatoMidia = String(item.variaveis_mapeadas?.formato_midia || campanha.metadata?.formato_midia || 'texto').toLowerCase();
-              const mediaTipo = item.variaveis_mapeadas?.media_tipo || (formatoMidia === 'video' ? 'video' : 'image');
+              const mediaTipoRaw = item.variaveis_mapeadas?.media_tipo || formatoMidia;
+              const isVideo = mediaTipoRaw === 'video' || mediaTipoRaw === 'vídeo';
+              const mediaTipo = isVideo ? 'video' : 'imagem';
               let mediaUrl = item.variaveis_mapeadas?.media_url || campanha.metadata?.media_url || null;
               const storagePath = item.variaveis_mapeadas?.storage_path || campanha.metadata?.storage_path || null;
               const storageBucket = item.variaveis_mapeadas?.storage_bucket || campanha.metadata?.storage_bucket || 'midias_campanha';
