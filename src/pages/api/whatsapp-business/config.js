@@ -55,7 +55,7 @@ export default async function handler(req, res) {
           whatsapp_business_numbers (phone_number_id, display_phone_number, verified_name, status)
         `)
         .eq('tenant_id', tenantId)
-        .eq('status', 'ATIVO');
+        .neq('status', 'DELETADO');
 
       const contaWablastRaw = (todasContas || []).find(c => c.provider === 'WABLAST');
       const numWablast = contaWablastRaw?.whatsapp_business_numbers?.find(n => n.status !== 'INATIVO' && n.phone_number_id) || contaWablastRaw?.whatsapp_business_numbers?.[0];

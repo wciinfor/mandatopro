@@ -139,6 +139,31 @@ export default async function handler(req, res) {
           .eq('id', contaVibe.id)
           .eq('tenant_id', tenantId);
       }
+    } else if (!isConnected && contaVibe.status === 'ATIVO') {
+      // Se a API remota informar que NÃO está conectado, sincroniza o banco para DESCONECTADO
+      const agora = new Date().toISOString();
+      await supabase
+        .from('whatsapp_business_numbers')
+        .update({
+          status: 'DESCONECTADO',
+          updated_at: agora
+        })
+        .eq('account_id', contaVibe.id)
+        .eq('tenant_id', tenantId);
+
+      await supabase
+        .from('whatsapp_business_accounts')
+        .update({
+          status: 'DESCONECTADO',
+          access_token_metadata: {
+            ...metadata,
+            connected_phone: null,
+            last_status_check: agora
+          },
+          updated_at: agora
+        })
+        .eq('id', contaVibe.id)
+        .eq('tenant_id', tenantId);
     }
 
     return res.status(200).json({

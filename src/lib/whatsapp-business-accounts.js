@@ -183,7 +183,7 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
       )
     `)
     .eq('tenant_id', tenantId)
-    .eq('status', 'ATIVO')
+    .neq('status', 'DELETADO')
     .order('principal', { ascending: false })
     .order('id', { ascending: true });
 
@@ -191,15 +191,20 @@ export async function buscarContaWhatsappPrincipal(supabase, usuario) {
 
   if (!contas || contas.length === 0) return null;
 
-  // 1. Se existir uma conta explicitamente marcada como principal=true e ATIVA, priorizá-la estritamente
+  // 1. Se existir uma conta explicitamente marcada como principal=true, priorizá-la estritamente (mesmo se DESCONECTADA)
   const contaPrincipal = contas.find(row => row.principal === true);
   if (contaPrincipal) {
     return contaPrincipal;
   }
 
-  // 2. Se nenhuma estiver como principal=true, seleciona a primeira ativa que possua credencial configurada
-  const contaComCredencial = contas.find(row => Boolean(row.access_token || row.ycloud_api_key));
+  // 2. Se nenhuma estiver como principal=true, prioriza a primeira ativa com credencial configurada
+  const contaAtivaComCredencial = contas.find(row => row.status === 'ATIVO' && Boolean(row.access_token || row.ycloud_api_key));
+  if (contaAtivaComCredencial) {
+    return contaAtivaComCredencial;
+  }
 
+  // 3. Fallback: primeira com credencial ou primeira do array
+  const contaComCredencial = contas.find(row => Boolean(row.access_token || row.ycloud_api_key));
   return contaComCredencial || contas[0];
 }
 

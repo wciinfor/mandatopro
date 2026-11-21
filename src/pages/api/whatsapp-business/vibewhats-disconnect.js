@@ -90,13 +90,39 @@ export default async function handler(req, res) {
     });
 
     // Executa desconexão na API remota VibeWhats (Z-API)
-    let disconnectResult;
     try {
-      disconnectResult = await vibewhats.disconnect();
+      await vibewhats.disconnect();
     } catch (apiErr) {
       console.warn('[VIBEWHATS DISCONNECT API] Erro ao chamar endpoint remoto de desconexão:', apiErr?.message || apiErr);
-      // Se a sessão já estava desconectada ou erro 400/404, prossegue com a atualização local defensiva
-      disconnectResult = { success: true, disconnected: true, note: 'sessão remota já desconectada ou inacessível' };
+      // Se não for erro 400 (ex: já desconectado), lança erro se a desconexão remota falhar
+      const isAlreadyDisconnected = apiErr?.statusCode === 400 || String(apiErr?.error || '').toLowerCase().includes('not connected');
+      if (!isAlreadyDisconnected) {
+        return res.status(apiErr?.statusCode || 502).json({
+          success: false,
+          error: apiErr?.error || apiErr?.message || 'Falha ao solicitar desconexão na API VibeWhats remota.',
+          disconnected: false
+        });
+      }
+    }
+
+    // Aguarda e consulta o status real da instância remota para confirmar a desconexão
+    let statusReal = null;
+    try {
+      // Pequena tolerância de sincronização da Z-API (500ms)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      statusReal = await vibewhats.getStatus();
+    } catch (statusErr) {
+      console.warn('[VIBEWHATS DISCONNECT API] Aviso ao verificar status pós-desconexão:', statusErr?.message);
+    }
+
+    // Se a API remota confirmar que AINDA está conectada, não apresenta sucesso falso
+    if (statusReal && statusReal.connected === true) {
+      return res.status(409).json({
+        success: false,
+        error: 'A solicitação foi enviada, mas a VibeWhats ainda relata a instância como conectada. Aguarde alguns instantes e tente novamente.',
+        connected: true,
+        disconnected: false
+      });
     }
 
     const agora = new Date().toISOString();

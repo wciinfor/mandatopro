@@ -584,6 +584,23 @@ export default function WhatsAppBusinessOficial() {
         texto: 'Instância VibeWhats desconectada com sucesso. Para voltar a disparar, conecte novamente via QR Code.'
       });
 
+      // Atualiza o estado local imediatamente e recarrega a configuração do servidor
+      setConfig(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: 'DESCONECTADO',
+          isConnected: false,
+          productionReady: false,
+          vibewhatsDetails: {
+            ...(prev.vibewhatsDetails || {}),
+            connected: false,
+            status: 'DESCONECTADO',
+            phoneNumber: null
+          }
+        };
+      });
+
       await carregarConfiguracao();
     } catch (err) {
       setMensagemStatus({
@@ -650,7 +667,7 @@ export default function WhatsAppBusinessOficial() {
                 ) : (
                   <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1.5">
                     <FontAwesomeIcon icon={faTriangleExclamation} className="text-[10px]" />
-                    Configuração incompleta
+                    {config?.status === 'DESCONECTADO' ? 'Instância desconectada' : 'Configuração incompleta'}
                   </span>
                 )}
               </div>
@@ -704,17 +721,19 @@ export default function WhatsAppBusinessOficial() {
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <h5 className="font-bold text-gray-800 text-sm">VibeWhats API</h5>
-                              {isVibeAtivo ? (
-                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-emerald-600 text-white rounded-md">
-                                  Ativo
-                                </span>
-                              ) : isVibeConnected ? (
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md">
-                                  Conectado / Pronto
-                                </span>
+                              {isVibeConnected ? (
+                                isVibeAtivo ? (
+                                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-emerald-600 text-white rounded-md">
+                                    Ativo & Conectado
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md">
+                                    Conectado / Pronto
+                                  </span>
+                                )
                               ) : isVibeConfigured ? (
                                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded-md">
-                                  Aguardando QR Code
+                                  Desconectado
                                 </span>
                               ) : (
                                 <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-gray-200 text-gray-700 rounded-md">
@@ -909,7 +928,7 @@ export default function WhatsAppBusinessOficial() {
                       </span>
                     ) : (
                       <span className="font-bold text-amber-700 flex items-center gap-1">
-                        <FontAwesomeIcon icon={faTriangleExclamation} className="text-[10px]" /> Incompleto
+                        <FontAwesomeIcon icon={faTriangleExclamation} className="text-[10px]" /> Não operacional
                       </span>
                     )}
                   </div>
